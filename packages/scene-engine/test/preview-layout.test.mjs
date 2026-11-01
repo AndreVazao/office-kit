@@ -37,3 +37,12 @@ test("reduced-motion preference disables scene transitions and diorama effects",
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.building,\.agent\[role="button"\]\{transition:none!important\}/);
   assert.match(css, /\.diorama-shell\{filter:none!important\}/);
 });
+
+
+test("preview labels every local agent activity as simulated and unverified", () => {
+  assert.match(app, /provenance\.dataset\.state = "unverified"/);
+  assert.match(app, /provenance\.textContent = "Simulado"/);
+  assert.match(app, /não confirma atividade real do agente/);
+  assert.match(app, /estado não verificado/);
+  assert.match(css, /\.agent-provenance\[data-state="unverified"\]/);
+});
