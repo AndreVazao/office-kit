@@ -9,7 +9,9 @@ This page records implemented work separately from planned or independently veri
 - Diagnostics routing for lost communication without inventing a diagnosis.
 - Generic JSON preset with configurable departments and agents.
 - Responsive browser preview with department selection, zoom control, social idle animation, pause control, and portrait/landscape responsive CSS.
+- Preview loads the generic JSON configuration instead of maintaining a separate hard-coded scene.
 - Core tests using Node's built-in test runner.
+- GitHub Actions CI workflow. Run 2 completed successfully: syntax/core tests and example JSON parsing both passed.
 
 ## Not implemented yet
 - Production renderer or a 3D/pixel-art asset pipeline; the preview uses CSS-built placeholder characters.
@@ -20,9 +22,7 @@ This page records implemented work separately from planned or independently veri
 - Automated browser screenshots, device-orientation tests, or a verified visual regression suite.
 
 ## Verification
-Use Node.js 20 or newer. Run npm test to execute the core tests, and npm run check to syntax-check the core and execute tests. Serve examples/browser-preview/ using a local static web server; browser module loading may be blocked when opening index.html directly via file://.
-
-The code has been committed to the feature branch, but no test run is claimed by this document. CI should provide the first repository-hosted execution evidence.
+CI run 2 passed on the feature branch. It executed npm run check and parsed examples/minimal-office.json. This verifies core syntax/tests and JSON syntax, not the browser's visual appearance. The preview should be served from the repository root or with a static server rooted at examples/ so its relative JSON URL resolves.
 
 ## Design rule
 The core is authoritative for configuration and state interpretation; renderers consume its outputs. Local social activity must never become a claim that an agent is doing real work.
