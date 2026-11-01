@@ -13,3 +13,51 @@ select{border:1px solid #3b4b64;background:#1a263a;color:var(--text);border-radi
 .diorama-floor-side{fill:#1c2d45;stroke:#536d8e;stroke-width:2}
 .diorama-front{fill:#263a55;stroke:#607995;stroke-width:3}
 @media(max-width:760px){.diorama-shell{opacity:.95}}
+
+
+/* Mobile legibility pass: keep the whole building visible, provide readable selected-floor details. */
+.department-detail{display:none;margin-top:12px;padding:14px 16px;border:1px solid #47658a;border-radius:12px;background:linear-gradient(135deg,#1b2d46,#111a2a);box-shadow:0 8px 22px #0003}
+.department-detail.is-visible{display:block}
+.department-detail h3{margin:0 0 5px;font-size:16px;line-height:1.3}
+.department-detail p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.department-detail .detail-agents{margin-top:8px;color:#d9e8fa}
+@media(max-width:760px){
+ main{padding:12px}
+ .intro{gap:10px;margin-bottom:12px}
+ .intro h1{font-size:clamp(21px,6vw,29px);line-height:1.15}
+ .intro .muted{font-size:12px;line-height:1.45;margin:8px 0}
+ .controls{gap:8px}
+ .controls button{padding:9px 10px}
+ .quality-note{margin:4px 0 10px}
+ .workspace{gap:10px}
+ .department-list{padding:12px}
+ .department-list h2{margin-bottom:10px}
+ .scene-wrap{padding:10px}
+ .scene-viewport{min-height:320px;padding:8px}
+ .scene-heading{font-size:10px}
+ .scene-footer{font-size:10px;gap:6px}
+ .department-detail.is-visible{display:block}
+}
+@media(orientation:landscape) and (max-height:540px){
+ .topbar{height:48px;padding-inline:14px}
+ main{padding:8px 12px}
+ .intro{flex-direction:row;align-items:center;gap:14px;margin-bottom:5px}
+ .intro h1{font-size:20px;margin:3px 0}
+ .intro .eyebrow{font-size:8px}
+ .intro .muted{font-size:10px;margin:3px 0}
+ .controls{gap:6px;font-size:10px}
+ .controls select{min-width:110px;padding:6px}
+ .controls button{padding:6px 8px;font-size:10px}
+ .quality-note{margin:0 0 5px;font-size:9px}
+ .workspace{grid-template-columns:145px minmax(0,1fr);gap:8px}
+ .department-list{padding:8px}
+ .department-button{padding:7px;font-size:10px}
+ .dept-meta{font-size:9px}
+ .note{font-size:9px;margin-top:8px}
+ .scene-wrap{padding:8px}
+ .scene-viewport{min-height:210px;margin-top:6px;padding:5px}
+ .department-detail{padding:8px 10px;margin-top:6px}
+ .department-detail h3{font-size:13px}
+ .department-detail p{font-size:10px}
+ .legend{margin-top:6px;font-size:9px}
+}
