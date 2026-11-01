@@ -66,8 +66,15 @@ try {
     await page.locator("#quality").selectOption("economy");
     assert(await page.locator("body").getAttribute("data-quality") === "economy", testCase.name + ": quality selector did not update");
     const firstDepartment = page.locator(".department-button").first();
+    const overviewButton = page.locator("#view-overview");
+    const beforeFocus = await page.locator(".building").boundingBox();
     await firstDepartment.click();
     assert(await firstDepartment.getAttribute("aria-pressed") === "true", testCase.name + ": department selection did not activate");
+    assert(await overviewButton.isVisible(), testCase.name + ": overview reset button did not appear");
+    const focusedBox = await page.locator(".building").boundingBox();
+    assert(focusedBox.height > beforeFocus.height * 1.3, testCase.name + ": selected department did not zoom scene");
+    await overviewButton.click();
+    assert(await overviewButton.isHidden(), testCase.name + ": overview reset button did not hide after reset");
     results.push({ ...testCase, geometry });
     await page.close();
   }
