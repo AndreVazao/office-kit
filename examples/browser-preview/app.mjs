@@ -173,6 +173,10 @@ function render() {
     button.append(swatch, content);
     const selectDepartment = () => {
       focusedDepartmentId = dept.id;
+      departmentDetail.classList.add("is-visible");
+      document.querySelector("#detail-name").textContent = dept.name;
+      document.querySelector("#detail-description").textContent = (dept.description || "Departamento configurado no escritório.") + " · Piso " + (dept.floor ?? "—");
+      document.querySelector("#detail-agents").textContent = "Agentes: " + ((dept.agents || []).map(agent => agent.name).join(", ") || "Nenhum agente configurado");
       document.querySelectorAll(".floor").forEach(item => item.classList.toggle("highlight", item === floor));
       document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
       updateSceneLayout();
@@ -221,6 +225,7 @@ document.querySelector("#chat-form").addEventListener("submit", event => {
 render();
 document.querySelector("#view-overview").addEventListener("click", () => {
   focusedDepartmentId = null;
+  departmentDetail.classList.remove("is-visible");
   document.querySelectorAll(".floor").forEach(item => item.classList.remove("highlight"));
   document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", "false"));
   updateSceneLayout();
