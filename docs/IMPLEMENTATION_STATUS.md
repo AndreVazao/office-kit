@@ -23,10 +23,11 @@ This page records implemented work separately from planned or independently veri
 
 ## Not implemented yet
 - Production renderer or a 3D/pixel-art asset pipeline; the preview uses CSS-built placeholder characters.
+- Whole-building angular top-perspective/front-cutaway opening view, clickable department focus/zoom, and per-avatar conversation/command interactions (including a configurable CEO avatar representing the user) are canonical requirements but not implemented/verified yet.
 - Applying quality profiles to a real rendering pipeline; current profiles are policy data, not active GPU/texture controls.
 - Runtime performance measurement and automatic quality adjustment based on measured frame time.
 - Full renderer/GPU integration for graphics quality profiles; the current selector changes preview CSS effects only, not texture resolution, DPR, GPU workload or actual FPS target.
-- Real backend transport/adapters or authentication.
+- Real backend transport/adapters or authentication; therefore real orders/messages cannot yet be delivered or confirmed.
 - Backend discovery/search assistant; requirements only are documented in docs/BACKEND_DISCOVERY.md.
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
