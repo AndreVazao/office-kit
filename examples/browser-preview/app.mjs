@@ -89,15 +89,17 @@ function updateSceneLayout() {
   dioramaShell.style.width = geometry.logicalBounds.width + "px";
   dioramaShell.style.height = geometry.logicalBounds.height + "px";
   dioramaShell.style.left = "50%";
-  dioramaShell.style.top = "50%";
-  dioramaShell.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale * (focusedDepartmentId ? 1.65 : 1) + ")";
   building.style.width = layout.logicalBounds.width + "px";
   building.style.minWidth = "0";
   building.style.maxWidth = "none";
   building.style.transformOrigin = "center center";
-  const focusScale = focusedDepartmentId ? 1.65 : 1;
+  // Give a selected department a useful close-up while preserving the same camera offset
+  // for the SVG shell and interactive room layer.
+  const focusScale = focusedDepartmentId ? 2.1 : 1;
   const focusedFloor = focusedDepartmentId ? document.querySelector("#floor-" + CSS.escape(focusedDepartmentId)) : null;
   const verticalOffset = focusedFloor ? -(focusedFloor.offsetTop + focusedFloor.offsetHeight / 2 - building.offsetHeight / 2) * layout.transform.scale * focusScale : 0;
+  dioramaShell.style.top = "calc(50% + " + verticalOffset + "px)";
+  dioramaShell.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale * focusScale + ")";
   building.style.left = "50%";
   building.style.top = "calc(50% + " + verticalOffset + "px)";
   building.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale * focusScale + ")";
