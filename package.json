@@ -4,7 +4,10 @@
   "private": true,
   "description": "Configurable backend-independent digital office runtime.",
   "type": "module",
-  "scripts": { "test": "node --test packages/core/test/*.test.mjs", "check": "node --check packages/core/src/index.mjs && node --test packages/core/test/*.test.mjs" },
+  "scripts": {
+    "test": "node --test packages/core/test/*.test.mjs",
+    "check": "node --check packages/core/src/index.mjs && node --check examples/browser-preview/app.mjs && node --test packages/core/test/*.test.mjs"
+  },
   "engines": { "node": ">=20" },
   "license": "MIT"
 }
