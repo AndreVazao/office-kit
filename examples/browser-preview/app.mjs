@@ -1,5 +1,6 @@
 import { chooseSocialActivity, validateOfficeConfig } from "../../packages/core/src/index.mjs";
 import { calculateSceneLayout } from "../../packages/scene-engine/src/index.mjs";
+import { resolveQualityProfile } from "../../packages/scene-engine/src/quality.mjs";
 
 const response = await fetch("../minimal-office.json");
 if (!response.ok) throw new Error("Não foi possível carregar a configuração de demonstração.");
@@ -12,6 +13,26 @@ const buttons = document.querySelector("#department-buttons");
 const building = document.querySelector("#building");
 const viewport = document.querySelector(".scene-viewport");
 const zoomControl = document.querySelector("#zoom");
+const qualityControl = document.querySelector("#quality");
+const qualityLabel = document.querySelector("#quality-label");
+const qualityLabels = { auto: "Automático", economy: "Económico", balanced: "Equilibrado", detailed: "Detalhado", cinematic: "Cinemático" };
+let selectedQuality = qualityControl.value;
+const qualityHints = {
+  deviceMemory: navigator.deviceMemory,
+  hardwareConcurrency: navigator.hardwareConcurrency,
+  viewportWidth: window.innerWidth,
+  saveData: navigator.connection?.saveData === true,
+  reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches
+};
+function updateQuality() {
+  const profile = resolveQualityProfile(selectedQuality, { ...qualityHints, viewportWidth: window.innerWidth });
+  document.body.dataset.quality = profile.id;
+  document.body.dataset.qualitySource = profile.selectedBy;
+  qualityLabel.textContent = qualityLabels[selectedQuality] + (selectedQuality === "auto" ? " · " + profile.label.toLowerCase() : "");
+  document.querySelector("#quality-note").textContent = selectedQuality === "auto"
+    ? "Perfil escolhido por pistas do dispositivo; ainda sem medição real de FPS."
+    : "Perfil selecionado manualmente; afeta apenas efeitos da pré-visualização CSS nesta fase.";
+}
 const names = {
   "at-desk": "Na secretária",
   walking: "A caminhar",
@@ -125,7 +146,9 @@ document.querySelector("#activity-toggle").addEventListener("click", event => {
   event.currentTarget.textContent = paused ? "Retomar animações" : "Pausar animações";
   event.currentTarget.setAttribute("aria-pressed", String(paused));
 });
-window.addEventListener("resize", updateSceneLayout);
+qualityControl.addEventListener("change", event => { selectedQuality = event.target.value; updateQuality(); });
+window.addEventListener("resize", () => { updateSceneLayout(); updateQuality(); });
+updateQuality();
 if ("ResizeObserver" in window) new ResizeObserver(updateSceneLayout).observe(viewport);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 setInterval(() => { if (!paused && !reducedMotion) { tick++; render(); } }, 6500);
