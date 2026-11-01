@@ -171,3 +171,35 @@ Qualquer decisão nova deve indicar:
 5. se requer uma alteração explícita deste contrato.
 
 Não acrescentar funcionalidades por entusiasmo se aumentarem a complexidade da experiência principal ou introduzirem dependência do backend. A prioridade é uma base sólida, simples, extensível e verificável.
+
+## 13. Navegação espacial e interação com CEO, chefias e agentes
+
+A vista inicial predefinida deve mostrar **o edifício inteiro**, numa perspetiva superior angular com corte frontal (cutaway/isométrica ou equivalente suportado pelo renderer), para que o utilizador compreenda de imediato os pisos, departamentos e divisões. Não começar por aproximar automaticamente uma sala nem por mostrar apenas um painel de departamentos quando o modo edifício estiver selecionado.
+
+A navegação segue uma progressão espacial:
+1. **Vista geral:** edifício inteiro enquadrado, com pisos e departamentos visualmente distinguíveis.
+2. **Selecionar departamento/divisão:** clicar ou tocar numa área identificável seleciona-a e aproxima a câmara/zoom para essa área, mantendo uma forma clara de regressar à vista geral.
+3. **Selecionar personagem:** cada avatar selecionável abre um painel/conversa contextual, com identidade, função, departamento e estado de ligação/atividade conhecidos.
+4. **Dar ordens ou fazer pedidos:** o utilizador pode falar/escrever para a chefia do departamento ou para outro agente. O envio de pedidos reais só acontece através de um adaptador ligado, autenticado e autorizado, com capacidades e confirmação adequadas. Sem backend/adaptador, a UI pode demonstrar a experiência de conversa, mas deve identificar claramente que não executou uma ordem real.
+
+### CEO como presença do utilizador
+
+O CEO deve ser um personagem central e selecionável, configurável para usar um avatar criado a partir da imagem do utilizador ou outro avatar escolhido. A intenção de produto é que o utilizador possa selecionar o seu CEO e falar com ele como representação de si próprio dentro do escritório, para comandar e consultar o conjunto do sistema. A identidade visual do avatar não concede automaticamente permissões: a autorização efetiva vem do sistema anfitrião/adaptador. O CEO não deve ser codificado como requisito obrigatório de todos os projetos; a função/posição central deve ser configurável e poder ser renomeada ou substituída.
+
+### Interação universal e honestidade operacional
+
+- Todos os avatares apresentados como interativos devem poder ser selecionados, incluindo personagens sem chefia.
+- Chefias de departamento são pontos de entrada convenientes para pedidos dirigidos ao departamento; a interface deve deixar claro o destinatário e o âmbito do pedido.
+- Conversa visual, seleção ou animação não equivale a uma mensagem entregue nem a uma tarefa executada.
+- Mostrar estados de envio, confirmação, falha, ausência de ligação e autenticação necessária, sem fingir sucesso.
+- A conversa e a navegação devem continuar separadas do ciclo de vida do backend; fechar o escritório não pode parar o trabalho real.
+
+### Critérios visuais e funcionais de aceitação
+
+- A vista inicial do modo edifício mostra o edifício inteiro numa perspetiva superior angular com corte frontal.
+- Cada departamento/divisão pode ser selecionado por toque/clique, com zoom/foco e retorno fácil à vista geral.
+- CEO, chefias e restantes avatares têm alvos de seleção utilizáveis em telemóvel e desktop.
+- A seleção abre a conversa/painel do personagem correto e apresenta o destinatário sem ambiguidade.
+- Ordens reais só são reportadas como enviadas/aceites/executadas com evidência do adaptador/backend.
+- Testar navegação e seleção em retrato, paisagem e desktop, incluindo alvos pequenos, sobreposições e regressar à vista geral.
+
