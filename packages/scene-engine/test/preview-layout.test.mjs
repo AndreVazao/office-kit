@@ -8,7 +8,7 @@ const css = await readFile(new URL("../../../examples/browser-preview/style.css"
 test("preview anchors the scaled building to the center of the viewport", () => {
   assert.match(app, /translate\(-50%, -50%\) scale\(/);
   assert.match(app, /building\.style\.left = "50%"/);
-  assert.match(app, /building\.style\.top = "50%"/);
+  assert.match(app, /building\.style\.top = "calc\(50% \+ "/);
   assert.match(css, /\.scene-viewport\{position:relative/);
   assert.match(css, /\.building\{position:absolute;left:50%;top:50%/);
 });
