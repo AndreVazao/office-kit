@@ -76,6 +76,16 @@ try {
     assert(focusedBox.height > beforeFocus.height * 1.3, testCase.name + ": selected department did not zoom scene; before=" + JSON.stringify(beforeFocus) + "; after=" + JSON.stringify(focusedBox) + "; transform=" + await page.locator(".building").evaluate(el => el.style.transform));
     await overviewButton.click();
     assert(await overviewButton.isHidden(), testCase.name + ": overview reset button did not hide after reset");
+    const firstAgent = page.locator(".agent[role=button]").first();
+    await firstAgent.click();
+    assert(await page.locator("#agent-console").isVisible(), testCase.name + ": agent conversation panel did not open");
+    await page.locator("#chat-input").fill("Teste visual");
+    await page.locator("#chat-form button[type=submit]").click();
+    assert(await page.locator(".chat-user").textContent() === "Teste visual", testCase.name + ": local chat did not render submitted message");
+    assert((await page.locator(".chat-system").last().textContent()).includes("apenas nesta demonstração"), testCase.name + ": local chat did not clearly disclaim backend integration");
+    await page.locator("#chat-close").click();
+    assert(await page.locator("#agent-console").isHidden(), testCase.name + ": agent conversation panel did not close");
+    await page.screenshot({ path: "visual-" + testCase.name + "-chat.png", fullPage: true });
     results.push({ ...testCase, geometry });
     await page.close();
   }
