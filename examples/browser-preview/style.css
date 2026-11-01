@@ -61,3 +61,5 @@ select{border:1px solid #3b4b64;background:#1a263a;color:var(--text);border-radi
  .department-detail p{font-size:10px}
  .legend{margin-top:6px;font-size:9px}
 }
+
+@media(prefers-reduced-motion:reduce){.building,.agent[role="button"]{transition:none!important}.diorama-shell{filter:none!important}}
