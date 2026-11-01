@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculateSceneLayout } from "./index.mjs";
-import { calculateDioramaGeometry } from "./diorama.mjs";
+import { calculateSceneLayout } from "../src/index.mjs";
+import { calculateDioramaGeometry } from "../src/diorama.mjs";
 
 const config = { departments: [
   { id: "operations", name: "Operations", floor: 1, agents: [{ id: "a" }] },
