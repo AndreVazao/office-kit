@@ -1,0 +1,20 @@
+name: Office Kit CI
+on:
+  push:
+    branches: [main, docs/canonical-product-contract]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate core syntax and run tests
+        run: npm run check
+      - name: Validate example configuration JSON
+        run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
