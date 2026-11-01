@@ -8,7 +8,7 @@ This page records implemented work separately from planned or independently veri
 - Missing/stale heartbeat handling that marks operational state unverified.
 - Diagnostics routing for lost communication without inventing a diagnosis.
 - Generic JSON preset with configurable departments and agents.
-- Responsive browser preview with department selection, zoom control, social idle animation, pause control, and portrait/landscape responsive CSS.
+- Responsive browser preview with department selection, zoom control, provisional selected-department focus zoom and overview reset, social idle animation, pause control, and portrait/landscape responsive CSS.
 - Preview loads the generic JSON configuration instead of maintaining a separate hard-coded scene.
 - Renderer-neutral scene engine with deterministic floor ordering, logical agent positions, viewport validation, fit scaling and zoom.
 - Preview now imports the scene engine and applies its calculated fit scale on initial render, zoom changes and viewport resize via ResizeObserver/resize events.
@@ -23,7 +23,7 @@ This page records implemented work separately from planned or independently veri
 
 ## Not implemented yet
 - Production renderer or a 3D/pixel-art asset pipeline; the preview uses CSS-built placeholder characters.
-- Whole-building angular top-perspective/front-cutaway opening view, clickable department focus/zoom, and per-avatar conversation/command interactions (including a configurable CEO avatar representing the user) are canonical requirements but not implemented/verified yet.
+- Whole-building angular top-perspective/front-cutaway renderer and per-avatar conversation/command interactions (including a configurable CEO avatar representing the user) are canonical requirements but not implemented/verified yet. The CSS preview now has provisional department focus zoom and an overview reset control; its new regression assertions are awaiting CI confirmation.
 - Applying quality profiles to a real rendering pipeline; current profiles are policy data, not active GPU/texture controls.
 - Runtime performance measurement and automatic quality adjustment based on measured frame time.
 - Full renderer/GPU integration for graphics quality profiles; the current selector changes preview CSS effects only, not texture resolution, DPR, GPU workload or actual FPS target.
@@ -32,12 +32,12 @@ This page records implemented work separately from planned or independently veri
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
 - Native Android/desktop packaging.
-- Physical-device orientation tests and a successful run of the newly added Playwright visual-regression workflow are still pending. The workflow/script now target browser screenshots at 390×844 portrait, 844×390 landscape and 1366×768 desktop, checking horizontal overflow, building bounds, department selection, quality selector and browser errors. Do not treat this as verified until CI run completes and artifacts are inspected.
+- Physical-device orientation tests and CI confirmation for the newest focus-zoom assertions are pending. Initial Playwright visual-regression run #2 succeeded and produced screenshots for 390×844 portrait, 844×390 landscape and 1366×768 desktop; those captures were inspected. They show the building remains in frame with no horizontal overflow, but the preview remains a CSS placeholder, with tiny labels/characters in portrait and no angular cutaway/perspective. The script now also checks focus zoom and overview reset; wait for its next CI run before claiming those behaviors passed.
 - Benchmarks on physical phones, tablets, and desktop hardware.
 
 ## Verification
 GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. That run covered the core, scene engine, graphics profile tests and example JSON parsing before the latest preview integration changes.
-GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). GitHub Actions run #70, ID 41292191794, completed successfully for the centered-layout fix and source-level regression tests on commit f13f8233348134fc741e032ae5d170349d3d28ba. A Playwright-based browser visual-regression workflow and screenshot artifacts have now been added; execution and artifact inspection are pending. CI checks do not prove visual correctness until those screenshots are inspected.
+GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). GitHub Actions run #70, ID 41292191794, completed successfully for the centered-layout fix and source-level regression tests on commit f13f8233348134fc741e032ae5d170349d3d28ba. Visual regression run #2, ID 41293249440, succeeded and produced screenshot artifact ID 13077921682; all three viewport screenshots were inspected. This verifies the current preview layout only, not the final angular cutaway design or physical devices. The later focus-zoom/reset test additions still await CI.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
