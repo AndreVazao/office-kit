@@ -8,7 +8,7 @@ This page records implemented work separately from planned or independently veri
 - Missing/stale heartbeat handling that marks operational state unverified.
 - Diagnostics routing for lost communication without inventing a diagnosis.
 - Generic JSON preset with configurable departments and agents.
-- Responsive browser preview with department selection, zoom control, provisional selected-department focus zoom and overview reset, social idle animation, pause control, portrait/landscape responsive CSS, and a selectable per-agent local conversation panel with an explicit no-backend disclaimer.
+- Responsive browser preview with department selection, zoom control, selected-department focus zoom and overview reset, social idle animation, pause control, portrait/landscape responsive CSS, and a selectable per-agent local conversation panel with an explicit no-backend disclaimer. A mobile legibility pass now adds a readable selected-department detail card (description, floor and agent names) without forcing the whole-building overview to zoom in; landscape-small-height controls and spacing are compacted.
 - Preview loads the generic JSON configuration instead of maintaining a separate hard-coded scene.
 - Renderer-neutral scene engine with deterministic floor ordering, logical agent positions, viewport validation, fit scaling and zoom.
 - Preview now imports the scene engine and applies its calculated fit scale on initial render, zoom changes and viewport resize via ResizeObserver/resize events.
