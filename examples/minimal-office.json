@@ -1,0 +1,12 @@
+{
+  "contractVersion": 1,
+  "id": "minimal-office",
+  "name": "Escritório de Demonstração",
+  "scene": { "layout": "diorama", "orientation": "auto", "visualMode": "pixel", "camera": { "zoom": "fit", "allowUserZoom": true } },
+  "departments": [
+    { "id": "executive", "name": "Direção", "floor": 3, "color": "#8eb7e8", "agents": [{ "id": "director", "name": "Direção", "role": "coordinator" }] },
+    { "id": "research", "name": "Investigação", "floor": 2, "color": "#91c8ad", "agents": [{ "id": "researcher-a", "name": "Investigador A" }, { "id": "researcher-b", "name": "Investigador B" }] },
+    { "id": "operations", "name": "Operações", "floor": 1, "color": "#e5bd78", "agents": [{ "id": "operator", "name": "Operador" }] }
+  ],
+  "backend": { "enabled": false, "adapter": null, "heartbeatIntervalMs": 10000, "staleAfterMs": 30000 }
+}
