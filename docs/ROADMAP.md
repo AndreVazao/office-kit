@@ -19,8 +19,8 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 ## Fase 2 — renderer funcional e responsivo
 - [x] Integrar o motor de cena com o preview e eliminar cálculos de layout duplicados na escala/enquadramento.
 - Criar cena pixel-diorama pequena, configurável e inspirada no Diorama.
-- [ ] Validar por capturas reais enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos.
-- [ ] Definir e validar a vista inicial do edifício inteiro em perspetiva superior angular com corte frontal; selecionar departamento/divisão deve focar essa zona e permitir regressar à vista geral.
+- [ ] Validar por capturas reais enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos. Playwright capturou os três viewports; execução inicial passou, mas a nova verificação de zoom/reset ainda aguarda CI.
+- [ ] Definir e validar a vista inicial do edifício inteiro em perspetiva superior angular com corte frontal. O preview CSS já tem foco/zoom provisório ao selecionar departamento e botão para regressar à vista geral; renderer final e validação visual continuam pendentes.
 - Preparar capturas automáticas e auditoria de consola/geometria.
 - Validar Android de baixa/média capacidade e desktop.
 
