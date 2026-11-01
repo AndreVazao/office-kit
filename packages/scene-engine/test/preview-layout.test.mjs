@@ -25,3 +25,15 @@ test("preview keeps portrait, landscape and narrow viewport rules", () => {
   assert.match(app, /ResizeObserver/);
   assert.match(app, /window\.addEventListener\("resize"/);
 });
+
+test("agent chat supports Escape dismissal and restores keyboard focus", () => {
+  assert.match(app, /chatReturnFocus = document\.activeElement/);
+  assert.match(app, /event\.key === "Escape"/);
+  assert.match(app, /target\.focus\(\)/);
+  assert.match(app, /document\.querySelector\("#chat-close"\)\.addEventListener\("click", closeAgentChat\)/);
+});
+
+test("reduced-motion preference disables scene transitions and diorama effects", () => {
+  assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{\.building,\.agent\[role="button"\]\{transition:none!important\}/);
+  assert.match(css, /\.diorama-shell\{filter:none!important\}/);
+});

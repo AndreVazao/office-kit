@@ -91,6 +91,11 @@ try {
     await page.screenshot({ path: "visual-" + testCase.name + "-chat.png", fullPage: true });
     await page.locator("#chat-close").click();
     assert(await page.locator("#agent-console").isHidden(), testCase.name + ": agent conversation panel did not close");
+    assert(await firstAgent.evaluate(el => el === document.activeElement), testCase.name + ": closing chat did not restore focus to the selected agent");
+    await firstAgent.click();
+    await page.keyboard.press("Escape");
+    assert(await page.locator("#agent-console").isHidden(), testCase.name + ": Escape did not close the agent conversation panel");
+    assert(await firstAgent.evaluate(el => el === document.activeElement), testCase.name + ": Escape did not restore focus to the selected agent");
     results.push({ ...testCase, geometry });
     await page.close();
   }
