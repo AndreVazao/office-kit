@@ -24,6 +24,7 @@ const departmentDetail = document.querySelector("#department-detail");
 const agentConsole = document.querySelector("#agent-console");
 const chatLog = document.querySelector("#chat-log");
 let activeAgent = null;
+let chatReturnFocus = null;
 const qualityLabels = { auto: "Automático", economy: "Económico", balanced: "Equilibrado", detailed: "Detalhado", cinematic: "Cinemático" };
 let selectedQuality = qualityControl.value;
 const qualityHints = {
@@ -193,6 +194,7 @@ function render() {
 
 
 function openAgentChat(agent, dept) {
+  chatReturnFocus = document.activeElement;
   activeAgent = { ...agent, departmentName: dept.name };
   document.querySelector("#chat-agent-name").textContent = agent.name;
   document.querySelector("#chat-agent-role").textContent = (agent.role || "Agente") + " · " + dept.name + " · modo local";
@@ -204,7 +206,21 @@ function openAgentChat(agent, dept) {
   agentConsole.hidden = false;
   document.querySelector("#chat-input").focus();
 }
-document.querySelector("#chat-close").addEventListener("click", () => { agentConsole.hidden = true; activeAgent = null; });
+function closeAgentChat() {
+  if (agentConsole.hidden) return;
+  agentConsole.hidden = true;
+  activeAgent = null;
+  const target = chatReturnFocus;
+  chatReturnFocus = null;
+  if (target?.isConnected && typeof target.focus === "function") target.focus();
+}
+document.querySelector("#chat-close").addEventListener("click", closeAgentChat);
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !agentConsole.hidden) {
+    event.preventDefault();
+    closeAgentChat();
+  }
+});
 document.querySelector("#chat-form").addEventListener("submit", event => {
   event.preventDefault();
   const input = document.querySelector("#chat-input");
