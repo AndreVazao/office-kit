@@ -20,6 +20,7 @@ viewport.prepend(dioramaShell);
 const zoomControl = document.querySelector("#zoom");
 const qualityControl = document.querySelector("#quality");
 const qualityLabel = document.querySelector("#quality-label");
+const departmentDetail = document.querySelector("#department-detail");
 const agentConsole = document.querySelector("#agent-console");
 const chatLog = document.querySelector("#chat-log");
 let activeAgent = null;
