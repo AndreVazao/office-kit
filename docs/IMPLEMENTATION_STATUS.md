@@ -33,7 +33,7 @@ This page records implemented work separately from planned or independently veri
 
 ## Verification
 GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. That run covered the core, scene engine, graphics profile tests and example JSON parsing before the latest preview integration changes.
-The latest preview integration commits have not yet had a confirmed CI result in this record. Do not treat them as verified until a new run passes. No screenshot/browser test or physical-device visual validation has been performed for this integration.
+GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration. This does not prove visual correctness: no screenshot/browser test or physical-device visual validation has been performed for this integration.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
