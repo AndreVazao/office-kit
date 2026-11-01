@@ -12,6 +12,7 @@ This page records implemented work separately from planned or independently veri
 - Preview loads the generic JSON configuration instead of maintaining a separate hard-coded scene.
 - Renderer-neutral scene engine with deterministic floor ordering, logical agent positions, viewport validation, fit scaling and zoom.
 - Renderer-neutral graphics quality profile contract: economy, balanced, detailed, cinematic and automatic profile resolution from conservative device hints.
+- Documented roadmap and safe future backend-discovery requirement.
 - Core, scene-engine layout, and graphics profile tests using Node's built-in test runner.
 - GitHub Actions CI workflow.
 
@@ -21,14 +22,16 @@ This page records implemented work separately from planned or independently veri
 - Runtime performance measurement and automatic quality adjustment based on measured frame time.
 - Visible UI selector for graphics quality.
 - Real backend transport/adapters or authentication.
+- Backend discovery/search assistant; requirements only are documented in docs/BACKEND_DISCOVERY.md.
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
 - Native Android/desktop packaging.
 - Automated browser screenshots, device-orientation tests, or a verified visual regression suite.
 - Benchmarks on physical phones, tablets, and desktop hardware.
+- Scene engine is not yet integrated into the preview's actual layout calculations.
 
 ## Verification
-The latest recorded GitHub Actions run #17 completed successfully for syntax checks, core/scene-engine tests and example JSON parsing. The graphics profile files were committed after that run, so they still require a new CI run before being called verified.
+GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. The job core-tests passed syntax checks, all core/scene-engine tests (including the new graphics profile tests), and example JSON parsing. This does not validate visual rendering or physical-device performance.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
