@@ -33,9 +33,9 @@ function updateSceneLayout() {
   if (rect.width <= 0 || rect.height <= 0) return;
   const layout = calculateSceneLayout(config, { width: rect.width, height: rect.height }, {
     logicalWidth: 1200,
-    floorHeight: 120,
-    roofHeight: 38,
-    baseHeight: 38,
+    floorHeight: 180,
+    roofHeight: 56,
+    baseHeight: 48,
     padding: 16,
     zoom: selectedZoom
   });
