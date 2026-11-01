@@ -83,9 +83,9 @@ try {
     await page.locator("#chat-form button[type=submit]").click();
     assert(await page.locator(".chat-user").textContent() === "Teste visual", testCase.name + ": local chat did not render submitted message");
     assert((await page.locator(".chat-system").last().textContent()).includes("apenas nesta demonstração"), testCase.name + ": local chat did not clearly disclaim backend integration");
+    await page.screenshot({ path: "visual-" + testCase.name + "-chat.png", fullPage: true });
     await page.locator("#chat-close").click();
     assert(await page.locator("#agent-console").isHidden(), testCase.name + ": agent conversation panel did not close");
-    await page.screenshot({ path: "visual-" + testCase.name + "-chat.png", fullPage: true });
     results.push({ ...testCase, geometry });
     await page.close();
   }
