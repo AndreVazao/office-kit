@@ -15,6 +15,9 @@ const viewport = document.querySelector(".scene-viewport");
 const zoomControl = document.querySelector("#zoom");
 const qualityControl = document.querySelector("#quality");
 const qualityLabel = document.querySelector("#quality-label");
+const agentConsole = document.querySelector("#agent-console");
+const chatLog = document.querySelector("#chat-log");
+let activeAgent = null;
 const qualityLabels = { auto: "Automático", economy: "Económico", balanced: "Equilibrado", detailed: "Detalhado", cinematic: "Cinemático" };
 let selectedQuality = qualityControl.value;
 const qualityHints = {
@@ -101,6 +104,9 @@ function render() {
       const activity = chooseSocialActivity(config.id, agent.id, tick);
       const figure = document.createElement("div");
       figure.className = "agent";
+      figure.tabIndex = 0;
+      figure.setAttribute("role", "button");
+      figure.setAttribute("aria-label", "Conversar com " + agent.name);
       figure.dataset.activity = activity;
       const avatar = document.createElement("span");
       avatar.className = "avatar";
@@ -113,6 +119,9 @@ function render() {
       status.className = "agent-activity";
       status.textContent = names[activity];
       figure.append(avatar, name, status);
+      const openChat = () => openAgentChat(agent, dept);
+      figure.addEventListener("click", event => { event.stopPropagation(); openChat(); });
+      figure.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); openChat(); } });
       room.append(figure);
     }
     floor.append(label, room);
@@ -147,6 +156,37 @@ function render() {
   }
   updateSceneLayout();
 }
+
+
+function openAgentChat(agent, dept) {
+  activeAgent = { ...agent, departmentName: dept.name };
+  document.querySelector("#chat-agent-name").textContent = agent.name;
+  document.querySelector("#chat-agent-role").textContent = (agent.role || "Agente") + " · " + dept.name + " · modo local";
+  chatLog.replaceChildren();
+  const notice = document.createElement("p");
+  notice.className = "chat-system";
+  notice.textContent = "Demonstração local: as mensagens não são enviadas a nenhum backend.";
+  chatLog.append(notice);
+  agentConsole.hidden = false;
+  document.querySelector("#chat-input").focus();
+}
+document.querySelector("#chat-close").addEventListener("click", () => { agentConsole.hidden = true; activeAgent = null; });
+document.querySelector("#chat-form").addEventListener("submit", event => {
+  event.preventDefault();
+  const input = document.querySelector("#chat-input");
+  const value = input.value.trim();
+  if (!value || !activeAgent) return;
+  const userLine = document.createElement("p");
+  userLine.className = "chat-user";
+  userLine.textContent = value;
+  chatLog.append(userLine);
+  const reply = document.createElement("p");
+  reply.className = "chat-system";
+  reply.textContent = "Mensagem registada apenas nesta demonstração. Liga um adaptador de backend autorizado para obter uma resposta real.";
+  chatLog.append(reply);
+  input.value = "";
+  chatLog.scrollTop = chatLog.scrollHeight;
+});
 
 render();
 document.querySelector("#view-overview").addEventListener("click", () => {
