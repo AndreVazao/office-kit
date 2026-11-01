@@ -17,9 +17,9 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Criar backend fictício e modo sem backend.
 
 ## Fase 2 — renderer funcional e responsivo
-- Integrar o motor de cena com o preview e eliminar cálculos de layout duplicados.
+- [x] Integrar o motor de cena com o preview e eliminar cálculos de layout duplicados na escala/enquadramento.
 - Criar cena pixel-diorama pequena, configurável e inspirada no Diorama.
-- Implementar enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos.
+- [ ] Validar por capturas reais enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos.
 - Preparar capturas automáticas e auditoria de consola/geometria.
 - Validar Android de baixa/média capacidade e desktop.
 
@@ -27,7 +27,7 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - [x] Definir Económico, Equilibrado, Detalhado e Cinemático.
 - [x] Definir seleção automática conservadora a partir de pistas do dispositivo.
 - [ ] Integrar perfis no renderer: pixel ratio, efeitos, densidade, texturas e animações.
-- [ ] Adicionar seletor manual e modo Auto.
+- [x] Adicionar seletor manual e modo Auto no preview inicial (efeitos CSS apenas; integração com renderer continua pendente).
 - [ ] Medir frame time em janelas estáveis e ajustar com histerese.
 - [ ] Respeitar movimento reduzido e preservar informação essencial.
 - [ ] Medir CPU, memória, fluidez e bateria em aparelhos reais.
