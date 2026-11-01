@@ -63,3 +63,9 @@ select{border:1px solid #3b4b64;background:#1a263a;color:var(--text);border-radi
 }
 
 @media(prefers-reduced-motion:reduce){.building,.agent[role="button"]{transition:none!important}.diorama-shell{filter:none!important}}
+
+/* State provenance: visual activity is never presented as backend-confirmed work. */
+.agent-provenance{display:inline-flex;align-items:center;justify-content:center;padding:2px 5px;border:1px solid #6b7280;border-radius:999px;background:#263246;color:#d5deeb;font-size:8px;line-height:1.25;letter-spacing:.01em;white-space:nowrap}
+.agent-provenance[data-state="unverified"]::before{content:"";width:5px;height:5px;margin-right:4px;border-radius:50%;background:#f0bd71}
+.status{max-width:55%;text-align:right;line-height:1.4}
+@media(max-width:480px){.status{max-width:48%;font-size:10px}.agent-provenance{font-size:7px;padding:2px 4px}}
