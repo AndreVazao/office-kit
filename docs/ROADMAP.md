@@ -2,101 +2,85 @@
 
 O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando os seus critérios são verificados; percentagens não substituem testes.
 
-## Fase 0 — contrato e proveniência
+## Fase 0 — contrato, memória e proveniência
 - [x] Definir missão, princípios e fronteiras de produto.
 - [x] Fixar arquitetura de alto nível e separação backend/frontend.
-- [x] Definir o papel de Diorama como referência de implementação visual.
-- [ ] Rever todos os ficheiros existentes e a licença do projeto-base antes de importar módulos.
-- [ ] Definir convenções de commits, CI e testes do repositório.
-
-**Saída:** decisões fundacionais escritas e versionadas.
+- [x] Definir o papel de Diorama como referência visual.
+- [x] Documentar perfis gráficos económicos a cinemáticos.
+- [ ] Rever módulos e licenças antes de importar código/assets.
+- [ ] Manter memória específica AndreOS Memory sincronizada com decisões e estado real.
 
 ## Fase 1 — núcleo neutro, sem renderer
 - Definir tipos neutros para edifício, piso, departamento, sala, agente, avatar, mobília, estado e ligação.
-- Definir schema versionado de configuração e validação.
-- Implementar carga/guarda/importação/exportação.
-- Criar testes com configuração vazia, padrão, grande e inválida.
+- Definir schema versionado, validação, carga/guarda/importação/exportação.
+- Criar testes para configuração vazia, padrão, grande e inválida.
 - Criar backend fictício e modo sem backend.
 
-**Saída:** um escritório configurável é válido e testável sem dependências gráficas nem backend real.
-
-## Fase 2 — primeiro renderer funcional
-- Criar uma cena pixel-diorama pequena baseada na estrutura estudada do Diorama.
-- Mostrar edifício/salas, mobília e elenco com escala legível.
-- Implementar câmara/enquadramento, zoom e resize retrato/paisagem.
-- Evitar rótulos sobrepostos: seleção e painel de detalhes em ecrãs pequenos.
-- Preparar capturas automáticas e auditoria de console/erros.
+## Fase 2 — renderer funcional e responsivo
+- Integrar o motor de cena com o preview e eliminar cálculos de layout duplicados.
+- Criar cena pixel-diorama pequena, configurável e inspirada no Diorama.
+- Implementar enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos.
+- Preparar capturas automáticas e auditoria de consola/geometria.
 - Validar Android de baixa/média capacidade e desktop.
 
-**Saída:** protótipo visual legível, repetível e com evidência de teste, não apenas uma imagem promocional.
+## Fase 3 — perfis gráficos e adaptação por desempenho
+- [x] Definir Económico, Equilibrado, Detalhado e Cinemático.
+- [x] Definir seleção automática conservadora a partir de pistas do dispositivo.
+- [ ] Integrar perfis no renderer: pixel ratio, efeitos, densidade, texturas e animações.
+- [ ] Adicionar seletor manual e modo Auto.
+- [ ] Medir frame time em janelas estáveis e ajustar com histerese.
+- [ ] Respeitar movimento reduzido e preservar informação essencial.
+- [ ] Medir CPU, memória, fluidez e bateria em aparelhos reais.
 
-## Fase 3 — animação e vida social local
-- Rig/animações base: idle, caminhar, sentar/levantar, conversar, trabalhar visualmente, pausa.
-- Rotinas ambientais: cafetaria, conversas, olhar relógio, varanda e regresso.
-- Planeamento de caminhos e prevenção simples de sobreposição/colisão.
-- Variação de tempo/rotina por personagem, com seed determinística para QA.
-- Opções para reduzir/desligar animação em hardware fraco.
-- Comportamento social sem backend e prova automática de que não envia comandos.
+## Fase 4 — animação e vida social local
+- Animações idle, caminhar, sentar/levantar, conversar e pausa.
+- Rotinas de cafetaria, conversas, relógio, varanda e regresso.
+- Caminhos e prevenção de sobreposição, seed determinística para QA.
+- Reduzir/desligar animações em hardware fraco e provar que não envia comandos.
 
-**Saída:** o escritório continua vivo sem backend e não sugere falsamente trabalho real.
+## Fase 5 — descoberta assistida de possíveis backends
+- Descobrir apenas fontes autorizadas/configuradas: endpoints fornecidos, documentação selecionada, catálogo de adaptadores e conectores explicitamente ligados.
+- Apresentar candidatos com origem, evidência, compatibilidade estimada, capacidades e requisitos de autenticação.
+- Permitir health-check de leitura apenas com consentimento e escopo explícito; nunca enviar comandos de escrita durante descoberta.
+- Exigir escolha humana antes de criar/ativar adaptador; começar em modo de leitura.
+- Não fazer varrimento indiscriminado de rede, contornar autenticação nem guardar segredos.
+- Testar falsos positivos, endpoint inválido, autenticação ausente, permissões, timeout e exposição de dados.
 
-## Fase 4 — runtime e adaptador de referência
+**Estado:** requisito futuro documentado, ainda não implementado.
+
+## Fase 6 — runtime e adaptador de referência
 - Definir interface pública de adaptador.
 - Ligar backend fictício com snapshots, heartbeat, eventos e reconexão.
-- Exibir estados confirmados, desatualizados e desconhecidos distintamente.
-- Construir adaptador VST como primeiro exemplo, sem colocar dependências VST no core.
-- Demonstrar que fechar/reiniciar o Office Kit não altera o ciclo de vida do backend.
+- Distinguir estado confirmado, desatualizado e desconhecido.
+- Construir adaptador VST como exemplo sem dependências VST no core.
+- Provar que fechar/reiniciar Office Kit não altera o ciclo de vida do backend.
 
-**Saída:** integração de referência sem dependência circular.
+## Fase 7 — editor plug-and-play
+- Criar pisos, departamentos, salas, agentes, avatares, mobília, posições e temas sem editar código.
+- Pré-visualizar, validar, guardar, duplicar, importar e exportar.
+- Presets genéricos e editáveis, nunca estruturas obrigatórias.
 
-## Fase 5 — editor plug-and-play
-- Fluxo guiado para criar pisos, departamentos e salas.
-- Adicionar/renomear/mover/remover agentes.
-- Escolher avatares, mobília, posições e tema.
-- Pré-visualizar, desfazer/refazer quando possível, validar e guardar.
-- Biblioteca de presets: escritório genérico, trading floor, investigação, DevOps/laboratório.
-- Presets são exemplos editáveis, nunca estruturas obrigatórias.
-
-**Saída:** utilizador comum consegue montar um espaço sem editar JSON ou código.
-
-## Fase 6 — diagnóstico/enfermaria
+## Fase 8 — diagnóstico/enfermaria
 - Políticas configuráveis de heartbeat, estado stale e triagem.
 - Mostrar motivo, duração e última comunicação conhecida.
-- Separar “movido visualmente para triagem” de “isolado pelo backend”.
-- Executar diagnósticos/comandos apenas via capacidades autorizadas e com confirmação.
-- Testar desligamento total, reconexão, snapshots incompletos e falsos positivos.
+- Separar triagem visual de isolamento real pelo backend.
+- Diagnósticos/comandos apenas via capacidades autorizadas e confirmação.
 
-**Saída:** perda de comunicação compreensível e segura, sem ações fictícias.
+## Fase 9 — robustez e distribuição
+- CI, schema, testes, auditoria de assets, capturas em orientações e perfis gráficos.
+- Compatibilidade/migração de configuração, segurança, acessibilidade e desempenho.
+- Escolher embalagem desktop/mobile com base em evidência.
 
-## Fase 7 — modos e desempenho
-- Modo 2D leve.
-- Refinar pixel diorama.
-- Avaliar 2.5D/isométrico.
-- Avaliar 3D e qualidade escalável.
-- Autoqualidade baseada em medições; controlos manuais permanecem disponíveis.
-- Comparar CPU, memória, FPS, consumo e legibilidade em aparelhos reais.
-
-**Saída:** modos selecionáveis com custos e limites documentados.
-
-## Fase 8 — robustez e distribuição
-- CI para lint, tipos, testes, schema, auditoria de assets e build.
-- Capturas e testes de layout em retrato/paisagem.
-- Documentação de integração para novos projetos.
-- Política de compatibilidade/migração de configurações.
-- Testes de segurança, acessibilidade, recuperação e desempenho.
-- Embalagem desktop/mobile escolhida com base em evidência.
-
-**Saída:** versão distribuível com instruções reproduzíveis e limites conhecidos.
-
-## Ordem de prioridade
-
+## Ordem de prioridade executável
 1. Contrato e core neutro.
-2. Protótipo Diorama verificável.
-3. Responsividade/legibilidade.
-4. Vida social local.
-5. Adaptador e reconexão.
-6. Editor plug-and-play.
-7. Enfermaria/diagnóstico real seguro.
-8. Outros modos, refinamento e distribuição.
+2. Integrar motor de cena no preview e corrigir escala/legibilidade.
+3. Renderer determinístico pequeno carregado por configuração.
+4. Capturas retrato/paisagem e correção de sobreposições.
+5. Integrar perfis gráficos e medir em aparelhos reais.
+6. Animação social local com limites de recursos.
+7. Contrato de backend e backend fictício com reconexão.
+8. Descoberta assistida e segura de pontos de ligação a backends.
+9. Adaptador VST de referência sem dependência no core.
+10. Editor plug-and-play, enfermaria e distribuição.
 
-Não iniciar uma grande implementação 3D antes de haver um contrato de dados, uma cena pequena testada e uma pipeline de capturas. Não parar no documento: cada fase deve produzir código executável e evidência.
+Não iniciar uma grande implementação 3D antes de haver contrato de dados, cena pequena testada e pipeline de capturas. Cada fase deve produzir código executável e evidência. A descoberta de backends não deve tornar a ligação automática.
