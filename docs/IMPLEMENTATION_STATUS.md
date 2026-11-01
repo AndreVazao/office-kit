@@ -14,6 +14,7 @@ This page records implemented work separately from planned or independently veri
 - Preview now imports the scene engine and applies its calculated fit scale on initial render, zoom changes and viewport resize via ResizeObserver/resize events.
 - Preview geometry dimensions are aligned with the scene engine's logical roof/floor/foundation dimensions.
 - Renderer-neutral graphics quality profile contract: economy, balanced, detailed, cinematic and automatic profile resolution from conservative device hints.
+- Browser preview now exposes a quality selector (automatic/economy/balanced/detailed/cinematic) and applies lightweight CSS-level animation/effect differences; automatic mode uses available device hints and updates on resize.
 - Documented roadmap and safe future backend-discovery requirement.
 - Core, scene-engine layout, and graphics profile tests using Node's built-in test runner.
 - GitHub Actions CI workflow.
@@ -22,13 +23,13 @@ This page records implemented work separately from planned or independently veri
 - Production renderer or a 3D/pixel-art asset pipeline; the preview uses CSS-built placeholder characters.
 - Applying quality profiles to a real rendering pipeline; current profiles are policy data, not active GPU/texture controls.
 - Runtime performance measurement and automatic quality adjustment based on measured frame time.
-- Visible UI selector for graphics quality.
+- Full renderer/GPU integration for graphics quality profiles; the current selector changes preview CSS effects only, not texture resolution, DPR, GPU workload or actual FPS target.
 - Real backend transport/adapters or authentication.
 - Backend discovery/search assistant; requirements only are documented in docs/BACKEND_DISCOVERY.md.
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
 - Native Android/desktop packaging.
-- Automated browser screenshots, device-orientation tests, or a verified visual regression suite.
+- Automated browser screenshots, device-orientation tests, or a verified visual regression suite. The latest selector change has not yet been confirmed by CI or screenshot validation.
 - Benchmarks on physical phones, tablets, and desktop hardware.
 
 ## Verification
