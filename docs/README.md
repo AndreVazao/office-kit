@@ -5,16 +5,18 @@ Ler nesta ordem:
 1. [Contrato do produto](PRODUCT_CONTRACT.md) — missão, requisitos não negociáveis, comportamento social, enfermaria e critérios de aceitação.
 2. [Arquitetura](ARCHITECTURE.md) — fronteiras entre configuração, adaptadores, runtime, simulação social, cena e renderizadores.
 3. [Contrato do motor de cena](SCENE_ENGINE.md) — coordenadas lógicas, escala, orientação e layout determinístico.
-4. [Roteiro](ROADMAP.md) — fases, prioridades e condições de conclusão.
-5. [Adaptação do Diorama](DIORAMA_ADAPTATION.md) — como estudar a referência, adaptar módulos e preservar proveniência/licenças.
-6. [Auditoria inicial do Diorama](DIORAMA_AUDIT.md) — achados verificados, decisões de adaptação e itens ainda por auditar.
-7. [Estado de implementação](IMPLEMENTATION_STATUS.md) — separar código existente, trabalho planeado e evidência de testes.
+4. [Perfis gráficos adaptáveis](QUALITY_PROFILES.md) — níveis de qualidade, regras automáticas e critérios de validação.
+5. [Roteiro](ROADMAP.md) — fases, prioridades e condições de conclusão.
+6. [Adaptação do Diorama](DIORAMA_ADAPTATION.md) — como estudar a referência, adaptar módulos e preservar proveniência/licenças.
+7. [Auditoria inicial do Diorama](DIORAMA_AUDIT.md) — achados verificados, decisões de adaptação e itens ainda por auditar.
+8. [Estado de implementação](IMPLEMENTATION_STATUS.md) — separar código existente, trabalho planeado e evidência de testes.
 
 ## Regra de autoridade
 
 - O contrato define o que estamos a construir.
 - A arquitetura define como as responsabilidades são separadas.
 - O contrato do motor de cena define o layout lógico comum aos renderizadores.
+- Os perfis gráficos definem as políticas de qualidade e custos pretendidos, não garantias de desempenho.
 - O roteiro define em que ordem avançar.
 - Os documentos Diorama definem como usar a referência visual sem tornar o Office Kit dependente dela.
 - O estado de implementação regista o que realmente existe e o que foi efetivamente testado.
