@@ -70,12 +70,17 @@ try {
     const beforeFocus = await page.locator(".building").boundingBox();
     await firstDepartment.click();
     assert(await firstDepartment.getAttribute("aria-pressed") === "true", testCase.name + ": department selection did not activate");
+    assert(await page.locator("#department-detail").evaluate(el => el.classList.contains("is-visible")), testCase.name + ": department detail card did not appear");
+    assert((await page.locator("#detail-name").textContent()).trim().length > 0, testCase.name + ": department detail card has no title");
+    assert((await page.locator("#detail-description").textContent()).includes("Piso"), testCase.name + ": department detail card has no floor information");
+    assert((await page.locator("#detail-agents").textContent()).startsWith("Agentes:"), testCase.name + ": department detail card has no agent information");
     assert(await overviewButton.isVisible(), testCase.name + ": overview reset button did not appear");
     await page.waitForTimeout(250);
     const focusedBox = await page.locator(".building").boundingBox();
     assert(focusedBox.height > beforeFocus.height * 1.3, testCase.name + ": selected department did not zoom scene; before=" + JSON.stringify(beforeFocus) + "; after=" + JSON.stringify(focusedBox) + "; transform=" + await page.locator(".building").evaluate(el => el.style.transform));
     await overviewButton.click();
     assert(await overviewButton.isHidden(), testCase.name + ": overview reset button did not hide after reset");
+    assert(!(await page.locator("#department-detail").evaluate(el => el.classList.contains("is-visible"))), testCase.name + ": department detail card remained visible after overview reset");
     const firstAgent = page.locator(".agent[role=button]").first();
     await firstAgent.click();
     assert(await page.locator("#agent-console").isVisible(), testCase.name + ": agent conversation panel did not open");
