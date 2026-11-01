@@ -155,12 +155,7 @@ document.querySelector("#view-overview").addEventListener("click", () => {
   document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", "false"));
   updateSceneLayout();
 });
-document.querySelector("#view-overview").addEventListener("click", () => {
-  focusedDepartmentId = null;
-  document.querySelectorAll(".floor").forEach(item => item.classList.remove("highlight"));
-  document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", "false"));
-  updateSceneLayout();
-});
+
 zoomControl.addEventListener("input", event => {
   selectedZoom = Number(event.target.value) / 100;
   document.querySelector("#zoom-label").textContent = event.target.value + "%";
