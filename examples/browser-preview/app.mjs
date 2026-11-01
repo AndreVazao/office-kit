@@ -1,4 +1,5 @@
 import { chooseSocialActivity, validateOfficeConfig } from "../../packages/core/src/index.mjs";
+import { calculateSceneLayout } from "../../packages/scene-engine/src/index.mjs";
 
 const response = await fetch("../minimal-office.json");
 if (!response.ok) throw new Error("Não foi possível carregar a configuração de demonstração.");
@@ -9,6 +10,8 @@ if (!validation.valid) throw new Error(validation.errors.join("\n"));
 const floors = document.querySelector("#floors");
 const buttons = document.querySelector("#department-buttons");
 const building = document.querySelector("#building");
+const viewport = document.querySelector(".scene-viewport");
+const zoomControl = document.querySelector("#zoom");
 const names = {
   "at-desk": "Na secretária",
   walking: "A caminhar",
@@ -20,9 +23,30 @@ const names = {
 };
 let tick = 0;
 let paused = false;
+let selectedZoom = Number(zoomControl.value) / 100;
 document.querySelector("#office-name").textContent = config.name;
 document.querySelector("#agent-count").textContent = config.departments.reduce((n, d) => n + (d.agents || []).length, 0) + " personagens";
 document.querySelector(".status span:last-child").textContent = config.backend && config.backend.enabled ? "Backend configurado" : "Simulação local";
+
+function updateSceneLayout() {
+  const rect = viewport.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const layout = calculateSceneLayout(config, { width: rect.width, height: rect.height }, {
+    logicalWidth: 1200,
+    floorHeight: 120,
+    roofHeight: 38,
+    baseHeight: 38,
+    padding: 16,
+    zoom: selectedZoom
+  });
+  building.style.width = layout.logicalBounds.width + "px";
+  building.style.minWidth = "0";
+  building.style.maxWidth = "none";
+  building.style.transformOrigin = "center center";
+  building.style.transform = "scale(" + layout.transform.scale + ")";
+  building.dataset.orientation = layout.orientation;
+  document.querySelector("#orientation-label").textContent = layout.orientation === "landscape" ? "Horizontal" : "Vertical";
+}
 
 function render() {
   floors.replaceChildren();
@@ -86,12 +110,14 @@ function render() {
     });
     buttons.append(button);
   }
+  updateSceneLayout();
 }
+
 render();
-document.querySelector("#zoom").addEventListener("input", event => {
-  const zoom = Number(event.target.value);
-  building.style.setProperty("--zoom", zoom / 100);
-  document.querySelector("#zoom-label").textContent = zoom + "%";
+zoomControl.addEventListener("input", event => {
+  selectedZoom = Number(event.target.value) / 100;
+  document.querySelector("#zoom-label").textContent = event.target.value + "%";
+  updateSceneLayout();
 });
 document.querySelector("#activity-toggle").addEventListener("click", event => {
   paused = !paused;
@@ -99,9 +125,7 @@ document.querySelector("#activity-toggle").addEventListener("click", event => {
   event.currentTarget.textContent = paused ? "Retomar animações" : "Pausar animações";
   event.currentTarget.setAttribute("aria-pressed", String(paused));
 });
-const updateOrientation = () => {
-  document.querySelector("#orientation-label").textContent = matchMedia("(orientation: landscape)").matches ? "Horizontal" : "Vertical";
-};
-window.addEventListener("resize", updateOrientation);
-updateOrientation();
-setInterval(() => { if (!paused) { tick++; render(); } }, 6500);
+window.addEventListener("resize", updateSceneLayout);
+if ("ResizeObserver" in window) new ResizeObserver(updateSceneLayout).observe(viewport);
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+setInterval(() => { if (!paused && !reducedMotion) { tick++; render(); } }, 6500);
