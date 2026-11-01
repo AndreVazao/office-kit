@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827"><title>Office Kit Digital — Pré-visualização</title><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar"><div class="brand"><span class="brand-mark">OK</span><div><strong>Office Kit Digital</strong><small>Pré-visualização do núcleo</small></div></div><div class="status"><span class="pulse"></span><span>Simulação local</span></div></header>
+<main>
+<section class="intro"><div><p class="eyebrow">AMBIENTE CONFIGURÁVEL</p><h1 id="office-name">Escritório de Demonstração</h1><p class="muted">Demonstração visual independente de qualquer backend.</p></div><div class="controls"><label for="zoom">Vista <span id="zoom-label">100%</span></label><input id="zoom" type="range" min="70" max="120" value="100"><button id="activity-toggle" type="button">Pausar animações</button></div></section>
+<section class="workspace"><aside class="department-list"><h2>Departamentos</h2><div id="department-buttons"></div><p class="note">As atividades são simuladas e não representam tarefas reais.</p></aside>
+<section class="scene-wrap" aria-label="Edifício digital"><div class="scene-heading"><span>EDIFÍCIO DIGITAL</span><span id="orientation-label">Vista adaptável</span></div><div class="scene-viewport"><div class="building" id="building"><div class="roof"><span>OFFICE KIT</span><span class="roof-light"></span></div><div id="floors"></div><div class="foundation"><span>RUNTIME LOCAL</span><span class="foundation-dots">•••</span></div></div></div><footer class="scene-footer"><span>Modo visual: Pixel</span><span>Sem ligação externa</span><span id="agent-count">4 personagens</span></footer></section></section>
+<section class="legend"><span><i class="legend-dot simulation"></i>Simulação local</span><span><i class="legend-dot verified"></i>Estado real só com confirmação do backend</span><span><i class="legend-dot alert"></i>Ligação perdida → diagnóstico</span></section>
+</main><script type="module" src="./app.mjs"></script>
+</body></html>
