@@ -58,7 +58,8 @@ let selectedZoom = Number(zoomControl.value) / 100;
 let focusedDepartmentId = null;
 document.querySelector("#office-name").textContent = config.name;
 document.querySelector("#agent-count").textContent = config.departments.reduce((n, d) => n + (d.agents || []).length, 0) + " personagens";
-document.querySelector(".status span:last-child").textContent = config.backend && config.backend.enabled ? "Backend configurado" : "Simulação local";
+document.querySelector(".status span:last-child").textContent = config.backend && config.backend.enabled ? "Backend declarado · estado não verificado" : "Simulação local · não verificado";
+document.querySelector(".status").setAttribute("aria-label", "Estado da demonstração: nenhum estado operacional foi confirmado por um backend");
 
 function updateSceneLayout() {
   const rect = viewport.getBoundingClientRect();
@@ -149,7 +150,13 @@ function render() {
       const status = document.createElement("span");
       status.className = "agent-activity";
       status.textContent = names[activity];
-      figure.append(avatar, name, status);
+      const provenance = document.createElement("span");
+      provenance.className = "agent-provenance";
+      provenance.dataset.state = "unverified";
+      provenance.textContent = "Simulado";
+      provenance.title = "Animação local; não confirma atividade real do agente.";
+      figure.setAttribute("aria-label", "Conversar com " + agent.name + ". Atividade visual simulada, não verificada pelo backend.");
+      figure.append(avatar, name, status, provenance);
       const openChat = () => openAgentChat(agent, dept);
       figure.addEventListener("click", event => { event.stopPropagation(); openChat(); });
       figure.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); openChat(); } });
