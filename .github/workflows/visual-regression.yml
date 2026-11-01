@@ -1,0 +1,32 @@
+name: Office Kit visual regression
+on:
+  push:
+    branches: [main, docs/canonical-product-contract]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  browser-visual-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install temporary Playwright runner
+        run: npm install --no-save --package-lock=false playwright
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Render and verify responsive viewports
+        run: node scripts/visual-check.mjs
+      - name: Upload viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-kit-visual-regression
+          path: visual-*.png
+          if-no-files-found: warn
+          retention-days: 14
