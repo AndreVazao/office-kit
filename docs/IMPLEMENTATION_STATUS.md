@@ -32,12 +32,12 @@ This page records implemented work separately from planned or independently veri
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
 - Native Android/desktop packaging.
-- Automated browser screenshots, browser-rendered visual regression tests, or physical-device orientation tests. Source-level layout regression tests exist, but cannot prove actual browser rendering.
+- Physical-device orientation tests and a successful run of the newly added Playwright visual-regression workflow are still pending. The workflow/script now target browser screenshots at 390×844 portrait, 844×390 landscape and 1366×768 desktop, checking horizontal overflow, building bounds, department selection, quality selector and browser errors. Do not treat this as verified until CI run completes and artifacts are inspected.
 - Benchmarks on physical phones, tablets, and desktop hardware.
 
 ## Verification
 GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. That run covered the core, scene engine, graphics profile tests and example JSON parsing before the latest preview integration changes.
-GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). The latest centered-layout fix and source-level regression tests were added after run #62 and still require CI confirmation. CI checks do not prove visual correctness.
+GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). GitHub Actions run #70, ID 41292191794, completed successfully for the centered-layout fix and source-level regression tests on commit f13f8233348134fc741e032ae5d170349d3d28ba. A Playwright-based browser visual-regression workflow and screenshot artifacts have now been added; execution and artifact inspection are pending. CI checks do not prove visual correctness until those screenshots are inspected.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
