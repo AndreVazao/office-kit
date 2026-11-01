@@ -64,7 +64,9 @@ function updateSceneLayout() {
   building.style.minWidth = "0";
   building.style.maxWidth = "none";
   building.style.transformOrigin = "center center";
-  building.style.transform = "scale(" + layout.transform.scale + ")";
+  building.style.left = "50%";
+  building.style.top = "50%";
+  building.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale + ")";
   building.dataset.orientation = layout.orientation;
   document.querySelector("#orientation-label").textContent = layout.orientation === "landscape" ? "Horizontal" : "Vertical";
 }
