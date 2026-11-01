@@ -13,6 +13,16 @@ The canonical product contract lives in [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_
 - [Architecture and boundaries](docs/ARCHITECTURE.md)
 - [Roadmap and acceptance gates](docs/ROADMAP.md)
 - [Diorama reference and adaptation plan](docs/DIORAMA_ADAPTATION.md)
+- [Implementation status and verification boundary](docs/IMPLEMENTATION_STATUS.md)
+
+## First implementation slice
+
+- [Browser preview](examples/browser-preview/index.html): responsive office mockup with zoom, department focus, and clearly labelled local social animation.
+- [Generic configuration preset](examples/minimal-office.json): example of project-neutral departments and agents.
+- [Core module](packages/core/src/index.mjs): configuration validation and safe interpretation of backend/social states.
+- Run npm test with Node.js 20+ to execute the dependency-free core tests.
+
+The browser preview is an early CSS prototype, not the final Diorama-quality renderer, and it is not yet packaged as an Android or desktop application.
 
 ## Core principles
 
@@ -23,7 +33,3 @@ The canonical product contract lives in [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_
 - Responsive, legible and resource-aware UI for phone, tablet and desktop.
 - Configurable triage/infirmary representation for prolonged communication loss; real diagnostics/actions require explicit backend capability and authorization.
 - Pixel diorama inspired by [sloemo01/diorama](https://github.com/sloemo01/diorama), adapted into a generic and configurable scene system rather than a fixed VST scene.
-
-## Current implementation status
-
-The repository is establishing its canonical contract and architecture first. Documentation is not evidence that the renderer, editor, social simulation, adapters or mobile layout are already implemented. The roadmap defines the evidence required to consider each phase complete.
