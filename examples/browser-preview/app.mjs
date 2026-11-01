@@ -44,7 +44,7 @@ const names = {
 };
 let tick = 0;
 let paused = false;
-let selectedZoom = Number(zoomControl.value) / 100;
+let selectedZoom = Number(zoomControl.value) / 100;\nlet focusedDepartmentId = null;
 document.querySelector("#office-name").textContent = config.name;
 document.querySelector("#agent-count").textContent = config.departments.reduce((n, d) => n + (d.agents || []).length, 0) + " personagens";
 document.querySelector(".status span:last-child").textContent = config.backend && config.backend.enabled ? "Backend configurado" : "Simulação local";
@@ -137,7 +137,7 @@ function render() {
 }
 
 render();
-zoomControl.addEventListener("input", event => {
+document.querySelector("#view-overview").addEventListener("click", () => {\n  focusedDepartmentId = null;\n  document.querySelectorAll(".floor").forEach(item => item.classList.remove("highlight"));\n  document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", "false"));\n  updateSceneLayout();\n});\nzoomControl.addEventListener("input", event => {
   selectedZoom = Number(event.target.value) / 100;
   document.querySelector("#zoom-label").textContent = event.target.value + "%";
   updateSceneLayout();
