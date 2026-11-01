@@ -13,6 +13,8 @@ This page records implemented work separately from planned or independently veri
 - Renderer-neutral scene engine with deterministic floor ordering, logical agent positions, viewport validation, fit scaling and zoom.
 - Preview now imports the scene engine and applies its calculated fit scale on initial render, zoom changes and viewport resize via ResizeObserver/resize events.
 - Preview geometry dimensions are aligned with the scene engine's logical roof/floor/foundation dimensions.
+- Corrected scene anchoring: the scaled building is positioned at the viewport center and clipped within the viewport, preventing the unscaled 1200px layout box from shifting the visible building off-screen on narrow displays.
+- Added source-level regression tests for centered scaling, overflow clipping, resize observer, and portrait/landscape responsive rules.
 - Renderer-neutral graphics quality profile contract: economy, balanced, detailed, cinematic and automatic profile resolution from conservative device hints.
 - Browser preview now exposes a quality selector (automatic/economy/balanced/detailed/cinematic) and applies lightweight CSS-level animation/effect differences; automatic mode uses available device hints and updates on resize.
 - Documented roadmap and safe future backend-discovery requirement.
@@ -29,12 +31,12 @@ This page records implemented work separately from planned or independently veri
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
 - Native Android/desktop packaging.
-- Automated browser screenshots, device-orientation tests, or a verified visual regression suite. The latest selector change has passed CI, but has not been screenshot-validated.
+- Automated browser screenshots, browser-rendered visual regression tests, or physical-device orientation tests. Source-level layout regression tests exist, but cannot prove actual browser rendering.
 - Benchmarks on physical phones, tablets, and desktop hardware.
 
 ## Verification
 GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. That run covered the core, scene engine, graphics profile tests and example JSON parsing before the latest preview integration changes.
-GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the latest preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). This confirms CI checks, not visual correctness: no screenshot/browser test or physical-device visual validation has been performed.
+GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). The latest centered-layout fix and source-level regression tests were added after run #62 and still require CI confirmation. CI checks do not prove visual correctness.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
