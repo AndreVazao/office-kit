@@ -65,11 +65,15 @@ function updateSceneLayout() {
   building.style.minWidth = "0";
   building.style.maxWidth = "none";
   building.style.transformOrigin = "center center";
+  const focusScale = focusedDepartmentId ? 1.65 : 1;
+  const focusedFloor = focusedDepartmentId ? document.querySelector("#floor-" + CSS.escape(focusedDepartmentId)) : null;
+  const verticalOffset = focusedFloor ? -(focusedFloor.offsetTop + focusedFloor.offsetHeight / 2 - building.offsetHeight / 2) * layout.transform.scale * focusScale : 0;
   building.style.left = "50%";
-  building.style.top = "50%";
-  building.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale + ")";
+  building.style.top = "calc(50% + " + verticalOffset + "px)";
+  building.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale * focusScale + ")";
   building.dataset.orientation = layout.orientation;
   document.querySelector("#orientation-label").textContent = layout.orientation === "landscape" ? "Horizontal" : "Vertical";
+  document.querySelector("#view-overview").hidden = !focusedDepartmentId;
 }
 
 function render() {
@@ -79,6 +83,9 @@ function render() {
     const floor = document.createElement("article");
     floor.className = "floor";
     floor.id = "floor-" + dept.id;
+    floor.tabIndex = 0;
+    floor.setAttribute("role", "button");
+    floor.setAttribute("aria-label", "Focar departamento " + dept.name);
     floor.style.setProperty("--floor-color", dept.color || "#8eb7e8");
 
     const label = document.createElement("div");
@@ -125,12 +132,16 @@ function render() {
     meta.textContent = (dept.agents || []).length + " personagem(ns)";
     content.append(meta);
     button.append(swatch, content);
-    button.addEventListener("click", () => {
-      document.querySelectorAll(".floor").forEach(item => item.classList.remove("highlight"));
-      document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", "false"));
-      floor.classList.add("highlight");
-      button.setAttribute("aria-pressed", "true");
-      floor.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+    const selectDepartment = () => {
+      focusedDepartmentId = dept.id;
+      document.querySelectorAll(".floor").forEach(item => item.classList.toggle("highlight", item === floor));
+      document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+      updateSceneLayout();
+    };
+    button.addEventListener("click", selectDepartment);
+    floor.addEventListener("click", selectDepartment);
+    floor.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectDepartment(); }
     });
     buttons.append(button);
   }
@@ -138,6 +149,12 @@ function render() {
 }
 
 render();
+document.querySelector("#view-overview").addEventListener("click", () => {
+  focusedDepartmentId = null;
+  document.querySelectorAll(".floor").forEach(item => item.classList.remove("highlight"));
+  document.querySelectorAll(".department-button").forEach(item => item.setAttribute("aria-pressed", "false"));
+  updateSceneLayout();
+});
 document.querySelector("#view-overview").addEventListener("click", () => {
   focusedDepartmentId = null;
   document.querySelectorAll(".floor").forEach(item => item.classList.remove("highlight"));
