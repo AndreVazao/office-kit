@@ -71,6 +71,7 @@ try {
     await firstDepartment.click();
     assert(await firstDepartment.getAttribute("aria-pressed") === "true", testCase.name + ": department selection did not activate");
     assert(await overviewButton.isVisible(), testCase.name + ": overview reset button did not appear");
+    await page.waitForTimeout(250);
     const focusedBox = await page.locator(".building").boundingBox();
     assert(focusedBox.height > beforeFocus.height * 1.3, testCase.name + ": selected department did not zoom scene; before=" + JSON.stringify(beforeFocus) + "; after=" + JSON.stringify(focusedBox) + "; transform=" + await page.locator(".building").evaluate(el => el.style.transform));
     await overviewButton.click();
