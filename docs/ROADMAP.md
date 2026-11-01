@@ -20,6 +20,7 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - [x] Integrar o motor de cena com o preview e eliminar cálculos de layout duplicados na escala/enquadramento.
 - Criar cena pixel-diorama pequena, configurável e inspirada no Diorama.
 - [ ] Validar por capturas reais enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos.
+- [ ] Definir e validar a vista inicial do edifício inteiro em perspetiva superior angular com corte frontal; selecionar departamento/divisão deve focar essa zona e permitir regressar à vista geral.
 - Preparar capturas automáticas e auditoria de consola/geometria.
 - Validar Android de baixa/média capacidade e desktop.
 
@@ -79,8 +80,9 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 5. Integrar perfis gráficos e medir em aparelhos reais.
 6. Animação social local com limites de recursos.
 7. Contrato de backend e backend fictício com reconexão.
-8. Descoberta assistida e segura de pontos de ligação a backends.
-9. Adaptador VST de referência sem dependência no core.
-10. Editor plug-and-play, enfermaria e distribuição.
+8. Interação de conversa/comandos por CEO, chefias e todos os avatares, primeiro com backend fictício e estados honestos de entrega.
+9. Descoberta assistida e segura de pontos de ligação a backends.
+10. Adaptador VST de referência sem dependência no core.
+11. Editor plug-and-play, enfermaria e distribuição.
 
 Não iniciar uma grande implementação 3D antes de haver contrato de dados, cena pequena testada e pipeline de capturas. Cada fase deve produzir código executável e evidência. A descoberta de backends não deve tornar a ligação automática.
