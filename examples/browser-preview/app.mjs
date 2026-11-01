@@ -1,5 +1,6 @@
 import { chooseSocialActivity, validateOfficeConfig } from "../../packages/core/src/index.mjs";
 import { calculateSceneLayout } from "../../packages/scene-engine/src/index.mjs";
+import { calculateDioramaGeometry } from "../../packages/scene-engine/src/diorama.mjs";
 import { resolveQualityProfile } from "../../packages/scene-engine/src/quality.mjs";
 
 const response = await fetch("../minimal-office.json");
@@ -11,6 +12,10 @@ if (!validation.valid) throw new Error(validation.errors.join("\n"));
 const floors = document.querySelector("#floors");
 const buttons = document.querySelector("#department-buttons");
 const building = document.querySelector("#building");
+const dioramaShell = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+dioramaShell.classList.add("diorama-shell");
+dioramaShell.setAttribute("aria-hidden", "true");
+viewport.prepend(dioramaShell);
 const viewport = document.querySelector(".scene-viewport");
 const zoomControl = document.querySelector("#zoom");
 const qualityControl = document.querySelector("#quality");
@@ -64,6 +69,28 @@ function updateSceneLayout() {
     padding: 16,
     zoom: selectedZoom
   });
+  const geometry = calculateDioramaGeometry(layout, { depth: 105, lift: 36, frontCut: true });
+  const svgNS = "http://www.w3.org/2000/svg";
+  const points = polygon => polygon.map(point => point.x + "," + point.y).join(" ");
+  dioramaShell.replaceChildren();
+  dioramaShell.setAttribute("viewBox", "0 0 " + geometry.logicalBounds.width + " " + geometry.logicalBounds.height);
+  dioramaShell.setAttribute("width", String(geometry.logicalBounds.width));
+  dioramaShell.setAttribute("height", String(geometry.logicalBounds.height));
+  const addPolygon = (polygon, className) => {
+    const shape = document.createElementNS(svgNS, "polygon");
+    shape.setAttribute("points", points(polygon));
+    shape.setAttribute("class", className);
+    dioramaShell.append(shape);
+  };
+  addPolygon(geometry.rightSide, "diorama-side");
+  for (const band of geometry.floorBands) addPolygon(band.side, "diorama-floor-side");
+  addPolygon(geometry.roof, "diorama-roof");
+  addPolygon(geometry.front, "diorama-front");
+  dioramaShell.style.width = geometry.logicalBounds.width + "px";
+  dioramaShell.style.height = geometry.logicalBounds.height + "px";
+  dioramaShell.style.left = "50%";
+  dioramaShell.style.top = "50%";
+  dioramaShell.style.transform = "translate(-50%, -50%) scale(" + layout.transform.scale * (focusedDepartmentId ? 1.65 : 1) + ")";
   building.style.width = layout.logicalBounds.width + "px";
   building.style.minWidth = "0";
   building.style.maxWidth = "none";
