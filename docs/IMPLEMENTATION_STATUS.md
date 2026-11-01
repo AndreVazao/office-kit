@@ -11,6 +11,8 @@ This page records implemented work separately from planned or independently veri
 - Responsive browser preview with department selection, zoom control, social idle animation, pause control, and portrait/landscape responsive CSS.
 - Preview loads the generic JSON configuration instead of maintaining a separate hard-coded scene.
 - Renderer-neutral scene engine with deterministic floor ordering, logical agent positions, viewport validation, fit scaling and zoom.
+- Preview now imports the scene engine and applies its calculated fit scale on initial render, zoom changes and viewport resize via ResizeObserver/resize events.
+- Preview geometry dimensions are aligned with the scene engine's logical roof/floor/foundation dimensions.
 - Renderer-neutral graphics quality profile contract: economy, balanced, detailed, cinematic and automatic profile resolution from conservative device hints.
 - Documented roadmap and safe future backend-discovery requirement.
 - Core, scene-engine layout, and graphics profile tests using Node's built-in test runner.
@@ -28,10 +30,10 @@ This page records implemented work separately from planned or independently veri
 - Native Android/desktop packaging.
 - Automated browser screenshots, device-orientation tests, or a verified visual regression suite.
 - Benchmarks on physical phones, tablets, and desktop hardware.
-- Scene engine is not yet integrated into the preview's actual layout calculations.
 
 ## Verification
-GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. The job core-tests passed syntax checks, all core/scene-engine tests (including the new graphics profile tests), and example JSON parsing. This does not validate visual rendering or physical-device performance.
+GitHub Actions run #38, ID 41291021736, completed successfully on commit f57330eefbedc4ae53de9083dfca3a401ad4681a. That run covered the core, scene engine, graphics profile tests and example JSON parsing before the latest preview integration changes.
+The latest preview integration commits have not yet had a confirmed CI result in this record. Do not treat them as verified until a new run passes. No screenshot/browser test or physical-device visual validation has been performed for this integration.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
