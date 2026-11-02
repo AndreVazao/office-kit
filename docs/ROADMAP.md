@@ -107,3 +107,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Definir interface pública estável de adaptador, versionamento, capacidades e envelope de eventos com sequência explícita.
 - [ ] Criar catálogo/instalação/desativação/remoção de adaptadores, com início em leitura e autenticação/autorização no anfitrião.
 - [ ] Implementar descoberta assistida sem varrimento indiscriminado de rede, sem contornar autenticação e sem guardar segredos no core.
+
+
+### Atualização — interface pública de adaptadores
+- [x] Definir versão inicial do contrato público neutro de adaptador e validação do envelope de eventos.
+- [x] Definir capacidade padrão de leitura e rejeitar capacidades desconhecidas ou combinações incoerentes.
+- [ ] Ligar o normalizador à sessão runtime com armazenamento de sequência por origem/sessão e política explícita para lacunas de sequência.
+- [ ] Definir autenticação/identidade e permissões no anfitrião antes de aceitar dados de um adaptador.
+- [ ] Adicionar catálogo/descoberta assistida e fluxo de seleção humana; sem ligação automática.
