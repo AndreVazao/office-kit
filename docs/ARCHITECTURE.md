@@ -39,7 +39,7 @@ Cada integração implementa um contrato comum de ligação, eventos, snapshot, 
 - trata autenticação e permissões no sistema anfitrião, sem expor segredos à cena;
 - não permite que o renderer fale diretamente com endpoints específicos do projeto.
 
-O primeiro adaptador de referência pode ser VST, mas os testes do core devem funcionar com um backend fictício e com zero backend.
+O Office Kit não tem backend obrigatório nem ligação fixa a VST, DGM-MAT ou outro produto. A integração futura deve ser um adaptador instalável/selecionável, com contrato versionado e descoberta assistida; não se deve inferir nem ligar automaticamente a um backend só por estar disponível na rede.
 
 ### D. Estado de runtime
 Mantém o último snapshot, timestamp, ligação, estado de cada agente e eventos visuais. Distingue estado confirmado, desatualizado e desconhecido. A reconexão requer snapshot/resincronização antes de voltar a representar trabalho como confirmado.
@@ -65,7 +65,6 @@ A lógica central deve ser reutilizável em browser/desktop/mobile. A decisão f
 ## 3. Contrato mínimo de backend
 
 O contrato deve suportar, conceptualmente:
-
 - `connect()` / `disconnect()`;
 - `getSnapshot()` para sincronização inicial e após reconexão;
 - fluxo de eventos de ligação, heartbeat, agente, tarefa e diagnóstico;
@@ -77,86 +76,7 @@ O contrato deve suportar, conceptualmente:
 
 Os nomes concretos e tipos serão definidos na implementação TypeScript; este documento fixa os comportamentos exigidos, não uma API prematuramente rígida.
 
-## 4. Máquina de estados de ligação
+## 4. Simulador genérico de runtime
+`packages/scene-engine/src/runtime-simulator.mjs` fornece um backend fictício executável sobre `RuntimeSession`. Emite snapshots neutros e regista eventos sequenciados para testes de ligação, sincronização, heartbeat, perda de comunicação, erro e reconexão. Não abre sockets, não descobre endpoints, não guarda credenciais e não executa comandos.
 
-Estados mínimos:
-- `disconnected`: nenhuma ligação ativa;
-- `connecting`: tentativa em curso;
-- `connected`: transporte estabelecido;
-- `synchronizing`: ligação reaberta, snapshot ainda não validado;
-- `live`: snapshot/eventos válidos dentro do prazo de frescura configurado;
-- `stale`: existe último estado, mas excedeu o prazo;
-- `error`: falha conhecida com informação útil para diagnóstico.
-
-A UI pode usar termos mais amigáveis, mas não deve fundir estados distintos. “Connected” por si só não significa que os dados operacionais estão sincronizados.
-
-## 5. Regras de reconexão e estado desatualizado
-
-1. Marcar o estado como desatualizado quando expira o TTL/heartbeat configurado.
-2. Parar indicadores que possam ser interpretados como progresso operacional atual.
-3. Permitir animação social local, com distinção visual discreta do estado real.
-4. Após reconectar, entrar em `synchronizing` e obter snapshot antes de declarar o estado `live`.
-5. Não inferir eventos ocorridos durante a desconexão.
-6. Se o projeto suportar replay/event log, o adaptador pode recuperar eventos; caso contrário, mostrar que o histórico é incompleto.
-7. Só uma capacidade de diagnóstico autorizada pode executar ações reais; a enfermaria visual é, por omissão, apenas uma representação.
-
-## 6. Política da enfermaria/triagem
-
-A política é configuração de projeto/adaptador, não uma regra universal codificada no renderer. Campos conceptuais: limiar de aviso, limiar de triagem, razão, confiança, origem e ação permitida. A ausência de heartbeat pode acionar um estado visual de triagem após o tempo definido; não autoriza automaticamente reiniciar processos, mover serviços ou isolar máquinas.
-
-Se a ligação total estiver perdida, a UI pode apresentar “sem comunicação — diagnóstico pendente”. A recuperação real precisa de confirmação do backend.
-
-## 7. Separação de threads e recursos
-
-- O render loop nunca executa operações de rede bloqueantes.
-- O adaptador usa operações assíncronas e timeout.
-- Eventos recebidos são normalizados antes de entrar no estado visual.
-- O renderer pode ser reiniciado sem perder a fonte autoritativa; após reiniciar, recarrega configuração e snapshot.
-- A simulação social deve ter orçamento de CPU e poder reduzir taxa de atualização/animações.
-- Falhas de asset/modelo substituem-se por placeholder acessível, sem crash global.
-- A observabilidade do Office Kit não deve ser confundida com telemetria do backend.
-
-## 8. Segurança
-
-- Nenhum segredo em JSON de escritório, logs visuais, URL de asset ou exportação.
-- Não executar código incluído em configuração.
-- Validar e limitar assets importados; preferir formatos e fontes explicitamente autorizados.
-- Comandos perigosos exigem capacidade declarada e autorização pelo anfitrião; a UI confirma o resultado real.
-- CORS, autenticação, armazenamento e transporte são responsabilidade do adaptador/host, não de hacks no renderer.
-
-## 9. Versionamento e compatibilidade
-
-- Configurações possuem `schemaVersion`.
-- Migrações são puras, testadas e não destrutivas.
-- Eventos e adaptadores são versionados separadamente da cena quando necessário.
-- Mudanças incompatíveis têm migração e nota de release.
-- Um renderer antigo pode recusar um schema futuro com erro claro em vez de o reinterpretar silenciosamente.
-
-## 10. Testabilidade
-
-A arquitetura exige testes para:
-- configuração válida/inválida e migrações;
-- execução com backend ausente;
-- perda de ligação, TTL e reconexão;
-- evento duplicado/fora de ordem;
-- simulação social sem chamadas operacionais;
-- isolamento de erro do renderer;
-- capacidades e comandos não autorizados;
-- enquadramento em retrato/paisagem e ecrãs estreitos;
-- acessibilidade de rótulos, foco e navegação;
-- custo de CPU/memória com elenco e mobília crescentes.
-
-
-## 11. Contrato de estado runtime (v1 — implementação inicial)
-
-O módulo `packages/scene-engine/src/runtime-state.mjs` normaliza snapshots neutros sem dependências de renderer ou de backend específico. O snapshot exige `schemaVersion: 1`, `sourceId`, `snapshotId`, `generatedAt`, `connectionState`, `synchronized`, listas de agentes e tarefas. Os estados de agente e tarefa são limitados a vocabulários explícitos; valores desconhecidos são rejeitados em vez de reinterpretados.
-
-A função `normalizeRuntimeSnapshot(snapshot, { now, ttlMs })` deriva `live` apenas para um snapshot fresco, sincronizado e sem erro de ligação. Dados expirados ou com timestamp futuro são `stale`; após reconexão sem sincronização ficam `synchronizing`. Em qualquer estado não-live, os estados apresentados de agentes/tarefas tornam-se `unknown`, preservando o valor de origem apenas em `sourceStatus` para diagnóstico. `authoritativeStateVerified` é falso salvo em `live`.
-
-**Limite de segurança:** o módulo valida estrutura e frescura, mas não autentica `sourceId` nem prova que a origem é confiável. O adaptador anfitrião tem de autenticar/autorizá-la antes de fornecer snapshots. Não existe ainda transporte, adaptador VST, heartbeat real ou execução de comandos.
-
-
-## 12. Controlador de sessão runtime (incremento inicial)
-`packages/scene-engine/src/runtime-session.mjs` fornece uma máquina de estados determinística para os adaptadores. O anfitrião chama `connect()`, `transportConnected()`, `receiveSnapshot()`, `heartbeat()`, `checkHealth()`, `disconnect()` ou `fail()`. O módulo não abre sockets nem executa comandos.
-
-A sessão só declara `live` quando existe snapshot estruturalmente válido, sincronizado e dentro do TTL e quando o heartbeat permanece dentro do prazo. Perda de heartbeat, erro e desconexão ocultam estados operacionais confirmados. A reconexão regressa a `synchronizing` até chegar um novo snapshot fresco. O controlador não autentica a origem: isso é obrigatório no adaptador anfitrião antes de fornecer dados.
+IDs de snapshot duplicados são ignorados pelo simulador. Snapshots antigos continuam sujeitos à validação de frescura do contrato; não podem restaurar estado operacional confirmado. O simulador serve para testar o Office Kit isoladamente e não constitui um adaptador de produção nem uma implementação de descoberta plug-and-play.
