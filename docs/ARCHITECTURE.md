@@ -160,3 +160,9 @@ A função `normalizeRuntimeSnapshot(snapshot, { now, ttlMs })` deriva `live` ap
 `packages/scene-engine/src/runtime-session.mjs` fornece uma máquina de estados determinística para os adaptadores. O anfitrião chama `connect()`, `transportConnected()`, `receiveSnapshot()`, `heartbeat()`, `checkHealth()`, `disconnect()` ou `fail()`. O módulo não abre sockets nem executa comandos.
 
 A sessão só declara `live` quando existe snapshot estruturalmente válido, sincronizado e dentro do TTL e quando o heartbeat permanece dentro do prazo. Perda de heartbeat, erro e desconexão ocultam estados operacionais confirmados. A reconexão regressa a `synchronizing` até chegar um novo snapshot fresco. O controlador não autentica a origem: isso é obrigatório no adaptador anfitrião antes de fornecer dados.
+
+
+## Simulador genérico de runtime
+`packages/scene-engine/src/runtime-simulator.mjs` fornece um backend fictício executável sobre `RuntimeSession`. Emite snapshots neutros e regista eventos sequenciados para testes de ligação, sincronização, heartbeat, perda de comunicação, erro e reconexão. Não abre sockets, não descobre endpoints, não guarda credenciais e não executa comandos.
+
+IDs de snapshot duplicados são ignorados pelo simulador. Snapshots antigos continuam sujeitos à validação de frescura do contrato; não podem restaurar estado operacional confirmado. O simulador serve para testar o Office Kit isoladamente e não constitui um adaptador de produção nem uma implementação de descoberta plug-and-play. Office Kit não tem backend obrigatório: futuras integrações serão adaptadores opcionais selecionados explicitamente.

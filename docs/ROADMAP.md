@@ -99,3 +99,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Interface pública de adaptador e contrato de autenticação/capacidades.
 - [ ] Adaptador VST de leitura, apenas após validar o contrato neutro.
 - Nota: o heartbeat neste incremento é um evento fornecido pelo anfitrião/controlador; não existe ligação de rede real.
+
+
+### Atualização — simulador genérico e plug-and-play
+- [x] Implementar simulador de runtime independente de qualquer backend e testes de ciclo de vida/eventos; validar em CI antes de considerar integrado.
+- Office Kit não exige nem escolhe automaticamente um backend. A descoberta futura apresenta candidatos e capacidades, e a ativação requer seleção explícita do utilizador.
+- [ ] Definir interface pública estável de adaptador, versionamento, capacidades e envelope de eventos com sequência explícita.
+- [ ] Criar catálogo/instalação/desativação/remoção de adaptadores, com início em leitura e autenticação/autorização no anfitrião.
+- [ ] Implementar descoberta assistida sem varrimento indiscriminado de rede, sem contornar autenticação e sem guardar segredos no core.
