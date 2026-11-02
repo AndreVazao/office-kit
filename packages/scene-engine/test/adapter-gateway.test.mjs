@@ -81,6 +81,15 @@ test("gateway rejects duplicate and out-of-order events", async () => {
   assert.equal(gateway.getState().agents[0].status, "active");
 });
 
+test("gateway binds event source identity to the selected adapter", async () => {
+  const gateway = new AdapterGateway({ now: () => now });
+  await gateway.connect(makeAdapter());
+  const result = gateway.receiveEvent(makeEvent(1, "snapshot", snapshot("spoofed"), { sourceId: "other.adapter" }));
+  assert.equal(result.accepted, false);
+  assert.equal(result.reason, "source_identity_mismatch");
+  assert.equal(gateway.getState().agents[0].status, "active");
+});
+
 test("gateway consumes a fresh snapshot event and rejects expired events", async () => {
   const gateway = new AdapterGateway({ now: () => now });
   await gateway.connect(makeAdapter());
