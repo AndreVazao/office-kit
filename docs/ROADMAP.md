@@ -86,3 +86,7 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 11. Editor plug-and-play, enfermaria e distribuição.
 
 Não iniciar uma grande implementação 3D antes de haver contrato de dados, cena pequena testada e pipeline de capturas. Cada fase deve produzir código executável e evidência. A descoberta de backends não deve tornar a ligação automática.
+
+
+### Gate de validação do contrato runtime
+O primeiro incremento de código valida snapshots neutros e evita mostrar estados operacionais como confirmados quando os dados estão desatualizados, por sincronizar ou sem ligação. O gate só fica concluído após CI e regressão visual verdes no mesmo HEAD e confirmação pós-merge. Autenticação da origem, transporte, heartbeat real e adaptador VST continuam fora deste incremento.

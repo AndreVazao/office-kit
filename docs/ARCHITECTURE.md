@@ -145,3 +145,12 @@ A arquitetura exige testes para:
 - enquadramento em retrato/paisagem e ecrãs estreitos;
 - acessibilidade de rótulos, foco e navegação;
 - custo de CPU/memória com elenco e mobília crescentes.
+
+
+## 11. Contrato de estado runtime (v1 — implementação inicial)
+
+O módulo `packages/scene-engine/src/runtime-state.mjs` normaliza snapshots neutros sem dependências de renderer ou de backend específico. O snapshot exige `schemaVersion: 1`, `sourceId`, `snapshotId`, `generatedAt`, `connectionState`, `synchronized`, listas de agentes e tarefas. Os estados de agente e tarefa são limitados a vocabulários explícitos; valores desconhecidos são rejeitados em vez de reinterpretados.
+
+A função `normalizeRuntimeSnapshot(snapshot, { now, ttlMs })` deriva `live` apenas para um snapshot fresco, sincronizado e sem erro de ligação. Dados expirados ou com timestamp futuro são `stale`; após reconexão sem sincronização ficam `synchronizing`. Em qualquer estado não-live, os estados apresentados de agentes/tarefas tornam-se `unknown`, preservando o valor de origem apenas em `sourceStatus` para diagnóstico. `authoritativeStateVerified` é falso salvo em `live`.
+
+**Limite de segurança:** o módulo valida estrutura e frescura, mas não autentica `sourceId` nem prova que a origem é confiável. O adaptador anfitrião tem de autenticar/autorizá-la antes de fornecer snapshots. Não existe ainda transporte, adaptador VST, heartbeat real ou execução de comandos.

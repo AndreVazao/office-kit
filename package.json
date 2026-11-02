@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test packages/core/test/*.test.mjs packages/scene-engine/test/*.test.mjs",
-    "check": "node --check packages/core/src/index.mjs && node --check packages/scene-engine/src/index.mjs && node --check packages/scene-engine/src/quality.mjs && node --check examples/browser-preview/app.mjs && node --test packages/core/test/*.test.mjs packages/scene-engine/test/*.test.mjs"
+    "check": "node --check packages/core/src/index.mjs && node --check packages/scene-engine/src/index.mjs && node --check packages/scene-engine/src/runtime-state.mjs && node --check packages/scene-engine/src/quality.mjs && node --check examples/browser-preview/app.mjs && node --test packages/core/test/*.test.mjs packages/scene-engine/test/*.test.mjs"
   },
   "engines": { "node": ">=20" },
   "license": "MIT"
