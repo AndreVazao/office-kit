@@ -90,3 +90,12 @@ Não iniciar uma grande implementação 3D antes de haver contrato de dados, cen
 
 ### Gate de validação do contrato runtime
 O primeiro incremento de código valida snapshots neutros e evita mostrar estados operacionais como confirmados quando os dados estão desatualizados, por sincronizar ou sem ligação. O gate só fica concluído após CI e regressão visual verdes no mesmo HEAD e confirmação pós-merge. Autenticação da origem, transporte, heartbeat real e adaptador VST continuam fora deste incremento.
+
+
+### Atualização — ciclo de vida runtime
+- [x] Contrato neutro de snapshot v1 com estados não confirmados em dados stale/desconectados.
+- [x] Controlador puro de ciclo de vida para ligação, sincronização, heartbeat/TTL, desconexão, erro e reconexão.
+- [ ] Backend fictício integrado a uma demonstração executável e testes de eventos fora de ordem/duplicados.
+- [ ] Interface pública de adaptador e contrato de autenticação/capacidades.
+- [ ] Adaptador VST de leitura, apenas após validar o contrato neutro.
+- Nota: o heartbeat neste incremento é um evento fornecido pelo anfitrião/controlador; não existe ligação de rede real.
