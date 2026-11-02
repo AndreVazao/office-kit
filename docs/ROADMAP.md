@@ -115,3 +115,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Ligar o normalizador à sessão runtime com armazenamento de sequência por origem/sessão e política explícita para lacunas de sequência.
 - [ ] Definir autenticação/identidade e permissões no anfitrião antes de aceitar dados de um adaptador.
 - [ ] Adicionar catálogo/descoberta assistida e fluxo de seleção humana; sem ligação automática.
+
+
+### Atualização — gateway de adaptadores
+- [x] Ligar adaptador selecionado explicitamente ao controlador de sessão, com snapshot inicial e limpeza de subscrição.
+- [x] Testar rejeição de eventos duplicados, fora de ordem e expirados no gateway.
+- [ ] Vincular a identidade do envelope à identidade autenticada pelo anfitrião e definir comportamento de lacunas de sequência.
+- [ ] Construir catálogo e descoberta assistida sem seleção ou ligação automática.
+- [ ] Testar integração em browser/desktop/mobile com adaptadores de demonstração separados do core.
