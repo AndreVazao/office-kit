@@ -1,11 +1,17 @@
 # Office Kit — roteiro canónico
 
-O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando os seus critérios são verificados; percentagens não substituem testes.
+O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando os critérios são verificados; percentagens não substituem testes.
+
+## Princípio central: plug-and-play sem backend obrigatório
+- Office Kit é uma camada de visualização/runtime genérica. Nenhum produto ou backend é obrigatório.
+- Uma integração só fica ativa após seleção explícita de um adaptador compatível pelo utilizador.
+- A descoberta futura apresenta candidatos e capacidades; não liga automaticamente nem executa comandos durante a descoberta.
+- A integração mínima começa em leitura; comandos são capacidades opcionais, desativadas por omissão, com autenticação, autorização e confirmação do backend anfitrião.
 
 ## Fase 0 — contrato, memória e proveniência
 - [x] Definir missão, princípios e fronteiras de produto.
 - [x] Fixar arquitetura de alto nível e separação backend/frontend.
-- [x] Definir o papel de Diorama como referência visual.
+- [x] Documentar o papel de Diorama como referência visual.
 - [x] Documentar perfis gráficos económicos a cinemáticos.
 - [ ] Rever módulos e licenças antes de importar código/assets.
 - [ ] Manter memória específica AndreOS Memory sincronizada com decisões e estado real.
@@ -14,13 +20,13 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Definir tipos neutros para edifício, piso, departamento, sala, agente, avatar, mobília, estado e ligação.
 - Definir schema versionado, validação, carga/guarda/importação/exportação.
 - Criar testes para configuração vazia, padrão, grande e inválida.
-- Criar backend fictício e modo sem backend.
+- [x] Criar simulador genérico de runtime e testes de ciclo de vida/eventos; validar em CI antes de considerar integrado.
 
 ## Fase 2 — renderer funcional e responsivo
-- [x] Integrar o motor de cena com o preview e eliminar cálculos de layout duplicados na escala/enquadramento.
+- [x] Integrar o motor de cena no preview e eliminar cálculos de layout duplicados na escala/enquadramento.
 - Criar cena pixel-diorama pequena, configurável e inspirada no Diorama.
-- [ ] Validar por capturas reais enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos. Playwright passou nos três viewports e confirmou zoom de departamento + regresso à vista geral; falta inspecionar novamente a captura após a implementação do foco e testar em aparelho físico.
-- [ ] Definir e validar a vista inicial do edifício inteiro em perspetiva superior angular com corte frontal. O preview CSS já tem foco/zoom provisório por departamento e botão para regressar à vista geral; renderer final continua pendente.
+- [ ] Validar por capturas reais enquadramento, zoom, resize em retrato/paisagem e seleção legível em ecrãs pequenos; teste físico ainda pendente.
+- [ ] Definir e validar a vista inicial do edifício inteiro em perspetiva superior angular com corte frontal; renderer final continua pendente.
 - Preparar capturas automáticas e auditoria de consola/geometria.
 - Validar Android de baixa/média capacidade e desktop.
 
@@ -39,21 +45,23 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Caminhos e prevenção de sobreposição, seed determinística para QA.
 - Reduzir/desligar animações em hardware fraco e provar que não envia comandos.
 
-## Fase 5 — descoberta assistida de possíveis backends
+## Fase 5 — descoberta assistida e instalação de adaptadores
 - Descobrir apenas fontes autorizadas/configuradas: endpoints fornecidos, documentação selecionada, catálogo de adaptadores e conectores explicitamente ligados.
-- Apresentar candidatos com origem, evidência, compatibilidade estimada, capacidades e requisitos de autenticação.
+- Apresentar candidatos com origem, evidência, compatibilidade, capacidades e requisitos de autenticação.
 - Permitir health-check de leitura apenas com consentimento e escopo explícito; nunca enviar comandos de escrita durante descoberta.
+- Permitir escolher, instalar, configurar, testar, desativar e remover adaptadores independentemente do Office Kit core.
 - Exigir escolha humana antes de criar/ativar adaptador; começar em modo de leitura.
 - Não fazer varrimento indiscriminado de rede, contornar autenticação nem guardar segredos.
 - Testar falsos positivos, endpoint inválido, autenticação ausente, permissões, timeout e exposição de dados.
 
 **Estado:** requisito futuro documentado, ainda não implementado.
 
-## Fase 6 — runtime e adaptador de referência
-- Definir interface pública de adaptador.
-- Ligar backend fictício com snapshots, heartbeat, eventos e reconexão.
-- Distinguir estado confirmado, desatualizado e desconhecido.
-- Construir adaptador VST como exemplo sem dependências VST no core.
+## Fase 6 — runtime e contrato público de adaptador
+- [x] Contrato neutro de snapshot e controlador de sessão.
+- [x] Simulador genérico para sincronização, eventos, heartbeat, desconexão, dados duplicados/antigos e reconexão; testes CI pendentes para este incremento.
+- [ ] Definir interface pública estável de adaptador, versionamento e capacidades.
+- [ ] Definir envelope de evento com sequência explícita para rejeitar eventos fora de ordem sem inferir ordem a partir de IDs.
+- [ ] Construir primeiro adaptador real apenas como exemplo opcional, sem dependências específicas no core.
 - Provar que fechar/reiniciar Office Kit não altera o ciclo de vida do backend.
 
 ## Fase 7 — editor plug-and-play
@@ -74,28 +82,15 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 
 ## Ordem de prioridade executável
 1. Contrato e core neutro.
-2. Integrar motor de cena no preview e corrigir escala/legibilidade.
-3. Renderer determinístico pequeno carregado por configuração.
+2. Corrigir escala/legibilidade do preview e validar capturas.
+3. Renderer determinístico configurado por JSON.
 4. Capturas retrato/paisagem e correção de sobreposições.
 5. Integrar perfis gráficos e medir em aparelhos reais.
 6. Animação social local com limites de recursos.
-7. Contrato de backend e backend fictício com reconexão.
-8. Interação de conversa/comandos por CEO, chefias e todos os avatares, primeiro com backend fictício e estados honestos de entrega.
-9. Descoberta assistida e segura de pontos de ligação a backends.
-10. Adaptador VST de referência sem dependência no core.
-11. Editor plug-and-play, enfermaria e distribuição.
+7. Contrato de backend e simulador genérico com reconexão.
+8. Interface pública de adaptadores e envelope sequenciado de eventos.
+9. Descoberta assistida segura, catálogo e instalação/desinstalação de adaptadores.
+10. Adaptadores reais opcionais, começando em leitura e sem dependências no core.
+11. Editor plug-and-play, diagnóstico e distribuição.
 
 Não iniciar uma grande implementação 3D antes de haver contrato de dados, cena pequena testada e pipeline de capturas. Cada fase deve produzir código executável e evidência. A descoberta de backends não deve tornar a ligação automática.
-
-
-### Gate de validação do contrato runtime
-O primeiro incremento de código valida snapshots neutros e evita mostrar estados operacionais como confirmados quando os dados estão desatualizados, por sincronizar ou sem ligação. O gate só fica concluído após CI e regressão visual verdes no mesmo HEAD e confirmação pós-merge. Autenticação da origem, transporte, heartbeat real e adaptador VST continuam fora deste incremento.
-
-
-### Atualização — ciclo de vida runtime
-- [x] Contrato neutro de snapshot v1 com estados não confirmados em dados stale/desconectados.
-- [x] Controlador puro de ciclo de vida para ligação, sincronização, heartbeat/TTL, desconexão, erro e reconexão.
-- [ ] Backend fictício integrado a uma demonstração executável e testes de eventos fora de ordem/duplicados.
-- [ ] Interface pública de adaptador e contrato de autenticação/capacidades.
-- [ ] Adaptador VST de leitura, apenas após validar o contrato neutro.
-- Nota: o heartbeat neste incremento é um evento fornecido pelo anfitrião/controlador; não existe ligação de rede real.
