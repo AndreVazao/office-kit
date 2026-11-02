@@ -80,6 +80,10 @@ export class AdapterGateway {
     if (!this.adapter) {
       return { accepted: false, reason: "no_adapter_selected" };
     }
+    if (event?.sourceId !== this.adapter.metadata.id) {
+      this.#emit({ type: "event_rejected", reason: "source_identity_mismatch", errors: [] });
+      return { valid: true, accepted: false, reason: "source_identity_mismatch", errors: [] };
+    }
     const key = `${event?.sourceId ?? ""}::${event?.sessionId ?? ""}`;
     const lastSequence = this.eventSequences.get(key) ?? 0;
     const normalized = normalizeAdapterEvent(event, {
