@@ -77,3 +77,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - O simulador foi incluído nas verificações de sintaxe do pacote.
 - CI e regressão visual deste PR e pós-merge ainda têm de passar. Os testes foram escritos, mas não executados localmente neste ambiente.
 - Office Kit continua genérico: não existe ligação automática ou fixa a VST, DGM-MAT ou qualquer backend. Descoberta, seleção e instalação de adaptadores são fases futuras.
+
+
+## Contrato público de adaptadores — incremento em revisão
+- Adicionado `adapter-contract.mjs` com API versionada, métodos mínimos, metadados e capacidades conhecidas.
+- Modo seguro por omissão: somente leitura. Comandos são capacidade explícita, não fazem parte da interface mínima e exigem autorização externa.
+- Adicionado normalizador de envelope de eventos com sequência monotónica, timestamp e rejeição de eventos repetidos, fora de ordem, expirados ou com timestamp futuro.
+- Testes adicionados para contrato mínimo, capacidades inválidas, envelope, sequência, validade temporal e timestamps numéricos.
+- CI e regressão visual deste PR ainda pendentes; a validação estrutural não autentica adaptadores.
