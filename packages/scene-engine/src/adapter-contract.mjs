@@ -63,9 +63,9 @@ export function normalizeAdapterEvent(event, { lastSequence = 0, now = Date.now(
   if (!nonEmpty(event.sessionId)) errors.push("sessionId is required.");
   if (!Number.isSafeInteger(event.sequence) || event.sequence <= 0) errors.push("sequence must be a positive safe integer.");
   if (!EVENT_TYPES.has(event.type)) errors.push("event type is invalid.");
-  const timestamp = typeof event.timestamp === "string" || typeof event.timestamp === "number"
-    ? Date.parse(event.timestamp)
-    : NaN;
+  const timestamp = typeof event.timestamp === "number"
+    ? event.timestamp
+    : typeof event.timestamp === "string" ? Date.parse(event.timestamp) : NaN;
   if (!Number.isFinite(timestamp)) errors.push("timestamp must be valid.");
   if (!("payload" in event) || event.payload === undefined) errors.push("payload is required.");
 
