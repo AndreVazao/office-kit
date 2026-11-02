@@ -115,3 +115,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Ligar o normalizador à sessão runtime com armazenamento de sequência por origem/sessão e política explícita para lacunas de sequência.
 - [ ] Definir autenticação/identidade e permissões no anfitrião antes de aceitar dados de um adaptador.
 - [ ] Adicionar catálogo/descoberta assistida e fluxo de seleção humana; sem ligação automática.
+
+
+### Atualização — bridge de adaptadores
+- [x] Ligar adaptador explicitamente selecionado ao controlador runtime neutro, com snapshot inicial e eventos sequenciados.
+- [x] Falhar de forma segura perante lacunas de sequência, eventos repetidos/antigos e alteração de origem/sessão.
+- [ ] Definir e aplicar patches de estado para eventos incrementais de agentes/tarefas; até lá esses tipos não alteram o estado visual.
+- [ ] Adicionar autenticação/identidade no host e catálogo de adaptadores, sem descoberta automática nem backend obrigatório.
