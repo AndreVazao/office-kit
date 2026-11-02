@@ -170,3 +170,7 @@ IDs de snapshot duplicados são ignorados pelo simulador. Snapshots antigos cont
 
 ## Contrato público de adaptadores — versão inicial
 `packages/scene-engine/src/adapter-contract.mjs` define API v1 neutra, valida métodos obrigatórios, metadados e capacidades permitidas. A capacidade padrão é apenas `read_state`; `send_commands` não é assumida nem ativada por omissão. O envelope de eventos exige origem, sessão, sequência, timestamp, tipo e payload. Eventos duplicados/fora de ordem e eventos expirados/futuros são recusados. A validação estrutural não autentica a origem nem substitui a autorização do anfitrião.
+
+
+## Gateway de adaptadores
+`packages/scene-engine/src/adapter-gateway.mjs` liga apenas um adaptador explicitamente fornecido à sessão neutra. Valida o contrato, liga o adaptador, obtém snapshot inicial, subscreve eventos, filtra eventos repetidos/fora de ordem/expirados e limpa a subscrição ao desligar. Não descobre adaptadores, não executa comandos e não autentica por si só; o anfitrião tem de estabelecer identidade e autorização antes de fornecer o adaptador.

@@ -85,3 +85,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Adicionado normalizador de envelope de eventos com sequência monotónica, timestamp e rejeição de eventos repetidos, fora de ordem, expirados ou com timestamp futuro.
 - Testes adicionados para contrato mínimo, capacidades inválidas, envelope, sequência, validade temporal e timestamps numéricos.
 - CI e regressão visual deste PR ainda pendentes; a validação estrutural não autentica adaptadores.
+
+
+## Gateway de adaptadores — incremento em revisão
+- Adicionado `AdapterGateway` para ligar um adaptador explicitamente escolhido à `RuntimeSession`.
+- Valida a interface, obtém snapshot inicial antes de considerar estado confirmado e processa envelopes de evento com sequência e idade.
+- Falhas de ligação falham em segurança; desligar limpa subscrições. Não existe descoberta automática, autenticação integrada, transporte próprio ou execução de comandos.
+- Testes adicionados para adaptador válido/inválido, falha de ligação, duplicados, ordem, expiração, heartbeat e limpeza de subscrição.
+- CI e regressão visual ainda pendentes; identidade/autorização continuam responsabilidade do anfitrião.
