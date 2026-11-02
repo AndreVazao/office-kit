@@ -9,8 +9,9 @@ Ler nesta ordem:
 5. [Roteiro](ROADMAP.md) — ordem de execução e gates de conclusão.
 6. [Descoberta assistida de backends](BACKEND_DISCOVERY.md) — requisito futuro de pesquisa segura de pontos de integração.
 7. [Adaptação do Diorama](DIORAMA_ADAPTATION.md) — estudo da referência e proveniência/licenças.
-8. [Auditoria inicial do Diorama](DIORAMA_AUDIT.md) — achados verificados e trabalho ainda por auditar.
-9. [Estado de implementação](IMPLEMENTATION_STATUS.md) — código existente versus trabalho planeado e evidência de testes.
+8. [Revisão de referência Deskforce](REFERENCE_DESKFORCE.md) — coordenação multiagente, aprovações, custos, proveniência e limites de reutilização.
+9. [Auditoria inicial do Diorama](DIORAMA_AUDIT.md) — achados verificados e trabalho ainda por auditar.
+10. [Estado de implementação](IMPLEMENTATION_STATUS.md) — código existente versus trabalho planeado e evidência de testes.
 
 ## Regra de autoridade
 

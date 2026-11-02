@@ -44,3 +44,10 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
 - Local social activity must never become a claim that an agent is doing real work.
 - Quality profiles may reduce detail and effects, but must not alter operational state, remove essential information, or compromise readable layout.
+
+
+## Estado de proveniência visual (implementação inicial)
+- A pré-visualização marca a atividade de cada personagem como “Simulado” e “não verificado”; o cabeçalho distingue simulação local de backend apenas declarado.
+- Esta etiqueta não é um adaptador de backend nem prova de execução. O Office Kit ainda não recebe estados operacionais reais.
+- Foi registada a revisão documental inicial do Deskforce em `docs/REFERENCE_DESKFORCE.md`. Não foi copiado código nem asset desse projeto nesta fase.
+- Verificação automatizada desta alteração: pendente de CI e regressão visual do PR.
