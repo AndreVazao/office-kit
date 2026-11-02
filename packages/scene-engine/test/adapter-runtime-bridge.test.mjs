@@ -86,11 +86,12 @@ test("bridge fails closed when a sequence gap appears", async () => {
 test("bridge rejects stale events and source/session changes", async () => {
   const { bridge, now, advance } = setup();
   await bridge.start();
+  bridge.receiveEvent(makeEvent(now(), 1));
   advance(31_000);
-  const stale = bridge.receiveEvent(makeEvent(now() - 31_000, 1));
+  const stale = bridge.receiveEvent(makeEvent(now() - 31_000, 2));
   assert.equal(stale.accepted, false);
   assert.equal(stale.reason, "stale_or_future_event");
-  const changed = bridge.receiveEvent(makeEvent(now(), 1, { sourceId: "different-source" }));
+  const changed = bridge.receiveEvent(makeEvent(now(), 2, { sourceId: "different-source" }));
   assert.equal(changed.accepted, false);
   assert.equal(changed.reason, "source_or_session_changed_without_reconnect");
 });
