@@ -170,3 +170,7 @@ IDs de snapshot duplicados são ignorados pelo simulador. Snapshots antigos cont
 
 ## Contrato público de adaptadores — versão inicial
 `packages/scene-engine/src/adapter-contract.mjs` define API v1 neutra, valida métodos obrigatórios, metadados e capacidades permitidas. A capacidade padrão é apenas `read_state`; `send_commands` não é assumida nem ativada por omissão. O envelope de eventos exige origem, sessão, sequência, timestamp, tipo e payload. Eventos duplicados/fora de ordem e eventos expirados/futuros são recusados. A validação estrutural não autentica a origem nem substitui a autorização do anfitrião.
+
+
+## Bridge de runtime para adaptadores selecionados
+`AdapterRuntimeBridge` liga explicitamente um adaptador fornecido pelo chamador ao `RuntimeSession`. Valida a superfície do adaptador, inicia ligação e subscrição, exige snapshot inicial fresco/sincronizado e normaliza eventos com sequência por sessão. Duplicados, eventos antigos, troca de origem/sessão sem reconexão e lacunas de sequência são recusados; uma lacuna faz fail-closed. Não existe descoberta nem carregamento automático de adaptadores. O host continua responsável por autenticar e autorizar o adaptador antes de criar a bridge. Eventos incrementais de agentes/tarefas ainda não são aplicados; exigem contrato de patch/estado explícito numa fase futura.
