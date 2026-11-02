@@ -85,3 +85,13 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Adicionado normalizador de envelope de eventos com sequência monotónica, timestamp e rejeição de eventos repetidos, fora de ordem, expirados ou com timestamp futuro.
 - Testes adicionados para contrato mínimo, capacidades inválidas, envelope, sequência, validade temporal e timestamps numéricos.
 - CI e regressão visual deste PR ainda pendentes; a validação estrutural não autentica adaptadores.
+
+
+## Bridge de runtime para adaptadores — incremento em revisão
+- Adicionado `AdapterRuntimeBridge` para integrar somente o adaptador que o chamador seleciona explicitamente.
+- A bridge valida a interface, liga, subscreve eventos e exige snapshot inicial sincronizado e atual antes de indicar estado live.
+- Eventos são sequenciados por origem/sessão; duplicados, fora de ordem, expirados/futuros, mudança de sessão e lacunas são recusados. Lacunas levam o runtime para erro e removem a confirmação operacional.
+- Encerramento remove a subscrição e chama disconnect no adaptador.
+- Testes adicionados para arranque, sequência, lacunas, eventos temporais, troca de origem, encerramento e snapshot inicial inválido.
+- Não há descoberta, carregamento automático, autenticação implementada ou comandos; o anfitrião deve autenticar/autorizar e a atualização incremental de agentes/tarefas continua por implementar.
+- CI e regressão visual deste PR ainda pendentes.
