@@ -124,6 +124,12 @@ Se a ligação total estiver perdida, a UI pode apresentar “sem comunicação 
 - Comandos perigosos exigem capacidade declarada e autorização pelo anfitrião; a UI confirma o resultado real.
 - CORS, autenticação, armazenamento e transporte são responsabilidade do adaptador/host, não de hacks no renderer.
 
+## Instalação independente, propriedade e privacidade
+
+O Office Kit é um produto instalável/licenciável para utilização independente. Cada instalação pertence ao respetivo proprietário/cliente e mantém o seu próprio espaço privado: configuração do escritório, edifícios, pisos, departamentos, salas, avatares, assets, preferências e dados locais. Não existe partilha, sincronização, diretório central de utilizadores ou ligação entre instalações por omissão. Uma instalação deve funcionar integralmente em modo local, sem conta central, backend externo ou ligação à Internet, salvo funcionalidades opcionais que dependam explicitamente de serviços externos.
+
+A ligação a um backend é uma decisão explícita do proprietário e é configurada separadamente da seleção de adaptador. Não há descoberta, emparelhamento, telemetria ou conexão automática. Cada integração externa exige identificação do destino, autenticação/autorização própria e consentimento do proprietário. Dados de uma instalação nunca são enviados para outra instalação ou para o fornecedor do Office Kit por defeito. Exportações, cópias de segurança e sincronização futura são ações explícitas e controladas pelo proprietário. A arquitetura comercial deve suportar licenças/cópias independentes sem transformar o fornecedor do Office Kit num operador obrigatório da infraestrutura do cliente.
+
 ## 9. Versionamento e compatibilidade
 
 - Configurações possuem `schemaVersion`.
