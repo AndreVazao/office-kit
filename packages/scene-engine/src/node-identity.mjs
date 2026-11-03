@@ -140,9 +140,15 @@ export class NodeIdentityManager {
   async rotate() {
     const current = await this.#metadataStore.get();
     if (!current || current.revokedAt) throw new Error("node_identity_unavailable");
-    const next = await this.create({ organizationId: current.organizationId, nodeId: current.nodeId });
-    await this.#keyStore.deleteKey(current.keyId);
-    return next;
+    await this.#metadataStore.set(Object.freeze({ ...current, revokedAt: this.#clock() }));
+    try {
+      const next = await this.create({ organizationId: current.organizationId, nodeId: current.nodeId });
+      await this.#keyStore.deleteKey(current.keyId);
+      return next;
+    } catch (error) {
+      await this.#metadataStore.set(current);
+      throw error;
+    }
   }
   async revoke() {
     const current = await this.#metadataStore.get();
