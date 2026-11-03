@@ -93,3 +93,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Falhas de ligação falham em segurança; desligar limpa subscrições. Não existe descoberta automática, autenticação integrada, transporte próprio ou execução de comandos.
 - Testes adicionados para adaptador válido/inválido, falha de ligação, duplicados, ordem, expiração, heartbeat e limpeza de subscrição.
 - CI e regressão visual ainda pendentes; identidade/autorização continuam responsabilidade do anfitrião.
+
+
+## Catálogo de adaptadores — implementação em revisão
+- Adicionado `AdapterCatalog`: registo explícito em memória, validação do contrato, IDs únicos, listagem/filtro de capacidades, descrição, seleção por ID e remoção.
+- A seleção verifica capacidades exigidas e devolve o adaptador registado sem executar `connect()`.
+- Não existe descoberta de rede/disco, importação dinâmica, autenticação integrada ou ligação automática.
+- Testes cobrem registo válido/inválido, duplicados, filtros, requisitos de capacidade, metadados defensivos e remoção.
+- CI e regressão visual do PR ainda não executados nesta atualização.
