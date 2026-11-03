@@ -131,3 +131,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Seleção por ID sem ligação automática, importação dinâmica ou descoberta de rede.
 - [ ] Integrar o catálogo com uma interface de seleção no host e exigir autenticação/autorização antes de passar o adaptador ao gateway.
 - [ ] Implementar descoberta assistida apenas de fontes autorizadas/configuradas.
+
+### Atualização — adaptador genérico de demonstração
+
+- [x] Implementar adaptador de referência em memória compatível com o contrato público v1.
+- [x] Integrar por seleção explícita no catálogo e ligação pelo AdapterGateway/RuntimeSession.
+- [x] Cobrir snapshot inicial, estado live, alterações de agentes/tarefas, heartbeat/timeout, falha, desconexão e reconexão.
+- [x] Cobrir rejeição de eventos duplicados, fora de ordem e com origem divergente.
+- [ ] Validar CI e regressão visual no SHA final do PR e verificar os workflows pós-merge na main.
+- [ ] Evoluir o fluxo de autorização do host para um contrato explícito de identidade autenticada e permissões concedidas; a validação atual de sourceId não é autenticação criptográfica.
+- Nota: o adaptador é determinístico e em memória; não utiliza rede, credenciais ou execução de comandos.
+

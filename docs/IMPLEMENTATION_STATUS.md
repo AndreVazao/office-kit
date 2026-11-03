@@ -101,3 +101,15 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Não existe descoberta de rede/disco, importação dinâmica, autenticação integrada ou ligação automática.
 - Testes cobrem registo válido/inválido, duplicados, filtros, requisitos de capacidade, metadados defensivos e remoção.
 - CI e regressão visual do PR ainda não executados nesta atualização.
+
+## Incremento atual — adaptador genérico de demonstração
+
+- Adicionado packages/scene-engine/src/generic-demo-adapter.mjs: adaptador de referência em memória, contrato v1, capacidades exclusivamente de leitura, snapshots sequenciados e eventos determinísticos.
+- O host pode registar e selecionar o adaptador através de AdapterCatalog, e ligá-lo explicitamente através de AdapterGateway; selecionar continua sem ligar automaticamente.
+- O adaptador permite alterar estados de agentes/tarefas, emitir heartbeat, simular falha de transporte e injetar envelopes para regressões de sequência/origem.
+- Adicionado packages/scene-engine/test/generic-demo-adapter.test.mjs cobrindo seleção sem ligação, snapshot inicial, atualização de agentes/tarefas, heartbeat/timeout, eventos duplicados/fora de ordem/origem incorreta, falha, limpeza e reconexão.
+- Incluído o novo módulo na verificação de sintaxe do script npm run check.
+- Limites: implementação local/determinística; não autentica criptograficamente, não implementa transporte real, não envia comandos e não substitui a autorização do host.
+- Estado de validação deste incremento: código e testes adicionados ao branch; CI e regressão visual ainda pendentes no HEAD final do PR. Não há execução local declarada nesta sessão.
+- PR #12 foi integrado por squash no commit 93afbe9cc89092f08984380703eaae822147e5fc. A consulta do conector a workflows pós-merge não devolveu runs, porque a função disponível filtra execuções acionadas por pull request; estado de CI da main nesse SHA permanece por confirmar por outra via.
+
