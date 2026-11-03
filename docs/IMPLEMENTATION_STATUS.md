@@ -171,3 +171,9 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Testes escritos em `packages/scene-engine/test/node-identity.test.mjs`; validação CI/regressão visual aguarda execução no HEAD final.
 
 - Validação inicial do PR #16: 81/86 testes passaram; os cinco testes de identidade falharam por `Crypto.randomUUID` chamado sem receiver. Corrigido no código e fixture. A regressão visual passou; nova execução CI no HEAD atualizado está pendente.
+
+
+## Identidade criptográfica e armazenamento seguro
+- PR #16 integrado: NodeIdentityManager com Ed25519, fingerprint SHA-256, desafio com nonce/audiência/expiração, prova de posse, rotação e revogação. CI e regressão visual passaram no HEAD final 08b146cd39dbd02944d272a43756c15a2db43352; merge SHA 56be1b0bebdbcf5d42ede6445f18496019521b55.
+- EphemeralEd25519KeyStore é apenas para testes/sessões efémeras; não é adequado para produção.
+- docs/SECURE_STORAGE.md define requisitos para providers persistentes Windows, macOS, Linux, Android e browser, incluindo atomicidade, falhas e testes de aceitação. É especificação documental; nenhum provider persistente foi implementado ainda.
