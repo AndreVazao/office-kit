@@ -44,7 +44,7 @@ export class EphemeralEd25519KeyStore extends NodeKeyStoreProvider {
   #subtle;
   #keys = new Map();
   #randomUUID;
-  constructor({ subtle = globalThis.crypto?.subtle, randomUUID = globalThis.crypto?.randomUUID } = {}) {
+  constructor({ subtle = globalThis.crypto?.subtle, randomUUID = () => globalThis.crypto.randomUUID() } = {}) {
     super();
     if (!subtle || typeof randomUUID !== "function") throw new Error("webcrypto_ed25519_unavailable");
     this.#subtle = subtle;
