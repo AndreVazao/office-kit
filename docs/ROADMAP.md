@@ -193,3 +193,18 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Testar rede LAN, segmentação, perda de conectividade, revogação, nó offline, conflito de versões e recuperação sem perda de dados locais.
 
 **Modelo alvo:** instalações independentes por computador, com federação opcional apenas entre nós autorizados da mesma organização privada. Uma vista central pode compor a cidade inteira; cada nó mantém autonomia local. Todos estes mecanismos continuam por implementar.
+
+## Próximo incremento — onboarding e descoberta privada automática
+
+- [ ] Definir contratos neutros versionados para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`.
+- [ ] Implementar descoberta LAN com anúncios mínimos; descoberta nunca equivale a confiança ou autorização.
+- [ ] Definir identidade criptográfica por instalação/nó, convite de organização, aprovação explícita, expiração e revogação.
+- [ ] Criar provider opcional para detetar/usar uma instalação Tailscale existente e nomes MagicDNS; sem segredos Tailscale embutidos nem alterações silenciosas ao tailnet.
+- [ ] Criar API de rendezvous HTTPS opcional com slug da organização, leases/heartbeats e metadados mínimos; permitir deploy na infraestrutura do cliente ou serviço hospedado opt-in.
+- [ ] Separar rendezvous de transporte de dados. Usar overlay privado/P2P quando possível; relay dedicado apenas como opção documentada e autorizada.
+- [ ] Fazer onboarding guiado sem IPs, portas, tokens ou comandos de terminal no caminho normal; explicar os passos de consentimento/login que não podem ser automatizados com segurança.
+- [ ] Garantir que Vercel é apenas um provider de hosting para diretório/API, não uma dependência de rede ou um túnel presumido.
+- [ ] Adicionar testes de isolamento entre organizações, autenticação, autorização granular, replay, sequência, expiração, revogação, nó stale/offline, perda de Internet e reconnect.
+- [ ] Medir custos/limites e definir política de privacidade/retensão antes de ativar qualquer rendezvous/relay hospedado.
+
+**Critério de aceitação:** duas instalações autorizadas encontram-se sem configuração manual de IP; nenhuma instalação não autorizada é aceite; sem rede ou Internet, cada escritório continua local e apresenta estado remoto não confirmado.
