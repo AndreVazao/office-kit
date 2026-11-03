@@ -133,3 +133,22 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Qualquer backend ou serviço externo será opcional e ligado manualmente pelo proprietário, com autenticação/autorização explícitas.
 - Não haverá telemetria nem envio dos dados do escritório ao fornecedor por omissão. Backup, exportação, migração ou sincronização futura serão operações explícitas.
 - Estado: requisitos documentados; isolamento de instalações, instaladores comerciais e mecanismos de licenciamento ainda não implementados nem verificados.
+
+
+## Requisitos aceites — instalação gráfica adaptativa
+
+- Objetivo visual máximo: renderer 3D avançado/realista, com níveis progressivos até chat/2D, diorama/pixel e 2.5D/isométrico.
+- O instalador deve avaliar as capacidades reais de cada dispositivo e instalar todos os níveis gráficos compatíveis, não apenas o nível mais alto.
+- O modo inicial é escolhido automaticamente entre os níveis validados; o utilizador pode fazer fallback manual para qualquer nível inferior instalado ou regressar ao automático.
+- Catálogo de avatares e identidade visual são universais e independentes do renderer. Cada avatar pode ter variantes/LOD para vários modos; a ausência de asset avançado não remove o avatar.
+- Estado: requisitos documentados; avaliador, manifestos, pacotes por capacidade, instalação seletiva, fallback runtime e renderers 3D avançados ainda não implementados.
+
+## Requisitos aceites — federação privada multi-computador
+
+- Cada instalação mantém o seu escritório e dados locais, podendo funcionar isoladamente sem Internet ou serviço central.
+- O proprietário pode autorizar explicitamente vários nós/computadores da mesma organização privada a comunicar através de LAN/rede privada.
+- Cada nó pode representar um departamento ou edifício; uma instalação agregadora pode mostrar uma cidade/organização unificada com vários edifícios e equipas.
+- A federação não é pública nem automática: exige identidade de nó, confiança mútua, autenticação, autorização granular e possibilidade de revogação.
+- A vista agregada é uma projeção; cada backend local mantém autoridade operacional. Estados remotos perdem confirmação quando a ligação expira. Animações de deslocação/conversa entre edifícios são visuais, salvo confirmação operacional explícita.
+- Não há relay/cloud obrigatório, telemetria ou comunicação externa por omissão. Organizações diferentes e instalações não associadas permanecem isoladas.
+- Estado: requisitos documentados; protocolo de federação, identidade criptográfica de nós, onboarding, agregador multi-escritório, topologia/cidade e testes de rede ainda não implementados.
