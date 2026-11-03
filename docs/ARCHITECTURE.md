@@ -273,3 +273,7 @@ Cada instalação cria uma identidade criptográfica de nó e uma identidade de 
 ### Providers e testes
 
 O core expõe interfaces neutras para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`. Providers LAN, Tailscale e rendezvous/cloud são opcionais e intercambiáveis; nenhuma dependência de VST, DGM-MAT, Vercel ou Tailscale entra no core. Testar descoberta com nomes/IPs dinâmicos, colisões, nós não confiáveis, replay, expiração, revogação, perda de Internet, NAT/relay, reinício de nós, organização errada e isolamento total entre tenants.
+ 
+## Primeiro incremento executável da federação — contratos v1
+
+O módulo `packages/scene-engine/src/federation-contract.mjs` fornece validadores puros e interfaces abstratas para descoberta, transporte privado e diretório de organização. O contrato valida descriptors públicos de nó (incluindo fingerprint SHA-256), capabilities, hints LAN/Tailscale/HTTPS/relay, leases temporárias limitadas e envelopes de evento schema v1 com sessão e sequência. Não executa I/O nem concede confiança ou autorização. A validade do fingerprint só se torna prova de identidade quando um futuro handshake criptográfico demonstrar posse da chave correspondente; neste incremento é apenas metadado validado. Nenhum provider concreto ou conectividade de rede foi implementado.
