@@ -196,7 +196,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ## Próximo incremento — onboarding e descoberta privada automática
 
-- [ ] Definir contratos neutros versionados para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`.
+- [x] Definir contratos neutros versionados iniciais para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`, com validadores de identidade pública, hints, leases e envelopes v1 (sem I/O nem autenticação).
 - [ ] Implementar descoberta LAN com anúncios mínimos; descoberta nunca equivale a confiança ou autorização.
 - [ ] Definir identidade criptográfica por instalação/nó, convite de organização, aprovação explícita, expiração e revogação.
 - [ ] Criar provider opcional para detetar/usar uma instalação Tailscale existente e nomes MagicDNS; sem segredos Tailscale embutidos nem alterações silenciosas ao tailnet.
