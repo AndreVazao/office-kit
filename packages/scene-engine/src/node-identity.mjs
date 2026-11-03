@@ -36,6 +36,7 @@ export class NodeKeyStoreProvider {
   async createKeyPair() { throw new Error("keystore_create_not_implemented"); }
   async sign(_keyId, _message) { throw new Error("keystore_sign_not_implemented"); }
   async deleteKey(_keyId) { throw new Error("keystore_delete_not_implemented"); }
+  async verify(_publicKey, _message, _signature) { throw new Error("keystore_verify_not_implemented"); }
 }
 
 /** In-memory reference provider for tests and ephemeral sessions only. */
@@ -115,6 +116,7 @@ export class NodeIdentityManager {
   }
   async createChallenge({ audience, ttlMs = 30_000 } = {}) {
     if (!Number.isSafeInteger(ttlMs) || ttlMs < 1_000 || ttlMs > 60_000) throw new TypeError("invalid_challenge_ttl");
+    if (typeof audience !== "string" || audience.length < 3 || audience.length > 128) throw new TypeError("invalid_challenge_audience");
     const nonce = base64url(bytes(await this.#randomBytes(32), "random_nonce"));
     const issuedAt = this.#clock();
     return Object.freeze({ nonce, audience, issuedAt, expiresAt: issuedAt + ttlMs });
