@@ -178,3 +178,14 @@ IDs de snapshot duplicados são ignorados pelo simulador. Snapshots antigos cont
 
 ## Catálogo explícito de adaptadores — incremento inicial
 `packages/scene-engine/src/adapter-catalog.mjs` mantém em memória apenas adaptadores fornecidos explicitamente pelo anfitrião. Valida o contrato, rejeita IDs duplicados, permite listar/filtrar capacidades e selecionar um adaptador por ID com requisitos de capacidade. Não pesquisa rede/disco, não importa código e não liga adaptadores. A seleção devolve o objeto registado; a ligação continua a ser responsabilidade explícita do anfitrião através do gateway.
+
+## 12. Adaptador genérico de demonstração (incremento de referência)
+
+O módulo packages/scene-engine/src/generic-demo-adapter.mjs fornece uma implementação de referência do contrato v1 para testar o caminho catálogo → gateway → sessão. Mantém agentes/tarefas em memória, publica snapshots/eventos com sequência e timestamp determinísticos e permite simular heartbeat, alteração de estado e falha de transporte.
+
+O adaptador não abre sockets, não descobre fontes, não importa código, não guarda credenciais e não executa comandos. Declara apenas read_state, read_agents e read_tasks.
+
+A instanciação e o registo continuam a ser responsabilidade do host. O host deve autenticar a origem e autorizar explicitamente as capacidades antes de registar/selecionar/passar qualquer adaptador ao gateway. A identidade sourceId validada pelo gateway é uma verificação de consistência do envelope, não autenticação criptográfica.
+
+O adaptador é uma ferramenta de demonstração/teste e não é um transporte de produção. Eventos de agente/tarefa são refletidos por snapshots completos, para que o RuntimeSession continue a consumir uma única representação autoritativa e validada.
+
