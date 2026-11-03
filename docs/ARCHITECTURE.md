@@ -174,3 +174,7 @@ IDs de snapshot duplicados são ignorados pelo simulador. Snapshots antigos cont
 
 ## Gateway de adaptadores
 `packages/scene-engine/src/adapter-gateway.mjs` liga apenas um adaptador explicitamente fornecido à sessão neutra. Valida o contrato, liga o adaptador, obtém snapshot inicial, subscreve eventos, filtra eventos repetidos/fora de ordem/expirados e limpa a subscrição ao desligar. Não descobre adaptadores, não executa comandos e não autentica por si só; o anfitrião tem de estabelecer identidade e autorização antes de fornecer o adaptador.
+
+
+## Catálogo explícito de adaptadores — incremento inicial
+`packages/scene-engine/src/adapter-catalog.mjs` mantém em memória apenas adaptadores fornecidos explicitamente pelo anfitrião. Valida o contrato, rejeita IDs duplicados, permite listar/filtrar capacidades e selecionar um adaptador por ID com requisitos de capacidade. Não pesquisa rede/disco, não importa código e não liga adaptadores. A seleção devolve o objeto registado; a ligação continua a ser responsabilidade explícita do anfitrião através do gateway.

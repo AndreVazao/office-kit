@@ -123,3 +123,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Vincular a identidade do envelope à identidade autenticada pelo anfitrião e definir comportamento de lacunas de sequência.
 - [ ] Construir catálogo e descoberta assistida sem seleção ou ligação automática.
 - [ ] Testar integração em browser/desktop/mobile com adaptadores de demonstração separados do core.
+
+
+### Atualização — catálogo de adaptadores
+- [x] Criar catálogo em memória para adaptadores fornecidos explicitamente pelo anfitrião.
+- [x] Listar e filtrar por capacidades declaradas; rejeitar IDs duplicados e capacidades em falta.
+- [x] Seleção por ID sem ligação automática, importação dinâmica ou descoberta de rede.
+- [ ] Integrar o catálogo com uma interface de seleção no host e exigir autenticação/autorização antes de passar o adaptador ao gateway.
+- [ ] Implementar descoberta assistida apenas de fontes autorizadas/configuradas.
