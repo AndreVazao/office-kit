@@ -62,3 +62,19 @@ test("revocation deletes the private key and makes identity unavailable", async 
   await assert.rejects(manager.provePossession(await manager.createChallenge({ audience: "remote-node" })), /unavailable/);
   assert.equal(await manager.revoke(), false);
 });
+
+test("rejects malformed cryptographic challenge entropy and proof encodings", async () => {
+  const { manager, metadataStore, keyStore } = fixture();
+  const weakEntropyManager = new NodeIdentityManager({
+    keyStore, metadataStore, clock: () => 1_800_000_000_000,
+    digest: async value => new Uint8Array(createHash("sha256").update(value).digest()),
+    randomBytes: async () => new Uint8Array(31)
+  });
+  await assert.rejects(weakEntropyManager.createChallenge({ audience: "remote-node" }), /random_nonce_must_be_32_bytes/);
+  const identity = await manager.create({ organizationId: "acme-office", nodeId: "node:desktop-01" });
+  const challenge = await manager.createChallenge({ audience: "node:remote-02" });
+  const proof = await manager.provePossession(challenge);
+  assert.equal(await manager.verifyProof({ publicKey: identity.publicKey, challenge, signature: "AQ" }), false);
+  assert.equal(await manager.verifyProof({ publicKey: "AQ", challenge, signature: proof.signature }), false);
+  await assert.rejects(manager.provePossession({ ...challenge, expiresAt: Number.NaN }), /invalid_challenge_window/);
+});
