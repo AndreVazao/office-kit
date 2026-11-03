@@ -169,3 +169,5 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - A chave privada fica atrás da interface `NodeKeyStoreProvider`; os metadados ficam atrás de `metadataStore`. O core não faz I/O de rede nem aprova peers.
 - `EphemeralEd25519KeyStore` é explicitamente efémero e de referência para testes; não é persistência de produção. Ainda falta implementar integração com keystore seguro do SO/browser e armazenamento persistente dos metadados.
 - Testes escritos em `packages/scene-engine/test/node-identity.test.mjs`; validação CI/regressão visual aguarda execução no HEAD final.
+
+- Validação inicial do PR #16: 81/86 testes passaram; os cinco testes de identidade falharam por `Crypto.randomUUID` chamado sem receiver. Corrigido no código e fixture. A regressão visual passou; nova execução CI no HEAD atualizado está pendente.
