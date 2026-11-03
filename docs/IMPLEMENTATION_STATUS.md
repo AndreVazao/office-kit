@@ -152,3 +152,13 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - A vista agregada é uma projeção; cada backend local mantém autoridade operacional. Estados remotos perdem confirmação quando a ligação expira. Animações de deslocação/conversa entre edifícios são visuais, salvo confirmação operacional explícita.
 - Não há relay/cloud obrigatório, telemetria ou comunicação externa por omissão. Organizações diferentes e instalações não associadas permanecem isoladas.
 - Estado: requisitos documentados; protocolo de federação, identidade criptográfica de nós, onboarding, agregador multi-escritório, topologia/cidade e testes de rede ainda não implementados.
+
+## Descoberta automática e conectividade — requisito aceite, não implementado
+
+- Objetivo UX: o utilizador não introduz IPs, portas ou DNS. O Office Kit tenta LAN e redes privadas já configuradas e oferece onboarding guiado para opções adicionais.
+- Tailscale é um provider opcional de transporte/descoberta para instalações já autenticadas; MagicDNS pode evitar a necessidade de conhecer IPs. A integração não pode conter OAuth client secrets/auth keys, provisionar dispositivos ou alterar o tailnet sem consentimento e autorização.
+- Um rendezvous HTTPS opcional com nome/slug da organização pode registar presença e metadados mínimos. Pode ser alojado na infraestrutura do cliente, incluindo Vercel quando adequado, ou num serviço hospedado explicitamente escolhido pelo cliente.
+- Rendezvous não é transporte: tráfego real requer overlay privado, conexão direta/P2P ou relay dedicado autorizado. Vercel não é assumida como VPN nem como relay genérico. WebSockets suportados pela plataforma não removem a necessidade de armazenamento partilhado, reconexão e coordenação distribuída.
+- Aprovação explícita de nós, identidade criptográfica, permissões granulares, revogação e isolamento entre organizações são obrigatórios. Descobrir um nó nunca lhe dá acesso automaticamente.
+- Modo standalone e operação local continuam disponíveis sem Internet, Tailscale, Vercel ou serviço central.
+- Estado real: apenas requisito/documentação. Ainda não existe descoberta LAN, provider Tailscale, rendezvous, relay, onboarding guiado, identidade de nó nem protocolo de federação implementado ou testado.
