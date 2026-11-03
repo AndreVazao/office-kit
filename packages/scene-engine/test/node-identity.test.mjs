@@ -7,7 +7,7 @@ function fixture() {
   let now = 1_800_000_000_000;
   const values = { current: null };
   const metadataStore = { async get() { return values.current; }, async set(value) { values.current = value; } };
-  const keyStore = new EphemeralEd25519KeyStore({ subtle: webcrypto.subtle, randomUUID: webcrypto.randomUUID });
+  const keyStore = new EphemeralEd25519KeyStore({ subtle: webcrypto.subtle, randomUUID: () => webcrypto.randomUUID() });
   const manager = new NodeIdentityManager({
     keyStore, metadataStore, clock: () => now,
     digest: async value => new Uint8Array(createHash("sha256").update(value).digest()),
