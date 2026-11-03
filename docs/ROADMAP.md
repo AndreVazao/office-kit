@@ -168,3 +168,28 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Definir exportação, backup, migração e eventual sincronização como operações explícitas, documentadas e controladas pelo proprietário.
 
 **Modelo de distribuição pretendido:** cada cliente tem uma instalação autónoma e privada; o fornecedor não opera um escritório central nem recebe os dados dos clientes por defeito.
+
+
+## Distribuição adaptativa de renderers e instalação por capacidades
+
+- [ ] Definir catálogo de modos visuais e níveis de qualidade, do chat/2D leve até 3D avançado e realista/cinemático.
+- [ ] Definir manifesto de compatibilidade e pacotes instaláveis por plataforma, arquitetura, API gráfica, memória, armazenamento e requisitos medidos.
+- [ ] Implementar avaliador de capacidades na instalação/primeira execução e instalar todos os níveis que o dispositivo suporta, não apenas o nível máximo.
+- [ ] Selecionar automaticamente o modo mais alto validado, com fallback manual imediato para qualquer modo inferior instalado e opção para regressar ao automático.
+- [ ] Garantir arranque no modo mais simples mesmo quando faltam assets ou runtimes avançados; fallback sem perda de configuração/sessão.
+- [ ] Manter catálogo universal de avatares e perfis independentes do renderer, com variantes de assets/LOD e placeholders por nível gráfico.
+- [ ] Testar instalação, atualização, remoção, mudança de renderer, memória e estabilidade em Android, Windows, Linux e hardware de diferentes capacidades.
+
+## Federação privada e cidade multi-computador
+
+- [ ] Definir identidade criptográfica de instalação/nó, organização privada, onboarding por convite/aprovação, confiança mútua, revogação e autorização granular.
+- [ ] Implementar modo isolado como padrão, sem conta central, relay/cloud obrigatório, telemetria ou comunicação externa por omissão.
+- [ ] Permitir ligar explicitamente nós Office Kit dentro de uma LAN/rede privada controlada pelo proprietário.
+- [ ] Permitir que cada computador mantenha o seu escritório/departamento local e que uma instalação agregadora apresente a organização/cidade com vários edifícios.
+- [ ] Definir protocolo de snapshots/eventos entre nós com sequência, timestamp, heartbeat, frescura, capacidades e estados desconectado/atrasado.
+- [ ] Distinguir projeção visual agregada de autoridade operacional: comandos reais continuam sujeitos ao backend anfitrião e autorização explícita.
+- [ ] Permitir visualização de deslocações e encontros entre edifícios sem transformar animações em transferências operacionais reais.
+- [ ] Garantir isolamento entre organizações e entre instalações não associadas; exportação, backup, migração e sincronização sempre explícitos.
+- [ ] Testar rede LAN, segmentação, perda de conectividade, revogação, nó offline, conflito de versões e recuperação sem perda de dados locais.
+
+**Modelo alvo:** instalações independentes por computador, com federação opcional apenas entre nós autorizados da mesma organização privada. Uma vista central pode compor a cidade inteira; cada nó mantém autonomia local. Todos estes mecanismos continuam por implementar.
