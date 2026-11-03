@@ -68,10 +68,13 @@ test("duplicate, out-of-order and foreign-source events are rejected", async () 
   const { adapter, gateway } = setup();
   await gateway.connect(adapter);
   const first = adapter.emitEvent("diagnostic", { code: "demo" });
+  // emitEvent synchronously delivers the event to the gateway's active listener.
+  // Re-submitting the returned envelope is therefore a duplicate and must be rejected.
   const duplicate = gateway.receiveEvent(first);
   const older = gateway.receiveEvent({ ...first, sequence: first.sequence - 1 });
   const foreign = gateway.receiveEvent({ ...first, sequence: first.sequence + 1, sourceId: "spoofed.source" });
-  assert.equal(duplicate.accepted, true);
+  assert.equal(duplicate.accepted, false);
+  assert.equal(duplicate.reason, "duplicate_or_out_of_order");
   assert.equal(gateway.receiveEvent(first).accepted, false);
   assert.equal(older.accepted, false);
   assert.equal(foreign.reason, "source_identity_mismatch");
