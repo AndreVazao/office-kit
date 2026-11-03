@@ -31,12 +31,12 @@ A production implementation must satisfy NodeKeyStoreProvider and additionally d
 - stable opaque key handles across process restarts;
 - Ed25519 generation without exporting private material;
 - signing using the opaque handle;
-- deletion with verifiable success/failure;
+- deletion with verifiable success/failure and key-existence inspection (`hasKey`);
+- provider capability metadata describing persistence, protection level, hardware backing and private-key exportability;
 - public-key export only;
-- verification using a public key independent of local private-key state;
-- capability/protection metadata (hardware-backed, OS-protected, browser-origin, or ephemeral).
+- verification using a public key independent of local private-key state.
 
-Metadata storage must provide read, atomic write/replace, and transactional rotation/revocation semantics. It must reject cross-installation scope changes unless an explicit migration operation is authorized.
+Metadata storage must provide `get()` and an atomic `compareAndSet(expectedRevision, next)` operation. `expectedRevision=null` means the record must not exist; existing legacy records without a revision are treated as revision 0 and migrated on the next write. Revisions increase monotonically. The store must reject cross-installation scope changes unless an explicit migration operation is authorized.
 
 ## Lifecycle and failure behavior
 1. Create key in secure provider.
@@ -59,4 +59,4 @@ Metadata storage must provide read, atomic write/replace, and transactional rota
 - Ephemeral provider is rejected by production configuration.
 
 ## Current status
-This document is a specification, not an implementation. The current EphemeralEd25519KeyStore remains test-only. No platform-specific persistent provider is shipped yet.
+This document is a specification, not a platform-provider implementation. `NodeIdentityManager` now requires an atomic revisioned metadata store and a keystore `hasKey`/capability contract; it records cleanup tombstones and can reconcile pending deletion or missing active keys. `EphemeralEd25519KeyStore` reports itself as non-persistent/ephemeral and is rejected unless tests explicitly opt in with `allowEphemeral: true`. No platform-specific persistent provider or durable metadata store is shipped yet.
