@@ -19,12 +19,11 @@
 - Merge commit: 0096a19c541e7ac3354934652bb8d0a22d4a1e7f.
 - PR #15 foi squash-merged em 2026-11-03 após CI e regressão visual concluírem com sucesso no HEAD 30e6727aae66e8aef0ba295c745be00a53d6472f.
 - Merge commit: bffe8f06b169ca484e66385d452b9ad831eb2b9e.
-- Branch ativa seguinte: feat/node-identity-security.
-- Implementação de contratos: packages/scene-engine/src/federation-contract.mjs.
-- Incremento seguinte em desenvolvimento: packages/scene-engine/src/node-identity.mjs e packages/scene-engine/test/node-identity.test.mjs.
-- Testes: packages/scene-engine/test/federation-contract.test.mjs.
-- O package check inclui verificação de sintaxe do novo módulo; a suite test inclui o novo teste via glob existente.
-- Novo código ainda aguarda CI/regressão visual no HEAD final; não afirmar testes verdes antes dos resultados.
+- PR #16 feat/node-identity-security foi squash-merged após CI e regressão visual passarem no HEAD 08b146cd39dbd02944d272a43756c15a2db43352.
+- Merge SHA: 56be1b0bebdbcf5d42ede6445f18496019521b55; main foi confirmado nesse SHA.
+- Branch ativa: feat/persistent-node-keystore.
+- PR #16 adicionou NodeIdentityManager, prova Ed25519 de posse, rotação/revogação e testes de validação criptográfica; provider efémero continua exclusivo de testes.
+- Novo documento docs/SECURE_STORAGE.md especifica requisitos de persistência segura por plataforma; é uma especificação, não um provider implementado.
 
 ## Implementado e integrado — contratos de federação v1
 - Contratos abstratos DiscoveryProvider, PrivateTransportProvider, OrganizationDirectoryProvider.
@@ -34,7 +33,7 @@
 - Envelope de evento de federação schema v1 com identidade do nó, sessão, sequência, timestamp e payload.
 - Testes unitários para validação, rejeições e interfaces abstratas.
 
-## Incremento em desenvolvimento — identidade criptográfica
+## Implementado e integrado — identidade criptográfica (PR #16)
 - NodeIdentityManager com identidade Ed25519 por nó, fingerprint SHA-256, desafios nonce com validade máxima de 60 segundos, assinatura e verificação de prova de posse, rotação e revogação.
 - Fronteira NodeKeyStoreProvider e metadataStore injetável; EphemeralEd25519KeyStore serve apenas para testes/sessões efémeras e NÃO é armazenamento persistente de produção.
 - Testes escritos para criação, escopo, prova/tampering/expiração, rotação e revogação; CI ainda pendente.
