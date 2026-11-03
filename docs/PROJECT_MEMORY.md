@@ -61,3 +61,9 @@
 
 ## Regra de comunicação
 Nunca declarar funcionalidade implementada, testada, publicada ou merged sem confirmação objetiva no GitHub e/ou execução de testes no SHA referido.
+
+
+### Registo de validação PR #16
+- Primeira execução CI falhou em cinco testes devido a `Crypto.randomUUID` ter sido passado como método desligado do respetivo receiver (`ERR_INVALID_THIS`).
+- Corrigido o provider e fixture de teste para invocar `randomUUID()` através da instância Crypto.
+- Regressão visual passou na primeira execução; CI foi corrigido e aguarda nova execução no HEAD `0681e2ccfb83f96cd2b9f91a45085539cbe0032c`.
