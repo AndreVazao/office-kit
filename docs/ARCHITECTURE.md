@@ -241,3 +241,35 @@ O protocolo entre nós deve transportar apenas os dados necessários à visualiz
 A cidade virtual pode representar deslocações e encontros entre edifícios, mas estas animações são apenas visuais. A transferência real de agentes/tarefas entre departamentos ou computadores só pode ser mostrada como confirmada quando o sistema operacional autoritativo a confirmar. A simulação social nunca cria migrações, tarefas ou comunicações reais.
 
 A separação de dados deve ser por organização e por nó. Um utilizador pode ter vários escritórios pessoais isolados ou criar uma organização privada com vários nós autorizados; estes cenários não devem misturar dados. Exportação, backup, migração, sincronização e federação são operações/configurações explícitas, controladas pelo proprietário.
+
+## Descoberta automática e conectividade privada entre nós
+
+A federação de escritórios deve abstrair descoberta, autenticação e transporte em providers independentes. O utilizador escolhe uma organização e aprova o emparelhamento; não deve introduzir IPs, portas, DNS ou comandos de rede. “Automático” significa descoberta e reconexão depois de uma autorização inicial explícita — nunca aceitar automaticamente qualquer máquina que encontre.
+
+### Estratégia de ligação por níveis
+
+1. **LAN local (provider mDNS/serviço local):** procurar anúncios Office Kit na rede local, limitados a metadados mínimos. A descoberta apenas apresenta candidatos; não concede acesso. Confirmar a identidade criptográfica do nó e exigir aprovação do proprietário/administrador antes de aceitar a associação.
+2. **Overlay privado existente (provider Tailscale):** detetar de forma opcional se o cliente Tailscale está instalado e ligado. Usar nomes MagicDNS/identidade de dispositivo quando disponíveis, sem pedir ao utilizador para copiar IPs. O Office Kit não deve incluir credenciais administrativas Tailscale, gerar auth keys com segredos embutidos, nem alterar o tailnet sem consentimento. Se não estiver configurado, apresentar um fluxo assistido que abre o login/consentimento oficial; não alegar que consegue configurar silenciosamente a conta do utilizador.
+3. **Rendezvous hospedado pela organização (provider opcional):** um serviço HTTPS com slug/nome próprio da organização regista leases temporárias de presença e troca apenas metadados de descoberta, chaves públicas, capacidades autorizadas e informação de conectividade necessária. Clientes fazem ligações de saída; não requer IP público fixo nem portas de entrada. O serviço não recebe snapshots completos, prompts, histórico de agentes ou dados do escritório.
+4. **Transporte entre nós:** preferir overlay privado aprovado (Tailscale ou equivalente); caso exista um transporte P2P seguro suportado, tentar ligação direta; usar relay apenas se explicitamente habilitado e com política/retensão claras. Um rendezvous por si só não transporta tráfego entre máquinas atrás de NAT.
+5. **Modo local degradado:** se não houver transporte disponível, manter o nó operacional localmente e marcar os outros nós como disconnected/stale. Não fingir sincronização nem enfileirar comandos perigosos para execução posterior sem política explícita.
+
+### Vercel e hosting
+
+Vercel pode alojar o portal de onboarding, o diretório/rendezvous HTTPS e APIs curtas de registo/heartbeat. WebSockets estão atualmente disponíveis em Vercel Functions, mas as ligações têm limites de duração e o estado não é partilhado automaticamente entre instâncias; persistência/coordenação distribuída requer armazenamento externo apropriado. Por isso, Vercel não deve ser tratado como túnel privado, VPN ou relay de tráfego bruto. Se for necessário relay contínuo, usar um serviço de relay dedicado e documentar custo, região, limites e modelo de privacidade. O deploy pode ser gerado para a conta/infraestrutura do cliente, ou fornecido como serviço opcional; nenhum dos dois pode ser obrigatório para o modo standalone.
+
+### UX de onboarding sem conhecimento técnico
+
+- Primeiro arranque: opção recomendada **“Ligar computadores da minha organização”**, com explicação simples do alcance e dos dados partilhados.
+- Deteção automática: procurar primeiro LAN e instalações Tailscale existentes; mostrar estado e próximo passo em linguagem simples.
+- Se ainda não existir rede privada entre locais: oferecer “Usar Tailscale” (abrir instalação/login oficial) ou “Criar diretório privado da organização” (deploy guiado de rendezvous). Não pedir tokens, chaves de API ou IPs manualmente em fluxos normais.
+- Mostrar claramente o proprietário/organização, o nó que pede acesso, as permissões pedidas e os departamentos/capacidades a expor. A associação remota exige aprovação explícita; revogação deve ser simples.
+- Não armazenar credenciais administrativas de fornecedores no cliente. Segredos de deploy ficam no ambiente seguro do provider/conta do cliente. Nunca colocar segredos no bundle desktop/mobile, no repositório ou na configuração exportada.
+
+### Identidade, autorização e frescura
+
+Cada instalação cria uma identidade criptográfica de nó e uma identidade de organização. O rendezvous emite apenas convites/leases limitados; a confiança final é estabelecida por prova criptográfica e aprovação. Usar credenciais de curta duração, rotação/revogação, autorização granular por nó, departamento e capacidade, sequência monotónica de eventos, timestamps, heartbeats e limites contra replay. Não usar nome de máquina, slug ou sourceId como prova de identidade. O serviço de descoberta não pode autorizar comandos: o backend anfitrião continua a validar toda a ação.
+
+### Providers e testes
+
+O core expõe interfaces neutras para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`. Providers LAN, Tailscale e rendezvous/cloud são opcionais e intercambiáveis; nenhuma dependência de VST, DGM-MAT, Vercel ou Tailscale entra no core. Testar descoberta com nomes/IPs dinâmicos, colisões, nós não confiáveis, replay, expiração, revogação, perda de Internet, NAT/relay, reinício de nós, organização errada e isolamento total entre tenants.
