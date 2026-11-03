@@ -20,10 +20,12 @@
 - PR #15 foi squash-merged em 2026-11-03 após CI e regressão visual concluírem com sucesso no HEAD 30e6727aae66e8aef0ba295c745be00a53d6472f.
 - Merge commit: bffe8f06b169ca484e66385d452b9ad831eb2b9e.
 - PR #16 feat/node-identity-security foi squash-merged após CI e regressão visual passarem no HEAD 08b146cd39dbd02944d272a43756c15a2db43352.
-- Merge SHA: 56be1b0bebdbcf5d42ede6445f18496019521b55; main foi confirmado nesse SHA.
-- Branch ativa: feat/persistent-node-keystore.
-- PR #16 adicionou NodeIdentityManager, prova Ed25519 de posse, rotação/revogação e testes de validação criptográfica; provider efémero continua exclusivo de testes.
-- Novo documento docs/SECURE_STORAGE.md especifica requisitos de persistência segura por plataforma; é uma especificação, não um provider implementado.
+- Merge SHA do PR #16: 56be1b0bebdbcf5d42ede6445f18496019521b55.
+- PR #17 `docs: define production secure node storage requirements` foi squash-merged em 2026-11-03; merge SHA `e31bccafa4223689c44b1cb25faa0bd250798b53`.
+- `main` local sincronizada com `origin/main` em `e31bcca`.
+- Branch local de trabalho atual: `feat/identity-storage-lifecycle` (ainda sem push/PR).
+- PR #16 adicionou NodeIdentityManager, prova Ed25519 de posse, rotação/revogação e testes; provider efémero continua exclusivo de testes.
+- `docs/SECURE_STORAGE.md` especifica persistência segura por plataforma; continua a ser especificação, não um provider implementado.
 
 ## Implementado e integrado — contratos de federação v1
 - Contratos abstratos DiscoveryProvider, PrivateTransportProvider, OrganizationDirectoryProvider.
@@ -36,11 +38,18 @@
 ## Implementado e integrado — identidade criptográfica (PR #16)
 - NodeIdentityManager com identidade Ed25519 por nó, fingerprint SHA-256, desafios nonce com validade máxima de 60 segundos, assinatura e verificação de prova de posse, rotação e revogação.
 - Fronteira NodeKeyStoreProvider e metadataStore injetável; EphemeralEd25519KeyStore serve apenas para testes/sessões efémeras e NÃO é armazenamento persistente de produção.
-- Testes escritos para criação, escopo, prova/tampering/expiração, rotação e revogação; CI ainda pendente.
+- Testes cobrem criação, escopo, prova/tampering/expiração, rotação e revogação. O CI e regressão visual do PR #16 passaram no HEAD final antes do merge.
+
+## Incremento local em curso — 2026-11-03
+- Branch local: `feat/identity-storage-lifecycle`; ainda não publicada nem aberta em PR.
+- `NodeIdentityManager` passou a exigir `NodeKeyStoreProvider.hasKey/getCapabilities` e `metadataStore.compareAndSet` com revisão monotónica; rejeita providers efémeros e chaves privadas exportáveis fora do opt-in explícito de testes.
+- Criação limpa a nova chave se a gravação de metadados falhar; rotação muda primeiro a identidade ativa e mantém IDs de chaves antigas pendentes até limpeza; revogação grava o tombstone antes de apagar a chave.
+- `reconcile()` retoma limpezas pendentes e marca uma chave ativa ausente como `identity_unavailable`, sem regeneração silenciosa. Inclui compatibilidade com metadados antigos sem campo `revision`.
+- Testes de identidade: 14/14 aprovados. Suite completa local `npm run check`: 95/95 aprovados; `git diff --check` limpo. CI e regressão visual desta branch ainda não executados.
 
 ## Não implementado
 - Keystore de produção integrado ao armazenamento seguro do sistema operativo/browser e metadataStore persistente.
-- Prova criptográfica de posse da chave, autenticação mútua, convite, aprovação e revogação.
+- Autenticação mútua, convite/aprovação de peers e autorização granular após a prova de posse já implementada.
 - Descoberta LAN/mDNS real.
 - Integração Tailscale real ou deteção do daemon/CLI.
 - Diretório/rendezvous HTTP e deploy Vercel ou alternativo.
@@ -49,8 +58,8 @@
 - Avatar Studio, geração por fotografia, instalador de renderers adaptativos e renderer 3D avançado.
 
 ## Próximos passos
-1. Validar CI e regressão visual no HEAD exato da branch atual; corrigir falhas antes de merge.
-2. Implementar provider de keystore persistente e metadata store seguro por plataforma; nunca usar o provider efémero em produção.
+1. Validar o endurecimento do ciclo de vida de identidade na branch `feat/identity-storage-lifecycle` com a suite completa, CI e regressão visual antes de abrir/mergear PR.
+2. Implementar primeiro um provider persistente de keystore e metadata store para Windows, sem exportar chaves privadas; nunca usar o provider efémero em produção.
 3. Definir convite de organização e protocolo de aprovação com expiração, nonce, proteção replay e autorização granular.
 4. Implementar primeiro provider LAN/mDNS atrás dos contratos e sem aceitar automaticamente peers.
 5. Implementar provider Tailscale opcional, read-only para deteção inicial, sem gerir credenciais.

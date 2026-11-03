@@ -182,7 +182,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ## Federação privada e cidade multi-computador
 
-- [ ] Definir identidade criptográfica de instalação/nó, organização privada, onboarding por convite/aprovação, confiança mútua, revogação e autorização granular.
+- [x] Definir e implementar o contrato inicial de identidade criptográfica por instalação/nó: Ed25519, fingerprint, prova de posse, rotação e revogação.
+- [ ] Implementar keystore persistente protegido pelo sistema operativo/browser e metadata store durável; onboarding por convite/aprovação, confiança mútua e autorização granular continuam pendentes.
 - [ ] Implementar modo isolado como padrão, sem conta central, relay/cloud obrigatório, telemetria ou comunicação externa por omissão.
 - [ ] Permitir ligar explicitamente nós Office Kit dentro de uma LAN/rede privada controlada pelo proprietário.
 - [ ] Permitir que cada computador mantenha o seu escritório/departamento local e que uma instalação agregadora apresente a organização/cidade com vários edifícios.
@@ -192,13 +193,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Garantir isolamento entre organizações e entre instalações não associadas; exportação, backup, migração e sincronização sempre explícitos.
 - [ ] Testar rede LAN, segmentação, perda de conectividade, revogação, nó offline, conflito de versões e recuperação sem perda de dados locais.
 
-**Modelo alvo:** instalações independentes por computador, com federação opcional apenas entre nós autorizados da mesma organização privada. Uma vista central pode compor a cidade inteira; cada nó mantém autonomia local. Todos estes mecanismos continuam por implementar.
+**Modelo alvo:** instalações independentes por computador, com federação opcional apenas entre nós autorizados da mesma organização privada. Uma vista central pode compor a cidade inteira; cada nó mantém autonomia local. Os contratos e a identidade criptográfica inicial existem; persistência segura, onboarding, descoberta, transporte e agregação continuam por implementar.
 
 ## Próximo incremento — onboarding e descoberta privada automática
 
 - [x] Definir contratos neutros versionados iniciais para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`, com validadores de identidade pública, hints, leases e envelopes v1 (sem I/O nem autenticação).
 - [ ] Implementar descoberta LAN com anúncios mínimos; descoberta nunca equivale a confiança ou autorização.
-- [ ] Definir identidade criptográfica por instalação/nó, convite de organização, aprovação explícita, expiração e revogação.
+- [x] Implementar identidade criptográfica inicial por instalação/nó, prova Ed25519 de posse, expiração de desafios e revogação.
+- [ ] Implementar keystore persistente, convite de organização, aprovação explícita e autorização granular.
 - [ ] Criar provider opcional para detetar/usar uma instalação Tailscale existente e nomes MagicDNS; sem segredos Tailscale embutidos nem alterações silenciosas ao tailnet.
 - [ ] Criar API de rendezvous HTTPS opcional com slug da organização, leases/heartbeats e metadados mínimos; permitir deploy na infraestrutura do cliente ou serviço hospedado opt-in.
 - [ ] Separar rendezvous de transporte de dados. Usar overlay privado/P2P quando possível; relay dedicado apenas como opção documentada e autorizada.
@@ -210,9 +212,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 **Critério de aceitação:** duas instalações autorizadas encontram-se sem configuração manual de IP; nenhuma instalação não autorizada é aceite; sem rede ou Internet, cada escritório continua local e apresenta estado remoto não confirmado.
 
 
-## Identidade criptográfica por nó — incremento inicial em desenvolvimento
+## Identidade criptográfica por nó — contrato implementado; persistência em desenvolvimento
 - [x] Criar manager neutro com chaves Ed25519, fingerprint SHA-256 e desafio nonce assinado com audiência/expiração.
-- [x] Definir fronteira injetável de keystore e armazenamento de metadados; implementar provider efémero apenas para testes.
+- [x] Definir fronteira injetável de keystore e armazenamento de metadados; manter provider efémero apenas para testes.
 - [x] Cobrir criação, escopo, prova de posse, alteração de challenge, expiração, rotação e revogação por testes.
+- [x] Endurecer o ciclo de vida com metadata compare-and-set revisionado, tombstones, limpeza pendente e reconciliação na branch `feat/identity-storage-lifecycle`.
+- [x] Marcar identidades com chave ausente como `identity_unavailable`; nunca regenerar silenciosamente uma identidade.
+- [x] Documentar requisitos de armazenamento seguro em `docs/SECURE_STORAGE.md` (PR #17).
 - [ ] Integrar keystore persistente protegido pelo sistema operativo/browser e metadata store durável.
-- [ ] Validar CI e regressão visual no SHA final antes do merge.
+- [ ] Validar CI e regressão visual no SHA final da branch antes do merge.
