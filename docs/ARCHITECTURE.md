@@ -189,3 +189,23 @@ A instanciação e o registo continuam a ser responsabilidade do host. O host de
 
 O adaptador é uma ferramenta de demonstração/teste e não é um transporte de produção. Eventos de agente/tarefa são refletidos por snapshots completos, para que o RuntimeSession continue a consumir uma única representação autoritativa e validada.
 
+
+
+## Avatar Studio — arquitetura e requisitos
+
+O Avatar Studio é uma camada de autoria visual independente do backend e do renderer específico. Cada Avatar é uma entidade de configuração com identidade estável, nome apresentado, função, departamento, perfil visual, assets e preferências de animação. O avatar não é o agente de backend: a associação entre Avatar visual e Agent/runtime é explícita, opcional e substituível sem perder a identidade visual.
+
+### Tipos e apresentação
+O catálogo inicial deve incluir apresentação humana masculina, humana feminina, robótica masculina, robótica feminina e robótica/neutra personalizável. A classificação é uma escolha de apresentação visual, não uma regra sobre voz, função, competências ou comportamento. Deve ser possível criar estilos adicionais sem alterar o contrato base.
+
+### Personalização
+As propriedades configuráveis incluem, conforme suportado pelo modelo/renderer: cabelo (corte, comprimento, penteado e cor), olhos (cor e formato), rosto, sobrancelhas, barba/bigode, tom de pele, corpo/proporções, roupa, calçado, acessórios, materiais, paleta e animações. Os controlos devem adaptar-se ao tipo de avatar; opções indisponíveis não devem aparecer como se fossem suportadas.
+
+### Fotografia de referência
+O utilizador pode opcionalmente fornecer uma fotografia para criar uma representação visual semelhante. O fluxo deve permitir escolher estilo (realista, 3D, ilustração, futurista/robotizado), gerar uma proposta, ajustar traços e aprovar antes de guardar. A fotografia é dado privado: consentimento explícito, processamento através de fornecedor/serviço opcional e claramente identificado, sem envio automático a backends de agentes; retenção da fotografia original desligada por omissão; opção para apagar original e derivados. O Office Kit não deve prometer semelhança perfeita nem exigir fotografia para criar um avatar. A funcionalidade depende de um pipeline de geração/edição de imagem que ainda terá de ser selecionado e integrado.
+
+### Assets, portabilidade e segurança
+Guardar no documento de configuração apenas referências/IDs de assets e propriedades; assets podem ser empacotados no bundle exportado ou referenciados por biblioteca autorizada. Validar formato, tamanho, dimensões e conteúdo dos ficheiros importados; não executar conteúdo ativo. Exportação deve permitir incluir os assets necessários, respeitando licenças. Deve ser possível substituir o modelo/renderer mantendo o perfil lógico do avatar e recorrer a um placeholder acessível quando um asset não está disponível.
+
+### Separação e desempenho
+O avatar visual não é prova de identidade real nem de atividade operacional. Estados de trabalho vêm exclusivamente do runtime verificado; animações locais continuam marcadas como simulação. Modelos detalhados devem ter níveis de detalhe e fallback para dispositivos modestos. O Avatar Studio deve funcionar offline para edição de modelos e presets que já estejam instalados; geração a partir de fotografia pode exigir serviço externo opcional.
