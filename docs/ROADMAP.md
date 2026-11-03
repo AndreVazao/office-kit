@@ -142,3 +142,69 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Evoluir o fluxo de autorização do host para um contrato explícito de identidade autenticada e permissões concedidas; a validação atual de sourceId não é autenticação criptográfica.
 - Nota: o adaptador é determinístico e em memória; não utiliza rede, credenciais ou execução de comandos.
 
+
+
+## Requisitos acrescentados — Avatar Studio
+
+- [ ] Criar catálogo de tipos: homem, mulher, robot masculino, robot feminino e robot/neutro personalizável.
+- [ ] Criar perfil visual por avatar, separado da identidade/função do agente de backend.
+- [ ] Implementar controlos para cabelo, olhos, rosto, tom de pele, corpo, roupa, calçado, acessórios, cores e animações, limitados às capacidades do modelo escolhido.
+- [ ] Permitir criar, duplicar, renomear, remover e atribuir avatares a agentes/departamentos, sem tornar a associação permanente.
+- [ ] Definir pipeline de assets/modelos com níveis de detalhe e fallback para hardware modesto.
+- [ ] Adicionar fluxo opcional de fotografia de referência: upload com consentimento, geração automática de estilo/representação sem escolha de estilo pelo utilizador, gravação direta do avatar e ajustes manuais posteriores.
+- [ ] Implementar consentimento e controlos de privacidade: fornecedor claramente identificado, fotografia original não retida por omissão, apagar original/derivados e não enviar imagens para backends de agentes.
+- [ ] Suportar guardar/exportar/importar perfis e assets, com validação e compatibilidade de versões.
+- [ ] Testar acessibilidade, portabilidade, configuração sem fotografia, falha de geração, ausência de assets e desempenho em baixa capacidade.
+
+**Estado:** requisitos definidos; Avatar Studio, pipeline gráfico e geração por fotografia ainda não implementados.
+
+## Requisito de produto — instalações privadas e independentes
+
+- [ ] Distribuir o Office Kit como produto instalável/licenciável para cópias independentes por utilizador/cliente.
+- [ ] Garantir isolamento local por instalação de configuração, escritório, avatares, assets, preferências e dados.
+- [ ] Garantir funcionamento sem conta central, backend ou ligação à Internet para as funcionalidades locais.
+- [ ] Manter todas as integrações externas opcionais, selecionadas e ligadas manualmente pelo proprietário, com autenticação/autorização próprias.
+- [ ] Não implementar partilha entre instalações, telemetria, sincronização ou descoberta automática por omissão.
+- [ ] Definir exportação, backup, migração e eventual sincronização como operações explícitas, documentadas e controladas pelo proprietário.
+
+**Modelo de distribuição pretendido:** cada cliente tem uma instalação autónoma e privada; o fornecedor não opera um escritório central nem recebe os dados dos clientes por defeito.
+
+
+## Distribuição adaptativa de renderers e instalação por capacidades
+
+- [ ] Definir catálogo de modos visuais e níveis de qualidade, do chat/2D leve até 3D avançado e realista/cinemático.
+- [ ] Definir manifesto de compatibilidade e pacotes instaláveis por plataforma, arquitetura, API gráfica, memória, armazenamento e requisitos medidos.
+- [ ] Implementar avaliador de capacidades na instalação/primeira execução e instalar todos os níveis que o dispositivo suporta, não apenas o nível máximo.
+- [ ] Selecionar automaticamente o modo mais alto validado, com fallback manual imediato para qualquer modo inferior instalado e opção para regressar ao automático.
+- [ ] Garantir arranque no modo mais simples mesmo quando faltam assets ou runtimes avançados; fallback sem perda de configuração/sessão.
+- [ ] Manter catálogo universal de avatares e perfis independentes do renderer, com variantes de assets/LOD e placeholders por nível gráfico.
+- [ ] Testar instalação, atualização, remoção, mudança de renderer, memória e estabilidade em Android, Windows, Linux e hardware de diferentes capacidades.
+
+## Federação privada e cidade multi-computador
+
+- [ ] Definir identidade criptográfica de instalação/nó, organização privada, onboarding por convite/aprovação, confiança mútua, revogação e autorização granular.
+- [ ] Implementar modo isolado como padrão, sem conta central, relay/cloud obrigatório, telemetria ou comunicação externa por omissão.
+- [ ] Permitir ligar explicitamente nós Office Kit dentro de uma LAN/rede privada controlada pelo proprietário.
+- [ ] Permitir que cada computador mantenha o seu escritório/departamento local e que uma instalação agregadora apresente a organização/cidade com vários edifícios.
+- [ ] Definir protocolo de snapshots/eventos entre nós com sequência, timestamp, heartbeat, frescura, capacidades e estados desconectado/atrasado.
+- [ ] Distinguir projeção visual agregada de autoridade operacional: comandos reais continuam sujeitos ao backend anfitrião e autorização explícita.
+- [ ] Permitir visualização de deslocações e encontros entre edifícios sem transformar animações em transferências operacionais reais.
+- [ ] Garantir isolamento entre organizações e entre instalações não associadas; exportação, backup, migração e sincronização sempre explícitos.
+- [ ] Testar rede LAN, segmentação, perda de conectividade, revogação, nó offline, conflito de versões e recuperação sem perda de dados locais.
+
+**Modelo alvo:** instalações independentes por computador, com federação opcional apenas entre nós autorizados da mesma organização privada. Uma vista central pode compor a cidade inteira; cada nó mantém autonomia local. Todos estes mecanismos continuam por implementar.
+
+## Próximo incremento — onboarding e descoberta privada automática
+
+- [ ] Definir contratos neutros versionados para `DiscoveryProvider`, `PrivateTransportProvider` e `OrganizationDirectoryProvider`.
+- [ ] Implementar descoberta LAN com anúncios mínimos; descoberta nunca equivale a confiança ou autorização.
+- [ ] Definir identidade criptográfica por instalação/nó, convite de organização, aprovação explícita, expiração e revogação.
+- [ ] Criar provider opcional para detetar/usar uma instalação Tailscale existente e nomes MagicDNS; sem segredos Tailscale embutidos nem alterações silenciosas ao tailnet.
+- [ ] Criar API de rendezvous HTTPS opcional com slug da organização, leases/heartbeats e metadados mínimos; permitir deploy na infraestrutura do cliente ou serviço hospedado opt-in.
+- [ ] Separar rendezvous de transporte de dados. Usar overlay privado/P2P quando possível; relay dedicado apenas como opção documentada e autorizada.
+- [ ] Fazer onboarding guiado sem IPs, portas, tokens ou comandos de terminal no caminho normal; explicar os passos de consentimento/login que não podem ser automatizados com segurança.
+- [ ] Garantir que Vercel é apenas um provider de hosting para diretório/API, não uma dependência de rede ou um túnel presumido.
+- [ ] Adicionar testes de isolamento entre organizações, autenticação, autorização granular, replay, sequência, expiração, revogação, nó stale/offline, perda de Internet e reconnect.
+- [ ] Medir custos/limites e definir política de privacidade/retensão antes de ativar qualquer rendezvous/relay hospedado.
+
+**Critério de aceitação:** duas instalações autorizadas encontram-se sem configuração manual de IP; nenhuma instalação não autorizada é aceite; sem rede ou Internet, cada escritório continua local e apresenta estado remoto não confirmado.

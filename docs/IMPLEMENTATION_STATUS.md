@@ -113,3 +113,52 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Estado de validação deste incremento: código e testes adicionados ao branch; CI e regressão visual ainda pendentes no HEAD final do PR. Não há execução local declarada nesta sessão.
 - PR #12 foi integrado por squash no commit 93afbe9cc89092f08984380703eaae822147e5fc. A consulta do conector a workflows pós-merge não devolveu runs, porque a função disponível filtra execuções acionadas por pull request; estado de CI da main nesse SHA permanece por confirmar por outra via.
 
+
+
+## Avatar Studio — estado e limites
+
+- Requisito aceite: avatares configuráveis com apresentações humana masculina/feminina, robótica masculina/feminina e opções neutras/personalizáveis.
+- Requisito aceite: personalização de cabelo, olhos, rosto, tom de pele, proporções, roupa, acessórios, cores e animações, condicionada às capacidades do modelo/renderer.
+- Requisito aceite: fotografia de referência opcional; após upload e consentimento, o sistema determina automaticamente a apresentação visual e guarda o avatar gerado, sem pedir escolha de estilo. O utilizador pode ajustar manualmente o resultado depois.
+- Separação obrigatória: Avatar é identidade visual; Agent é identidade/runtime do backend. A associação entre ambos é explícita e pode ser alterada.
+- Privacidade obrigatória: consentimento explícito, fornecedor de geração identificado, fotografia original não retida por omissão, opção de eliminação e nenhuma partilha automática com backends de agentes.
+- Estado real: ainda não existe Avatar Studio, pipeline de modelos 3D, editor de traços, importação de fotografia nem geração de avatar por fotografia. O preview atual continua a usar personagens CSS de placeholder.
+- A geração por fotografia dependerá de escolher e integrar um serviço/pipeline adequado; não se declara qualidade, semelhança ou execução local antes de testes reais.
+
+## Modelo de instalação e privacidade — requisitos aceites
+
+- Office Kit será distribuído como software instalável/licenciável em cópias independentes por utilizador/cliente.
+- Cada instalação terá armazenamento e configuração próprios; não existe ligação, partilha ou sincronização entre instalações por omissão.
+- As funcionalidades locais devem operar sem conta central, backend externo ou Internet.
+- Qualquer backend ou serviço externo será opcional e ligado manualmente pelo proprietário, com autenticação/autorização explícitas.
+- Não haverá telemetria nem envio dos dados do escritório ao fornecedor por omissão. Backup, exportação, migração ou sincronização futura serão operações explícitas.
+- Estado: requisitos documentados; isolamento de instalações, instaladores comerciais e mecanismos de licenciamento ainda não implementados nem verificados.
+
+
+## Requisitos aceites — instalação gráfica adaptativa
+
+- Objetivo visual máximo: renderer 3D avançado/realista, com níveis progressivos até chat/2D, diorama/pixel e 2.5D/isométrico.
+- O instalador deve avaliar as capacidades reais de cada dispositivo e instalar todos os níveis gráficos compatíveis, não apenas o nível mais alto.
+- O modo inicial é escolhido automaticamente entre os níveis validados; o utilizador pode fazer fallback manual para qualquer nível inferior instalado ou regressar ao automático.
+- Catálogo de avatares e identidade visual são universais e independentes do renderer. Cada avatar pode ter variantes/LOD para vários modos; a ausência de asset avançado não remove o avatar.
+- Estado: requisitos documentados; avaliador, manifestos, pacotes por capacidade, instalação seletiva, fallback runtime e renderers 3D avançados ainda não implementados.
+
+## Requisitos aceites — federação privada multi-computador
+
+- Cada instalação mantém o seu escritório e dados locais, podendo funcionar isoladamente sem Internet ou serviço central.
+- O proprietário pode autorizar explicitamente vários nós/computadores da mesma organização privada a comunicar através de LAN/rede privada.
+- Cada nó pode representar um departamento ou edifício; uma instalação agregadora pode mostrar uma cidade/organização unificada com vários edifícios e equipas.
+- A federação não é pública nem automática: exige identidade de nó, confiança mútua, autenticação, autorização granular e possibilidade de revogação.
+- A vista agregada é uma projeção; cada backend local mantém autoridade operacional. Estados remotos perdem confirmação quando a ligação expira. Animações de deslocação/conversa entre edifícios são visuais, salvo confirmação operacional explícita.
+- Não há relay/cloud obrigatório, telemetria ou comunicação externa por omissão. Organizações diferentes e instalações não associadas permanecem isoladas.
+- Estado: requisitos documentados; protocolo de federação, identidade criptográfica de nós, onboarding, agregador multi-escritório, topologia/cidade e testes de rede ainda não implementados.
+
+## Descoberta automática e conectividade — requisito aceite, não implementado
+
+- Objetivo UX: o utilizador não introduz IPs, portas ou DNS. O Office Kit tenta LAN e redes privadas já configuradas e oferece onboarding guiado para opções adicionais.
+- Tailscale é um provider opcional de transporte/descoberta para instalações já autenticadas; MagicDNS pode evitar a necessidade de conhecer IPs. A integração não pode conter OAuth client secrets/auth keys, provisionar dispositivos ou alterar o tailnet sem consentimento e autorização.
+- Um rendezvous HTTPS opcional com nome/slug da organização pode registar presença e metadados mínimos. Pode ser alojado na infraestrutura do cliente, incluindo Vercel quando adequado, ou num serviço hospedado explicitamente escolhido pelo cliente.
+- Rendezvous não é transporte: tráfego real requer overlay privado, conexão direta/P2P ou relay dedicado autorizado. Vercel não é assumida como VPN nem como relay genérico. WebSockets suportados pela plataforma não removem a necessidade de armazenamento partilhado, reconexão e coordenação distribuída.
+- Aprovação explícita de nós, identidade criptográfica, permissões granulares, revogação e isolamento entre organizações são obrigatórios. Descobrir um nó nunca lhe dá acesso automaticamente.
+- Modo standalone e operação local continuam disponíveis sem Internet, Tailscale, Vercel ou serviço central.
+- Estado real: apenas requisito/documentação. Ainda não existe descoberta LAN, provider Tailscale, rendezvous, relay, onboarding guiado, identidade de nó nem protocolo de federação implementado ou testado.
