@@ -142,3 +142,18 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Evoluir o fluxo de autorização do host para um contrato explícito de identidade autenticada e permissões concedidas; a validação atual de sourceId não é autenticação criptográfica.
 - Nota: o adaptador é determinístico e em memória; não utiliza rede, credenciais ou execução de comandos.
 
+
+
+## Requisitos acrescentados — Avatar Studio
+
+- [ ] Criar catálogo de tipos: homem, mulher, robot masculino, robot feminino e robot/neutro personalizável.
+- [ ] Criar perfil visual por avatar, separado da identidade/função do agente de backend.
+- [ ] Implementar controlos para cabelo, olhos, rosto, tom de pele, corpo, roupa, calçado, acessórios, cores e animações, limitados às capacidades do modelo escolhido.
+- [ ] Permitir criar, duplicar, renomear, remover e atribuir avatares a agentes/departamentos, sem tornar a associação permanente.
+- [ ] Definir pipeline de assets/modelos com níveis de detalhe e fallback para hardware modesto.
+- [ ] Adicionar fluxo opcional de fotografia de referência: upload, escolha de estilo, geração de proposta, ajustes, aprovação e gravação.
+- [ ] Implementar consentimento e controlos de privacidade: fornecedor claramente identificado, fotografia original não retida por omissão, apagar original/derivados e não enviar imagens para backends de agentes.
+- [ ] Suportar guardar/exportar/importar perfis e assets, com validação e compatibilidade de versões.
+- [ ] Testar acessibilidade, portabilidade, configuração sem fotografia, falha de geração, ausência de assets e desempenho em baixa capacidade.
+
+**Estado:** requisitos definidos; Avatar Studio, pipeline gráfico e geração por fotografia ainda não implementados.
