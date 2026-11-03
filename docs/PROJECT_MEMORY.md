@@ -17,13 +17,16 @@
 ## Estado Git
 - PR #14 foi squash-merged em 2026-11-03 após CI e regressão visual concluírem com sucesso no HEAD final 04dd35c60f71e9567035940758f9412ccf31dc60.
 - Merge commit: 0096a19c541e7ac3354934652bb8d0a22d4a1e7f.
-- Próxima branch ativa: feat/private-discovery-contracts.
-- Implementação inicial: packages/scene-engine/src/federation-contract.mjs.
+- PR #15 foi squash-merged em 2026-11-03 após CI e regressão visual concluírem com sucesso no HEAD 30e6727aae66e8aef0ba295c745be00a53d6472f.
+- Merge commit: bffe8f06b169ca484e66385d452b9ad831eb2b9e.
+- Branch ativa seguinte: feat/node-identity-security.
+- Implementação de contratos: packages/scene-engine/src/federation-contract.mjs.
+- Incremento seguinte em desenvolvimento: packages/scene-engine/src/node-identity.mjs e packages/scene-engine/test/node-identity.test.mjs.
 - Testes: packages/scene-engine/test/federation-contract.test.mjs.
 - O package check inclui verificação de sintaxe do novo módulo; a suite test inclui o novo teste via glob existente.
 - Novo código ainda aguarda CI/regressão visual no HEAD final; não afirmar testes verdes antes dos resultados.
 
-## Implementado neste incremento (ainda sujeito a CI)
+## Implementado e integrado — contratos de federação v1
 - Contratos abstratos DiscoveryProvider, PrivateTransportProvider, OrganizationDirectoryProvider.
 - Validação de descriptor público de nó: organizationId, nodeId, fingerprint SHA-256, protocolVersion e capabilities.
 - Validação de hints LAN/Tailscale/HTTPS/relay com HTTPS obrigatório para endpoints remotos.
@@ -31,8 +34,13 @@
 - Envelope de evento de federação schema v1 com identidade do nó, sessão, sequência, timestamp e payload.
 - Testes unitários para validação, rejeições e interfaces abstratas.
 
+## Incremento em desenvolvimento — identidade criptográfica
+- NodeIdentityManager com identidade Ed25519 por nó, fingerprint SHA-256, desafios nonce com validade máxima de 60 segundos, assinatura e verificação de prova de posse, rotação e revogação.
+- Fronteira NodeKeyStoreProvider e metadataStore injetável; EphemeralEd25519KeyStore serve apenas para testes/sessões efémeras e NÃO é armazenamento persistente de produção.
+- Testes escritos para criação, escopo, prova/tampering/expiração, rotação e revogação; CI ainda pendente.
+
 ## Não implementado
-- Criação/armazenamento seguro de identidade e chaves de nó.
+- Keystore de produção integrado ao armazenamento seguro do sistema operativo/browser e metadataStore persistente.
 - Prova criptográfica de posse da chave, autenticação mútua, convite, aprovação e revogação.
 - Descoberta LAN/mDNS real.
 - Integração Tailscale real ou deteção do daemon/CLI.
@@ -43,7 +51,7 @@
 
 ## Próximos passos
 1. Validar CI e regressão visual no HEAD exato da branch atual; corrigir falhas antes de merge.
-2. Implementar armazenamento/identidade criptográfica local de nó com APIs de runtime compatíveis (Node e browser/desktop) e testes de rotação/revogação.
+2. Implementar provider de keystore persistente e metadata store seguro por plataforma; nunca usar o provider efémero em produção.
 3. Definir convite de organização e protocolo de aprovação com expiração, nonce, proteção replay e autorização granular.
 4. Implementar primeiro provider LAN/mDNS atrás dos contratos e sem aceitar automaticamente peers.
 5. Implementar provider Tailscale opcional, read-only para deteção inicial, sem gerir credenciais.
