@@ -208,3 +208,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Medir custos/limites e definir política de privacidade/retensão antes de ativar qualquer rendezvous/relay hospedado.
 
 **Critério de aceitação:** duas instalações autorizadas encontram-se sem configuração manual de IP; nenhuma instalação não autorizada é aceite; sem rede ou Internet, cada escritório continua local e apresenta estado remoto não confirmado.
+
+
+## Identidade criptográfica por nó — incremento inicial em desenvolvimento
+- [x] Criar manager neutro com chaves Ed25519, fingerprint SHA-256 e desafio nonce assinado com audiência/expiração.
+- [x] Definir fronteira injetável de keystore e armazenamento de metadados; implementar provider efémero apenas para testes.
+- [x] Cobrir criação, escopo, prova de posse, alteração de challenge, expiração, rotação e revogação por testes.
+- [ ] Integrar keystore persistente protegido pelo sistema operativo/browser e metadata store durável.
+- [ ] Validar CI e regressão visual no SHA final antes do merge.

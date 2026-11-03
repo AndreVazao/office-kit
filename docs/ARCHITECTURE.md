@@ -277,3 +277,10 @@ O core expõe interfaces neutras para `DiscoveryProvider`, `PrivateTransportProv
 ## Primeiro incremento executável da federação — contratos v1
 
 O módulo `packages/scene-engine/src/federation-contract.mjs` fornece validadores puros e interfaces abstratas para descoberta, transporte privado e diretório de organização. O contrato valida descriptors públicos de nó (incluindo fingerprint SHA-256), capabilities, hints LAN/Tailscale/HTTPS/relay, leases temporárias limitadas e envelopes de evento schema v1 com sessão e sequência. Não executa I/O nem concede confiança ou autorização. A validade do fingerprint só se torna prova de identidade quando um futuro handshake criptográfico demonstrar posse da chave correspondente; neste incremento é apenas metadado validado. Nenhum provider concreto ou conectividade de rede foi implementado.
+
+
+## Identidade criptográfica de nó — fronteira inicial
+
+`packages/scene-engine/src/node-identity.mjs` introduz `NodeIdentityManager` e a interface `NodeKeyStoreProvider`. Cada nó tem escopo de organização/identificador, chave Ed25519, chave pública codificada e fingerprint SHA-256. A prova de posse assina um desafio com nonce aleatório, audiência e janela temporal curta (máximo 60 segundos); a verificação usa a chave pública. Rotação cria uma nova geração e revogação remove a chave privada através do provider. O armazenamento da chave privada e dos metadados é injetado, não acoplado ao core.
+
+O `EphemeralEd25519KeyStore` é apenas um provider efémero de referência para testes: não persiste chaves entre reinícios e não deve ser usado em produção. Continua por implementar um provider que use o keystore seguro do sistema operativo/browser e um metadata store durável. A existência de uma prova válida demonstra posse da chave para aquele desafio, mas não substitui aprovação do proprietário nem autorização por organização/capacidade. Este módulo não faz rede, descoberta ou sincronização.

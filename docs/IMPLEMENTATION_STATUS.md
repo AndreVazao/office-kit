@@ -162,3 +162,12 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Aprovação explícita de nós, identidade criptográfica, permissões granulares, revogação e isolamento entre organizações são obrigatórios. Descobrir um nó nunca lhe dá acesso automaticamente.
 - Modo standalone e operação local continuam disponíveis sem Internet, Tailscale, Vercel ou serviço central.
 - Estado real: contratos neutros iniciais implementados em `packages/scene-engine/src/federation-contract.mjs`, com testes em `packages/scene-engine/test/federation-contract.test.mjs`. Incluem validação de identidade pública, fingerprint SHA-256, capabilities, hints de transporte, leases limitadas/expiráveis e envelopes de eventos v1, além de interfaces abstratas para providers. Estes contratos não fazem I/O, não autenticam peers, não criam chaves e não implementam LAN, Tailscale, rendezvous, relay, onboarding ou autorização. CI ainda tem de validar o novo HEAD.
+
+
+## Identidade criptográfica de nó — incremento em desenvolvimento
+- Adicionado `packages/scene-engine/src/node-identity.mjs` com `NodeIdentityManager`, algoritmo Ed25519, fingerprint SHA-256, desafio nonce assinado com audiência e validade curta, verificação de prova de posse, rotação e revogação.
+- A chave privada fica atrás da interface `NodeKeyStoreProvider`; os metadados ficam atrás de `metadataStore`. O core não faz I/O de rede nem aprova peers.
+- `EphemeralEd25519KeyStore` é explicitamente efémero e de referência para testes; não é persistência de produção. Ainda falta implementar integração com keystore seguro do SO/browser e armazenamento persistente dos metadados.
+- Testes escritos em `packages/scene-engine/test/node-identity.test.mjs`; validação CI/regressão visual aguarda execução no HEAD final.
+
+- Validação inicial do PR #16: 81/86 testes passaram; os cinco testes de identidade falharam por `Crypto.randomUUID` chamado sem receiver. Corrigido no código e fixture. A regressão visual passou; nova execução CI no HEAD atualizado está pendente.
