@@ -4,8 +4,9 @@ const KEY_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/;
 const NODE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/;
 const ORG_ID = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
-function bytes(value, label) {
+function bytes(value, label, expectedLength) {
   if (!(value instanceof Uint8Array) || value.length === 0) throw new TypeError(`${label}_must_be_non_empty_bytes`);
+  if (expectedLength !== undefined && value.length !== expectedLength) throw new TypeError(`${label}_must_be_${expectedLength}_bytes`);
   return value;
 }
 function hex(value) { return [...value].map(byte => byte.toString(16).padStart(2, "0")).join(":"); }
@@ -95,7 +96,8 @@ export class NodeIdentityManager {
     const existing = await this.#metadataStore.get();
     if (existing && !existing.revokedAt) throw new Error("node_identity_already_exists");
     const pair = await this.#keyStore.createKeyPair();
-    const publicKey = bytes(pair.publicKey, "public_key");
+    if (!pair || typeof pair.keyId !== "string" || !KEY_ID.test(pair.keyId)) throw new TypeError("invalid_keystore_key_id");
+    const publicKey = bytes(pair.publicKey, "public_key", 32);
     const fingerprintBytes = bytes(await this.#digest(publicKey), "fingerprint");
     if (fingerprintBytes.length !== FINGERPRINT_BYTES) {
       await this.#keyStore.deleteKey(pair.keyId);
@@ -117,27 +119,33 @@ export class NodeIdentityManager {
   async createChallenge({ audience, ttlMs = 30_000 } = {}) {
     if (!Number.isSafeInteger(ttlMs) || ttlMs < 1_000 || ttlMs > 60_000) throw new TypeError("invalid_challenge_ttl");
     if (typeof audience !== "string" || audience.length < 3 || audience.length > 128) throw new TypeError("invalid_challenge_audience");
-    const nonce = base64url(bytes(await this.#randomBytes(32), "random_nonce"));
+    const nonce = base64url(bytes(await this.#randomBytes(32), "random_nonce", 32));
     const issuedAt = this.#clock();
     return Object.freeze({ nonce, audience, issuedAt, expiresAt: issuedAt + ttlMs });
   }
   async provePossession(challenge) {
+    const message = canonicalChallenge(challenge);
     const identity = await this.#metadataStore.get();
     if (!identity || identity.revokedAt) throw new Error("node_identity_unavailable");
     const now = this.#clock();
-    if (challenge?.issuedAt > now || challenge?.expiresAt <= now) throw new Error("challenge_expired_or_not_yet_valid");
+    if (!Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) throw new Error("challenge_expired_or_not_yet_valid");
     return Object.freeze({
       keyId: identity.keyId,
       identityFingerprint: identity.identityFingerprint,
-      signature: base64url(await this.#keyStore.sign(identity.keyId, canonicalChallenge(challenge)))
+      signature: base64url(bytes(await this.#keyStore.sign(identity.keyId, message), "signature", 64))
     });
   }
   async verifyProof({ publicKey, challenge, signature }) {
-    if (challenge?.issuedAt > this.#clock() || challenge?.expiresAt <= this.#clock()) return false;
     const verifier = this.#keyStore.verify;
     if (typeof verifier !== "function") throw new Error("keystore_verification_not_supported");
-    try { return await verifier.call(this.#keyStore, fromBase64url(publicKey), canonicalChallenge(challenge), fromBase64url(signature)); }
-    catch { return false; }
+    try {
+      const message = canonicalChallenge(challenge);
+      const now = this.#clock();
+      if (!Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) return false;
+      return await verifier.call(this.#keyStore,
+        bytes(fromBase64url(publicKey), "public_key", 32), message,
+        bytes(fromBase64url(signature), "signature", 64));
+    } catch { return false; }
   }
   async rotate() {
     const current = await this.#metadataStore.get();
