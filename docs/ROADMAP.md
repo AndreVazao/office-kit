@@ -265,3 +265,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Restrict the adapter to the exact loopback service origin and remove unused route allowance (PR #21).
 - [ ] Implement secure host session provider and persistent OS-keystore integration.
 - [ ] Add authoritative freshness metadata and run live DGM-MAT PC E2E.
+
+
+## DGM-MAT local session provider — 2026-11-04
+- New branch `feat/dgmat-local-session-provider` implements `DgmMatLocalSessionProvider` for the documented `POST /auth/session` contract.
+- Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
+- 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
+- Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
