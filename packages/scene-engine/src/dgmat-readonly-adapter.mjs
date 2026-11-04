@@ -19,6 +19,7 @@ export class DgmMatReadOnlyAdapter {
   constructor({
     baseUrl = DEFAULT_BASE_URL,
     getAccessToken,
+    invalidateAccessToken = () => {},
     fetchImpl = globalThis.fetch,
     now = () => Date.now(),
     timeoutMs = 5_000,
@@ -26,12 +27,14 @@ export class DgmMatReadOnlyAdapter {
   } = {}) {
     if (!isLoopbackUrl(baseUrl)) throw new TypeError("dgm_mat_loopback_http_endpoint_required");
     if (typeof getAccessToken !== "function") throw new TypeError("dgm_mat_secure_session_provider_required");
+    if (typeof invalidateAccessToken !== "function") throw new TypeError("invalidateAccessToken must be a function");
     if (typeof fetchImpl !== "function") throw new TypeError("fetch implementation required");
     if (typeof now !== "function") throw new TypeError("now must be a function");
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30_000) throw new TypeError("timeoutMs must be between 250 and 30000");
     if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 1_000 || pollIntervalMs > 60_000) throw new TypeError("pollIntervalMs must be between 1000 and 60000");
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.getAccessToken = getAccessToken;
+    this.invalidateAccessToken = invalidateAccessToken;
     this.fetchImpl = fetchImpl;
     this.now = now;
     this.timeoutMs = timeoutMs;
@@ -65,7 +68,11 @@ export class DgmMatReadOnlyAdapter {
       });
       if (!response || !response.ok) {
         const status = Number.isInteger(response?.status) ? response.status : 0;
-        throw new Error(status === 401 || status === 403 ? "dgm_mat_session_rejected" : "dgm_mat_http_" + status);
+        if (status === 401 || status === 403) {
+          try { this.invalidateAccessToken(); } catch { /* Token invalidation is best-effort; request still fails closed. */ }
+          throw new Error("dgm_mat_session_rejected");
+        }
+        throw new Error("dgm_mat_http_" + status);
       }
       const contentType = response.headers?.get?.("content-type") ?? "";
       if (!contentType.toLowerCase().includes("application/json")) throw new Error("dgm_mat_invalid_content_type");
