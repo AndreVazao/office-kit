@@ -5,7 +5,9 @@ import { createProductProfile, assertProfileIsolation, productEditionCatalog } f
 test("creates backend-neutral public edition with no adapter dependency", () => {
   const profile = createProductProfile({ edition: "universal", installationId: "customer-001", displayName: "Office Kit" });
   assert.equal(profile.channel, "public");
-  assert.deepEqual(profile.adapterAllowlist, []);\n  const extended = createProductProfile({ edition: "universal", installationId: "customer-002", displayName: "Office Kit", adapterIds: ["any-compatible-backend", "another-adapter"] });\n  assert.deepEqual(extended.adapterAllowlist, ["any-compatible-backend", "another-adapter"]);
+  assert.deepEqual(profile.adapterAllowlist, []);
+  const extended = createProductProfile({ edition: "universal", installationId: "customer-002", displayName: "Office Kit", adapterIds: ["any-compatible-backend", "another-adapter"] });
+  assert.deepEqual(extended.adapterAllowlist, ["any-compatible-backend", "another-adapter"]);
   assert.equal(profile.backend.autoConnect, false);
   assert.equal(profile.privacy.telemetry, false);
 });
