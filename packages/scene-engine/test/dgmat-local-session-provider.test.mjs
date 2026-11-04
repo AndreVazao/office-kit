@@ -1,0 +1,127 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { DgmMatLocalSessionProvider } from "../src/dgmat-local-session-provider.mjs";
+
+const bootstrap = "b".repeat(72);
+const jsonResponse = (payload, status = 201) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  headers: { get: name => name === "content-type" ? "application/json" : null },
+  json: async () => payload
+});
+const validSession = (overrides = {}) => ({
+  access_token: "short-lived-access-token-123456",
+  token_type: "Bearer",
+  expires_in: 1800,
+  expires_at: 1_800_000_000,
+  session_id: "session-12345678",
+  scopes: ["local-client"],
+  ...overrides
+});
+
+test("requires an injected host keystore provider and exact loopback origin", () => {
+  assert.throws(() => new DgmMatLocalSessionProvider(), /keystore_provider/);
+  const provider = async () => bootstrap;
+  for (const baseUrl of [
+    "http://192.168.1.20:8181",
+    "http://127.0.0.1:8182",
+    "http://127.0.0.1:8181/auth",
+    "http://127.0.0.1:8181/?next=elsewhere",
+    "http://user:pass@127.0.0.1:8181",
+    "https://127.0.0.1:8181"
+  ]) {
+    assert.throws(() => new DgmMatLocalSessionProvider({ getBootstrapCredential: provider, baseUrl }), /loopback_endpoint/);
+  }
+});
+
+test("exchanges bootstrap credential only through loopback POST and caches access token in memory", async () => {
+  const calls = [];
+  let credentialReads = 0;
+  const provider = new DgmMatLocalSessionProvider({
+    now: () => 1_800_000_000_000,
+    getBootstrapCredential: async () => { credentialReads += 1; return bootstrap; },
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return jsonResponse(validSession());
+    }
+  });
+
+  const first = await provider.getAccessToken();
+  const second = await provider.getAccessToken();
+  assert.equal(first, second);
+  assert.equal(credentialReads, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://127.0.0.1:8181/auth/session");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.redirect, "error");
+  assert.equal(calls[0].init.cache, "no-store");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer " + bootstrap);
+  assert.deepEqual(JSON.parse(calls[0].init.body), { client_id: "office-kit-dgmat" });
+  assert.equal(provider.getState().storage, "memory-only-session-token");
+  assert.equal(provider.getState().bootstrapCredentialRetained, false);
+  await provider.disconnect();
+  assert.equal(provider.getState().authenticated, false);
+});
+
+test("coalesces concurrent session exchanges", async () => {
+  let calls = 0;
+  const provider = new DgmMatLocalSessionProvider({
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => {
+      calls += 1;
+      await new Promise(resolve => setTimeout(resolve, 5));
+      return jsonResponse(validSession());
+    }
+  });
+  const tokens = await Promise.all([
+    provider.getAccessToken(),
+    provider.getAccessToken(),
+    provider.getAccessToken()
+  ]);
+  assert.equal(calls, 1);
+  assert.equal(new Set(tokens).size, 1);
+});
+
+test("rejects missing local bootstrap credential without making a request", async () => {
+  let calls = 0;
+  const provider = new DgmMatLocalSessionProvider({
+    getBootstrapCredential: async () => "invalid",
+    fetchImpl: async () => { calls += 1; return jsonResponse(validSession()); }
+  });
+  await assert.rejects(provider.getAccessToken(), /bootstrap_credential_invalid/);
+  assert.equal(calls, 0);
+});
+
+test("fails closed on rejected bootstrap credential and malformed session scopes", async () => {
+  const rejected = new DgmMatLocalSessionProvider({
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => jsonResponse({}, 401)
+  });
+  await assert.rejects(rejected.getAccessToken(), /bootstrap_credential_rejected/);
+
+  const wrongScope = new DgmMatLocalSessionProvider({
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => jsonResponse(validSession({ scopes: ["operator"] }))
+  });
+  await assert.rejects(wrongScope.getAccessToken(), /session_response_invalid/);
+});
+
+test("refreshes an expiring token and invalidation clears the cached session", async () => {
+  let now = 10_000;
+  let calls = 0;
+  const provider = new DgmMatLocalSessionProvider({
+    now: () => now,
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse(validSession({ access_token: "access-token-number-" + calls, expires_in: 30 }));
+    }
+  });
+  const first = await provider.getAccessToken();
+  now += 20_000;
+  const second = await provider.getAccessToken();
+  assert.notEqual(first, second);
+  assert.equal(calls, 2);
+  provider.invalidate();
+  assert.equal(provider.getState().authenticated, false);
+});

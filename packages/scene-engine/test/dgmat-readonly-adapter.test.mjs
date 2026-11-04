@@ -69,3 +69,14 @@ test("refuses missing or malformed session tokens", async () => {
   const adapter = new DgmMatReadOnlyAdapter({ getAccessToken: async () => "short", fetchImpl: async () => response({}) });
   await assert.rejects(adapter.connect(), /session_unavailable/);
 });
+
+test("invalidates the injected local session after authentication rejection", async () => {
+  let invalidations = 0;
+  const adapter = new DgmMatReadOnlyAdapter({
+    getAccessToken: async () => "secure-session-token-123",
+    invalidateAccessToken: () => { invalidations += 1; },
+    fetchImpl: async () => response({}, 401)
+  });
+  await assert.rejects(adapter.connect(), /session_rejected/);
+  assert.equal(invalidations, 1);
+});
