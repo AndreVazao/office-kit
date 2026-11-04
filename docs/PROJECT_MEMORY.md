@@ -102,8 +102,14 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 ## DGM-MAT adapter — incremento 2026-11-04
 - Branch ativo: `feat/dgmat-readonly-adapter`, criado a partir do merge `d0471453dfa890b83cd67acb0a83360c36cd9319` do PR #19.
-- Primeiro adaptador em `packages/scene-engine/src/dgmat-readonly-adapter.mjs`, API v1, `read_state` apenas. Loopback HTTP only; GET allowlist `/runtime/status` e `/runtime/health`; token de sessão fornecido por provider injetado; timeout, `no-store`, redirect error, polling serializado e sem escrita.
+- Primeiro adaptador em `packages/scene-engine/src/dgmat-readonly-adapter.mjs`, API v1, `read_state` apenas. Loopback HTTP only; GET allowlist `/runtime/status` apenas; token de sessão fornecido por provider injetado; timeout, `no-store`, redirect error, polling serializado e sem escrita.
 - O adaptador não acede ao bootstrap token do DGM-MAT, não inicia sessões, não faz pairing e não persiste tokens. Host secure-session provider ainda por implementar.
 - A rota `/runtime/status` atual não oferece source timestamp/watermark de sincronização verificável. O snapshot é deliberadamente `synchronizing` e não confirma atividade de agentes/tarefas. Não contornar esta limitação com timestamps locais.
 - Testes em `packages/scene-engine/test/dgmat-readonly-adapter.test.mjs`. CI/visual PR ainda pendentes; live E2E aguarda PC/keystore/provider.
 - Próxima prioridade: concluir e verificar este PR, depois implementar provider de sessão seguro/keystore e obter freshness watermark; só então validar a integração no DGM-MAT ativo. VST adapter virá em incremento separado.
+
+
+## DGM-MAT endpoint security hardening — 2026-11-04
+- PR #20 merged (`6c5f8ed088741dacc667c96775f7806edb10500d`): initial read-only DGM-MAT adapter.
+- PR #21 branch `fix/dgmat-loopback-endpoint-hardening`: restrict endpoint to HTTP loopback port 8181 and root URL only; remove unused health route from allowlist; add tests for alternate ports, paths, query, credentials and HTTPS.
+- The session provider/OS keystore and authoritative source freshness contract remain outstanding. No live PC E2E claim.
