@@ -60,3 +60,11 @@ Metadata storage must provide `get()` and an atomic `compareAndSet(expectedRevis
 
 ## Current status
 This document is a specification, not a platform-provider implementation. `NodeIdentityManager` now requires an atomic revisioned metadata store and a keystore `hasKey`/capability contract; it records cleanup tombstones and can reconcile pending deletion or missing active keys. `EphemeralEd25519KeyStore` reports itself as non-persistent/ephemeral and is rejected unless tests explicitly opt in with `allowEphemeral: true`. No platform-specific persistent provider or durable metadata store is shipped yet.
+
+
+## DGM-MAT bootstrap and access-session handling
+- The DGM-MAT bootstrap credential is a host secret and MUST be supplied by a native/platform keystore provider through an injected `getBootstrapCredential()` function.
+- The Office Kit session provider must never read DGM-MAT files directly, persist the bootstrap secret, log it, or send it to a non-loopback endpoint.
+- The current implementation exchanges it only with `POST http://127.0.0.1:8181/auth/session`, with redirects disabled and cache disabled.
+- The short-lived bearer access token is held in process memory only, refreshed before expiry, and invalidated on 401/403. It is not written to profile, localStorage, IndexedDB, logs or backups.
+- A native Windows keystore bridge that can safely retrieve the existing DGM-MAT bootstrap credential is not implemented yet. Until that exists and is tested on the target PC, the provider remains an injectable contract, not a turnkey authenticated connection.
