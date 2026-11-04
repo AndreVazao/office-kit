@@ -76,3 +76,5 @@ export function deriveDepartmentHealth({ backendConfigured = false, connection =
   }
   return { zone: "normal", status: "online", message: "Comunicação recente confirmada." };
 }
+
+export { canonicalizeLicensePayload, validateLicenseEntitlement, verifyLicenseEntitlement, evaluateLicenseSeatCapacity, commercialLicenseContract } from "./licensing.mjs";
