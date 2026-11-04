@@ -75,3 +75,14 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Primeira execução CI falhou em cinco testes devido a `Crypto.randomUUID` ter sido passado como método desligado do respetivo receiver (`ERR_INVALID_THIS`).
 - Corrigido o provider e fixture de teste para invocar `randomUUID()` através da instância Crypto.
 - Regressão visual passou na primeira execução; CI foi corrigido e aguarda nova execução no HEAD `0681e2ccfb83f96cd2b9f91a45085539cbe0032c`.
+
+
+## Decisão de produto — três edições no mesmo core (2026-11-04)
+- Universal: edição pública genérica, backend-independent e sem dependências de DGM-MAT/VST.
+- DGM-MAT: edição pessoal para a instalação ligada ao backend DGM-MAT, com adaptador próprio.
+- VST: edição pessoal para a instalação ligada ao VazaoSovereignTrader, com adaptador próprio.
+- As três usam o mesmo core; DGM-MAT e VST são instalações distintas com IDs/namespaces, configurações, credenciais, dados e memória isolados.
+- A edição Universal não contém allowlist de adaptadores pessoais. A edição DGM-MAT permite `dgm-mat`; VST permite `vazao-sovereign-trader`.
+- Perfis nunca fazem auto-connect. O proprietário configura e autoriza a ligação; modo inicial read-only.
+- Branch ativa: `feat/product-editions-profiles`; implementação inicial em `packages/scene-engine/src/product-profile.mjs` e testes em `packages/scene-engine/test/product-profile.test.mjs`.
+- Limite atual: perfis/allowlists/namespaces são implementados como contrato. Persistência por namespace, keystores de produção, instalador e adaptadores reais DGM-MAT/VST ainda não estão implementados.
