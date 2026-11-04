@@ -120,3 +120,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
 - Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
+
+
+## Comercialização e licenças — 2026-11-04
+- PR em desenvolvimento: `feat/offline-commercial-licensing`.
+- Core passa a definir entitlement versionado, edição/plano, features, validade UTC, licença perpétua (`expiresAt: null`), limite de instalações e envelope Ed25519.
+- Verificação de assinatura é injetada pelo host e deve usar chave pública confiável/pinned; a chave privada nunca pertence ao cliente nem ao repositório.
+- Limites de postos exigem registry persistente e atómico no host. Contadores enviados pela UI não são autoridade.
+- Modelo comercial proposto: Personal 1 instalação, Small Team até 10, Business até 50, Enterprise por volume negociado; compra perpétua com política explícita de updates/suporte. Serviços geridos podem ser recorrentes e separados.
+- Assinatura Android/Windows é distinta da assinatura de licença. AAB + Play App Signing para Google Play; Authenticode para Windows. Não existem ainda apps nativas, chaves de produção, pipeline de signing, checkout, emissão de licenças ou billing.
+- PR #22 integrada no merge `69946aaa01f22ab243dd0b785dd1dff5b190c2f5` após CI e visual regression verdes no HEAD `0558cf75206a012b3510807a6f38c545b597edb4`.
