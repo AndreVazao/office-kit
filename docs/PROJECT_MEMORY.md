@@ -88,3 +88,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Limite atual: perfis/allowlists/namespaces são implementados como contrato. Persistência por namespace, keystores de produção, instalador e adaptadores reais DGM-MAT/VST ainda não estão implementados.
 
 - `docs/PERSONAL_BACKEND_ADAPTERS.md` mapeia rotas de leitura e autenticação reais encontradas nos repos DGM-MAT e VST. Regista que DGM-MAT usa sessões bearer curtas e bootstrap apenas loopback (pairing remoto separado), enquanto VST protege `/status` e diagnósticos com token local e o shell documenta `X-Token`. WebSockets DGM-MAT atualmente sem autenticação não serão usados. Nenhum dos dois adaptadores foi ainda implementado; primeira fase será GET-only/read-only.
+
+
+## Workflows de build por edição — 2026-11-04
+- Adicionados três pipelines separados: Universal, DGM-MAT e VST, no branch `feat/product-editions-profiles` / PR #19.
+- Os pipelines usam exclusivamente `workflow_dispatch`, com concorrência serializada por edição e sem cancelamento de execução em curso. Não há gatilho automático por push, PR, schedule ou release.
+- Todos validam o core com `npm run check`, executam `scripts/build-edition.mjs` para o perfil específico e publicam `edition-manifest.json` + pacote `npm pack` como artifact de 14 dias.
+- Os manifests não incluem credenciais, installationId nem storageNamespace reais; esses valores serão provisionados por instalação.
+- Os artifacts atuais são pacotes de código-fonte perfilados, não instaladores nativos nem adaptadores backend funcionais.
+- A política é disparar os builds manualmente apenas em marcos de desenvolvimento, antes de validar uma edição ou preparar um artifact para teste. Não os executar em cada commit.
+- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\\n` literais e provocava SyntaxError na CI anterior.
