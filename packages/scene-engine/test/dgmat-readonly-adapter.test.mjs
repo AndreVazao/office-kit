@@ -10,7 +10,17 @@ const response = (data, status = 200) => ({
 });
 
 test("requires a loopback endpoint and injected secure session provider", () => {
-  assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: async () => "abcdefghijklmnop", baseUrl: "http://192.168.1.20:8181" }), /loopback/);
+  const tokenProvider = async () => "abcdefghijklmnop";
+  for (const baseUrl of [
+    "http://192.168.1.20:8181",
+    "http://127.0.0.1:8182",
+    "http://127.0.0.1:8181/untrusted-path",
+    "http://127.0.0.1:8181/?target=other",
+    "http://user:pass@127.0.0.1:8181"
+  ]) {
+    assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: tokenProvider, baseUrl }), /loopback/);
+  }
+  assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: tokenProvider, baseUrl: "https://127.0.0.1:8181" }), /loopback/);
   assert.throws(() => new DgmMatReadOnlyAdapter(), /secure_session_provider/);
 });
 
