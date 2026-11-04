@@ -1,10 +1,10 @@
 const DEFAULT_BASE_URL = "http://127.0.0.1:8181";
 const SOURCE_ID = "dgm-mat";
-const ALLOWED_PATHS = new Set(["/runtime/status", "/runtime/health"]);
+const ALLOWED_PATHS = new Set(["/runtime/status"]);
 const isLoopbackUrl = value => {
   try {
     const url = new URL(value);
-    return url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) && !url.username && !url.password && !url.search && !url.hash;
+    return url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) && url.port === "8181" && url.pathname === "/" && !url.username && !url.password && !url.search && !url.hash;
   } catch { return false; }
 };
 
