@@ -24,7 +24,7 @@ export function createProductProfile({ edition, installationId, displayName, bra
   if (!Array.isArray(selected) || selected.some(id => !nonEmpty(id))) errors.push("adapterIds must be an array of non-empty strings.");
   else {
     if (new Set(selected).size !== selected.length) errors.push("adapterIds must not contain duplicates.");
-    for (const id of selected) if (!allowed.includes(id)) errors.push(`adapter ${id} is not permitted in edition ${edition}.`);
+    if (edition !== "universal") for (const id of selected) if (!allowed.includes(id)) errors.push(`adapter ${id} is not permitted in edition ${edition}.`);
   }
   if (backend.autoConnect === true) errors.push("automatic backend connection is disabled; require explicit owner consent.");
   if (errors.length) {
@@ -61,6 +61,6 @@ export function assertProfileIsolation(profiles) {
 
 export const productEditionCatalog = Object.freeze({
   universal: Object.freeze({ edition: "universal", channel: "public", backendIndependent: true }),
-  dgmat: Object.freeze({ edition: "dgmat", channel: "personal", backendIndependent: false, adapterId: "dgm-mat" }),
-  vst: Object.freeze({ edition: "vst", channel: "personal", backendIndependent: false, adapterId: "vazao-sovereign-trader" })
+  dgmat: Object.freeze({ edition: "dgmat", channel: "personal", backendIndependent: true, adapterId: "dgm-mat" }),
+  vst: Object.freeze({ edition: "vst", channel: "personal", backendIndependent: true, adapterId: "vazao-sovereign-trader" })
 });
