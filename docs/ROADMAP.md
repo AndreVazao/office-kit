@@ -247,7 +247,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ## Integração DGM-MAT — primeiro adaptador GET-only (2026-11-04)
 - [x] Criar adaptador DGM-MAT isolado do core Universal, compatível com Adapter Contract v1.
-- [x] Restringir endpoint HTTP a loopback e caminhos GET explicitamente allowlisted (`/runtime/status`, `/runtime/health`).
+- [x] Restringir endpoint HTTP a loopback e caminhos GET explicitamente allowlisted (`/runtime/status`).
 - [x] Exigir provider de sessão local injetado; nunca ler bootstrap token, criar sessão ou armazenar credenciais no adaptador.
 - [x] Expor apenas capacidade `read_state`; timeout limitado, `no-store`, redirects bloqueados e polling serializado.
 - [x] Falhas 401/403 e erros de transporte falham fechados.
@@ -258,3 +258,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implementar depois o adaptador VST em branch separado.
 
 **Estado:** adaptador inicial e testes unitários em revisão; ligação operacional real ainda bloqueada pelo provider seguro de sessão e pela ausência de watermark de frescura no endpoint consultado.
+
+
+### DGM-MAT adapter hardening (2026-11-04)
+- [x] Merge initial GET-only adapter (PR #20).
+- [ ] Restrict the adapter to the exact loopback service origin and remove unused route allowance (PR #21).
+- [ ] Implement secure host session provider and persistent OS-keystore integration.
+- [ ] Add authoritative freshness metadata and run live DGM-MAT PC E2E.

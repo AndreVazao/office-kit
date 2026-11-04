@@ -66,8 +66,8 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 ## Implementation status — updated 2026-11-04
 
 - Product edition profiles and adapter allowlists are merged into `main` (PR #19).
-- A first DGM-MAT read-only adapter is under review in `feat/dgmat-readonly-adapter`.
-- It is loopback-only, accepts only GET `/runtime/status` and `/runtime/health`, requires an injected short-lived local-session token provider, and exposes only `read_state`.
+- The first DGM-MAT read-only adapter was merged in PR #20; endpoint hardening is under review in PR #21.
+- It is loopback-only, accepts only GET `/runtime/status` only, requires an injected short-lived local-session token provider, and exposes only `read_state`.
 - It does not read the protected bootstrap credential, create sessions, pair remote devices, store tokens, call WebSockets, or issue write requests.
 - The current `/runtime/status` response does not expose a source freshness watermark; the adapter deliberately returns `synchronizing`/unverified data and does not mark agents/tasks as active. A later DGM-MAT contract change or verified timestamp source is required before operational states can be displayed as confirmed.
 - The host-side secure session provider and persistent OS keystore are not implemented; the adapter cannot be activated in a real installation until those are available.
