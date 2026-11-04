@@ -171,3 +171,13 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Uma chave ativa ausente passa a `identity_unavailable`; o manager não gera silenciosamente outra chave sob a mesma identidade.
 - `EphemeralEd25519KeyStore` continua exclusivo de testes/sessões efémeras. Não é armazenamento persistente nem provider de produção.
 - Testes focados de identidade nesta branch: 14/14 aprovados. A validação completa do pacote e CI/visual no HEAD final desta branch ainda estão pendentes.
+
+
+## Pipelines de build por edição — adicionados ao branch ativo
+- Criados `.github/workflows/build-universal.yml`, `build-dgmat.yml` e `build-vst.yml`.
+- Os três workflows só aceitam `workflow_dispatch`; não são disparados por push/PR/schedule/release. Cada edição tem grupo de concorrência próprio, sem cancelar builds em curso.
+- Criado `scripts/build-edition.mjs`: valida o perfil através de `createProductProfile`, gera `edition-manifest.json` sem IDs/segredos reais e empacota a distribuição de código-fonte com `npm pack`.
+- Cada workflow executa `npm run check` antes do empacotamento e publica o artifact correspondente durante 14 dias.
+- Limite: estes artifacts são source packages perfilados, não instaladores Windows/Android nem prova de integração real com DGM-MAT/VST.
+- Não executar os workflows automaticamente a cada commit. A validação de cada pacote será iniciada manualmente em marcos estratégicos.
+- A CI automática existente do PR #19 detetou um defeito real no teste de perfis (sequências `\\n` literais); corrigido no branch antes da nova validação.
