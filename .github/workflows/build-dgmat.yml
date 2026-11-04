@@ -1,0 +1,26 @@
+name: Build — Office Kit DGM-MAT
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-kit-build-dgmat
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate shared core and tests
+        run: npm run check
+      - name: Build DGM-MAT source package
+        run: node scripts/build-edition.mjs dgmat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-kit-dgmat
+          path: dist/dgmat/*
+          if-no-files-found: error
+          retention-days: 14
