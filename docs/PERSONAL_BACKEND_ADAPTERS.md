@@ -1,0 +1,70 @@
+# Personal backend adapter integration map
+
+Reviewed against the public default-branch source on 2026-11-04. This is an integration map, not a claim that either adapter is implemented or that remote exposure is safe.
+
+## Universal edition
+
+- The Universal edition remains backend-neutral and may load any explicitly installed adapter that satisfies the Office Kit adapter contract.
+- It must not bundle or require DGM-MAT or VST.
+- Adapter selection and connection require explicit owner action. Start read-only. Unknown capabilities remain unavailable.
+
+## Personal DGM-MAT edition
+
+Repository: `AndreVazao/DGM-MAT`.
+
+### Candidate read-only data
+
+| Office Kit view | DGM-MAT route | Current security classification |
+|---|---|---|
+| Runtime health | `GET /runtime/health` | local-client session |
+| Runtime status | `GET /runtime/status` | local-client session |
+| Runtime truth/state | `GET /runtime/truth`, `GET /runtime/state` | local-client session |
+| Agents and mission activity | `GET /runtime/office/telemetry`, `GET /runtime/missions/page` | local-client session |
+| Capability inventory | `GET /mobile/capabilities` | local-client session |
+| Self/workspace audit | `GET /governance/audit/self`, `GET /governance/audit/workspace` | operator session |
+
+### Authentication and safety
+
+- DGM-MAT has `LocalSessionAuthMiddleware` and short-lived bearer sessions. The `/auth/session` bootstrap exchange is loopback-only and uses the protected local bootstrap credential.
+- Remote pairing is a separate one-time pairing-code flow (`GET /auth/pairing-code` on the PC, then `POST /auth/pair`) with short expiry. Office Kit must not try to reuse the loopback bootstrap secret remotely.
+- Never connect to the unauthenticated WebSocket routes `/ws` or `/runtime/ws`; they are explicitly identified as currently unauthenticated in the route inventory.
+- The first adapter must be GET-only and use only an authenticated local-client session for the minimal runtime snapshot. Operator-scope audits and all POST actions remain outside the first slice.
+- Keep DGM-MAT bound to loopback until its own owner-approved private-network authentication gate is verified. Do not expose the API to LAN/Tailscale merely because discovery succeeds.
+
+## Personal VST edition
+
+Repository: `AndreVazao/VazaoSovereignTrader`.
+
+### Candidate read-only data
+
+| Office Kit view | VST route |
+|---|---|
+| Engine status and trading overview | `GET /status` |
+| Liveness only | `GET /health` |
+| Engine and market diagnostics | `GET /diagnostics`, `GET /market-data-health` |
+| Venue health | `GET /venue-health` |
+| Evidence/readiness | `GET /evidence-scorecard`, `GET /execution-surfaces`, `GET /execution-surfaces/runtime` |
+| Pending operator interventions | `GET /human-interaction/pending` |
+
+### Authentication and safety
+
+- The documented local API uses `VST_LOCAL_TOKEN`; private status/diagnostic routes require `read_private_state`.
+- The existing virtual-office integration map specifies the `X-Token` header for the browser shell and forbids tokens in URLs, browser storage and logs. The adapter must follow the currently tested server contract rather than inventing a new one.
+- `GET /health` is liveness only and must never be interpreted as proof that the engine is ready or trading is authorized.
+- The first adapter must be GET-only. Do not expose order, REAL, mode, start/stop, pairing, file-upload or execution-surface mutation routes through the initial Office Kit integration.
+- Preserve PAPER-only/read-only truth labels and show source timestamps/staleness. A timeout after any future mutation must become outcome-unknown/reconcile, never automatic replay.
+
+## Shared implementation requirements
+
+- Implement two separate adapters behind the same versioned Office Kit adapter contract; do not add either backend's imports or models to the generic core.
+- Keep DGM-MAT and VST endpoint bases, credentials, sessions and caches in separate installation namespaces.
+- Credentials must be supplied through a secure owner-controlled pairing/configuration flow and stored only in the platform keystore. Never place credentials in profile JSON, logs, URLs or browser local storage.
+- Use bounded timeouts, cancellation, polling backoff, sequence/freshness metadata and strict response allowlists. Do not copy arbitrary backend payloads into the visual model.
+- If authentication, authorization, endpoint identity or data freshness cannot be verified, show disconnected/unverified and suppress operational claims.
+- Do not create missions, send chat messages, approve actions, execute repairs, start/stop engines or submit trading commands in this read-only phase.
+
+## Implementation status
+
+- Product edition profiles and adapter allowlists are implemented on the Office Kit feature branch.
+- DGM-MAT and VST adapter implementations are not yet present.
+- This integration map was derived from repository documentation and source review. End-to-end authentication and live contract tests against running local instances remain required before enabling either adapter.

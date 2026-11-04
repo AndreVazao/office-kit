@@ -221,3 +221,25 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Documentar requisitos de armazenamento seguro em `docs/SECURE_STORAGE.md` (PR #17).
 - [ ] Integrar keystore persistente protegido pelo sistema operativo/browser e metadata store durável.
 - [ ] Validar CI e regressão visual no SHA final da branch antes do merge.
+
+
+## Edições Universal e pessoais DGM-MAT/VST
+- [x] Definir três perfis de produto sobre um único core: Universal, DGM-MAT pessoal e VST pessoal.
+- [x] Definir allowlist de adaptadores por edição e rejeitar injeção cruzada de adaptadores.
+- [x] Definir namespace único por instalação, sem auto-connect, telemetria ou partilha por omissão.
+- [ ] Implementar armazenamento real separado por namespace, incluindo segredos no keystore do sistema.
+- [ ] Implementar adaptador DGM-MAT de leitura e validar protocolo real com o respetivo backend.
+- [ ] Implementar adaptador VST de leitura e validar protocolo real com o respetivo backend.
+- [ ] Adicionar instalador/launcher que permita selecionar Universal, DGM-MAT ou VST e criar duas instalações pessoais independentes.
+- [ ] Testar coexistência das duas instalações pessoais na mesma máquina e comprovar ausência de fuga de dados.
+
+**Nota:** o perfil declara compatibilidade pretendida e fronteiras de isolamento; não é prova de integração operacional com DGM-MAT ou VST.
+
+
+## Builds controlados por edição (2026-11-04)
+- [x] Criar três workflows independentes: Universal, DGM-MAT e VST.
+- [x] Configurar os três exclusivamente com `workflow_dispatch`; sem execução por push, PR, schedule ou release.
+- [x] Validar o core e a suite completa antes de gerar o pacote de código-fonte de cada perfil.
+- [x] Gerar manifesto de edição e artifact com retenção de 14 dias.
+- [ ] Executar manualmente cada workflow num ponto estratégico e verificar os artifacts resultantes.
+- [ ] Evoluir o pacote de código-fonte para instaladores reais desktop/mobile quando o launcher e packaging estiverem implementados.

@@ -75,3 +75,26 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Primeira execução CI falhou em cinco testes devido a `Crypto.randomUUID` ter sido passado como método desligado do respetivo receiver (`ERR_INVALID_THIS`).
 - Corrigido o provider e fixture de teste para invocar `randomUUID()` através da instância Crypto.
 - Regressão visual passou na primeira execução; CI foi corrigido e aguarda nova execução no HEAD `0681e2ccfb83f96cd2b9f91a45085539cbe0032c`.
+
+
+## Decisão de produto — três edições no mesmo core (2026-11-04)
+- Universal: edição pública genérica, backend-independent e sem dependências de DGM-MAT/VST.
+- DGM-MAT: edição pessoal para a instalação ligada ao backend DGM-MAT, com adaptador próprio.
+- VST: edição pessoal para a instalação ligada ao VazaoSovereignTrader, com adaptador próprio.
+- As três usam o mesmo core; DGM-MAT e VST são instalações distintas com IDs/namespaces, configurações, credenciais, dados e memória isolados.
+- A edição Universal não contém allowlist de adaptadores pessoais. A edição DGM-MAT permite `dgm-mat`; VST permite `vazao-sovereign-trader`.
+- Perfis nunca fazem auto-connect. O proprietário configura e autoriza a ligação; modo inicial read-only.
+- Branch ativa: `feat/product-editions-profiles`; implementação inicial em `packages/scene-engine/src/product-profile.mjs` e testes em `packages/scene-engine/test/product-profile.test.mjs`.
+- Limite atual: perfis/allowlists/namespaces são implementados como contrato. Persistência por namespace, keystores de produção, instalador e adaptadores reais DGM-MAT/VST ainda não estão implementados.
+
+- `docs/PERSONAL_BACKEND_ADAPTERS.md` mapeia rotas de leitura e autenticação reais encontradas nos repos DGM-MAT e VST. Regista que DGM-MAT usa sessões bearer curtas e bootstrap apenas loopback (pairing remoto separado), enquanto VST protege `/status` e diagnósticos com token local e o shell documenta `X-Token`. WebSockets DGM-MAT atualmente sem autenticação não serão usados. Nenhum dos dois adaptadores foi ainda implementado; primeira fase será GET-only/read-only.
+
+
+## Workflows de build por edição — 2026-11-04
+- Adicionados três pipelines separados: Universal, DGM-MAT e VST, no branch `feat/product-editions-profiles` / PR #19.
+- Os pipelines usam exclusivamente `workflow_dispatch`, com concorrência serializada por edição e sem cancelamento de execução em curso. Não há gatilho automático por push, PR, schedule ou release.
+- Todos validam o core com `npm run check`, executam `scripts/build-edition.mjs` para o perfil específico e publicam `edition-manifest.json` + pacote `npm pack` como artifact de 14 dias.
+- Os manifests não incluem credenciais, installationId nem storageNamespace reais; esses valores serão provisionados por instalação.
+- Os artifacts atuais são pacotes de código-fonte perfilados, não instaladores nativos nem adaptadores backend funcionais.
+- A política é disparar os builds manualmente apenas em marcos de desenvolvimento, antes de validar uma edição ou preparar um artifact para teste. Não os executar em cada commit.
+- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\\n` literais e provocava SyntaxError na CI anterior.

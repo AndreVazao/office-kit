@@ -284,3 +284,12 @@ O módulo `packages/scene-engine/src/federation-contract.mjs` fornece validadore
 `packages/scene-engine/src/node-identity.mjs` introduz `NodeIdentityManager` e a interface `NodeKeyStoreProvider`. Cada nó tem escopo de organização/identificador, chave Ed25519, chave pública codificada e fingerprint SHA-256. A prova de posse assina um desafio com nonce aleatório, audiência e janela temporal curta (máximo 60 segundos); a verificação usa a chave pública. Rotação cria uma nova geração e revogação remove a chave privada através do provider. O armazenamento da chave privada e dos metadados é injetado, não acoplado ao core.
 
 O `EphemeralEd25519KeyStore` é apenas um provider efémero de referência para testes: não persiste chaves entre reinícios e não deve ser usado em produção. Continua por implementar um provider que use o keystore seguro do sistema operativo/browser e um metadata store durável. A existência de uma prova válida demonstra posse da chave para aquele desafio, mas não substitui aprovação do proprietário nem autorização por organização/capacidade. Este módulo não faz rede, descoberta ou sincronização.
+
+
+## Edições de produto e instalações pessoais
+
+O produto mantém um único core e três perfis de distribuição/configuração: **Universal** (público, sem dependências de backend), **DGM-MAT** (pessoal, adaptador permitido `dgm-mat`) e **VST** (pessoal, adaptador permitido `vazao-sovereign-trader`). As edições pessoais não são forks do core: são perfis privados que podem incluir adaptadores fornecidos separadamente.
+
+Cada instalação recebe `installationId` e `storageNamespace` próprios. O utilizador pode instalar DGM-MAT e VST na mesma máquina, mantendo configuração, credenciais, dados, memória, avatares e logs isolados. A versão Universal não inclui nem depende dos adaptadores pessoais. Os adaptadores continuam sujeitos ao contrato público, autenticação do anfitrião, consentimento explícito e permissões concedidas.
+
+Os perfis não estabelecem ligações automaticamente. O estado inicial é não configurado; a ligação requer ação explícita do proprietário. O modo inicial dos adaptadores é leitura. A existência do perfil DGM-MAT/VST não significa que o respetivo adaptador ou protocolo de integração já esteja implementado.
