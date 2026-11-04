@@ -181,3 +181,13 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Limite: estes artifacts são source packages perfilados, não instaladores Windows/Android nem prova de integração real com DGM-MAT/VST.
 - Não executar os workflows automaticamente a cada commit. A validação de cada pacote será iniciada manualmente em marcos estratégicos.
 - A CI automática existente do PR #19 detetou um defeito real no teste de perfis (sequências `\\n` literais); corrigido no branch antes da nova validação.
+
+
+## Adaptador DGM-MAT GET-only — branch em revisão
+- Adicionado `packages/scene-engine/src/dgmat-readonly-adapter.mjs`, compatível com o contrato de adaptadores v1.
+- Endpoint limitado a loopback HTTP, rotas GET allowlisted `/runtime/status` e `/runtime/health`, token de sessão curto fornecido por provider seguro externo.
+- Não faz bootstrap, pairing, armazenamento de credenciais, WebSocket ou chamadas de escrita. Capacidade única: `read_state`.
+- Polling serializado com intervalo configurável e timeout limitado; 401/403, redirects e respostas inesperadas falham fechados.
+- A resposta atual `/runtime/status` não tem watermark de frescura de origem. O adaptador mantém o snapshot como `synchronizing` e não publica agentes/tarefas como confirmados.
+- Testes unitários cobrem loopback, sessão injetada, GET-only, allowlist, sanitização, estado não verificado e rejeição de sessão.
+- Pendente: provider real de sessão ligado ao keystore seguro, watermark autoritativo, testes E2E no PC com DGM-MAT ativo e validação CI/visual no HEAD final. Não declarar integração operacional antes disso.
