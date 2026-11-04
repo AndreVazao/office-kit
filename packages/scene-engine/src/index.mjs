@@ -51,3 +51,5 @@ export function calculateSceneLayout(config, viewport, options = {}) {
     orientation: viewport.width >= viewport.height ? "landscape" : "portrait"
   };
 }
+
+export { DgmMatReadOnlyAdapter, dgmMatAdapterContract } from "./dgmat-readonly-adapter.mjs";
