@@ -63,8 +63,14 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 - If authentication, authorization, endpoint identity or data freshness cannot be verified, show disconnected/unverified and suppress operational claims.
 - Do not create missions, send chat messages, approve actions, execute repairs, start/stop engines or submit trading commands in this read-only phase.
 
-## Implementation status
+## Implementation status — updated 2026-11-04
 
-- Product edition profiles and adapter allowlists are implemented on the Office Kit feature branch.
-- DGM-MAT and VST adapter implementations are not yet present.
-- This integration map was derived from repository documentation and source review. End-to-end authentication and live contract tests against running local instances remain required before enabling either adapter.
+- Product edition profiles and adapter allowlists are merged into `main` (PR #19).
+- A first DGM-MAT read-only adapter is under review in `feat/dgmat-readonly-adapter`.
+- It is loopback-only, accepts only GET `/runtime/status` and `/runtime/health`, requires an injected short-lived local-session token provider, and exposes only `read_state`.
+- It does not read the protected bootstrap credential, create sessions, pair remote devices, store tokens, call WebSockets, or issue write requests.
+- The current `/runtime/status` response does not expose a source freshness watermark; the adapter deliberately returns `synchronizing`/unverified data and does not mark agents/tasks as active. A later DGM-MAT contract change or verified timestamp source is required before operational states can be displayed as confirmed.
+- The host-side secure session provider and persistent OS keystore are not implemented; the adapter cannot be activated in a real installation until those are available.
+- VST adapter remains unimplemented. Live tests against the running DGM-MAT PC remain pending.
+
+This integration map was derived from repository documentation and source review. End-to-end authentication and live contract tests against running local instances remain required before enabling either adapter.

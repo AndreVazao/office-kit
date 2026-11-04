@@ -243,3 +243,18 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Gerar manifesto de edição e artifact com retenção de 14 dias.
 - [ ] Executar manualmente cada workflow num ponto estratégico e verificar os artifacts resultantes.
 - [ ] Evoluir o pacote de código-fonte para instaladores reais desktop/mobile quando o launcher e packaging estiverem implementados.
+
+
+## Integração DGM-MAT — primeiro adaptador GET-only (2026-11-04)
+- [x] Criar adaptador DGM-MAT isolado do core Universal, compatível com Adapter Contract v1.
+- [x] Restringir endpoint HTTP a loopback e caminhos GET explicitamente allowlisted (`/runtime/status`, `/runtime/health`).
+- [x] Exigir provider de sessão local injetado; nunca ler bootstrap token, criar sessão ou armazenar credenciais no adaptador.
+- [x] Expor apenas capacidade `read_state`; timeout limitado, `no-store`, redirects bloqueados e polling serializado.
+- [x] Falhas 401/403 e erros de transporte falham fechados.
+- [ ] Ligar o host à sessão local DGM-MAT através de keystore persistente e bootstrap protegido.
+- [ ] Obter do DGM-MAT uma marca temporal/freshness watermark autoritativa para validar estado sincronizado.
+- [ ] Executar testes E2E contra o DGM-MAT ativo no PC e confirmar leitura sem efeitos laterais.
+- [ ] Integrar o resumo verificado no Office UI sem confundir telemetria com agentes ativos.
+- [ ] Implementar depois o adaptador VST em branch separado.
+
+**Estado:** adaptador inicial e testes unitários em revisão; ligação operacional real ainda bloqueada pelo provider seguro de sessão e pela ausência de watermark de frescura no endpoint consultado.

@@ -98,3 +98,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Os artifacts atuais são pacotes de código-fonte perfilados, não instaladores nativos nem adaptadores backend funcionais.
 - A política é disparar os builds manualmente apenas em marcos de desenvolvimento, antes de validar uma edição ou preparar um artifact para teste. Não os executar em cada commit.
 - Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\\n` literais e provocava SyntaxError na CI anterior.
+
+
+## DGM-MAT adapter — incremento 2026-11-04
+- Branch ativo: `feat/dgmat-readonly-adapter`, criado a partir do merge `d0471453dfa890b83cd67acb0a83360c36cd9319` do PR #19.
+- Primeiro adaptador em `packages/scene-engine/src/dgmat-readonly-adapter.mjs`, API v1, `read_state` apenas. Loopback HTTP only; GET allowlist `/runtime/status` e `/runtime/health`; token de sessão fornecido por provider injetado; timeout, `no-store`, redirect error, polling serializado e sem escrita.
+- O adaptador não acede ao bootstrap token do DGM-MAT, não inicia sessões, não faz pairing e não persiste tokens. Host secure-session provider ainda por implementar.
+- A rota `/runtime/status` atual não oferece source timestamp/watermark de sincronização verificável. O snapshot é deliberadamente `synchronizing` e não confirma atividade de agentes/tarefas. Não contornar esta limitação com timestamps locais.
+- Testes em `packages/scene-engine/test/dgmat-readonly-adapter.test.mjs`. CI/visual PR ainda pendentes; live E2E aguarda PC/keystore/provider.
+- Próxima prioridade: concluir e verificar este PR, depois implementar provider de sessão seguro/keystore e obter freshness watermark; só então validar a integração no DGM-MAT ativo. VST adapter virá em incremento separado.
