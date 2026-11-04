@@ -21,9 +21,9 @@ test("creates isolated personal DGM-MAT and VST editions", () => {
   assert.equal(assertProfileIsolation([dgmat, vst]), true);
 });
 
-test("rejects cross-edition adapter injection and implicit auto-connect", () => {
-  assert.throws(() => createProductProfile({ edition: "universal", installationId: "x", displayName: "Universal", adapterIds: ["dgm-mat"] }), /invalid_product_profile/);
+test("rejects personal adapter cross-injection and implicit auto-connect", () => {
   assert.throws(() => createProductProfile({ edition: "vst", installationId: "x", displayName: "VST", adapterIds: ["dgm-mat"] }), /invalid_product_profile/);
+  assert.throws(() => createProductProfile({ edition: "dgmat", installationId: "x", displayName: "DGM-MAT", adapterIds: ["vazao-sovereign-trader"] }), /invalid_product_profile/);
   assert.throws(() => createProductProfile({ edition: "dgmat", installationId: "x", displayName: "DGM-MAT", backend: { autoConnect: true } }), /invalid_product_profile/);
 });
 
