@@ -234,3 +234,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Testar coexistência das duas instalações pessoais na mesma máquina e comprovar ausência de fuga de dados.
 
 **Nota:** o perfil declara compatibilidade pretendida e fronteiras de isolamento; não é prova de integração operacional com DGM-MAT ou VST.
+
+
+## Builds controlados por edição (2026-11-04)
+- [x] Criar três workflows independentes: Universal, DGM-MAT e VST.
+- [x] Configurar os três exclusivamente com `workflow_dispatch`; sem execução por push, PR, schedule ou release.
+- [x] Validar o core e a suite completa antes de gerar o pacote de código-fonte de cada perfil.
+- [x] Gerar manifesto de edição e artifact com retenção de 14 dias.
+- [ ] Executar manualmente cada workflow num ponto estratégico e verificar os artifacts resultantes.
+- [ ] Evoluir o pacote de código-fonte para instaladores reais desktop/mobile quando o launcher e packaging estiverem implementados.
