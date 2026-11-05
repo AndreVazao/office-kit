@@ -282,3 +282,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Definir integração de pagamentos, fiscalidade/VAT, EULA, privacidade, reembolsos, suporte e política de atualizações.
 - [ ] Criar aplicação Android e desktop real, package IDs finais e pipeline protegido de assinatura (Play App Signing/AAB e Authenticode).
 - [ ] Validar instalação, atualização, recuperação de licença, revogação online opcional e funcionamento offline em dispositivos reais.
+
+
+## Próximo incremento — registo e ativação comercial
+- [x] Implementar contrato de ativação com idempotência, limites de lugares dentro de transação atómica, desativação e listagem minimizada.
+- [x] Endurecer validação de datas de licenças para rejeitar datas de calendário impossíveis.
+- [ ] Implementar store durável partilhado e providers de identidade/keystore no host nativo (Windows DPAPI/CNG e Android Keystore).
+- [ ] Implementar serviço privado de emissão/assinatura de licenças, registo de encomendas e ligação a faturação/pagamentos.
+- [ ] Construir aplicação nativa/launcher antes de declarar qualquer pacote pronto a instalar.
