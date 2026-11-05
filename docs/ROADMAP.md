@@ -272,3 +272,13 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
 - Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
+
+
+## Licenciamento comercial e distribuição assinada
+- [x] Definir modelo inicial de licenças perpétuas por número de instalações e opção de serviços empresariais recorrentes separados.
+- [x] Implementar schema de entitlement, canonicalização, verificação Ed25519 injetável, validade, edição/plano/features e avaliação de limite de instalações.
+- [ ] Implementar keystore/registry durável e atómico de ativações no host nativo, com desativação e migração controladas.
+- [ ] Implementar serviço de emissão e assinatura de licenças fora do cliente, gestão/rotação de chaves e registo imutável de encomendas/faturas.
+- [ ] Definir integração de pagamentos, fiscalidade/VAT, EULA, privacidade, reembolsos, suporte e política de atualizações.
+- [ ] Criar aplicação Android e desktop real, package IDs finais e pipeline protegido de assinatura (Play App Signing/AAB e Authenticode).
+- [ ] Validar instalação, atualização, recuperação de licença, revogação online opcional e funcionamento offline em dispositivos reais.

@@ -24,3 +24,5 @@ Ler nesta ordem:
 - O estado de implementação regista apenas o que existe e foi efetivamente verificado.
 
 Quando uma implementação ou conversa futura divergir destes documentos, propor uma alteração explícita antes de mudar o rumo.
+
+11. [Licenciamento comercial e releases assinados](COMMERCIAL_LICENSING.md) — modelo de venda, licenças offline, limites de instalações e assinatura de aplicações.
