@@ -33,14 +33,15 @@ const setup = (max = 2) => {
   let sequence = 0;
   const registry = new LicenseActivationRegistry({
     store, clock: () => Date.parse("2026-11-05T06:00:00.000Z"),
-    createActivationId: () => "activation-" + (++sequence)
+    createActivationId: () => "activation-" + (++sequence),
+    verifyLicenseEnvelope: async envelope => envelope?.signature?.trusted === true ? license(max) : { valid: false, status: "untrusted-signature" }
   });
-  return { store, registry, verifiedLicense: license(max) };
+  return { store, registry, licenseEnvelope: { signature: { trusted: true } } };
 };
 
 test("activation is idempotent for same installation and machine", async () => {
   const { registry, verifiedLicense } = setup();
-  const first = await registry.activate({ verifiedLicense, installationId: "pc-home", machineFingerprint: fingerprint(1) });
+  const first = await registry.activate({ licenseEnvelope, installationId: "pc-home", machineFingerprint: fingerprint(1) });
   const second = await registry.activate({ verifiedLicense, installationId: "pc-home", machineFingerprint: fingerprint(1) });
   assert.equal(first.activated, true);
   assert.equal(second.activated, true);
@@ -71,7 +72,7 @@ test("concurrent activation attempts cannot exceed licensed seats", async () => 
 
 test("refuses unverified licenses, invalid installation IDs and raw machine identifiers", async () => {
   const { registry, verifiedLicense } = setup();
-  assert.equal((await registry.activate({ verifiedLicense: { ...verifiedLicense, valid: false }, installationId: "pc", machineFingerprint: fingerprint(1) })).reason, "verified_license_required");
+  assert.equal((await registry.activate({ licenseEnvelope: { signature: { trusted: false } }, installationId: "pc", machineFingerprint: fingerprint(1) })).reason, "verified_license_required");
   assert.equal((await registry.activate({ verifiedLicense, installationId: "", machineFingerprint: fingerprint(1) })).reason, "installation_id_invalid");
   assert.equal((await registry.activate({ verifiedLicense, installationId: "pc", machineFingerprint: "SERIAL-123" })).reason, "machine_fingerprint_invalid");
 });
