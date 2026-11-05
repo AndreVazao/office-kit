@@ -14,7 +14,7 @@ The transaction guarantee must hold across all processes and machines that share
 
 ## Activation semantics
 
-- Only a result returned by the trusted license verification boundary is accepted; UI-supplied entitlement data is not trusted.
+- The registry invokes an injected trusted `verifyLicenseEnvelope` function itself. Callers provide the signed envelope, not a claimed `valid: true` object; UI-supplied entitlement data is not trusted.
 - A machine is represented by an opaque installation ID and SHA-256 fingerprint. Raw serial numbers, MAC addresses, disk IDs or other hardware identifiers must not be collected or stored.
 - Repeating activation for the same installation/fingerprint is idempotent.
 - A different installation consumes one seat; the limit is enforced inside the atomic transaction.
