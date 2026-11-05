@@ -56,3 +56,13 @@ test("seat capacity is explicit and refuses untrusted counters", () => {
   assert.deepEqual(evaluateLicenseSeatCapacity({ entitlement: grant(), activeInstallationCount: 10 }), { allowed: false, reason: "installation_limit_reached", remaining: 0 });
   assert.equal(evaluateLicenseSeatCapacity({ entitlement: grant(), activeInstallationCount: "8" }).allowed, false);
 });
+
+test("rejects impossible UTC calendar dates and leap-day errors", () => {
+  const impossible = validateLicenseEntitlement({ ...grant({ issuedAt: "2026-02-30T00:00:00.000Z" }), signature: sig });
+  assert.equal(impossible.valid, false);
+  assert.ok(impossible.errors.includes("license_issued_at_invalid"));
+  const nonLeap = validateLicenseEntitlement({ ...grant({ notBefore: "2025-02-29T00:00:00.000Z" }), signature: sig });
+  assert.ok(nonLeap.errors.includes("license_not_before_invalid"));
+  const leap = validateLicenseEntitlement({ ...grant({ notBefore: "2024-02-29T00:00:00.000Z", issuedAt: "2024-02-29T00:00:00.000Z" }), signature: sig });
+  assert.equal(leap.valid, true);
+});
