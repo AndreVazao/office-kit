@@ -17,17 +17,23 @@ export class LicenseActivationRegistry {
   #store;
   #clock;
   #createActivationId;
+  #verifyLicense;
 
-  constructor({ store, clock = () => Date.now(), createActivationId } = {}) {
+  constructor({ store, clock = () => Date.now(), createActivationId, verifyLicenseEnvelope } = {}) {
     if (!store || typeof store.transact !== "function") throw new TypeError("durable_atomic_license_store_required");
     if (typeof clock !== "function") throw new TypeError("license_registry_clock_required");
     if (typeof createActivationId !== "function") throw new TypeError("activation_id_factory_required");
+    if (typeof verifyLicenseEnvelope !== "function") throw new TypeError("trusted_license_verifier_required");
     this.#store = store;
     this.#clock = clock;
     this.#createActivationId = createActivationId;
+    this.#verifyLicense = verifyLicenseEnvelope;
   }
 
-  async activate({ verifiedLicense, installationId, machineFingerprint }) {
+  async activate({ licenseEnvelope, installationId, machineFingerprint }) {
+    let verifiedLicense;
+    try { verifiedLicense = await this.#verifyLicense(licenseEnvelope); }
+    catch { return { activated: false, reason: "license_verification_failed" }; }
     const entitlement = verifiedLicense?.entitlement;
     if (verifiedLicense?.valid !== true || verifiedLicense?.status !== "valid" || !isRecord(entitlement)) {
       return { activated: false, reason: "verified_license_required" };
