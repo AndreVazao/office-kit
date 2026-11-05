@@ -6,8 +6,8 @@ class FakeSqlite {
   rows = new Map();
   exec(sql) { assert.match(sql, /CREATE TABLE IF NOT EXISTS office_kit_license_activations/); }
   prepare(sql) {
-    if (sql.startsWith("SELECT")) return { get: id => this.rows.has(id) ? { state_json: this.rows.get(id) } : undefined };
-    if (sql.startsWith("INSERT")) return { run: (id, json) => this.rows.set(id, json) };
+    if (sql.trimStart().startsWith("SELECT")) return { get: id => this.rows.has(id) ? { state_json: this.rows.get(id) } : undefined };
+    if (sql.trimStart().startsWith("INSERT")) return { run: (id, json) => this.rows.set(id, json) };
     throw new Error("unexpected_sql");
   }
   transaction(callback) {
