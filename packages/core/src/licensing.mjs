@@ -7,7 +7,7 @@ const isRecord = value => value !== null && typeof value === "object" && !Array.
 const isText = value => typeof value === "string" && value.trim().length > 0;
 const parseTime = value => {
   if (typeof value !== "string") return NaN;
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.(\\d{1,3}))?Z$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/.exec(value);
   if (!match) return NaN;
   const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction = "0"] = match;
   const year = Number(yearText), month = Number(monthText), day = Number(dayText);
