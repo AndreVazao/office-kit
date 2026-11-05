@@ -78,3 +78,5 @@ export function deriveDepartmentHealth({ backendConfigured = false, connection =
 }
 
 export { canonicalizeLicensePayload, validateLicenseEntitlement, verifyLicenseEntitlement, evaluateLicenseSeatCapacity, commercialLicenseContract } from "./licensing.mjs";
+
+export { LicenseActivationRegistry, licenseActivationStoreContract } from "./license-activation-registry.mjs";
