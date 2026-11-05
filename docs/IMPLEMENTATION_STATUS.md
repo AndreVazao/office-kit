@@ -211,3 +211,10 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Verificação delegada a provider confiável do host; não há chave privada no cliente. A função de capacidade de lugares exige contagem proveniente de registry durável/atómico.
 - Ainda não existem emissão/assinatura de licenças, checkout, billing, registry de ativações, UI de ativação, app Android/Windows nativa nem pipeline de assinatura de releases.
 - Modelo comercial inicial documentado: Personal 1, Small Team 10, Business 50, Enterprise volume negociado; preços dependem de pesquisa e custos reais.
+
+
+## Ativação e limite de instalações — em desenvolvimento
+- Implementado módulo `LicenseActivationRegistry` com contrato explícito de transação atómica por licença, ativação idempotente, bloqueio ao atingir o limite, desativação idempotente e listagem sem fingerprint.
+- Testes usam store em memória serializado apenas como double; não é provider de produção e não prova consistência entre computadores.
+- O core agora valida datas UTC de calendário estritas, incluindo dia/mês e ano bissexto.
+- Falta provider durável/partilhado, keystore nativo, UI de ativação, serviço de emissão e pipeline de vendas.
