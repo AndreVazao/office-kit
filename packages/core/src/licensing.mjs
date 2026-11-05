@@ -6,9 +6,21 @@ const FEATURES = Object.freeze(["office-basic", "custom-layouts", "avatar-studio
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const isText = value => typeof value === "string" && value.trim().length > 0;
 const parseTime = value => {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) return NaN;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === new Date(value).toISOString() ? parsed : NaN;
+  if (typeof value !== "string") return NaN;
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.(\\d{1,3}))?Z$/.exec(value);
+  if (!match) return NaN;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction = "0"] = match;
+  const year = Number(yearText), month = Number(monthText), day = Number(dayText);
+  const hour = Number(hourText), minute = Number(minuteText), second = Number(secondText);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > days[month - 1] || hour > 23 || minute > 59 || second > 59) return NaN;
+  const millis = Number(fraction.padEnd(3, "0"));
+  const parsed = Date.UTC(year, month - 1, day, hour, minute, second, millis);
+  if (!Number.isFinite(parsed)) return NaN;
+  const normalized = new Date(parsed).toISOString();
+  const expected = yearText + "-" + monthText + "-" + dayText + "T" + hourText + ":" + minuteText + ":" + secondText + "." + String(millis).padStart(3, "0") + "Z";
+  return normalized === expected ? parsed : NaN;
 };
 
 export function canonicalizeLicensePayload(value) {
