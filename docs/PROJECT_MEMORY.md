@@ -130,3 +130,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Modelo comercial proposto: Personal 1 instalação, Small Team até 10, Business até 50, Enterprise por volume negociado; compra perpétua com política explícita de updates/suporte. Serviços geridos podem ser recorrentes e separados.
 - Assinatura Android/Windows é distinta da assinatura de licença. AAB + Play App Signing para Google Play; Authenticode para Windows. Não existem ainda apps nativas, chaves de produção, pipeline de signing, checkout, emissão de licenças ou billing.
 - PR #22 integrada no merge `69946aaa01f22ab243dd0b785dd1dff5b190c2f5` após CI e visual regression verdes no HEAD `0558cf75206a012b3510807a6f38c545b597edb4`.
+
+
+## Ativação de licenças — 2026-11-05
+- Branch `feat/license-activation-registry`: `LicenseActivationRegistry` adiciona ativação idempotente, limite de instalações dentro de transação atómica, desativação idempotente e listagem sem expor fingerprint de hardware.
+- O store de produção tem de oferecer transação durável, atómica e serializável por licença, partilhada entre processos/máquinas. O store em memória existe apenas nos testes; não é adequado para produção.
+- Identidade da máquina é representada por installationId opaco e SHA-256 fingerprint; nunca recolher serials/MAC/raw hardware IDs. A ativação multi-PC não funciona offline sem autoridade/registry partilhado.
+- Endurecido parsing de datas UTC da licença para rejeitar datas impossíveis e anos bissextos incorretos.
+- PR #23 integrada em `b148721e83ecad67224bf5f9dce8e79b05c6afa2`; CI e visual regression verdes no HEAD `97956d8be622870eca9632c625efacd5a72547fc`.
+- Continua em falta: store persistente de produção, providers nativos Windows/Android, serviço emissor de licenças, checkout e aplicações instaláveis.
