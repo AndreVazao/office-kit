@@ -44,6 +44,19 @@ test("does not persist when updater returns the existing state", async () => {
   assert.equal(database.writes, writesBefore, "unchanged state must not issue an UPSERT");
 });
 
+test("persists updater mutations made in place", async () => {
+  const database = new FakeSqlite();
+  const store = new SqliteLicenseActivationStore({ database });
+  await store.transact(key, () => ({ state, result: "created" }));
+  const writesBefore = database.writes;
+  await store.transact(key, current => {
+    current.activations.installation = { status: "active" };
+    return { state: current, result: "mutated" };
+  });
+  assert.equal(database.writes, writesBefore + 1);
+  assert.deepEqual((await store.read(key)).activations.installation, { status: "active" });
+});
+
 test("rolls back invalid updater output and rejects malformed keys", async () => {
   const database = new FakeSqlite();
   const store = new SqliteLicenseActivationStore({ database });
