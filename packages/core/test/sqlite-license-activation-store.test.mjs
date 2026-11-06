@@ -4,10 +4,11 @@ import { SqliteLicenseActivationStore } from "../src/sqlite-license-activation-s
 
 class FakeSqlite {
   rows = new Map();
+  writes = 0;
   exec(sql) { assert.match(sql, /CREATE TABLE IF NOT EXISTS office_kit_license_activations/); }
   prepare(sql) {
     if (sql.trimStart().startsWith("SELECT")) return { get: id => this.rows.has(id) ? { state_json: this.rows.get(id) } : undefined };
-    if (sql.trimStart().startsWith("INSERT")) return { run: (id, json) => this.rows.set(id, json) };
+    if (sql.trimStart().startsWith("INSERT")) return { run: (id, json) => { this.writes += 1; this.rows.set(id, json); } };
     throw new Error("unexpected_sql");
   }
   transaction(callback) {
@@ -36,9 +37,11 @@ test("does not persist when updater returns the existing state", async () => {
   const store = new SqliteLicenseActivationStore({ database });
   await store.transact(key, () => ({ state, result: "saved" }));
   const before = database.rows.get("license-a");
+  const writesBefore = database.writes;
   const result = await store.transact(key, current => ({ state: current, result: "unchanged" }));
   assert.equal(result, "unchanged");
   assert.equal(database.rows.get("license-a"), before);
+  assert.equal(database.writes, writesBefore, "unchanged state must not issue an UPSERT");
 });
 
 test("rolls back invalid updater output and rejects malformed keys", async () => {
