@@ -305,7 +305,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar perda física de energia/falha de armazenamento, ACLs, cifragem, backup e restore no host nativo.
 - [ ] Implementar host Windows: diretório de dados por instalação, ACLs restritivas, DPAPI/CNG/credential vault e migração/backup.
 - [ ] Implementar hosts equivalentes para Linux e Android sem misturar credenciais ou namespaces das três edições.
-- [ ] Executar suite completa Node.js 22 em runners Linux e Windows; inclui SQLite real e processos separados (branch `ci/validate-sqlite-on-windows-v2`; revalidação pendente).
+- [x] Executar suite completa Node.js 22 em runners Linux e Windows, incluindo SQLite real, locking e crash recovery em processos separados (PR #41; CI/visual verdes no HEAD `c55179835ab8671c708ff3041250bd946efb75a7`).
 - [ ] Ligar providers nativos persistentes ao manager e ao registry de licenças.
 - [ ] Criar launcher/desktop e app Android instaláveis; os artifacts atuais são pacotes de código-fonte, não instaladores.
 
