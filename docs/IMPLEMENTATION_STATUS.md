@@ -229,7 +229,8 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - [x] Concorrência e bloqueios entre conexões independentes no mesmo processo (PR #31).
 - [x] Exclusão de escritores em processos Node.js separados com `BEGIN IMMEDIATE` (PR #32).
 - [x] Persistência de metadados públicos de identidade, isolamento por instalação e CAS revisionado (PR #33).
-- [ ] Crash/power-loss recovery, ACLs do sistema operativo, encriptação, backup e restore.
+- [x] Recuperação após terminação abrupta de processo durante transação SQLite WAL, com preservação do último commit e `PRAGMA integrity_check` (PR #37; CI/visual verdes no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`).
+- [ ] Perda física de energia/falha do armazenamento, ACLs do sistema operativo, encriptação, backup e restore.
 - [ ] Host nativo Windows com localização de dados, ACLs e integração DPAPI/CNG/Windows Credential Manager.
 - A store recebe a conexão do host; ainda não existe host/instalador nativo de produção.
 
@@ -252,7 +253,7 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Adicionado teste de integração que usa SQLite real em ficheiro e modo WAL; um processo filho executa o UPDATE de metadados dentro de `BEGIN IMMEDIATE` e é terminado antes de `COMMIT`.
 - Após reabrir a base, o teste exige que a revisão anterior continue intacta e que `PRAGMA integrity_check` devolva `ok`.
 - Isto cobre recuperação após terminação do processo com transação não confirmada; não prova perda física de energia, falha do disco/controlador, ACLs, cifragem ou backup/restore.
-- CI e regressão visual da PR de teste ainda pendentes.
+- PR #37 integrada por squash em `9cc92f3ed6be21d1140ce9fe76f843d5186fc9b4`; CI run `42382078748` e regressão visual run `42382078743` passaram no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`.
 
 
 ### Identidade — proteção contra replay de challenges
@@ -261,3 +262,9 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - O store SQLite usa chave primária única e transação imediata para coordenar processos que partilham a mesma DB; entradas expiradas são limpas durante o consumo.
 - Keystores persistentes exigem store de replay persistente. O store em memória só é permitido no modo explicitamente efémero/teste.
 - CI valida persistência através de duas ligações SQLite e reabertura da DB. Isto não substitui validação do verificador remoto nem testes de power-loss/Windows nativo.
+
+
+## CI nativa em Windows e Linux — em validação
+- A workflow principal executa a suite completa em `ubuntu-latest` e `windows-latest`, com Node.js 22.
+- A primeira execução Windows encontrou um defeito no teste SQLite multi-processo: converter `URL.pathname` com `pathToFileURL` duplicava a unidade do disco (`D:\\D:\\...`). A construção foi corrigida para usar diretamente `new URL(..., import.meta.url).href`.
+- Primeiro HEAD corrigido do PR #41 (`f8e84462e4c7533b22a528bbeb4a50f7ebf1f40b`): CI run `42383194963` passou nos jobs `core-tests (windows-latest)` e `core-tests (ubuntu-latest)`; regressão visual run `42383194951` passou e produziu o artifact `13578905427` com capturas desktop, landscape e portrait, com/sem painel de conversa. Esta evidência refere-se a esse SHA; qualquer commit posterior no PR exige nova validação do HEAD final antes do merge. Runner Windows é CI nativa automatizada, não teste de instalação em máquina física nem prova de CNG/DPAPI, ACLs, assinatura ou desinstalação.

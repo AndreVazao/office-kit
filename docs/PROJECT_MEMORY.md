@@ -177,7 +177,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ## SQLite crash recovery — 2026-11-07
 - Branch `test/sqlite-node-identity-crash-recovery` acrescenta teste com SQLite real em WAL: processo filho executa a atualização dos metadados dentro de transação imediata e é terminado antes do commit.
 - Após reabertura, o teste exige que o último estado confirmado permaneça, que a escrita não confirmada desapareça e que `PRAGMA integrity_check` seja `ok`.
-- Esta é evidência de recuperação após crash/terminação do processo, não de power-loss físico, falha do armazenamento, backup/restore, ACLs ou cifragem. CI e visual ainda pendentes.
+- PR #37 integrada por squash em `9cc92f3ed6be21d1140ce9fe76f843d5186fc9b4`; CI run `42382078748` e visual run `42382078743` passaram no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`. É evidência de recuperação após terminação do processo, não de power-loss físico, falha do armazenamento, backup/restore, ACLs ou cifragem.
 
 
 ## 2026-11-07 — proteção contra replay da identidade
@@ -186,3 +186,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - `SqliteNodeIdentityChallengeStore` oferece consumo atómico entre processos; `InMemoryNodeIdentityChallengeStore` é apenas efémero.
 - Configuração com keystore persistente exige challenge store persistente.
 - O verificador remoto continua responsável por aceitar cada challenge uma única vez do seu lado. Não declarar segurança de federação completa com esta proteção isolada.
+
+
+## CI Windows/Linux — 2026-11-07
+- Branch `ci/validate-sqlite-on-windows-v2` acrescenta runner `windows-latest` à suite Node.js 22, mantendo `ubuntu-latest`.
+- A primeira execução Windows expôs uma conversão incorreta de file URL no teste multi-processo SQLite: o caminho resultava em `D:\\D:\\...`. Corrigido com `new URL(...).href`.
+- Primeiro HEAD corrigido do PR #41 (`f8e84462e4c7533b22a528bbeb4a50f7ebf1f40b`): CI run `42383194963` passou em Linux e Windows; visual run `42383194951` passou e gerou artifact `13578905427`. O crash recovery e o locking multi-processo passaram nos dois sistemas após a correção do file URL. Esta evidência é histórica desse SHA; o HEAD final após atualizações documentais tem de voltar a passar antes do merge.
+- CI Windows não substitui hardware físico, host/instalador, CNG/DPAPI, ACLs ou assinatura.

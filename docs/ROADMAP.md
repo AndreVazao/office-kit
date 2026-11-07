@@ -305,6 +305,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar perda física de energia/falha de armazenamento, ACLs, cifragem, backup e restore no host nativo.
 - [ ] Implementar host Windows: diretório de dados por instalação, ACLs restritivas, DPAPI/CNG/credential vault e migração/backup.
 - [ ] Implementar hosts equivalentes para Linux e Android sem misturar credenciais ou namespaces das três edições.
+- [x] Executar suite completa Node.js 22 em runners Linux e Windows, incluindo SQLite real, locking e crash recovery em processos separados (primeiro HEAD corrigido do PR #41: `f8e84462e4c7533b22a528bbeb4a50f7ebf1f40b`; CI run `42383194963` e visual run `42383194951` verdes). O HEAD final do PR continua sujeito a revalidação após alterações documentais.
 - [ ] Ligar providers nativos persistentes ao manager e ao registry de licenças.
 - [ ] Criar launcher/desktop e app Android instaláveis; os artifacts atuais são pacotes de código-fonte, não instaladores.
 
@@ -313,7 +314,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Store SQLite para metadados públicos, isolado por `installationId` e com CAS revisionado (PR #33).
 - [x] PR #36 integrada: validar `NodeIdentityManager` com a store após reabertura da base e ciclo create/prove/rotate/reconcile/revoke (CI e visual verdes no HEAD `4a95875df759c7df37701568a5910bd7abb62125`; usa keystore efémero no mesmo processo, não provider nativo).
 - [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
-- [ ] Validar crash/power-loss recovery, ACLs, backup/restore e recuperação de falhas no host Windows.
+- [x] Validar recuperação após terminação abrupta de processo durante transação SQLite WAL, com verificação do último estado confirmado e `PRAGMA integrity_check` (PR #37; CI/visual verdes no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`).
+- [ ] Validar perda física de energia/falha de armazenamento, ACLs, cifragem, backup/restore e recuperação no host Windows.
 
 
 ### Validação do ciclo de vida SQLite — PR #36 integrada
