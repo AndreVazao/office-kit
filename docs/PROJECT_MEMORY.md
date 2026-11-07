@@ -177,4 +177,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ## SQLite crash recovery — 2026-11-07
 - Branch `test/sqlite-node-identity-crash-recovery` acrescenta teste com SQLite real em WAL: processo filho executa a atualização dos metadados dentro de transação imediata e é terminado antes do commit.
 - Após reabertura, o teste exige que o último estado confirmado permaneça, que a escrita não confirmada desapareça e que `PRAGMA integrity_check` seja `ok`.
-- Esta é evidência de recuperação após crash/terminação do processo, não de power-loss físico, falha do armazenamento, backup/restore, ACLs ou cifragem. CI e visual ainda pendentes.
+- PR #37 integrada por squash em `9cc92f3ed6be21d1140ce9fe76f843d5186fc9b4`; CI run `42382078748` e visual run `42382078743` passaram no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`. É evidência de recuperação após terminação do processo, não de power-loss físico, falha do armazenamento, backup/restore, ACLs ou cifragem.
+
+
+## CI multiplataforma — 2026-11-07
+- Branch `ci/validate-sqlite-on-windows` altera a workflow principal para executar a suite completa em runners Linux e Windows com Node.js 22.
+- A validação Windows inclui os testes SQLite reais e a terminação de processo filho antes de COMMIT. CI desta matriz ainda pendente.
+- Runner Windows automatizado não substitui instalação em hardware físico, testes de CNG/DPAPI ou testes de distribuição/assinatura.
