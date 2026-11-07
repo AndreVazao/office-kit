@@ -22,8 +22,8 @@
 - PR #16 feat/node-identity-security foi squash-merged após CI e regressão visual passarem no HEAD 08b146cd39dbd02944d272a43756c15a2db43352.
 - Merge SHA do PR #16: 56be1b0bebdbcf5d42ede6445f18496019521b55.
 - PR #17 `docs: define production secure node storage requirements` foi squash-merged em 2026-11-03; merge SHA `e31bccafa4223689c44b1cb25faa0bd250798b53`.
-- `main` local sincronizada com `origin/main` em `e31bcca`.
-- Branch local de trabalho atual: `feat/identity-storage-lifecycle` (ainda sem push/PR).
+- `main` foi validada em 2026-11-07 no squash merge `2d9c4cbcdeeddcfa718d736ef3a04ce9f39b44ab` do PR #41; CI e regressão visual pós-merge passaram nesse SHA.
+- Branch de trabalho publicada atual: `feat/identity-algorithm-agility`; PR de revisão ainda não aberto no momento deste registo.
 - PR #16 adicionou NodeIdentityManager, prova Ed25519 de posse, rotação/revogação e testes; provider efémero continua exclusivo de testes.
 - `docs/SECURE_STORAGE.md` especifica persistência segura por plataforma; continua a ser especificação, não um provider implementado.
 
