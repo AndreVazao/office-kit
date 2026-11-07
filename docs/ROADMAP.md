@@ -310,12 +310,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ### Atualização — integração do manager com metadata SQLite
 - [x] Store SQLite para metadados públicos, isolado por `installationId` e com CAS revisionado (PR #33).
-- [ ] Validar integração do `NodeIdentityManager` com a store após reabertura da base e recuperação de rotação/revogação pendente (branch `feat/sqlite-identity-manager-integration`; usa keystore efémero de teste, não provider nativo).
+- [ ] Revalidar no HEAD final da PR #36 a integração do `NodeIdentityManager` com a store após reabertura da base e recuperação de rotação/revogação pendente (branch `feat/sqlite-identity-lifecycle-validation`; usa keystore efémero no mesmo processo, não provider nativo).
 - [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
 - [ ] Validar crash/power-loss recovery, ACLs, backup/restore e recuperação de falhas no host Windows.
 
 
-### Validação do ciclo de vida SQLite — incremento em validação
+### Validação do ciclo de vida SQLite — PR #36 em revalidação após correção de compatibilidade
 - [x] Testar create, leitura da identidade pública, prova de posse, rotate, reconcile e revoke com SQLite real em ficheiro temporário e reabertura da DB.
 - [ ] Repetir com keystore persistente real após encerramento/reinício do processo Windows.
 - [ ] Implementar e testar provider nativo Windows CNG/DPAPI; manter chaves privadas fora da SQLite.
