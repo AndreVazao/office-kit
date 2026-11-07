@@ -320,3 +320,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Testar create, leitura da identidade pública, prova de posse, rotate, reconcile e revoke com SQLite real em ficheiro temporário e reabertura da DB.
 - [ ] Repetir com keystore persistente real após encerramento/reinício do processo Windows.
 - [ ] Implementar e testar provider nativo Windows CNG/DPAPI; manter chaves privadas fora da SQLite.
+
+
+### Identidade e federação — replay protection
+- [x] Impedir reutilização local de challenges antes de assinar.
+- [x] Persistir consumo de nonce em SQLite com unicidade e transação imediata.
+- [x] Exigir replay store persistente quando o keystore é persistente.
+- [ ] Implementar e testar consumo one-time também no verificador remoto/federação.
+- [ ] Testar falhas de processo/power-loss e permissões reais do ficheiro SQLite no host.
