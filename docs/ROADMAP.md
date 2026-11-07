@@ -333,7 +333,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 
 ### Identidade criptográfica multiplataforma
-- [ ] Validar a seleção explícita entre Ed25519 e ECDSA P-256/SHA-256 no mesmo HEAD em Linux e Windows.
+- [x] Validar a seleção explícita entre Ed25519 e ECDSA P-256/SHA-256 no mesmo HEAD em Linux e Windows (PR #42, HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`, CI 150/150 por runner e regressão visual verde; squash merge `5212c3044bf890cc924180c6030012d55647d5f9`).
 - [ ] Implementar providers persistentes que conservem a chave privada não exportável no keystore da plataforma; começar por CNG no Windows.
 - [ ] Testar persistência após reinício de processo e sistema, rotação, revogação, falhas de cleanup e capacidades reais do provider.
 - [ ] Definir migração explícita de algoritmo para identidades já emitidas; nunca trocar algoritmo silenciosamente.
