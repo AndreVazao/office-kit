@@ -115,6 +115,7 @@ function revisionOf(identity) {
 export class NodeIdentityManager {
   #keyStore;
   #metadataStore;
+  #challengeStore;
   #digest;
   #randomBytes;
   #clock;
@@ -142,6 +143,14 @@ export class NodeIdentityManager {
     }
     if (!capabilities.persistent && allowEphemeral !== true) {
       throw new Error("ephemeral_keystore_not_allowed");
+    }
+    const replayStore = challengeStore ?? (allowEphemeral === true ? new InMemoryNodeIdentityChallengeStore() : null);
+    if (!replayStore || typeof replayStore.consume !== "function"
+      || typeof replayStore.persistent !== "boolean") {
+      throw new TypeError("identity_challenge_store_required");
+    }
+    if (capabilities.persistent && replayStore.persistent !== true) {
+      throw new Error("persistent_identity_requires_durable_challenge_store");
     }
     if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
       throw new Error("keystore_private_key_exportable");
