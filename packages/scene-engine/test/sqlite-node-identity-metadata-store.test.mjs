@@ -93,12 +93,12 @@ test("rejects corrupt metadata and persisted revision mismatch", async () => {
   }
 });
 
-test("rejects non-monotonic metadata revisions and invalid installation IDs", () => {
+test("rejects non-monotonic metadata revisions and invalid installation IDs", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     const store = new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "install-desktop-01" });
     assert.throws(() => new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "../other" }), /invalid_identity_installation_id/);
-    return assert.rejects(store.compareAndSet(null, identity(2)), /identity_metadata_revision_must_increment_once/);
+    await assert.rejects(store.compareAndSet(null, identity(2)), /identity_metadata_revision_must_increment_once/);
   } finally {
     db.close();
   }
