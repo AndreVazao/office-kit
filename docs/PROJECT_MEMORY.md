@@ -150,3 +150,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - CI passa a usar Node.js 22 para executar os testes reais `node:sqlite`. O core mantém `engines.node >=20`; nos runtimes sem `node:sqlite`, apenas estes testes de integração são ignorados. A regressão visual continua independente.
 - Estes testes ainda aguardam CI. Não demonstram ainda concorrência entre processos, crash recovery, encriptação/ACLs do sistema operativo, backups, nem provider nativo de produção.
 - Próximo passo após validação: endurecer persistência e identidade por plataforma, começando por Windows, e integrar o host nativo; não declarar o produto instalável enquanto esse host e os instaladores não existirem.
+
+
+## SQLite integration validation — atualização 2026-11-07
+- PR #30 `test: validate activation persistence with real SQLite` merged após CI e regressão visual verdes no HEAD `1b9cd9665edf59feffc59465f2223136901eab3c`; merge commit `907b6a9b5ebead7aba116c8dcd40c982e5d0372c`.
+- A suite Node.js 22 usa `node:sqlite` e base temporária em disco. Verifica persistência entre conexões, mutação in-place e rollback de estado inválido.
+- Branch atual `test/sqlite-multi-connection-locking`: adiciona teste de bloqueio de escrita com duas conexões SQLite independentes e teste de JSON persistido corrompido. Aguardam CI e regressão visual.
+- A prova de locking é entre conexões no mesmo processo; não equivale a teste multi-processo, crash/power-loss recovery, ACL/encriptação, backups ou host nativo.
