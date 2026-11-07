@@ -208,8 +208,9 @@ test("gateway bounds events buffered before the initial snapshot", async () => {
   });
   const gateway = new AdapterGateway({ now: () => now, maxBufferedEvents: 1 });
   const result = await gateway.connect(adapter);
-  assert.equal(result.connected, true);
-  assert.equal(result.verified, false);
+  assert.equal(result.connected, false);
+  assert.equal(result.verified, undefined);
+  assert.equal(result.error, "adapter_initial_event_buffer_overflow");
   assert.equal(result.state.connectionState, "error");
   assert.equal(result.state.reason, "adapter_initial_event_buffer_overflow");
 });
