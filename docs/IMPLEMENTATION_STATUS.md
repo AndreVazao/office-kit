@@ -278,11 +278,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - PR #42 foi validado no HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`: CI run `42384699834` passou em Windows e Linux com 150/150 testes em cada runner, incluindo prova P-256, rejeição de exportação da chave privada e proteção contra migração implícita de identidade Ed25519 legada; regressão visual run `42384699857` passou e produziu artifact `13578962189`. O PR foi squash-merged em `5212c3044bf890cc924180c6030012d55647d5f9`; CI pós-merge run `42384818786` e visual run `42384818767` passaram no mesmo SHA de main (artifact `13578524723`). Continuam pendentes providers persistentes/nativos e testes de persistência em reinício real.
 
 
-## Windows CNG P-256 keystore — implementação em validação
+## Windows CNG P-256 keystore — integrado, CI nativa validada
 - Foi acrescentado WindowsCngP256KeyStore, ligado a um helper .NET nativo que usa Microsoft Software Key Storage Provider, chaves ECDSA P-256 persistentes e ExportPolicy.None.
 - Os key handles incluem um hash do installation ID; a API rejeita assinatura/remoção fora do âmbito e responde como inexistente a consultas de outro installation ID.
 - O provider declara persistent=true, protectionLevel=os-protected, hardwareBacked=false e privateKeyNonExportable=true. Não reivindica TPM, Secure Enclave ou proteção física.
-- A workflow Windows compila o helper self-contained e executa integração real: reinício entre processos, assinatura/verificação, tentativa de exportação privada, remoção e isolamento entre instalações. No HEAD `1f4c1b78bb74bab823e527b746def53cf36c4035`, o job Windows passou (150 testes core e 1 integração CNG nativa, 0 falhas); o job Linux também passou. A regressão visual falhou porque o entrypoint browser-safe importava `node:child_process`, `node:crypto` e `node:path`; corrigido ao mover o provider para `windows.mjs`. O novo HEAD ainda aguarda revalidação completa.
+- PR #44 integrada por squash em `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`. HEAD final validado `e04c9a4a9e00a5d39b9c1aa982186403dfed1877`: CI run `42420915287` passou em Linux e Windows; no runner Windows o helper .NET foi publicado e a integração CNG real passou (persistência entre processos, assinatura/verificação, recusa de exportação privada, remoção e isolamento entre instalações). Regressão visual run `42420915296` passou no mesmo SHA. CI pós-merge `42421035235` e visual pós-merge `42421035019` passaram no commit main `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`.
 - A base SQLite de metadata/challenges continua injetada e gerida pelo host; este incremento não é instalador nem política de backup/ACL.
 
 
