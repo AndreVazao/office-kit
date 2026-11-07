@@ -1,6 +1,6 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-03
+Última atualização: 2026-11-07
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
@@ -139,3 +139,14 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Endurecido parsing de datas UTC da licença para rejeitar datas impossíveis e anos bissextos incorretos.
 - PR #23 integrada em `b148721e83ecad67224bf5f9dce8e79b05c6afa2`; CI e visual regression verdes no HEAD `97956d8be622870eca9632c625efacd5a72547fc`.
 - Continua em falta: store persistente de produção, providers nativos Windows/Android, serviço emissor de licenças, checkout e aplicações instaláveis.
+
+
+## SQLite real — integração inicial em curso (2026-11-07)
+- PR #27 `feat/sqlite-activation-store-boundary` foi integrada após CI e regressão visual verdes no HEAD `f9ed10688eebc37bee2106f5bb5f25592d8d2530`; merge commit `e69fa502e62ab6c15ed489a3542faed03c1db026`.
+- PR #28 `fix/sqlite-noop-write-semantics` foi integrada após CI e regressão visual verdes no HEAD `b929dfc6099dcd4cfef1f30cc4dc88f6eb242320`; merge commit `02888d49fe372975245f7dbfaa4ee4d38eabc4b5`.
+- PR #29 `fix/sqlite-mutation-detection` foi integrada após CI e regressão visual verdes no HEAD `58e386d4fb2e8bcb4f75157cc03ceef33df252df`; merge commit `57084a20d18482fbec08148622672add68ee773e`.
+- A store SQLite agora deteta alterações por comparação de snapshots JSON antes/depois, incluindo mutações in-place, e evita UPSERT em transações sem alterações.
+- Branch ativa: `test/real-sqlite-driver-integration`. Adiciona testes de integração com `node:sqlite` real em ficheiro temporário: persistência após fechar/reabrir conexão, mutação in-place e rollback de estado inválido.
+- CI passa a usar Node.js 22 para executar os testes reais `node:sqlite`. O core mantém `engines.node >=20`; nos runtimes sem `node:sqlite`, apenas estes testes de integração são ignorados. A regressão visual continua independente.
+- Estes testes ainda aguardam CI. Não demonstram ainda concorrência entre processos, crash recovery, encriptação/ACLs do sistema operativo, backups, nem provider nativo de produção.
+- Próximo passo após validação: endurecer persistência e identidade por plataforma, começando por Windows, e integrar o host nativo; não declarar o produto instalável enquanto esse host e os instaladores não existirem.

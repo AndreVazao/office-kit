@@ -218,3 +218,13 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Testes usam store em memória serializado apenas como double; não é provider de produção e não prova consistência entre computadores.
 - O core agora valida datas UTC de calendário estritas, incluindo dia/mês e ano bissexto.
 - Falta provider durável/partilhado, keystore nativo, UI de ativação, serviço de emissão e pipeline de vendas.
+
+
+## Persistência SQLite — estado em 2026-11-07
+- [x] Adaptador SQLite host-injected com transação `immediate` e serialização JSON (PR #27).
+- [x] Evitar UPSERT em transações sem alterações (PR #28).
+- [x] Detetar mutações in-place por comparação de snapshots (PR #29).
+- [ ] Testes com driver SQLite real, ficheiro temporário, reabertura de conexão e rollback: branch `test/real-sqlite-driver-integration`; aguarda CI Node.js 22.
+- [ ] Concorrência real entre processos/conexões, crash recovery, permissões/ACL, encriptação, backup e restore.
+- [ ] Host nativo Windows com localização de dados, ACLs e integração DPAPI/CNG/Windows Credential Manager.
+- A store continua a ser uma fronteira para conexão fornecida pelo host; não existe ainda instalador nem provider nativo de produção.

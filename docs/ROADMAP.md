@@ -290,3 +290,15 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implementar store durável partilhado e providers de identidade/keystore no host nativo (Windows DPAPI/CNG e Android Keystore).
 - [ ] Implementar serviço privado de emissão/assinatura de licenças, registo de encomendas e ligação a faturação/pagamentos.
 - [ ] Construir aplicação nativa/launcher antes de declarar qualquer pacote pronto a instalar.
+
+
+## Persistência SQLite e host nativo — atualização 2026-11-07
+- [x] PR #27: fronteira SQLite com transação imediata.
+- [x] PR #28: evitar escrita em operações no-op.
+- [x] PR #29: persistir mutações in-place.
+- [ ] Testar com SQLite real via `node:sqlite` no CI Node.js 22 (branch `test/real-sqlite-driver-integration`).
+- [ ] Adicionar testes de concorrência multi-processo, bloqueios, rollback sob falha/crash e recuperação.
+- [ ] Implementar host Windows: diretório de dados por instalação, ACLs restritivas, DPAPI/CNG/credential vault e migração/backup.
+- [ ] Implementar hosts equivalentes para Linux e Android sem misturar credenciais ou namespaces das três edições.
+- [ ] Só depois integrar a persistência com ativação de licenças e identidade criptográfica persistente.
+- [ ] Criar launcher/desktop e app Android instaláveis; os artifacts atuais são pacotes de código-fonte, não instaladores.
