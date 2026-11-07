@@ -97,7 +97,8 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Os manifests não incluem credenciais, installationId nem storageNamespace reais; esses valores serão provisionados por instalação.
 - Os artifacts atuais são pacotes de código-fonte perfilados, não instaladores nativos nem adaptadores backend funcionais.
 - A política é disparar os builds manualmente apenas em marcos de desenvolvimento, antes de validar uma edição ou preparar um artifact para teste. Não os executar em cada commit.
-- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\\n` literais e provocava SyntaxError na CI anterior.
+- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\
+` literais e provocava SyntaxError na CI anterior.
 
 
 ## DGM-MAT adapter — incremento 2026-11-04
@@ -164,4 +165,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - O teste usa processos Node.js separados e SQLite em ficheiro temporário para provar exclusão de escritores sob `BEGIN IMMEDIATE` e visibilidade após libertação do lock. Não prova crash/power-loss recovery.
 - Branch seguinte: `feat/sqlite-node-identity-metadata-store`. Implementa `SqliteNodeIdentityMetadataStore`, com persistência de metadados públicos, isolamento por installationId e compare-and-set revisionado; não guarda chaves privadas.
 - O host continua responsável por driver/ficheiro, ACLs, cifragem, backup e keystore nativo. PR e validações ainda pendentes.
-\n\n## SQLite identity metadata integration — 2026-11-07\n- PR #33 integrada: HEAD `737adf3aeeea804a278d60dd81792226f5adbea3`; CI e regressão visual passaram no mesmo SHA; merge squash `10f386081118c0951ac23deeeedba5b83af1156e`.\n- `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, com isolamento por installationId e CAS revisionado. Chaves privadas nunca entram na base.\n- Incremento atual `feat/node-identity-sqlite-lifecycle-integration`: testa reabertura real do ficheiro SQLite e novo manager ao longo de create/prove/rotate/reconcile/revoke. O keystore usado no teste é explicitamente efémero e partilhado no mesmo processo; não simula reinício do SO nem prova keystore persistente.\n
+
+
+## SQLite identity metadata integration — 2026-11-07
+- PR #33 integrada: HEAD `737adf3aeeea804a278d60dd81792226f5adbea3`; CI e regressão visual passaram no mesmo SHA; merge squash `10f386081118c0951ac23deeeedba5b83af1156e`.
+- `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, com isolamento por installationId e CAS revisionado. Chaves privadas nunca entram na base.
+- Incremento atual `feat/node-identity-sqlite-lifecycle-integration`: testa reabertura real do ficheiro SQLite e novo manager ao longo de create/prove/rotate/reconcile/revoke. O keystore usado no teste é explicitamente efémero e partilhado no mesmo processo; não simula reinício do SO nem prova keystore persistente.
