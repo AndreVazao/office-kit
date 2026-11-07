@@ -313,3 +313,9 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar integração do `NodeIdentityManager` com a store após reabertura da base e recuperação de rotação/revogação pendente (branch `feat/sqlite-identity-manager-integration`; usa keystore efémero de teste, não provider nativo).
 - [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
 - [ ] Validar crash/power-loss recovery, ACLs, backup/restore e recuperação de falhas no host Windows.
+
+
+### Validação do ciclo de vida SQLite — incremento em validação
+- [x] Testar create, leitura da identidade pública, prova de posse, rotate, reconcile e revoke com SQLite real em ficheiro temporário e reabertura da DB.
+- [ ] Repetir com keystore persistente real após encerramento/reinício do processo Windows.
+- [ ] Implementar e testar provider nativo Windows CNG/DPAPI; manter chaves privadas fora da SQLite.
