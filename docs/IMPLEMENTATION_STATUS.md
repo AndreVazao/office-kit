@@ -181,8 +181,7 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Cada workflow executa `npm run check` antes do empacotamento e publica o artifact correspondente durante 14 dias.
 - Limite: estes artifacts são source packages perfilados, não instaladores Windows/Android nem prova de integração real com DGM-MAT/VST.
 - Não executar os workflows automaticamente a cada commit. A validação de cada pacote será iniciada manualmente em marcos estratégicos.
-- A CI automática existente do PR #19 detetou um defeito real no teste de perfis (sequências `\
-` literais); corrigido no branch antes da nova validação.
+- A CI automática existente do PR #19 detetou um defeito real no teste de perfis (sequências `\\n` literais); corrigido no branch antes da nova validação.
 
 
 ## Adaptador DGM-MAT GET-only — branch em revisão
