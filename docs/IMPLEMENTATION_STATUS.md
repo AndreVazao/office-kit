@@ -245,4 +245,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 ## Integração do ciclo de vida da identidade — CI e regressão visual aprovadas
 - Adicionado teste de integração `node-identity-sqlite-lifecycle.integration.test.mjs`: cria identidade, fecha/reabre a base SQLite, instancia novo `NodeIdentityManager`, valida identidade pública e prova Ed25519, executa rotação, reconciliação e revogação.
 - O teste usa `EphemeralEd25519KeyStore` mantido no mesmo processo para isolar a persistência dos metadados; não prova persistência de chaves entre processos nem um keystore de sistema operativo.
-- PR #36: CI run `42381146911` e regressão visual run `42381146842` concluídas com sucesso no mesmo HEAD `1503db41f7be669c67d7f9b94070f83cffe6af10` (antes da correção de compatibilidade Node 20; a nova alteração requer nova validação).
+- PR #36 integrada por squash no commit `e68e9ee434ab9a6af7b0a6e9b73de318da4065c1`; CI run `42381571495` e regressão visual run `42381571523` passaram no HEAD final `4a95875df759c7df37701568a5910bd7abb62125`. A suite carrega `node:sqlite` dinamicamente e ignora apenas esta integração em Node 20, mantendo a compatibilidade declarada.
+
+
+## Recuperação SQLite após terminação abrupta — incremento em validação
+- Adicionado teste de integração que usa SQLite real em ficheiro e modo WAL; um processo filho executa o UPDATE de metadados dentro de `BEGIN IMMEDIATE` e é terminado antes de `COMMIT`.
+- Após reabrir a base, o teste exige que a revisão anterior continue intacta e que `PRAGMA integrity_check` devolva `ok`.
+- Isto cobre recuperação após terminação do processo com transação não confirmada; não prova perda física de energia, falha do disco/controlador, ACLs, cifragem ou backup/restore.
+- CI e regressão visual da PR de teste ainda pendentes.
