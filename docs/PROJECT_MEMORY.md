@@ -205,10 +205,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Universal continua sem dependência obrigatória de DGM-MAT/VST. Os perfis DGM-MAT e VST mantêm allowlists e namespaces próprios; o adaptador DGM-MAT existe em modo read-only e o adaptador VST concreto continua por implementar.
 
 
-## Atualização de 2026-11-07 — provider CNG Windows em desenvolvimento
+## Atualização de 2026-11-07 — provider CNG Windows integrado
 - Branch `feat/windows-cng-p256-keystore` parte do main `007e3a73370a4e78f03ffba0013852e113c9a8c1` após PR #43.
 - Implementação em curso: helper .NET com Microsoft Software Key Storage Provider, `CngExportPolicies.None`, ECDSA P-256, key names delimitados por installation ID e provider Node com bridge por processo.
-- A workflow CI Windows foi ampliada para publicar o helper self-contained e executar integração real em processos separados. A validação só é considerada concluída quando esse job passar no HEAD final; ainda não há teste em PC físico nem integração no instalador.
+- PR #44 integrada por squash em `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`. HEAD final `e04c9a4a9e00a5d39b9c1aa982186403dfed1877`: CI `42420915287` verde em Windows/Linux e visual `42420915296` verde no mesmo SHA. O job Windows publicou o helper e passou na integração CNG persistente entre processos, export refusal, sign/verify, delete e isolamento de instalações. Pós-merge main CI `42421035235` e visual `42421035019` também verdes.
 - O provider declara software/OS-protected e `hardwareBacked=false`; não o confundir com TPM. SQLite metadata/challenge store continua separado e fornecido pelo host.
 
 
