@@ -1,3 +1,4 @@
+import { InMemoryNodeIdentityChallengeStore } from "./node-identity-challenge-store.mjs";
 const encoder = new TextEncoder();
 const FINGERPRINT_BYTES = 32;
 const KEY_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/;
@@ -114,11 +115,12 @@ function revisionOf(identity) {
 export class NodeIdentityManager {
   #keyStore;
   #metadataStore;
+  #challengeStore;
   #digest;
   #randomBytes;
   #clock;
 
-  constructor({ keyStore, metadataStore, digest, randomBytes, clock = Date.now, allowEphemeral = false }) {
+  constructor({ keyStore, metadataStore, challengeStore, digest, randomBytes, clock = Date.now, allowEphemeral = false }) {
     if (!keyStore || typeof keyStore.createKeyPair !== "function"
       || typeof keyStore.sign !== "function" || typeof keyStore.deleteKey !== "function"
       || typeof keyStore.hasKey !== "function" || typeof keyStore.verify !== "function"
@@ -145,8 +147,20 @@ export class NodeIdentityManager {
     if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
       throw new Error("keystore_private_key_exportable");
     }
+    const replayStore = challengeStore ?? (allowEphemeral === true ? new InMemoryNodeIdentityChallengeStore() : null);
+    if (!replayStore || typeof replayStore.consume !== "function"
+      || typeof replayStore.persistent !== "boolean") {
+      throw new TypeError("identity_challenge_store_required");
+    }
+    if (capabilities.persistent && replayStore.persistent !== true) {
+      throw new Error("persistent_identity_requires_durable_challenge_store");
+    }
+    if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
+      throw new Error("keystore_private_key_exportable");
+    }
     this.#keyStore = keyStore;
     this.#metadataStore = metadataStore;
+    this.#challengeStore = replayStore;
     this.#digest = digest;
     this.#randomBytes = randomBytes;
     this.#clock = clock;
@@ -278,6 +292,12 @@ export class NodeIdentityManager {
     if (!Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) {
       throw new Error("challenge_expired_or_not_yet_valid");
     }
+    const consumed = await this.#challengeStore.consume({
+      nonce: challenge.nonce,
+      expiresAt: challenge.expiresAt,
+      now
+    });
+    if (consumed !== true) throw new Error("challenge_replayed_or_already_consumed");
     return Object.freeze({
       keyId: identity.keyId,
       identityFingerprint: identity.identityFingerprint,
