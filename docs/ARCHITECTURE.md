@@ -293,3 +293,7 @@ O produto mantém um único core e três perfis de distribuição/configuração
 Cada instalação recebe `installationId` e `storageNamespace` próprios. O utilizador pode instalar DGM-MAT e VST na mesma máquina, mantendo configuração, credenciais, dados, memória, avatares e logs isolados. A versão Universal não inclui nem depende dos adaptadores pessoais. Os adaptadores continuam sujeitos ao contrato público, autenticação do anfitrião, consentimento explícito e permissões concedidas.
 
 Os perfis não estabelecem ligações automaticamente. O estado inicial é não configurado; a ligação requer ação explícita do proprietário. O modo inicial dos adaptadores é leitura. A existência do perfil DGM-MAT/VST não significa que o respetivo adaptador ou protocolo de integração já esteja implementado.
+
+
+### Entrypoints por plataforma
+O entrypoint genérico `packages/scene-engine/src/index.mjs` é browser-safe e não deve importar módulos que dependam de APIs Node ou de sistema operativo. Providers nativos são expostos por entrypoints específicos, como `packages/scene-engine/src/windows.mjs`; aplicações web e a edição Universal não devem importar esse entrypoint. O host de cada plataforma injeta explicitamente o provider adequado. Esta separação evita que dependências nativas contaminem o runtime visual/browser.
