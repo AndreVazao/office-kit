@@ -179,8 +179,8 @@ function revisionOf(identity) {
 }
 
 /**
- * Manages one installation's Ed25519 identity. Metadata changes use revisioned
- * compare-and-set so rotation/revocation cannot expose half-written identities.
+ * Manages one installation's algorithm-declared identity. Metadata changes use
+ * revisioned compare-and-set so rotation/revocation cannot expose half-written identities.
  * The keystore retains private keys; no network or authorization I/O is performed.
  */
 export class NodeIdentityManager {
@@ -378,17 +378,17 @@ export class NodeIdentityManager {
     if (!Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) {
       throw new Error("challenge_expired_or_not_yet_valid");
     }
+    const algorithm = identity.algorithm ?? "Ed25519";
+    const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
+    if (!algorithmShape || !this.#algorithms.has(algorithm)) {
+      throw new Error("node_identity_algorithm_unsupported");
+    }
     const consumed = await this.#challengeStore.consume({
       nonce: challenge.nonce,
       expiresAt: challenge.expiresAt,
       now
     });
     if (consumed !== true) throw new Error("challenge_replayed_or_already_consumed");
-    const algorithm = identity.algorithm ?? "Ed25519";
-    const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
-    if (!algorithmShape || !this.#algorithms.has(algorithm)) {
-      throw new Error("node_identity_algorithm_unsupported");
-    }
     return Object.freeze({
       keyId: identity.keyId,
       identityFingerprint: identity.identityFingerprint,
