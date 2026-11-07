@@ -284,3 +284,12 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - O provider declara persistent=true, protectionLevel=os-protected, hardwareBacked=false e privateKeyNonExportable=true. Não reivindica TPM, Secure Enclave ou proteção física.
 - A workflow Windows compila o helper self-contained e executa integração real: reinício entre processos, assinatura/verificação, tentativa de exportação privada, remoção e isolamento entre instalações. No HEAD `1f4c1b78bb74bab823e527b746def53cf36c4035`, o job Windows passou (150 testes core e 1 integração CNG nativa, 0 falhas); o job Linux também passou. A regressão visual falhou porque o entrypoint browser-safe importava `node:child_process`, `node:crypto` e `node:path`; corrigido ao mover o provider para `windows.mjs`. O novo HEAD ainda aguarda revalidação completa.
 - A base SQLite de metadata/challenges continua injetada e gerida pelo host; este incremento não é instalador nem política de backup/ACL.
+
+
+## Recuperação da bridge de adaptadores — PR em desenvolvimento
+- Recuperados os invariantes úteis do antigo `feat/adapter-runtime-bridge` (7 commits exclusivos), sem copiar uma segunda classe paralela `AdapterRuntimeBridge`, porque `AdapterGateway` já ocupa esse papel no core atual.
+- A subscrição começa antes do snapshot inicial; eventos precoces ficam numa fila limitada e só são aplicados depois do snapshot.
+- A sessão de eventos fica vinculada ao `metadata.id` e a um único `sessionId`; lacunas de sequência, troca de sessão, overflow e eventos incrementais agent/task ainda não suportados fazem fail-closed.
+- Falhas na obtenção do snapshot limpam a subscrição e desligam o adaptador. Desconexão explícita limpa sequência e identidade de sessão.
+- Testes adicionados para lacunas, troca de sessão, eventos incrementais, eventos durante startup, overflow, cleanup e reconnect. CI/visual ainda pendentes no HEAD da PR.
+- A bridge não autentica adaptadores, não implementa patches de agentes/tarefas e não envia comandos. O host deve autenticar/autorizar antes de fornecer o adaptador; capacidade inicial continua read-only.
