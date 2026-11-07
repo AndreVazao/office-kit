@@ -23,3 +23,16 @@ jobs:
         run: npm run check
       - name: Validate example configuration JSON
         run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
+      - name: Set up .NET SDK for native Windows keystore
+        if: runner.os == 'Windows'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish Windows CNG host
+        if: runner.os == 'Windows'
+        run: dotnet publish native/windows/OfficeKit.CngHost/OfficeKit.CngHost.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/windows-cng
+      - name: Exercise real Windows CNG persistence and isolation
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+        run: node --test packages/scene-engine/test/windows-cng-p256-keystore.integration.test.mjs
