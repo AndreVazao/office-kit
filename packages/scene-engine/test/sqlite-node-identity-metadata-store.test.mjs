@@ -24,8 +24,8 @@ function adapter(database) {
   };
 }
 
-const identity = revision => ({
-  installationId: "install-desktop-01",
+const identity = (revision, installationId = "install-desktop-01") => ({
+  installationId,
   organizationId: "acme-office",
   nodeId: "node:desktop-01",
   keyId: "key-123",
@@ -67,7 +67,7 @@ test("isolates metadata by installation and rejects scope changes", async () => 
   try {
     const first = new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "install-one" });
     const second = new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "install-two" });
-    assert.equal(await first.compareAndSet(null, identity(1)), true);
+    assert.equal(await first.compareAndSet(null, identity(1, "install-one")), true);
     assert.equal(await second.get(), null);
     await assert.rejects(
       first.compareAndSet(1, { ...identity(2), installationId: "install-two" }),
