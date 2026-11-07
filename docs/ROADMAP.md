@@ -337,3 +337,16 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implementar providers persistentes que conservem a chave privada não exportável no keystore da plataforma; começar por CNG no Windows.
 - [ ] Testar persistência após reinício de processo e sistema, rotação, revogação, falhas de cleanup e capacidades reais do provider.
 - [ ] Definir migração explícita de algoritmo para identidades já emitidas; nunca trocar algoritmo silenciosamente.
+
+
+### Windows CNG e identidade persistente
+- [ ] Validar o helper CNG real em runner Windows no HEAD final: persistência entre processos, private export refusal, sign/verify, delete e isolamento entre installation IDs.
+- [ ] Integrar o helper no host/instalador Windows e validar atualização, desinstalação e limpeza explícita de chaves.
+- [ ] Executar teste de instalação e recuperação numa máquina física Windows; CI runner não substitui esse teste.
+- [ ] Avaliar provider TPM separado, sem declarar hardware backing no Microsoft Software KSP.
+
+
+### Providers nativos e isolamento de runtime
+- [x] Separar o entrypoint Windows CNG do entrypoint genérico/browser para impedir que dependências Node nativas contaminem Universal e a pré-visualização web.
+- [ ] Validar CI Windows/Linux e regressão visual no mesmo HEAD após a separação.
+- [ ] Integrar provider CNG com o host desktop e instalador Windows, incluindo ACLs, atualização e limpeza de chaves.

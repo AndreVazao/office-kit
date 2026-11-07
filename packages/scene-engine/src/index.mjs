@@ -61,3 +61,4 @@ export { SqliteNodeIdentityMetadataStore } from "./sqlite-node-identity-metadata
 export { InMemoryNodeIdentityChallengeStore, SqliteNodeIdentityChallengeStore } from "./node-identity-challenge-store.mjs";
 
 export { NodeKeyStoreProvider, NodeIdentityMetadataStore, NodeIdentityManager, EphemeralEd25519KeyStore, EphemeralP256KeyStore } from "./node-identity.mjs";
+

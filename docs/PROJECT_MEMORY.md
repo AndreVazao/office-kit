@@ -203,3 +203,16 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #42 foi squash-merged após CI run `42384699834` e visual run `42384699857` passarem no HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`. Os dois runners executaram 150/150 testes, 0 falhas e 0 skips; o teste adicional confirma que metadados legados sem algoritmo continuam Ed25519 e não migram silenciosamente para P-256. Merge SHA `5212c3044bf890cc924180c6030012d55647d5f9`; CI pós-merge `42384818786` e visual pós-merge `42384818767` passaram no mesmo SHA de main. EphemeralP256KeyStore continua apenas para testes; nenhum provider persistente nativo foi implementado.
 - PR #25 feat/adapter-runtime-bridge permanece draft e divergiu de main (7 commits ahead, 25 behind no último compare). O seu AdapterRuntimeBridge parece sobreposto pelo AdapterGateway já integrado; não fazer merge direto. Reconciliar o comportamento único e os testes antes de decidir fechar ou recuperar a branch.
 - Universal continua sem dependência obrigatória de DGM-MAT/VST. Os perfis DGM-MAT e VST mantêm allowlists e namespaces próprios; o adaptador DGM-MAT existe em modo read-only e o adaptador VST concreto continua por implementar.
+
+
+## Atualização de 2026-11-07 — provider CNG Windows em desenvolvimento
+- Branch `feat/windows-cng-p256-keystore` parte do main `007e3a73370a4e78f03ffba0013852e113c9a8c1` após PR #43.
+- Implementação em curso: helper .NET com Microsoft Software Key Storage Provider, `CngExportPolicies.None`, ECDSA P-256, key names delimitados por installation ID e provider Node com bridge por processo.
+- A workflow CI Windows foi ampliada para publicar o helper self-contained e executar integração real em processos separados. A validação só é considerada concluída quando esse job passar no HEAD final; ainda não há teste em PC físico nem integração no instalador.
+- O provider declara software/OS-protected e `hardwareBacked=false`; não o confundir com TPM. SQLite metadata/challenge store continua separado e fornecido pelo host.
+
+
+## 2026-11-07 — isolamento do provider CNG por plataforma
+- A primeira regressão visual da PR #44 expôs que exportar `WindowsCngP256KeyStore` pelo `scene-engine/src/index.mjs` contaminava o browser com módulos Node (`child_process`, `crypto`, `path`), impedindo o carregamento do escritório.
+- Corrigido: provider Windows é exportado apenas por `scene-engine/src/windows.mjs`; o índice genérico permanece browser-safe. A alteração deve ser validada novamente em CI e regressão visual no mesmo HEAD.
+- O runner Windows já compilou o helper CNG e passou no teste de persistência entre processos, assinatura/verificação, recusa de exportação e isolamento entre instalações no HEAD anterior `1f4c1b78bb74bab823e527b746def53cf36c4035`. Não confundir com validação física no PC do utilizador.
