@@ -183,7 +183,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 ## Federação privada e cidade multi-computador
 
 - [x] Definir e implementar o contrato inicial de identidade criptográfica por instalação/nó: Ed25519, fingerprint, prova de posse, rotação e revogação.
-- [ ] Implementar keystore persistente protegido pelo sistema operativo/browser e metadata store durável; onboarding por convite/aprovação, confiança mútua e autorização granular continuam pendentes.
+- [ ] Implementar keystore persistente protegido pelo sistema operativo/browser; onboarding por convite/aprovação, confiança mútua e autorização granular continuam pendentes.
 - [ ] Implementar modo isolado como padrão, sem conta central, relay/cloud obrigatório, telemetria ou comunicação externa por omissão.
 - [ ] Permitir ligar explicitamente nós Office Kit dentro de uma LAN/rede privada controlada pelo proprietário.
 - [ ] Permitir que cada computador mantenha o seu escritório/departamento local e que uma instalação agregadora apresente a organização/cidade com vários edifícios.
@@ -212,15 +212,16 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 **Critério de aceitação:** duas instalações autorizadas encontram-se sem configuração manual de IP; nenhuma instalação não autorizada é aceite; sem rede ou Internet, cada escritório continua local e apresenta estado remoto não confirmado.
 
 
-## Identidade criptográfica por nó — contrato implementado; persistência em desenvolvimento
+## Identidade criptográfica por nó — manager e metadata SQLite implementados; keystore nativo pendente
 - [x] Criar manager neutro com chaves Ed25519, fingerprint SHA-256 e desafio nonce assinado com audiência/expiração.
 - [x] Definir fronteira injetável de keystore e armazenamento de metadados; manter provider efémero apenas para testes.
 - [x] Cobrir criação, escopo, prova de posse, alteração de challenge, expiração, rotação e revogação por testes.
-- [x] Endurecer o ciclo de vida com metadata compare-and-set revisionado, tombstones, limpeza pendente e reconciliação na branch `feat/identity-storage-lifecycle`.
+- [x] Endurecer o ciclo de vida com metadata compare-and-set revisionado, tombstones, limpeza pendente e reconciliação.
 - [x] Marcar identidades com chave ausente como `identity_unavailable`; nunca regenerar silenciosamente uma identidade.
 - [x] Documentar requisitos de armazenamento seguro em `docs/SECURE_STORAGE.md` (PR #17).
-- [ ] Integrar keystore persistente protegido pelo sistema operativo/browser e metadata store durável.
-- [ ] Validar CI e regressão visual no SHA final da branch antes do merge.
+- [x] Implementar `SqliteNodeIdentityMetadataStore` para metadados públicos, isolamento por instalação e CAS revisionado (PR #33).
+- [ ] Implementar keystore persistente protegido pelo sistema operativo/browser; ligar o provider ao host nativo.
+- [ ] Validar ciclo completo com keystore persistente real após reinício do processo e em cada plataforma.
 
 
 ## Edições Universal e pessoais DGM-MAT/VST
@@ -293,19 +294,22 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 
 ## Persistência SQLite e host nativo — atualização 2026-11-07
-- [x] PR #27: fronteira SQLite com transação imediata.
+- [x] PR #27: fronteira SQLite host-injected com transação imediata.
 - [x] PR #28: evitar escrita em operações no-op.
-- [x] PR #29: persistir mutações in-place.
-- [ ] Testar com SQLite real via `node:sqlite` no CI Node.js 22 (branch `test/real-sqlite-driver-integration`).
-- [ ] Adicionar testes de concorrência multi-processo, bloqueios, rollback sob falha/crash e recuperação.
+- [x] PR #29: detetar mutações in-place.
+- [x] PR #30: integração com motor SQLite real, ficheiro, reabertura e rollback.
+- [x] PR #31: bloqueio de escritores entre conexões independentes.
+- [x] PR #32: exclusão de escritores em processos separados com `BEGIN IMMEDIATE`.
+- [x] PR #33: metadata SQLite pública de identidade, isolamento por instalação e CAS revisionado.
+- [ ] Crash/power-loss recovery, ACLs, cifragem, backup e restore.
 - [ ] Implementar host Windows: diretório de dados por instalação, ACLs restritivas, DPAPI/CNG/credential vault e migração/backup.
 - [ ] Implementar hosts equivalentes para Linux e Android sem misturar credenciais ou namespaces das três edições.
-- [ ] Só depois integrar a persistência com ativação de licenças e identidade criptográfica persistente.
+- [ ] Ligar providers nativos persistentes ao manager e ao registry de licenças.
 - [ ] Criar launcher/desktop e app Android instaláveis; os artifacts atuais são pacotes de código-fonte, não instaladores.
 
 
-### Atualização — identidade: metadata SQLite persistente
-- [x] Criar store SQLite para metadados públicos de identidade, isolado por installationId e com compare-and-set revisionado (em PR; validar CI/visual antes de integrar).
-- [ ] Integrar o store com `NodeIdentityManager` através do host e validar ciclo create/rotate/revoke/reconcile após reinício do processo.
+### Atualização — integração do manager com metadata SQLite
+- [x] Store SQLite para metadados públicos, isolado por `installationId` e com CAS revisionado (PR #33).
+- [ ] Validar integração do `NodeIdentityManager` com a store após reabertura da base e recuperação de rotação/revogação pendente (branch `feat/sqlite-identity-manager-integration`; usa keystore efémero de teste, não provider nativo).
 - [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
-- [ ] Validar crash recovery, ACLs, backup/restore e recuperação de falhas no host Windows.
+- [ ] Validar crash/power-loss recovery, ACLs, backup/restore e recuperação de falhas no host Windows.

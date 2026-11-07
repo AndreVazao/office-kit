@@ -5,7 +5,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { DatabaseSync } from "node:sqlite";
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = await import("node:sqlite"));
+} catch {
+  // Node 20 remains supported; cross-process SQLite integration runs on Node 22+.
+}
 import { SqliteLicenseActivationStore } from "../src/sqlite-license-activation-store.mjs";
 
 const key = "office-kit/license-activations/cross-process-license";
@@ -19,7 +24,7 @@ function runChild(filename, mode) {
   });
 }
 
-test("serializes SQLite activation writes across separate Node.js processes", async () => {
+test("serializes SQLite activation writes across separate Node.js processes", { skip: !DatabaseSync }, async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-sqlite-process-"));
   const filename = join(directory, "activations.sqlite");
   const db = new DatabaseSync(filename);

@@ -153,14 +153,16 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 
 ## SQLite integration validation — atualização 2026-11-07
-- PR #30 `test: validate activation persistence with real SQLite` merged após CI e regressão visual verdes no HEAD `1b9cd9665edf59feffc59465f2223136901eab3c`; merge commit `907b6a9b5ebead7aba116c8dcd40c982e5d0372c`.
-- A suite Node.js 22 usa `node:sqlite` e base temporária em disco. Verifica persistência entre conexões, mutação in-place e rollback de estado inválido.
-- Branch atual `test/sqlite-multi-connection-locking`: adiciona teste de bloqueio de escrita com duas conexões SQLite independentes e teste de JSON persistido corrompido. Aguardam CI e regressão visual.
-- A prova de locking é entre conexões no mesmo processo; não equivale a teste multi-processo, crash/power-loss recovery, ACL/encriptação, backups ou host nativo.
+- PR #30 `test: validate activation persistence with real SQLite` integrada em `907b6a9b5ebead7aba116c8dcd40c982e5d0372c`, após CI e regressão visual verdes no HEAD `1b9cd9665edf59feffc59465f2223136901eab3c`.
+- PR #31 `test: cover SQLite multi-connection locking` integrada em `54c4401dfd89573f4092d59bbfc4a9ecdcdda5e2`; CI e regressão visual verdes no HEAD `5db6a11822cc200ad02d3745cc992dc84af2a7eb`.
+- PR #32 `test: verify SQLite locking across processes` integrada em `da10294556fc51bc1a23caa0b8f85e78fbd38ac3`; CI e regressão visual verdes no HEAD `25107e411c940cf443de1e969d0334b4473b4d11`.
+- A integração usa o motor SQLite real de `node:sqlite` em ficheiros temporários. O adaptador de teste aproxima a API `transaction().immediate()`; não é um teste do driver better-sqlite3 nem de um host nativo.
+- Os testes provam persistência após reabrir a base, rollback de estado inválido, bloqueio entre conexões e exclusão de escritores em processos Node.js separados. Não provam crash/power-loss recovery, ACL/encriptação do SO, backup/restore ou keystore nativo.
 
 
 ## Persistência de metadados de identidade — 2026-11-07
-- PR #32 `test: verify SQLite locking across processes` integrada em `da10294556fc51bc1a23caa0b8f85e78fbd38ac3`, após CI e regressão visual verdes no HEAD `25107e411c940cf443de1e969d0334b4473b4d11`.
-- O teste usa processos Node.js separados e SQLite em ficheiro temporário para provar exclusão de escritores sob `BEGIN IMMEDIATE` e visibilidade após libertação do lock. Não prova crash/power-loss recovery.
-- Branch seguinte: `feat/sqlite-node-identity-metadata-store`. Implementa `SqliteNodeIdentityMetadataStore`, com persistência de metadados públicos, isolamento por installationId e compare-and-set revisionado; não guarda chaves privadas.
-- O host continua responsável por driver/ficheiro, ACLs, cifragem, backup e keystore nativo. PR e validações ainda pendentes.
+- PR #33 `feat: persist node identity metadata in SQLite` integrada em `10f386081118c0951ac23deeeedba5b83af1156e`.
+- HEAD validado da PR: `737adf3aeeea804a278d60dd81792226f5adbea3`; CI e regressão visual passaram nesse SHA. CI e regressão visual de push também passaram no merge commit `10f386081118c0951ac23deeeedba5b83af1156e`.
+- `SqliteNodeIdentityMetadataStore` persiste apenas metadados públicos e handles opacos, com isolamento por `installationId`, transação imediata, compare-and-set monotónico e rejeição de JSON/revisões/scope inconsistentes. Chaves privadas não são guardadas na base.
+- O host continua responsável pelo driver e ficheiro SQLite, ACLs, cifragem, backup e keystore do sistema operativo.
+- Branch atual: `feat/sqlite-identity-manager-integration`. Acrescenta testes de integração do `NodeIdentityManager` com a store SQLite, incluindo recriação do manager e reabertura da base, rotação/revogação e reconciliação de limpezas pendentes. Usa `EphemeralEd25519KeyStore` apenas como provider de teste; não prova reinício real do processo nem keystore persistente. CI e regressão visual deste incremento ainda pendentes.

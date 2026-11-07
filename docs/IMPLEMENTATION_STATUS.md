@@ -164,13 +164,14 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Estado real: contratos neutros iniciais implementados em `packages/scene-engine/src/federation-contract.mjs`, com testes em `packages/scene-engine/test/federation-contract.test.mjs`. Incluem validação de identidade pública, fingerprint SHA-256, capabilities, hints de transporte, leases limitadas/expiráveis e envelopes de eventos v1, além de interfaces abstratas para providers. Estes contratos não fazem I/O, não autenticam peers, não criam chaves e não implementam LAN, Tailscale, rendezvous, relay, onboarding ou autorização. CI ainda tem de validar o novo HEAD.
 
 
-## Identidade criptográfica de nó — estado consolidado e endurecimento em curso
+## Identidade criptográfica de nó — estado consolidado
 - PR #16 integrado: `NodeIdentityManager` usa Ed25519, fingerprint SHA-256, desafios nonce com audiência/expiração, prova de posse, rotação e revogação.
-- PR #17 integrado: `docs/SECURE_STORAGE.md` especifica os requisitos de providers persistentes para Windows, macOS, Linux, Android e browser. Continua a ser uma especificação; não existe provider persistente de produção.
-- Na branch local `feat/identity-storage-lifecycle`, o contrato foi endurecido: `NodeKeyStoreProvider.hasKey/getCapabilities`, metadata store com `compareAndSet` revisionado, rejeição de provider efémero/exportável em configuração de produção, limpeza de chaves se o commit falhar, tombstone antes da revogação, registo de chaves antigas pendentes após rotação e reconciliação de limpeza no arranque.
-- Uma chave ativa ausente passa a `identity_unavailable`; o manager não gera silenciosamente outra chave sob a mesma identidade.
-- `EphemeralEd25519KeyStore` continua exclusivo de testes/sessões efémeras. Não é armazenamento persistente nem provider de produção.
-- Testes focados de identidade nesta branch: 14/14 aprovados. A validação completa do pacote e CI/visual no HEAD final desta branch ainda estão pendentes.
+- PR #17 integrado: `docs/SECURE_STORAGE.md` define os requisitos de providers persistentes para Windows, macOS, Linux, Android e browser; continua a ser especificação, não implementação nativa.
+- O ciclo de vida revisionado está em `main`: `NodeKeyStoreProvider.hasKey/getCapabilities`, metadata CAS, rejeição de providers efémeros/exportáveis em produção, limpeza de chaves após falhas, tombstones e reconciliação de pendências.
+- PR #33 integrada: `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, isolados por `installationId`; não armazena chaves privadas.
+- A store SQLite recebe uma conexão do host. Ainda não existe provider persistente de chaves para Windows CNG/DPAPI, macOS Keychain, Linux Secret Service, Android Keystore ou browser CryptoKey.
+- `EphemeralEd25519KeyStore` é exclusivo de testes/sessões efémeras e é rejeitado em configuração de produção.
+- Branch `feat/sqlite-identity-manager-integration`: acrescenta testes de integração do manager com SQLite, recriação do manager após reabertura da base e reconciliação de limpeza pendente. O provider de chaves é deliberadamente efémero/test-only; não é prova de reinício real do processo nem de armazenamento seguro por plataforma. CI/visual ainda pendentes.
 
 
 ## Pipelines de build por edição — adicionados ao branch ativo
@@ -224,14 +225,18 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - [x] Adaptador SQLite host-injected com transação `immediate` e serialização JSON (PR #27).
 - [x] Evitar UPSERT em transações sem alterações (PR #28).
 - [x] Detetar mutações in-place por comparação de snapshots (PR #29).
-- [ ] Testes com driver SQLite real, ficheiro temporário, reabertura de conexão e rollback: branch `test/real-sqlite-driver-integration`; aguarda CI Node.js 22.
-- [ ] Concorrência real entre processos/conexões, crash recovery, permissões/ACL, encriptação, backup e restore.
+- [x] Testes com o motor SQLite real, ficheiro temporário, reabertura de conexão e rollback de updater inválido (PR #30).
+- [x] Concorrência e bloqueios entre conexões independentes no mesmo processo (PR #31).
+- [x] Exclusão de escritores em processos Node.js separados com `BEGIN IMMEDIATE` (PR #32).
+- [x] Persistência de metadados públicos de identidade, isolamento por instalação e CAS revisionado (PR #33).
+- [ ] Crash/power-loss recovery, ACLs do sistema operativo, encriptação, backup e restore.
 - [ ] Host nativo Windows com localização de dados, ACLs e integração DPAPI/CNG/Windows Credential Manager.
-- A store continua a ser uma fronteira para conexão fornecida pelo host; não existe ainda instalador nem provider nativo de produção.
+- A store recebe a conexão do host; ainda não existe host/instalador nativo de produção.
 
 
-## SQLite identity metadata persistence — incremento em revisão
-- Adicionado `SqliteNodeIdentityMetadataStore`, implementação durável do contrato `NodeIdentityMetadataStore` sobre uma conexão SQLite fornecida pelo host.
-- Os registos são separados por `installationId`; alterações usam transação `immediate` e compare-and-set de revisão monotónica. Metadados corrompidos, revisão divergente e mudança de instalação são rejeitados.
-- O store persiste apenas metadados públicos e identificadores opacos; não guarda chaves privadas. O host continua responsável pelo ficheiro SQLite, permissões, cifragem, backup e keystore do sistema operativo.
-- Testes usam `node:sqlite` em base real, incluindo persistência, isolamento entre instalações, CAS e corrupção. CI e regressão visual da PR ainda pendentes.
+## SQLite identity metadata persistence — integrado
+- PR #33 integrada em `10f386081118c0951ac23deeeedba5b83af1156e`; CI e regressão visual passaram no HEAD `737adf3aeeea804a278d60dd81792226f5adbea3` e no merge commit.
+- `SqliteNodeIdentityMetadataStore` usa conexão SQLite fornecida pelo host, separa registos por `installationId` e aplica CAS revisionado em transação imediata.
+- Metadados corrompidos, revisão divergente e mudança de instalação são rejeitados. Só são persistidos dados públicos e handles opacos; nunca chaves privadas.
+- Testes da store usam o motor `node:sqlite` real em base temporária. O adaptador é um wrapper de teste sobre `DatabaseSync`, não um teste do driver better-sqlite3 nem de host nativo.
+- A branch `feat/sqlite-identity-manager-integration` acrescenta testes de ciclo de vida do manager, incluindo reabertura da base e recuperação de tombstones/limpezas pendentes; a validação CI/visual desse incremento está pendente.

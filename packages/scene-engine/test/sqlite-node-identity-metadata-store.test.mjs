@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = await import("node:sqlite"));
+} catch {
+  // Node 20 remains supported; real node:sqlite integration runs on Node 22+.
+}
+
+const sqliteTest = (name, fn) => test(name, { skip: !DatabaseSync }, fn);
 import { SqliteNodeIdentityMetadataStore } from "../src/sqlite-node-identity-metadata-store.mjs";
 
 function adapter(database) {
@@ -36,7 +43,7 @@ const identity = (revision, installationId = "install-desktop-01") => ({
   revision
 });
 
-test("persists public identity metadata and enforces atomic revision CAS", async () => {
+sqliteTest("persists public identity metadata and enforces atomic revision CAS", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-identity-"));
   const filename = join(directory, "identity.sqlite");
   let db;
@@ -62,7 +69,7 @@ test("persists public identity metadata and enforces atomic revision CAS", async
   }
 });
 
-test("isolates metadata by installation and rejects scope changes", async () => {
+sqliteTest("isolates metadata by installation and rejects scope changes", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     const first = new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "install-one" });
@@ -78,7 +85,7 @@ test("isolates metadata by installation and rejects scope changes", async () => 
   }
 });
 
-test("rejects corrupt metadata and persisted revision mismatch", async () => {
+sqliteTest("rejects corrupt metadata and persisted revision mismatch", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     const store = new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "install-desktop-01" });
@@ -93,7 +100,7 @@ test("rejects corrupt metadata and persisted revision mismatch", async () => {
   }
 });
 
-test("rejects non-monotonic metadata revisions and invalid installation IDs", async () => {
+sqliteTest("rejects non-monotonic metadata revisions and invalid installation IDs", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     const store = new SqliteNodeIdentityMetadataStore({ database: adapter(db), installationId: "install-desktop-01" });
