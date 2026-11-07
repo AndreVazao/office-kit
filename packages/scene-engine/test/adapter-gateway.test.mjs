@@ -127,3 +127,101 @@ test("disconnect removes subscription and notifies listeners", async () => {
   assert.ok(events.includes("gateway_disconnected"));
   assert.equal(gateway.receiveEvent(makeEvent(1, "heartbeat", {})).reason, "no_adapter_selected");
 });
+
+
+test("gateway fails closed when an event sequence has a gap", async () => {
+  const gateway = new AdapterGateway({ now: () => now });
+  await gateway.connect(makeAdapter());
+  assert.equal(gateway.receiveEvent(makeEvent(1, "diagnostic", {})).accepted, true);
+  const gap = gateway.receiveEvent(makeEvent(3, "heartbeat", {}));
+  assert.equal(gap.accepted, false);
+  assert.equal(gap.reason, "sequence_gap");
+  assert.equal(gap.expectedSequence, 2);
+  assert.equal(gateway.getState().connectionState, "error");
+  assert.equal(gateway.getState().authoritativeStateVerified, false);
+});
+
+test("gateway pins the adapter session until an explicit reconnect", async () => {
+  const gateway = new AdapterGateway({ now: () => now });
+  await gateway.connect(makeAdapter());
+  assert.equal(gateway.receiveEvent(makeEvent(1, "diagnostic", {})).accepted, true);
+  const changed = gateway.receiveEvent(makeEvent(2, "heartbeat", {}, { sessionId: "session-2" }));
+  assert.equal(changed.accepted, false);
+  assert.equal(changed.reason, "session_changed_without_reconnect");
+  assert.equal(gateway.getState().connectionState, "error");
+  assert.equal(gateway.getState().authoritativeStateVerified, false);
+});
+
+test("gateway fails closed rather than silently ignoring incremental agent or task events", async () => {
+  const gateway = new AdapterGateway({ now: () => now });
+  await gateway.connect(makeAdapter());
+  const result = gateway.receiveEvent(makeEvent(1, "agent", { id: "agent-1", status: "idle" }));
+  assert.equal(result.accepted, false);
+  assert.equal(result.reason, "incremental_agent_task_events_not_supported_yet");
+  assert.equal(gateway.getState().connectionState, "error");
+  assert.equal(gateway.getState().authoritativeStateVerified, false);
+});
+
+test("gateway buffers events emitted during initial snapshot acquisition", async () => {
+  let callback = null;
+  const adapter = makeAdapter({
+    subscribe: cb => {
+      callback = cb;
+      cb(makeEvent(1, "heartbeat", {}));
+      return () => { callback = null; };
+    }
+  });
+  const gateway = new AdapterGateway({ now: () => now });
+  const result = await gateway.connect(adapter);
+  assert.equal(result.connected, true);
+  assert.equal(result.verified, true);
+  assert.equal(result.state.connectionState, "live");
+  assert.equal(result.state.authoritativeStateVerified, true);
+  await gateway.disconnect();
+  assert.equal(callback, null);
+});
+
+test("gateway fails closed and unsubscribes when the initial snapshot request throws", async () => {
+  let unsubscribed = false;
+  let disconnected = false;
+  const adapter = makeAdapter({
+    getSnapshot: async () => { throw new Error("snapshot_unavailable"); },
+    subscribe: () => () => { unsubscribed = true; },
+    disconnect: async () => { disconnected = true; }
+  });
+  const gateway = new AdapterGateway({ now: () => now });
+  const result = await gateway.connect(adapter);
+  assert.equal(result.connected, false);
+  assert.equal(result.error, "snapshot_unavailable");
+  assert.equal(result.state.connectionState, "error");
+  assert.equal(unsubscribed, true);
+  assert.equal(disconnected, true);
+});
+
+test("gateway bounds events buffered before the initial snapshot", async () => {
+  const adapter = makeAdapter({
+    subscribe: cb => {
+      cb(makeEvent(1, "heartbeat", {}));
+      cb(makeEvent(2, "heartbeat", {}));
+      return () => {};
+    }
+  });
+  const gateway = new AdapterGateway({ now: () => now, maxBufferedEvents: 1 });
+  const result = await gateway.connect(adapter);
+  assert.equal(result.connected, false);
+  assert.equal(result.verified, undefined);
+  assert.equal(result.error, "adapter_initial_event_buffer_overflow");
+  assert.equal(result.state.connectionState, "error");
+  assert.equal(result.state.reason, "adapter_initial_event_buffer_overflow");
+});
+
+test("gateway clears sequence and session identity after explicit disconnect", async () => {
+  const adapter = makeAdapter();
+  const gateway = new AdapterGateway({ now: () => now });
+  await gateway.connect(adapter);
+  assert.equal(gateway.receiveEvent(makeEvent(8, "diagnostic", {})).accepted, true);
+  await gateway.disconnect();
+  const result = await gateway.connect(adapter);
+  assert.equal(result.verified, true);
+  assert.equal(gateway.receiveEvent(makeEvent(1, "heartbeat", {}, { sessionId: "new-session" })).accepted, true);
+});

@@ -334,13 +334,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ### Identidade criptográfica multiplataforma
 - [x] Validar a seleção explícita entre Ed25519 e ECDSA P-256/SHA-256 no mesmo HEAD em Linux e Windows (PR #42, HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`, CI 150/150 por runner e regressão visual verde; squash merge `5212c3044bf890cc924180c6030012d55647d5f9`).
-- [ ] Implementar providers persistentes que conservem a chave privada não exportável no keystore da plataforma; começar por CNG no Windows.
-- [ ] Testar persistência após reinício de processo e sistema, rotação, revogação, falhas de cleanup e capacidades reais do provider.
+- [x] Implementar provider Windows CNG persistente com chave privada não exportável no Microsoft Software KSP; integração validada em runner Windows (PR #44).
+- [x] Testar persistência entre processos, sign/verify, export refusal, delete e isolamento de installation IDs no runner Windows.
+- [ ] Testar reinício do sistema, rotação/revogação via NodeIdentityManager, falhas de cleanup e capacidades do provider no host desktop/PC físico.
 - [ ] Definir migração explícita de algoritmo para identidades já emitidas; nunca trocar algoritmo silenciosamente.
 
 
 ### Windows CNG e identidade persistente
-- [ ] Validar o helper CNG real em runner Windows no HEAD final: persistência entre processos, private export refusal, sign/verify, delete e isolamento entre installation IDs.
+- [x] Validar o helper CNG real em runner Windows no HEAD final: persistência entre processos, private export refusal, sign/verify, delete e isolamento entre installation IDs (PR #44, HEAD `e04c9a4a9e00a5d39b9c1aa982186403dfed1877`, CI `42420915287`; pós-merge main `42421035235`).
 - [ ] Integrar o helper no host/instalador Windows e validar atualização, desinstalação e limpeza explícita de chaves.
 - [ ] Executar teste de instalação e recuperação numa máquina física Windows; CI runner não substitui esse teste.
 - [ ] Avaliar provider TPM separado, sem declarar hardware backing no Microsoft Software KSP.
@@ -350,3 +351,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Separar o entrypoint Windows CNG do entrypoint genérico/browser para impedir que dependências Node nativas contaminem Universal e a pré-visualização web.
 - [ ] Validar CI Windows/Linux e regressão visual no mesmo HEAD após a separação.
 - [ ] Integrar provider CNG com o host desktop e instalador Windows, incluindo ACLs, atualização e limpeza de chaves.
+
+
+### Adapter Runtime Bridge — recuperação e hardening
+- [x] Reaproveitar invariantes de sequência/session do trabalho antigo sem introduzir uma implementação paralela ao AdapterGateway.
+- [x] Buffer limitado de eventos antes do snapshot inicial e subscrição antes do snapshot para evitar janela de perda.
+- [x] Vincular origem ao adaptador selecionado e sessão até reconnect; falhar fechado em lacunas, troca de sessão e overflow.
+- [x] Rejeitar eventos agent/task incrementais enquanto não existir contrato de patch/estado autoritativo.
+- [ ] Definir schema de patches versionado e aplicar atualizações incrementais com testes de snapshot reconciliation.
+- [ ] Integrar autenticação/credenciais/transport no host desktop sem permitir comandos no modo inicial read-only.

@@ -205,10 +205,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Universal continua sem dependência obrigatória de DGM-MAT/VST. Os perfis DGM-MAT e VST mantêm allowlists e namespaces próprios; o adaptador DGM-MAT existe em modo read-only e o adaptador VST concreto continua por implementar.
 
 
-## Atualização de 2026-11-07 — provider CNG Windows em desenvolvimento
+## Atualização de 2026-11-07 — provider CNG Windows integrado
 - Branch `feat/windows-cng-p256-keystore` parte do main `007e3a73370a4e78f03ffba0013852e113c9a8c1` após PR #43.
 - Implementação em curso: helper .NET com Microsoft Software Key Storage Provider, `CngExportPolicies.None`, ECDSA P-256, key names delimitados por installation ID e provider Node com bridge por processo.
-- A workflow CI Windows foi ampliada para publicar o helper self-contained e executar integração real em processos separados. A validação só é considerada concluída quando esse job passar no HEAD final; ainda não há teste em PC físico nem integração no instalador.
+- PR #44 integrada por squash em `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`. HEAD final `e04c9a4a9e00a5d39b9c1aa982186403dfed1877`: CI `42420915287` verde em Windows/Linux e visual `42420915296` verde no mesmo SHA. O job Windows publicou o helper e passou na integração CNG persistente entre processos, export refusal, sign/verify, delete e isolamento de instalações. Pós-merge main CI `42421035235` e visual `42421035019` também verdes.
 - O provider declara software/OS-protected e `hardwareBacked=false`; não o confundir com TPM. SQLite metadata/challenge store continua separado e fornecido pelo host.
 
 
@@ -216,3 +216,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - A primeira regressão visual da PR #44 expôs que exportar `WindowsCngP256KeyStore` pelo `scene-engine/src/index.mjs` contaminava o browser com módulos Node (`child_process`, `crypto`, `path`), impedindo o carregamento do escritório.
 - Corrigido: provider Windows é exportado apenas por `scene-engine/src/windows.mjs`; o índice genérico permanece browser-safe. A alteração deve ser validada novamente em CI e regressão visual no mesmo HEAD.
 - O runner Windows já compilou o helper CNG e passou no teste de persistência entre processos, assinatura/verificação, recusa de exportação e isolamento entre instalações no HEAD anterior `1f4c1b78bb74bab823e527b746def53cf36c4035`. Não confundir com validação física no PC do utilizador.
+
+
+## 2026-11-07 — recuperação de trabalho antigo de Adapter Runtime Bridge
+- Branch de recuperação: `feat/recover-adapter-runtime-bridge-hardening`.
+- A branch antiga `feat/adapter-runtime-bridge` continha 7 commits exclusivos, mas PR #25 estava em draft, apontava para base de recuperação antiga e não era mergeável. PR #10 anterior também estava encerrada sem merge.
+- Em vez de duplicar `AdapterRuntimeBridge`, foram portados para o `AdapterGateway` existente os comportamentos de segurança que faltavam: buffer limitado de eventos durante startup, sequência contígua, sessão fixa, fail-closed para lacunas/troca de sessão/eventos incrementais não suportados, cleanup em erro e reset no reconnect.
+- PR #44 integrada em `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`: CNG Windows nativo validado em runner Windows, provider isolado em `windows.mjs`, índice genérico/browser safe. Próximo incremento ativo é recuperação do gateway.

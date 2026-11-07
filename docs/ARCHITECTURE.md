@@ -297,3 +297,7 @@ Os perfis não estabelecem ligações automaticamente. O estado inicial é não 
 
 ### Entrypoints por plataforma
 O entrypoint genérico `packages/scene-engine/src/index.mjs` é browser-safe e não deve importar módulos que dependam de APIs Node ou de sistema operativo. Providers nativos são expostos por entrypoints específicos, como `packages/scene-engine/src/windows.mjs`; aplicações web e a edição Universal não devem importar esse entrypoint. O host de cada plataforma injeta explicitamente o provider adequado. Esta separação evita que dependências nativas contaminem o runtime visual/browser.
+
+
+## Gateway de runtime — sequencia e sincronização fail-closed
+`AdapterGateway` recebe apenas o adaptador explicitamente selecionado pelo host. A subscrição é instalada antes da leitura do snapshot inicial e os eventos iniciais são guardados numa fila limitada; só são processados depois do snapshot. A bridge fixa a identidade da origem ao `metadata.id` do adaptador e mantém uma única sessão de eventos até desconexão/religação. Lacunas de sequência, mudança de sessão sem reconnect, overflow da fila e eventos incrementais agent/task ainda sem contrato de patch retiram a autoridade do runtime (fail-closed). Heartbeats não elevam um estado não sincronizado a live. Autenticação, autorização, credenciais e transporte continuam responsabilidade do host; não há descoberta nem dispatch de comandos.
