@@ -184,3 +184,4 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Branch `ci/validate-sqlite-on-windows` altera a workflow principal para executar a suite completa em runners Linux e Windows com Node.js 22.
 - A validação Windows inclui os testes SQLite reais e a terminação de processo filho antes de COMMIT. CI desta matriz ainda pendente.
 - Runner Windows automatizado não substitui instalação em hardware físico, testes de CNG/DPAPI ou testes de distribuição/assinatura.
+- A primeira execução Windows revelou que o teste SQLite multi-processo construía um file URL inválido (`D:\\D:\\...`) ao converter `URL.pathname` com `pathToFileURL`; foi corrigido para usar `new URL(...).href`. Revalidação no novo HEAD pendente.
