@@ -23,7 +23,7 @@
 - Merge SHA do PR #16: 56be1b0bebdbcf5d42ede6445f18496019521b55.
 - PR #17 `docs: define production secure node storage requirements` foi squash-merged em 2026-11-03; merge SHA `e31bccafa4223689c44b1cb25faa0bd250798b53`.
 - `main` foi validada em 2026-11-07 no squash merge `2d9c4cbcdeeddcfa718d736ef3a04ce9f39b44ab` do PR #41; CI e regressão visual pós-merge passaram nesse SHA.
-- Branch de trabalho publicada atual: `feat/identity-algorithm-agility`; PR de revisão ainda não aberto no momento deste registo.
+- PR #42 `feat/identity-algorithm-agility` foi squash-merged em 2026-11-07; merge SHA `5212c3044bf890cc924180c6030012d55647d5f9`. `main` ficou nesse HEAD e CI/visual pós-merge passaram.
 - PR #16 adicionou NodeIdentityManager, prova Ed25519 de posse, rotação/revogação e testes; provider efémero continua exclusivo de testes.
 - `docs/SECURE_STORAGE.md` especifica persistência segura por plataforma; continua a ser especificação, não um provider implementado.
 
@@ -200,6 +200,6 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Squash merge SHA de PR #41: 2d9c4cbcdeeddcfa718d736ef3a04ce9f39b44ab. Após o merge, CI run 42383940775 e visual run 42383940809 passaram no próprio SHA de main.
 - Inspeção manual das capturas: layout e painel de chat renderizam nos três viewports; o edifício continua pequeno na vista geral portrait e os avatares permanecem placeholders CSS. Não é regressão introduzida por PR #41 e continua como dívida visual.
 - O CI Windows é runner nativo Windows, não teste de instalação/desinstalação numa máquina física. SQLite Node continua a emitir aviso de funcionalidade experimental; actions/checkout e setup-node emitem aviso de runtime Node 20 deprecado.
-- Branch atual feat/identity-algorithm-agility: NodeIdentityManager passa a declarar Ed25519 ou ECDSA-P256-SHA256 no metadata e na prova de posse. Foi adicionado EphemeralP256KeyStore apenas para testes, com private CryptoKey não exportável. Isto prepara CNG/Android Keystore/Secure Enclave, mas não implementa ainda qualquer provider persistente nativo.
+- PR #42 foi squash-merged após CI run `42384699834` e visual run `42384699857` passarem no HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`. Os dois runners executaram 150/150 testes, 0 falhas e 0 skips; o teste adicional confirma que metadados legados sem algoritmo continuam Ed25519 e não migram silenciosamente para P-256. Merge SHA `5212c3044bf890cc924180c6030012d55647d5f9`; CI pós-merge `42384818786` e visual pós-merge `42384818767` passaram no mesmo SHA de main. EphemeralP256KeyStore continua apenas para testes; nenhum provider persistente nativo foi implementado.
 - PR #25 feat/adapter-runtime-bridge permanece draft e divergiu de main (7 commits ahead, 25 behind no último compare). O seu AdapterRuntimeBridge parece sobreposto pelo AdapterGateway já integrado; não fazer merge direto. Reconciliar o comportamento único e os testes antes de decidir fechar ou recuperar a branch.
 - Universal continua sem dependência obrigatória de DGM-MAT/VST. Os perfis DGM-MAT e VST mantêm allowlists e namespaces próprios; o adaptador DGM-MAT existe em modo read-only e o adaptador VST concreto continua por implementar.
