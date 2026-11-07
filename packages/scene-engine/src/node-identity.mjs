@@ -1,6 +1,10 @@
 import { InMemoryNodeIdentityChallengeStore } from "./node-identity-challenge-store.mjs";
 const encoder = new TextEncoder();
 const FINGERPRINT_BYTES = 32;
+const IDENTITY_ALGORITHMS = Object.freeze({
+  Ed25519: Object.freeze({ publicKeyBytes: 32, signatureBytes: 64 }),
+  "ECDSA-P256-SHA256": Object.freeze({ publicKeyBytes: 65, signatureBytes: 64 })
+});
 const KEY_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/;
 const NODE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/;
 const ORG_ID = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -35,12 +39,12 @@ function canonicalChallenge(challenge) {
  * non-exportable and protect it with the host OS/browser secure storage.
  */
 export class NodeKeyStoreProvider {
-  async createKeyPair() { throw new Error("keystore_create_not_implemented"); }
-  async sign(_keyId, _message) { throw new Error("keystore_sign_not_implemented"); }
+  async createKeyPair(_options) { throw new Error("keystore_create_not_implemented"); }
+  async sign(_keyId, _message, _algorithm) { throw new Error("keystore_sign_not_implemented"); }
   async deleteKey(_keyId) { throw new Error("keystore_delete_not_implemented"); }
   async hasKey(_keyId) { throw new Error("keystore_has_key_not_implemented"); }
   getCapabilities() { throw new Error("keystore_capabilities_not_implemented"); }
-  async verify(_publicKey, _message, _signature) { throw new Error("keystore_verify_not_implemented"); }
+  async verify(_publicKey, _message, _signature, _algorithm) { throw new Error("keystore_verify_not_implemented"); }
 }
 
 /** Atomic metadata boundary. expectedRevision=null means the record must not exist. */
@@ -66,9 +70,10 @@ export class EphemeralEd25519KeyStore extends NodeKeyStoreProvider {
     const privateKey = await this.#subtle.exportKey("pkcs8", pair.privateKey);
     const keyId = this.#randomUUID();
     this.#keys.set(keyId, { privateKey: await this.#subtle.importKey("pkcs8", privateKey, { name: "Ed25519" }, false, ["sign"]), publicKey: pair.publicKey });
-    return Object.freeze({ keyId, publicKey });
+    return Object.freeze({ keyId, publicKey, algorithm: "Ed25519" });
   }
-  async sign(keyId, message) {
+  async sign(keyId, message, algorithm = "Ed25519") {
+    if (algorithm !== "Ed25519") throw new Error("keystore_algorithm_unsupported");
     const pair = this.#keys.get(keyId);
     if (!pair) throw new Error("private_key_not_found");
     return new Uint8Array(await this.#subtle.sign("Ed25519", pair.privateKey, bytes(message, "message")));
@@ -85,9 +90,75 @@ export class EphemeralEd25519KeyStore extends NodeKeyStoreProvider {
       algorithms: Object.freeze(["Ed25519"])
     });
   }
-  async verify(publicKey, message, signature) {
-    const key = await this.#subtle.importKey("raw", bytes(publicKey, "public_key"), { name: "Ed25519" }, false, ["verify"]);
-    return this.#subtle.verify("Ed25519", key, bytes(signature, "signature"), bytes(message, "message"));
+  async verify(publicKey, message, signature, algorithm = "Ed25519") {
+    if (algorithm !== "Ed25519") return false;
+    const key = await this.#subtle.importKey("raw", bytes(publicKey, "public_key", 32), { name: "Ed25519" }, false, ["verify"]);
+    return this.#subtle.verify("Ed25519", key, bytes(signature, "signature", 64), bytes(message, "message"));
+  }
+}
+
+/** Ephemeral ECDSA P-256 provider for algorithm-agility tests and demonstrations only. */
+export class EphemeralP256KeyStore extends NodeKeyStoreProvider {
+  #subtle;
+  #keys = new Map();
+  #randomUUID;
+
+  constructor({ subtle = globalThis.crypto?.subtle, randomUUID = () => globalThis.crypto.randomUUID() } = {}) {
+    super();
+    if (!subtle || typeof randomUUID !== "function") throw new Error("webcrypto_ecdsa_p256_unavailable");
+    this.#subtle = subtle;
+    this.#randomUUID = randomUUID;
+  }
+
+  async createKeyPair({ algorithm = "ECDSA-P256-SHA256" } = {}) {
+    if (algorithm !== "ECDSA-P256-SHA256") throw new Error("keystore_algorithm_unsupported");
+    const pair = await this.#subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+    const publicKey = new Uint8Array(await this.#subtle.exportKey("raw", pair.publicKey));
+    const keyId = this.#randomUUID();
+    this.#keys.set(keyId, { privateKey: pair.privateKey, publicKey: pair.publicKey });
+    return Object.freeze({ keyId, publicKey, algorithm });
+  }
+
+  async sign(keyId, message, algorithm = "ECDSA-P256-SHA256") {
+    if (algorithm !== "ECDSA-P256-SHA256") throw new Error("keystore_algorithm_unsupported");
+    const pair = this.#keys.get(keyId);
+    if (!pair) throw new Error("private_key_not_found");
+    return new Uint8Array(await this.#subtle.sign(
+      { name: "ECDSA", hash: "SHA-256" },
+      pair.privateKey,
+      bytes(message, "message")
+    ));
+  }
+
+  async deleteKey(keyId) { return this.#keys.delete(keyId); }
+  async hasKey(keyId) { return this.#keys.has(keyId); }
+
+  getCapabilities() {
+    return Object.freeze({
+      providerId: "ephemeral-ecdsa-p256",
+      persistent: false,
+      protectionLevel: "ephemeral",
+      hardwareBacked: false,
+      privateKeyNonExportable: true,
+      algorithms: Object.freeze(["ECDSA-P256-SHA256"])
+    });
+  }
+
+  async verify(publicKey, message, signature, algorithm = "ECDSA-P256-SHA256") {
+    if (algorithm !== "ECDSA-P256-SHA256") return false;
+    const key = await this.#subtle.importKey(
+      "raw",
+      bytes(publicKey, "public_key", 65),
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["verify"]
+    );
+    return this.#subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" },
+      key,
+      bytes(signature, "signature", 64),
+      bytes(message, "message")
+    );
   }
 }
 
@@ -119,6 +190,8 @@ export class NodeIdentityManager {
   #digest;
   #randomBytes;
   #clock;
+  #algorithms;
+  #defaultAlgorithm;
 
   constructor({ keyStore, metadataStore, challengeStore, digest, randomBytes, clock = Date.now, allowEphemeral = false }) {
     if (!keyStore || typeof keyStore.createKeyPair !== "function"
@@ -132,12 +205,17 @@ export class NodeIdentityManager {
     }
     const capabilities = keyStore.getCapabilities();
     const protectionLevels = new Set(["hardware", "os-protected", "browser-origin", "ephemeral"]);
+    const algorithms = Array.isArray(capabilities?.algorithms) ? [...capabilities.algorithms] : [];
+    const defaultAlgorithm = capabilities?.defaultAlgorithm ?? algorithms[0];
     if (!capabilities || typeof capabilities !== "object"
       || typeof capabilities.persistent !== "boolean"
       || !protectionLevels.has(capabilities.protectionLevel)
       || typeof capabilities.hardwareBacked !== "boolean"
       || typeof capabilities.privateKeyNonExportable !== "boolean"
-      || !Array.isArray(capabilities.algorithms) || !capabilities.algorithms.includes("Ed25519")
+      || algorithms.length === 0
+      || new Set(algorithms).size !== algorithms.length
+      || algorithms.some(algorithm => !Object.hasOwn(IDENTITY_ALGORITHMS, algorithm))
+      || !algorithms.includes(defaultAlgorithm)
       || (capabilities.hardwareBacked && capabilities.protectionLevel !== "hardware")) {
       throw new TypeError("invalid_keystore_capabilities");
     }
@@ -159,6 +237,8 @@ export class NodeIdentityManager {
       throw new Error("keystore_private_key_exportable");
     }
     this.#keyStore = keyStore;
+    this.#algorithms = new Set(algorithms);
+    this.#defaultAlgorithm = defaultAlgorithm;
     this.#metadataStore = metadataStore;
     this.#challengeStore = replayStore;
     this.#digest = digest;
@@ -173,13 +253,19 @@ export class NodeIdentityManager {
   }
 
   async #prepareIdentity({ organizationId, nodeId, previous, pendingKeyDeletionIds = [] }) {
-    const pair = await this.#keyStore.createKeyPair();
+    const preferredAlgorithm = previous?.algorithm ?? this.#defaultAlgorithm;
+    const pair = await this.#keyStore.createKeyPair({ algorithm: preferredAlgorithm });
     const keyId = pair?.keyId;
     try {
       if (!pair || typeof keyId !== "string" || !KEY_ID.test(keyId)) {
         throw new TypeError("invalid_keystore_key_id");
       }
-      const publicKey = bytes(pair.publicKey, "public_key", 32);
+      const algorithm = pair.algorithm ?? preferredAlgorithm;
+      const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
+      if (!algorithmShape || !this.#algorithms.has(algorithm)) {
+        throw new TypeError("identity_algorithm_not_supported_by_keystore");
+      }
+      const publicKey = bytes(pair.publicKey, "public_key", algorithmShape.publicKeyBytes);
       const fingerprintBytes = bytes(await this.#digest(publicKey), "fingerprint");
       if (fingerprintBytes.length !== FINGERPRINT_BYTES) {
         throw new Error("sha256_digest_must_return_32_bytes");
@@ -190,7 +276,7 @@ export class NodeIdentityManager {
         keyId,
         publicKey: base64url(publicKey),
         identityFingerprint: hex(fingerprintBytes),
-        algorithm: "Ed25519",
+        algorithm,
         createdAt: this.#clock(),
         generation: (previous?.generation ?? 0) + 1,
         revision: (revisionOf(previous) ?? 0) + 1,
@@ -264,7 +350,7 @@ export class NodeIdentityManager {
       nodeId: identity.nodeId,
       publicKey: identity.publicKey,
       identityFingerprint: identity.identityFingerprint,
-      algorithm: identity.algorithm,
+      algorithm: identity.algorithm ?? "Ed25519",
       createdAt: identity.createdAt,
       generation: identity.generation
     });
@@ -298,22 +384,34 @@ export class NodeIdentityManager {
       now
     });
     if (consumed !== true) throw new Error("challenge_replayed_or_already_consumed");
+    const algorithm = identity.algorithm ?? "Ed25519";
+    const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
+    if (!algorithmShape || !this.#algorithms.has(algorithm)) {
+      throw new Error("node_identity_algorithm_unsupported");
+    }
     return Object.freeze({
       keyId: identity.keyId,
       identityFingerprint: identity.identityFingerprint,
-      signature: base64url(bytes(await this.#keyStore.sign(identity.keyId, message), "signature", 64))
+      algorithm,
+      signature: base64url(bytes(
+        await this.#keyStore.sign(identity.keyId, message, algorithm),
+        "signature",
+        algorithmShape.signatureBytes
+      ))
     });
   }
 
-  async verifyProof({ publicKey, challenge, signature }) {
+  async verifyProof({ publicKey, challenge, signature, algorithm = "Ed25519" }) {
     try {
       const message = canonicalChallenge(challenge);
       const now = this.#clock();
-      if (!Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) return false;
+      const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
+      if (!algorithmShape || !Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) return false;
       return await this.#keyStore.verify(
-        bytes(fromBase64url(publicKey), "public_key", 32),
+        bytes(fromBase64url(publicKey), "public_key", algorithmShape.publicKeyBytes),
         message,
-        bytes(fromBase64url(signature), "signature", 64)
+        bytes(fromBase64url(signature), "signature", algorithmShape.signatureBytes),
+        algorithm
       );
     } catch {
       return false;
