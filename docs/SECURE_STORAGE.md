@@ -72,3 +72,12 @@ This document is a specification, not a platform-provider implementation. `NodeI
 
 ## Lifecycle integration validation
 `SqliteNodeIdentityMetadataStore` is covered together with `NodeIdentityManager` by an integration test that closes/reopens a real SQLite file and recreates the manager across create, public-identity read, Ed25519 proof, rotation, reconciliation and revocation. The test intentionally retains an ephemeral key provider in the same process; it validates durable metadata only. It does not establish key persistence across process/OS restart or replace the required native Windows keystore.
+
+
+## One-time challenge replay protection
+- A possession challenge nonce is consumed atomically before the identity manager signs it. A repeated nonce is rejected.
+- `SqliteNodeIdentityChallengeStore` uses a unique nonce key and an immediate SQLite transaction, so separate processes sharing the same database cannot both consume the same challenge. Expired records are pruned during consumption.
+- `InMemoryNodeIdentityChallengeStore` is explicitly non-persistent and is selected only when the manager is constructed with `allowEphemeral: true` and no store is supplied.
+- A persistent keystore requires a challenge store declaring `persistent: true`; the manager rejects an in-memory replay store in that configuration.
+- This protects local signing against replay at the signer. A remote verifier must independently enforce challenge issuance, audience binding, expiry and one-time acceptance; local nonce storage does not replace verifier-side replay protection.
+- SQLite durability still depends on host-owned file access controls and storage policy. Power-loss guarantees are not claimed.
