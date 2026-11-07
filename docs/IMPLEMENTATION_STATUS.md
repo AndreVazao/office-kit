@@ -239,10 +239,10 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - `SqliteNodeIdentityMetadataStore` usa conexão SQLite fornecida pelo host, separa registos por `installationId` e aplica CAS revisionado em transação imediata.
 - Metadados corrompidos, revisão divergente e mudança de instalação são rejeitados. Só são persistidos dados públicos e handles opacos; nunca chaves privadas.
 - Testes da store usam o motor `node:sqlite` real em base temporária. O adaptador é um wrapper de teste sobre `DatabaseSync`, não um teste do driver better-sqlite3 nem de host nativo.
-- A branch `feat/sqlite-identity-manager-integration` acrescenta testes de ciclo de vida do manager, incluindo reabertura da base e recuperação de tombstones/limpezas pendentes; a validação CI/visual desse incremento está pendente.
+- PR #36 (`feat/sqlite-identity-lifecycle-validation`) acrescenta testes do ciclo de vida do manager com reabertura da base. CI e regressão visual passaram no HEAD `1503db41f7be669c67d7f9b94070f83cffe6af10`; a suite usa keystore efémero no mesmo processo e não prova persistência de chaves após reinício.
 
 
-## Integração do ciclo de vida da identidade — em validação
+## Integração do ciclo de vida da identidade — CI e regressão visual aprovadas
 - Adicionado teste de integração `node-identity-sqlite-lifecycle.integration.test.mjs`: cria identidade, fecha/reabre a base SQLite, instancia novo `NodeIdentityManager`, valida identidade pública e prova Ed25519, executa rotação, reconciliação e revogação.
 - O teste usa `EphemeralEd25519KeyStore` mantido no mesmo processo para isolar a persistência dos metadados; não prova persistência de chaves entre processos nem um keystore de sistema operativo.
-- CI e regressão visual pendentes nesta nova PR.
+- PR #36: CI run `42381146911` e regressão visual run `42381146842` concluídas com sucesso no mesmo HEAD `1503db41f7be669c67d7f9b94070f83cffe6af10` (antes da correção de compatibilidade Node 20; a nova alteração requer nova validação).
