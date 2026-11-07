@@ -230,8 +230,9 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - A store continua a ser uma fronteira para conexão fornecida pelo host; não existe ainda instalador nem provider nativo de produção.
 
 
-## SQLite identity metadata persistence — incremento em revisão
+## SQLite identity metadata persistence — integrado
 - Adicionado `SqliteNodeIdentityMetadataStore`, implementação durável do contrato `NodeIdentityMetadataStore` sobre uma conexão SQLite fornecida pelo host.
 - Os registos são separados por `installationId`; alterações usam transação `immediate` e compare-and-set de revisão monotónica. Metadados corrompidos, revisão divergente e mudança de instalação são rejeitados.
 - O store persiste apenas metadados públicos e identificadores opacos; não guarda chaves privadas. O host continua responsável pelo ficheiro SQLite, permissões, cifragem, backup e keystore do sistema operativo.
-- Testes usam `node:sqlite` em base real, incluindo persistência, isolamento entre instalações, CAS e corrupção. CI e regressão visual da PR ainda pendentes.
+- Testes usam `node:sqlite` em base real, incluindo persistência, isolamento entre instalações, CAS e corrupção. PR #33 integrada após CI e regressão visual verdes no HEAD `737adf3aeeea804a278d60dd81792226f5adbea3`; merge `10f386081118c0951ac23deeeedba5b83af1156e`.
+\n\n## Integração do ciclo de vida da identidade — em validação\n- Adicionado teste de integração `node-identity-sqlite-lifecycle.integration.test.mjs`: cria identidade, fecha/reabre a base SQLite, instancia novo `NodeIdentityManager`, valida identidade pública e prova Ed25519, roda rotação, reconciliação e revogação.\n- O teste usa `EphemeralEd25519KeyStore` mantido no mesmo processo para isolar a persistência dos metadados; não prova persistência de chaves entre processos nem um keystore de sistema operativo.\n- CI e regressão visual ainda por executar nesta branch.\n
