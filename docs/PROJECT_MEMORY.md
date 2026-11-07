@@ -157,3 +157,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - A suite Node.js 22 usa `node:sqlite` e base temporária em disco. Verifica persistência entre conexões, mutação in-place e rollback de estado inválido.
 - Branch atual `test/sqlite-multi-connection-locking`: adiciona teste de bloqueio de escrita com duas conexões SQLite independentes e teste de JSON persistido corrompido. Aguardam CI e regressão visual.
 - A prova de locking é entre conexões no mesmo processo; não equivale a teste multi-processo, crash/power-loss recovery, ACL/encriptação, backups ou host nativo.
+
+
+## Persistência de metadados de identidade — 2026-11-07
+- PR #32 `test: verify SQLite locking across processes` integrada em `da10294556fc51bc1a23caa0b8f85e78fbd38ac3`, após CI e regressão visual verdes no HEAD `25107e411c940cf443de1e969d0334b4473b4d11`.
+- O teste usa processos Node.js separados e SQLite em ficheiro temporário para provar exclusão de escritores sob `BEGIN IMMEDIATE` e visibilidade após libertação do lock. Não prova crash/power-loss recovery.
+- Branch seguinte: `feat/sqlite-node-identity-metadata-store`. Implementa `SqliteNodeIdentityMetadataStore`, com persistência de metadados públicos, isolamento por installationId e compare-and-set revisionado; não guarda chaves privadas.
+- O host continua responsável por driver/ficheiro, ACLs, cifragem, backup e keystore nativo. PR e validações ainda pendentes.
