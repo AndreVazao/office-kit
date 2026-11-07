@@ -246,3 +246,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Adicionado teste de integração `node-identity-sqlite-lifecycle.integration.test.mjs`: cria identidade, fecha/reabre a base SQLite, instancia novo `NodeIdentityManager`, valida identidade pública e prova Ed25519, executa rotação, reconciliação e revogação.
 - O teste usa `EphemeralEd25519KeyStore` mantido no mesmo processo para isolar a persistência dos metadados; não prova persistência de chaves entre processos nem um keystore de sistema operativo.
 - PR #36: CI run `42381146911` e regressão visual run `42381146842` concluídas com sucesso no mesmo HEAD `1503db41f7be669c67d7f9b94070f83cffe6af10` (antes da correção de compatibilidade Node 20; a nova alteração requer nova validação).
+
+
+### Identidade — proteção contra replay de challenges
+- Adicionados stores de nonce one-time em memória e SQLite.
+- O manager consome atomicamente o nonce antes de assinar; reutilização é rejeitada.
+- O store SQLite usa chave primária única e transação imediata para coordenar processos que partilham a mesma DB; entradas expiradas são limpas durante o consumo.
+- Keystores persistentes exigem store de replay persistente. O store em memória só é permitido no modo explicitamente efémero/teste.
+- CI valida persistência através de duas ligações SQLite e reabertura da DB. Isto não substitui validação do verificador remoto nem testes de power-loss/Windows nativo.
