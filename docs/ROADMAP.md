@@ -350,3 +350,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Separar o entrypoint Windows CNG do entrypoint genérico/browser para impedir que dependências Node nativas contaminem Universal e a pré-visualização web.
 - [ ] Validar CI Windows/Linux e regressão visual no mesmo HEAD após a separação.
 - [ ] Integrar provider CNG com o host desktop e instalador Windows, incluindo ACLs, atualização e limpeza de chaves.
+
+
+### Adapter Runtime Bridge — recuperação e hardening
+- [x] Reaproveitar invariantes de sequência/session do trabalho antigo sem introduzir uma implementação paralela ao AdapterGateway.
+- [x] Buffer limitado de eventos antes do snapshot inicial e subscrição antes do snapshot para evitar janela de perda.
+- [x] Vincular origem ao adaptador selecionado e sessão até reconnect; falhar fechado em lacunas, troca de sessão e overflow.
+- [x] Rejeitar eventos agent/task incrementais enquanto não existir contrato de patch/estado autoritativo.
+- [ ] Definir schema de patches versionado e aplicar atualizações incrementais com testes de snapshot reconciliation.
+- [ ] Integrar autenticação/credenciais/transport no host desktop sem permitir comandos no modo inicial read-only.
