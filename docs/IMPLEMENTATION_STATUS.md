@@ -240,3 +240,9 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Metadados corrompidos, revisão divergente e mudança de instalação são rejeitados. Só são persistidos dados públicos e handles opacos; nunca chaves privadas.
 - Testes da store usam o motor `node:sqlite` real em base temporária. O adaptador é um wrapper de teste sobre `DatabaseSync`, não um teste do driver better-sqlite3 nem de host nativo.
 - A branch `feat/sqlite-identity-manager-integration` acrescenta testes de ciclo de vida do manager, incluindo reabertura da base e recuperação de tombstones/limpezas pendentes; a validação CI/visual desse incremento está pendente.
+
+
+## Integração do ciclo de vida da identidade — em validação
+- Adicionado teste de integração `node-identity-sqlite-lifecycle.integration.test.mjs`: cria identidade, fecha/reabre a base SQLite, instancia novo `NodeIdentityManager`, valida identidade pública e prova Ed25519, executa rotação, reconciliação e revogação.
+- O teste usa `EphemeralEd25519KeyStore` mantido no mesmo processo para isolar a persistência dos metadados; não prova persistência de chaves entre processos nem um keystore de sistema operativo.
+- CI e regressão visual pendentes nesta nova PR.
