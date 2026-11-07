@@ -165,10 +165,16 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - HEAD validado da PR: `737adf3aeeea804a278d60dd81792226f5adbea3`; CI e regressão visual passaram nesse SHA. CI e regressão visual de push também passaram no merge commit `10f386081118c0951ac23deeeedba5b83af1156e`.
 - `SqliteNodeIdentityMetadataStore` persiste apenas metadados públicos e handles opacos, com isolamento por `installationId`, transação imediata, compare-and-set monotónico e rejeição de JSON/revisões/scope inconsistentes. Chaves privadas não são guardadas na base.
 - O host continua responsável pelo driver e ficheiro SQLite, ACLs, cifragem, backup e keystore do sistema operativo.
-- PR #36 aberta na branch `feat/sqlite-identity-lifecycle-validation`, HEAD inicial `1503db41f7be669c67d7f9b94070f83cffe6af10`: acrescenta integração `NodeIdentityManager` + store SQLite com reabertura da DB, create/prove/rotate/reconcile/revoke. CI run `42381146911` e visual run `42381146842` passaram nesse HEAD. Foi identificada e corrigida depois uma incompatibilidade potencial com Node 20 (import estático de `node:sqlite`); o novo HEAD exige nova validação. O teste usa `EphemeralEd25519KeyStore` no mesmo processo e não prova persistência de chaves entre processos/SO.
+- PR #36 integrada por squash em `e68e9ee434ab9a6af7b0a6e9b73de318da4065c1`; HEAD final validado `4a95875df759c7df37701568a5910bd7abb62125`, CI run `42381571495` e visual run `42381571523` ambos verdes. A suite usa import dinâmico de `node:sqlite` e mantém Node 20 suportado, ignorando apenas os testes que exigem o módulo ausente. O teste de lifecycle usa `EphemeralEd25519KeyStore` no mesmo processo; não prova persistência de chaves após reinício do processo/SO.
 
 
 ## SQLite identity lifecycle integration — 2026-11-07
 - PR #33 integrada: HEAD `737adf3aeeea804a278d60dd81792226f5adbea3`; CI e regressão visual passaram no mesmo SHA; merge `10f386081118c0951ac23deeeedba5b83af1156e`.
 - `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, com isolamento por installationId e CAS revisionado. Chaves privadas nunca entram na base.
 - O teste de ciclo de vida cobre reabertura da DB e recriação do manager ao longo de create/prove/rotate/reconcile/revoke. O keystore de teste é efémero e partilhado no mesmo processo; não simula reinício do SO nem prova keystore persistente.
+
+
+## SQLite crash recovery — 2026-11-07
+- Branch `test/sqlite-node-identity-crash-recovery` acrescenta teste com SQLite real em WAL: processo filho executa a atualização dos metadados dentro de transação imediata e é terminado antes do commit.
+- Após reabertura, o teste exige que o último estado confirmado permaneça, que a escrita não confirmada desapareça e que `PRAGMA integrity_check` seja `ok`.
+- Esta é evidência de recuperação após crash/terminação do processo, não de power-loss físico, falha do armazenamento, backup/restore, ACLs ou cifragem. CI e visual ainda pendentes.
