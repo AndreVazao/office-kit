@@ -253,7 +253,7 @@ export class NodeIdentityManager {
   }
 
   async #prepareIdentity({ organizationId, nodeId, previous, pendingKeyDeletionIds = [] }) {
-    const preferredAlgorithm = previous?.algorithm ?? this.#defaultAlgorithm;
+    const preferredAlgorithm = previous ? (previous.algorithm ?? "Ed25519") : this.#defaultAlgorithm;
     const pair = await this.#keyStore.createKeyPair({ algorithm: preferredAlgorithm });
     const keyId = pair?.keyId;
     try {
