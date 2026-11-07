@@ -97,8 +97,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Os manifests não incluem credenciais, installationId nem storageNamespace reais; esses valores serão provisionados por instalação.
 - Os artifacts atuais são pacotes de código-fonte perfilados, não instaladores nativos nem adaptadores backend funcionais.
 - A política é disparar os builds manualmente apenas em marcos de desenvolvimento, antes de validar uma edição ou preparar um artifact para teste. Não os executar em cada commit.
-- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\
-` literais e provocava SyntaxError na CI anterior.
+- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\\n` literais e provocava SyntaxError na CI anterior.
 
 
 ## DGM-MAT adapter — incremento 2026-11-04
