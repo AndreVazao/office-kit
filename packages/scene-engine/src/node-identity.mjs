@@ -149,11 +149,11 @@ export class NodeIdentityManager {
       || typeof replayStore.persistent !== "boolean") {
       throw new TypeError("identity_challenge_store_required");
     }
-    if (capabilities.persistent && replayStore.persistent !== true) {
-      throw new Error("persistent_identity_requires_durable_challenge_store");
-    }
     if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
       throw new Error("keystore_private_key_exportable");
+    }
+    if (capabilities.persistent && replayStore.persistent !== true) {
+      throw new Error("persistent_identity_requires_durable_challenge_store");
     }
     this.#keyStore = keyStore;\n    this.#challengeStore = replayStore;
     this.#metadataStore = metadataStore;
