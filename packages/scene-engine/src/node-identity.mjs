@@ -1,3 +1,4 @@
+import { InMemoryNodeIdentityChallengeStore } from "./node-identity-challenge-store.mjs";
 const encoder = new TextEncoder();
 const FINGERPRINT_BYTES = 32;
 const KEY_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$/;
@@ -118,7 +119,7 @@ export class NodeIdentityManager {
   #randomBytes;
   #clock;
 
-  constructor({ keyStore, metadataStore, digest, randomBytes, clock = Date.now, allowEphemeral = false }) {
+  constructor({ keyStore, metadataStore, challengeStore, digest, randomBytes, clock = Date.now, allowEphemeral = false }) {
     if (!keyStore || typeof keyStore.createKeyPair !== "function"
       || typeof keyStore.sign !== "function" || typeof keyStore.deleteKey !== "function"
       || typeof keyStore.hasKey !== "function" || typeof keyStore.verify !== "function"
@@ -145,7 +146,7 @@ export class NodeIdentityManager {
     if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
       throw new Error("keystore_private_key_exportable");
     }
-    this.#keyStore = keyStore;
+    this.#keyStore = keyStore;\n    this.#challengeStore = replayStore;
     this.#metadataStore = metadataStore;
     this.#digest = digest;
     this.#randomBytes = randomBytes;
@@ -278,6 +279,12 @@ export class NodeIdentityManager {
     if (!Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) {
       throw new Error("challenge_expired_or_not_yet_valid");
     }
+    const consumed = await this.#challengeStore.consume({
+      nonce: challenge.nonce,
+      expiresAt: challenge.expiresAt,
+      now
+    });
+    if (consumed !== true) throw new Error("challenge_replayed_or_already_consumed");
     return Object.freeze({
       keyId: identity.keyId,
       identityFingerprint: identity.identityFingerprint,
