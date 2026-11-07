@@ -4,7 +4,14 @@ import { webcrypto, createHash, randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = await import("node:sqlite"));
+} catch (error) {
+  if (error?.code !== "ERR_UNKNOWN_BUILTIN_MODULE" && error?.code !== "ERR_MODULE_NOT_FOUND") {
+    throw error;
+  }
+}
 import { EphemeralEd25519KeyStore, NodeIdentityManager } from "../src/node-identity.mjs";
 import { SqliteNodeIdentityMetadataStore } from "../src/sqlite-node-identity-metadata-store.mjs";
 
@@ -47,7 +54,7 @@ function createManager(database, keyStore, clock) {
   });
 }
 
-test("SQLite identity metadata survives database reopen across manager lifecycle operations", async () => {
+test("SQLite identity metadata survives database reopen across manager lifecycle operations", { skip: !DatabaseSync && "node:sqlite requires Node.js 22.5 or newer" }, async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-identity-lifecycle-"));
   const filename = join(directory, "identity.sqlite");
   let database;
