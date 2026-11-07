@@ -309,4 +309,9 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Completar integração host de `SqliteNodeIdentityMetadataStore` com `NodeIdentityManager`; teste atual cobre reabertura da DB e recriação do manager, mas o keystore continua efémero no mesmo processo.
 - [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
 - [ ] Validar crash recovery, ACLs, backup/restore e recuperação de falhas no host Windows.
-\n\n### Validação do ciclo de vida SQLite — branch em curso\n- [x] Testar create, leitura da identidade pública, prova de posse, rotate, reconcile e revoke com SQLite real em ficheiro temporário e reabertura da DB.\n- [ ] Repetir com keystore persistente real após encerramento/reinício do processo Windows.\n- [ ] Implementar e testar provider nativo Windows CNG/DPAPI; manter private keys fora da SQLite.\n
+
+
+### Validação do ciclo de vida SQLite — branch em curso
+- [x] Testar create, leitura da identidade pública, prova de posse, rotate, reconcile e revoke com SQLite real em ficheiro temporário e reabertura da DB.
+- [ ] Repetir com keystore persistente real após encerramento/reinício do processo Windows.
+- [ ] Implementar e testar provider nativo Windows CNG/DPAPI; manter private keys fora da SQLite.
