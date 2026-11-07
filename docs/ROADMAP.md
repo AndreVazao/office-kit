@@ -302,3 +302,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implementar hosts equivalentes para Linux e Android sem misturar credenciais ou namespaces das três edições.
 - [ ] Só depois integrar a persistência com ativação de licenças e identidade criptográfica persistente.
 - [ ] Criar launcher/desktop e app Android instaláveis; os artifacts atuais são pacotes de código-fonte, não instaladores.
+
+
+### Atualização — identidade: metadata SQLite persistente
+- [x] Criar store SQLite para metadados públicos de identidade, isolado por installationId e com compare-and-set revisionado (em PR; validar CI/visual antes de integrar).
+- [ ] Integrar o store com `NodeIdentityManager` através do host e validar ciclo create/rotate/revoke/reconcile após reinício do processo.
+- [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
+- [ ] Validar crash recovery, ACLs, backup/restore e recuperação de falhas no host Windows.
