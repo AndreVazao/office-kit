@@ -62,6 +62,29 @@ test("creates, signs and verifies an ECDSA P-256 identity with explicit algorith
   assert.notEqual(rotated.identityFingerprint, identity.identityFingerprint);
 });
 
+test("does not silently migrate legacy Ed25519 metadata to P-256 during rotation", async () => {
+  const { manager, metadataStore } = fixture();
+  const identity = await manager.create({ organizationId: "acme-office", nodeId: "node:legacy-01" });
+  const legacy = { ...(await metadataStore.get()) };
+  delete legacy.algorithm;
+  metadataStore.get = async () => legacy;
+
+  const p256KeyStore = new EphemeralP256KeyStore({ subtle: webcrypto.subtle, randomUUID: () => webcrypto.randomUUID() });
+  const p256Manager = new NodeIdentityManager({
+    keyStore: p256KeyStore,
+    metadataStore,
+    clock: () => 1_800_000_000_000,
+    allowEphemeral: true,
+    digest: async value => new Uint8Array(createHash("sha256").update(value).digest()),
+    randomBytes: async size => new Uint8Array(randomBytes(size))
+  });
+
+  await assert.rejects(p256Manager.rotate(), /keystore_algorithm_unsupported/);
+  assert.equal(legacy.keyId, identity.keyId);
+  assert.equal(legacy.algorithm, undefined);
+  assert.equal(await p256KeyStore.hasKey(identity.keyId), false);
+});
+
 test("ECDSA P-256 test provider keeps generated private CryptoKeys non-extractable", async () => {
   let generatedPrivateKey;
   const subtle = new Proxy(webcrypto.subtle, {
