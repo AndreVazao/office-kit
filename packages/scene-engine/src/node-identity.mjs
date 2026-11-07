@@ -144,18 +144,19 @@ export class NodeIdentityManager {
     if (!capabilities.persistent && allowEphemeral !== true) {
       throw new Error("ephemeral_keystore_not_allowed");
     }
+    if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
+      throw new Error("keystore_private_key_exportable");
+    }
     const replayStore = challengeStore ?? (allowEphemeral === true ? new InMemoryNodeIdentityChallengeStore() : null);
     if (!replayStore || typeof replayStore.consume !== "function"
       || typeof replayStore.persistent !== "boolean") {
       throw new TypeError("identity_challenge_store_required");
     }
-    if (capabilities.persistent && !capabilities.privateKeyNonExportable) {
-      throw new Error("keystore_private_key_exportable");
-    }
     if (capabilities.persistent && replayStore.persistent !== true) {
       throw new Error("persistent_identity_requires_durable_challenge_store");
     }
-    this.#keyStore = keyStore;\n    this.#challengeStore = replayStore;
+    this.#keyStore = keyStore;
+    this.#challengeStore = replayStore;
     this.#metadataStore = metadataStore;
     this.#digest = digest;
     this.#randomBytes = randomBytes;
