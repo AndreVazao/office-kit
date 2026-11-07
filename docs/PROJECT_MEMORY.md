@@ -172,3 +172,11 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #33 integrada: HEAD `737adf3aeeea804a278d60dd81792226f5adbea3`; CI e regressão visual passaram no mesmo SHA; merge `10f386081118c0951ac23deeeedba5b83af1156e`.
 - `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, com isolamento por installationId e CAS revisionado. Chaves privadas nunca entram na base.
 - O teste de ciclo de vida cobre reabertura da DB e recriação do manager ao longo de create/prove/rotate/reconcile/revoke. O keystore de teste é efémero e partilhado no mesmo processo; não simula reinício do SO nem prova keystore persistente.
+
+
+## 2026-11-07 — proteção contra replay da identidade
+- PR em desenvolvimento: `feat/identity-challenge-replay-protection`.
+- `NodeIdentityManager.provePossession()` passa a consumir cada nonce antes de assinar e rejeita reutilização.
+- `SqliteNodeIdentityChallengeStore` oferece consumo atómico entre processos; `InMemoryNodeIdentityChallengeStore` é apenas efémero.
+- Configuração com keystore persistente exige challenge store persistente.
+- O verificador remoto continua responsável por aceitar cada challenge uma única vez do seu lado. Não declarar segurança de federação completa com esta proteção isolada.
