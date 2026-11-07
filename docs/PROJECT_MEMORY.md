@@ -178,3 +178,11 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Branch `test/sqlite-node-identity-crash-recovery` acrescenta teste com SQLite real em WAL: processo filho executa a atualização dos metadados dentro de transação imediata e é terminado antes do commit.
 - Após reabertura, o teste exige que o último estado confirmado permaneça, que a escrita não confirmada desapareça e que `PRAGMA integrity_check` seja `ok`.
 - Esta é evidência de recuperação após crash/terminação do processo, não de power-loss físico, falha do armazenamento, backup/restore, ACLs ou cifragem. CI e visual ainda pendentes.
+
+
+## 2026-11-07 — proteção contra replay da identidade
+- PR em desenvolvimento: `feat/identity-challenge-replay-protection-v2`.
+- `NodeIdentityManager.provePossession()` consome cada nonce antes de assinar e rejeita reutilização.
+- `SqliteNodeIdentityChallengeStore` oferece consumo atómico entre processos; `InMemoryNodeIdentityChallengeStore` é apenas efémero.
+- Configuração com keystore persistente exige challenge store persistente.
+- O verificador remoto continua responsável por aceitar cada challenge uma única vez do seu lado. Não declarar segurança de federação completa com esta proteção isolada.
