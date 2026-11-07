@@ -68,3 +68,7 @@ This document is a specification, not a platform-provider implementation. `NodeI
 - The current implementation exchanges it only with `POST http://127.0.0.1:8181/auth/session`, with redirects disabled and cache disabled.
 - The short-lived bearer access token is held in process memory only, refreshed before expiry, and invalidated on 401/403. It is not written to profile, localStorage, IndexedDB, logs or backups.
 - A native Windows keystore bridge that can safely retrieve the existing DGM-MAT bootstrap credential is not implemented yet. Until that exists and is tested on the target PC, the provider remains an injectable contract, not a turnkey authenticated connection.
+
+
+## Lifecycle integration validation
+`SqliteNodeIdentityMetadataStore` is covered together with `NodeIdentityManager` by an integration test that closes/reopens a real SQLite file and recreates the manager across create, public-identity read, Ed25519 proof, rotation, reconciliation and revocation. The test intentionally retains an ephemeral key provider in the same process; it validates durable metadata only. It does not establish key persistence across process/OS restart or replace the required native Windows keystore.
