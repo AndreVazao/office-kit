@@ -301,12 +301,13 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] PR #31: bloqueio de escritores entre conexões independentes.
 - [x] PR #32: exclusão de escritores em processos separados com `BEGIN IMMEDIATE`.
 - [x] PR #33: metadata SQLite pública de identidade, isolamento por instalação e CAS revisionado.
-- [x] Teste de recuperação após terminação abrupta do processo durante transação SQLite WAL, com verificação do estado confirmado e `PRAGMA integrity_check` (branch `test/sqlite-node-identity-crash-recovery`; CI pendente).
+- [x] Teste de recuperação após terminação abrupta do processo durante transação SQLite WAL, com verificação do estado confirmado e `PRAGMA integrity_check` (PR #37; CI e regressão visual verdes no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`; merge `9cc92f3ed6be21d1140ce9fe76f843d5186fc9b4`).
 - [ ] Validar perda física de energia/falha de armazenamento, ACLs, cifragem, backup e restore no host nativo.
 - [ ] Implementar host Windows: diretório de dados por instalação, ACLs restritivas, DPAPI/CNG/credential vault e migração/backup.
 - [ ] Implementar hosts equivalentes para Linux e Android sem misturar credenciais ou namespaces das três edições.
 - [ ] Ligar providers nativos persistentes ao manager e ao registry de licenças.
 - [ ] Criar launcher/desktop e app Android instaláveis; os artifacts atuais são pacotes de código-fonte, não instaladores.
+- [ ] Executar a suite completa em runners Windows e Linux para validar SQLite/processos e compatibilidade nativa (branch `ci/validate-sqlite-on-windows`; CI pendente).
 
 
 ### Atualização — integração do manager com metadata SQLite
