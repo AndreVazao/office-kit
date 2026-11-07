@@ -210,3 +210,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Implementação em curso: helper .NET com Microsoft Software Key Storage Provider, `CngExportPolicies.None`, ECDSA P-256, key names delimitados por installation ID e provider Node com bridge por processo.
 - A workflow CI Windows foi ampliada para publicar o helper self-contained e executar integração real em processos separados. A validação só é considerada concluída quando esse job passar no HEAD final; ainda não há teste em PC físico nem integração no instalador.
 - O provider declara software/OS-protected e `hardwareBacked=false`; não o confundir com TPM. SQLite metadata/challenge store continua separado e fornecido pelo host.
+
+
+## 2026-11-07 — isolamento do provider CNG por plataforma
+- A primeira regressão visual da PR #44 expôs que exportar `WindowsCngP256KeyStore` pelo `scene-engine/src/index.mjs` contaminava o browser com módulos Node (`child_process`, `crypto`, `path`), impedindo o carregamento do escritório.
+- Corrigido: provider Windows é exportado apenas por `scene-engine/src/windows.mjs`; o índice genérico permanece browser-safe. A alteração deve ser validada novamente em CI e regressão visual no mesmo HEAD.
+- O runner Windows já compilou o helper CNG e passou no teste de persistência entre processos, assinatura/verificação, recusa de exportação e isolamento entre instalações no HEAD anterior `1f4c1b78bb74bab823e527b746def53cf36c4035`. Não confundir com validação física no PC do utilizador.
