@@ -59,7 +59,7 @@ try {
     });
     assert(geometry.building.width > 0 && geometry.building.height > 0, testCase.name + ": building has empty geometry");
     assert(geometry.documentWidth <= geometry.innerWidth, testCase.name + ": document has horizontal overflow");
-    assert(geometry.building.x >= geometry.viewport.x - 2, testCase.name + ": building spills left of viewport");
+    assert(geometry.building.x >= geometry.viewport.x - 2, testCase.name + ": building spills left of viewport; geometry=" + JSON.stringify(geometry));
     assert(geometry.building.x + geometry.building.width <= geometry.viewport.x + geometry.viewport.width + 2, testCase.name + ": building spills right of viewport");
     assert(geometry.departmentCount > 0, testCase.name + ": no departments rendered");
 
