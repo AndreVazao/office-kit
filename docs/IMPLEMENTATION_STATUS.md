@@ -259,4 +259,5 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - A workflow principal foi alterada para executar a suite completa em `ubuntu-latest` e `windows-latest`, ambos com Node.js 22.
 - O objetivo é exercitar o motor `node:sqlite`, locking entre processos e terminação abrupta em ambos os sistemas operativos.
 - Runner Windows é validação nativa automatizada, não equivale a instalação/desinstalação do produto, teste em máquina física do utilizador ou provider CNG/DPAPI.
+- O primeiro runner Windows encontrou um erro real no teste multi-processo já existente: a conversão `pathToFileURL(new URL(...).pathname)` duplicava a unidade (`D:\\D:\\...`). Corrigido usando diretamente `new URL(..., import.meta.url).href`; a nova execução no HEAD corrigido está pendente.
 - CI da matriz multiplataforma ainda pendente nesta branch.
