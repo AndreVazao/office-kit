@@ -59,7 +59,7 @@ Metadata storage must provide `get()` and an atomic `compareAndSet(expectedRevis
 - Ephemeral provider is rejected by production configuration.
 
 ## Current status
-This document is a specification, not a platform-provider implementation. `NodeIdentityManager` now requires an atomic revisioned metadata store and a keystore `hasKey`/capability contract; it records cleanup tombstones and can reconcile pending deletion or missing active keys. `EphemeralEd25519KeyStore` reports itself as non-persistent/ephemeral and is rejected unless tests explicitly opt in with `allowEphemeral: true`. No platform-specific persistent provider or durable metadata store is shipped yet.
+This document is a specification, not a platform-provider implementation. `NodeIdentityManager` now requires an atomic revisioned metadata store and a keystore `hasKey`/capability contract; it records cleanup tombstones and can reconcile pending deletion or missing active keys. `EphemeralEd25519KeyStore` reports itself as non-persistent/ephemeral and is rejected unless tests explicitly opt in with `allowEphemeral: true`. `SqliteNodeIdentityMetadataStore` now provides durable public-metadata persistence with installation scoping and revisioned compare-and-set over a host-supplied SQLite connection. It stores public identity metadata and opaque key handles only; it does not store private keys. This is not a platform-specific keystore: no Windows CNG/DPAPI, macOS Keychain, Linux Secret Service, Android Keystore or browser persistent CryptoKey provider is shipped yet. The host still owns the database file, driver, OS permissions, encryption and backup policy.
 
 
 ## DGM-MAT bootstrap and access-session handling
