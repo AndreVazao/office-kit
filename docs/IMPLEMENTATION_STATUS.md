@@ -267,4 +267,4 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 ## CI nativa em Windows e Linux — em validação
 - A workflow principal executa a suite completa em `ubuntu-latest` e `windows-latest`, com Node.js 22.
 - A primeira execução Windows encontrou um defeito no teste SQLite multi-processo: converter `URL.pathname` com `pathToFileURL` duplicava a unidade do disco (`D:\\D:\\...`). A construção foi corrigida para usar diretamente `new URL(..., import.meta.url).href`.
-- A nova execução no HEAD atualizado ainda não foi observada. Runner Windows é CI nativa automatizada, não teste de instalação em máquina física nem prova de CNG/DPAPI, ACLs, assinatura ou desinstalação.
+- PR #41: CI run `42383079698` passou nos jobs `core-tests (windows-latest)` e `core-tests (ubuntu-latest)`; regressão visual run `42383079740` também passou no HEAD `c55179835ab8671c708ff3041250bd946efb75a7`. Runner Windows é CI nativa automatizada, não teste de instalação em máquina física nem prova de CNG/DPAPI, ACLs, assinatura ou desinstalação.
