@@ -97,3 +97,64 @@ test("rolls back a failed updater against the real SQLite transaction", {
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+
+test("serializes writers across independent real SQLite connections", {
+  skip: !DatabaseSync
+}, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-sqlite-lock-"));
+  const filename = join(directory, "activations.sqlite");
+  let first;
+  let second;
+  try {
+    first = createImmediateTransactionAdapter(new DatabaseSync(filename));
+    second = createImmediateTransactionAdapter(new DatabaseSync(filename));
+    first.exec("PRAGMA busy_timeout = 0");
+    second.exec("PRAGMA busy_timeout = 0");
+    const firstStore = new SqliteLicenseActivationStore({ database: first });
+    const secondStore = new SqliteLicenseActivationStore({ database: second });
+    await firstStore.transact(key, () => ({ state: initialState(), result: "created" }));
+
+    first.exec("BEGIN IMMEDIATE");
+    await assert.rejects(
+      () => secondStore.transact(key, current => ({
+        state: { ...current, updatedAt: "2026-11-07T11:00:00.000Z" },
+        result: "must-wait"
+      })),
+      error => /busy|locked/i.test(String(error?.message))
+    );
+    first.exec("ROLLBACK");
+
+    await secondStore.transact(key, current => ({
+      state: { ...current, updatedAt: "2026-11-07T12:00:00.000Z" },
+      result: "committed-after-lock"
+    }));
+    assert.equal((await firstStore.read(key)).updatedAt, "2026-11-07T12:00:00.000Z");
+  } finally {
+    second?.close();
+    first?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects corrupt persisted JSON from a real SQLite database", {
+  skip: !DatabaseSync
+}, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-sqlite-corrupt-"));
+  const filename = join(directory, "activations.sqlite");
+  let database;
+  try {
+    database = createImmediateTransactionAdapter(new DatabaseSync(filename));
+    const store = new SqliteLicenseActivationStore({ database });
+    database.prepare(
+      "INSERT INTO office_kit_license_activations (license_id, state_json, updated_at) VALUES (?, ?, ?)"
+    ).run("real-sqlite-license", "{not-json", "2026-11-07T10:00:00.000Z");
+    await assert.rejects(
+      () => store.read(key),
+      /license_activation_store_corrupt_state/
+    );
+  } finally {
+    database?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
