@@ -330,3 +330,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Exigir replay store persistente quando o keystore é persistente.
 - [ ] Implementar e testar consumo one-time também no verificador remoto/federação.
 - [ ] Testar falhas de processo/power-loss e permissões reais do ficheiro SQLite no host.
+
+
+### Identidade criptográfica multiplataforma
+- [ ] Validar a seleção explícita entre Ed25519 e ECDSA P-256/SHA-256 no mesmo HEAD em Linux e Windows.
+- [ ] Implementar providers persistentes que conservem a chave privada não exportável no keystore da plataforma; começar por CNG no Windows.
+- [ ] Testar persistência após reinício de processo e sistema, rotação, revogação, falhas de cleanup e capacidades reais do provider.
+- [ ] Definir migração explícita de algoritmo para identidades já emitidas; nunca trocar algoritmo silenciosamente.
