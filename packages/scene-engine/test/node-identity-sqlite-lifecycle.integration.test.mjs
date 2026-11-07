@@ -69,6 +69,7 @@ test("SQLite identity metadata survives database reopen across manager lifecycle
     });
     assert.equal((await firstManager.getPublicIdentity()).identityFingerprint, first.identityFingerprint);
     database.close();
+    database = null;
 
     database = new DatabaseSync(filename);
     const afterReopen = createManager(database, keyStore, clock);
@@ -90,6 +91,7 @@ test("SQLite identity metadata survives database reopen across manager lifecycle
     assert.notEqual(rotated.keyId, first.keyId);
     assert.equal(await keyStore.hasKey(first.keyId), false);
     database.close();
+    database = null;
 
     database = new DatabaseSync(filename);
     const afterRotation = createManager(database, keyStore, clock);
@@ -99,6 +101,7 @@ test("SQLite identity metadata survives database reopen across manager lifecycle
     assert.equal(await afterRotation.revoke(), true);
     assert.equal(await afterRotation.getPublicIdentity(), null);
     database.close();
+    database = null;
 
     database = new DatabaseSync(filename);
     const afterRevocation = createManager(database, keyStore, clock);
