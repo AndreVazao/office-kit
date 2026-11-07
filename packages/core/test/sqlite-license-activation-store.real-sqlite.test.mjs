@@ -116,7 +116,7 @@ test("serializes writers across independent real SQLite connections", {
     await firstStore.transact(key, () => ({ state: initialState(), result: "created" }));
 
     first.exec("BEGIN IMMEDIATE");
-    assert.throws(
+    await assert.rejects(
       () => secondStore.transact(key, current => ({
         state: { ...current, updatedAt: "2026-11-07T11:00:00.000Z" },
         result: "must-wait"
