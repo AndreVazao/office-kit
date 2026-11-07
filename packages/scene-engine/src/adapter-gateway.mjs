@@ -69,6 +69,7 @@ export class AdapterGateway {
     this.lastError = null;
     this.session.connect();
     let snapshotReady = false;
+    let startupFailure = null;
     const pendingEvents = [];
 
     try {
@@ -78,7 +79,8 @@ export class AdapterGateway {
       const unsubscribe = adapter.subscribe(event => {
         if (!snapshotReady) {
           if (pendingEvents.length >= this.maxBufferedEvents) {
-            this.#failClosed("adapter_initial_event_buffer_overflow");
+            startupFailure = "adapter_initial_event_buffer_overflow";
+            this.#failClosed(startupFailure);
             pendingEvents.length = 0;
             return;
           }
@@ -90,8 +92,21 @@ export class AdapterGateway {
       if (typeof unsubscribe === "function") this.unsubscribe = unsubscribe;
 
       const snapshot = await adapter.getSnapshot();
-      let state = this.session.receiveSnapshot(snapshot);
       snapshotReady = true;
+      if (startupFailure) {
+        this.#clearSubscription();
+        try { await adapter.disconnect(); } catch { /* Preserve startup failure. */ }
+        this.adapter = null;
+        this.activeSessionId = null;
+        this.lastSequence = 0;
+        return {
+          connected: false,
+          validation,
+          state: this.session.getState(),
+          error: startupFailure
+        };
+      }
+      let state = this.session.receiveSnapshot(snapshot);
 
       for (const event of pendingEvents) {
         this.receiveEvent(event);
