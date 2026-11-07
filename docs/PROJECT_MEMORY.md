@@ -191,5 +191,5 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ## CI Windows/Linux — 2026-11-07
 - Branch `ci/validate-sqlite-on-windows-v2` acrescenta runner `windows-latest` à suite Node.js 22, mantendo `ubuntu-latest`.
 - A primeira execução Windows expôs uma conversão incorreta de file URL no teste multi-processo SQLite: o caminho resultava em `D:\\D:\\...`. Corrigido com `new URL(...).href`.
-- O teste de crash recovery passou no Windows no HEAD inicial; o teste multi-processo falhou apenas por resolução de caminho. A revalidação após a correção ainda não tem run associado ao HEAD.
+- PR #41: CI run `42383079698` passou nos jobs `core-tests (windows-latest)` e `core-tests (ubuntu-latest)`; visual run `42383079740` passou no HEAD `c55179835ab8671c708ff3041250bd946efb75a7`. O crash recovery e o locking multi-processo passaram nos dois sistemas após a correção do file URL.
 - CI Windows não substitui hardware físico, host/instalador, CNG/DPAPI, ACLs ou assinatura.
