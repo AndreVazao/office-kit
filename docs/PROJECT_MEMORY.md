@@ -22,8 +22,8 @@
 - PR #16 feat/node-identity-security foi squash-merged após CI e regressão visual passarem no HEAD 08b146cd39dbd02944d272a43756c15a2db43352.
 - Merge SHA do PR #16: 56be1b0bebdbcf5d42ede6445f18496019521b55.
 - PR #17 `docs: define production secure node storage requirements` foi squash-merged em 2026-11-03; merge SHA `e31bccafa4223689c44b1cb25faa0bd250798b53`.
-- `main` local sincronizada com `origin/main` em `e31bcca`.
-- Branch local de trabalho atual: `feat/identity-storage-lifecycle` (ainda sem push/PR).
+- `main` foi validada em 2026-11-07 no squash merge `2d9c4cbcdeeddcfa718d736ef3a04ce9f39b44ab` do PR #41; CI e regressão visual pós-merge passaram nesse SHA.
+- Branch de trabalho publicada atual: `feat/identity-algorithm-agility`; PR de revisão ainda não aberto no momento deste registo.
 - PR #16 adicionou NodeIdentityManager, prova Ed25519 de posse, rotação/revogação e testes; provider efémero continua exclusivo de testes.
 - `docs/SECURE_STORAGE.md` especifica persistência segura por plataforma; continua a ser especificação, não um provider implementado.
 
@@ -193,3 +193,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - A primeira execução Windows expôs uma conversão incorreta de file URL no teste multi-processo SQLite: o caminho resultava em `D:\\D:\\...`. Corrigido com `new URL(...).href`.
 - Primeiro HEAD corrigido do PR #41 (`f8e84462e4c7533b22a528bbeb4a50f7ebf1f40b`): CI run `42383194963` passou em Linux e Windows; visual run `42383194951` passou e gerou artifact `13578905427`. O crash recovery e o locking multi-processo passaram nos dois sistemas após a correção do file URL. Esta evidência é histórica desse SHA; o HEAD final após atualizações documentais tem de voltar a passar antes do merge.
 - CI Windows não substitui hardware físico, host/instalador, CNG/DPAPI, ACLs ou assinatura.
+
+
+## Atualização de 2026-11-07 — validação Windows e agilidade de algoritmo
+- PR #41 ci/validate-sqlite-on-windows-v2 foi squash-merged após revalidação imediata do HEAD afbae1a07730509175c3e1d9742d76e4019e12a2: CI run 42383828000 passou em windows-latest e ubuntu-latest, e regressão visual run 42383827922 passou. Cada runner executou 147 testes, com 147 pass, 0 fail e 0 skipped; os testes incluíram SQLite real, writers/processos independentes e WAL crash recovery. Artifact visual 13578343670 contém seis capturas desktop/landscape/portrait, com e sem chat.
+- Squash merge SHA de PR #41: 2d9c4cbcdeeddcfa718d736ef3a04ce9f39b44ab. Após o merge, CI run 42383940775 e visual run 42383940809 passaram no próprio SHA de main.
+- Inspeção manual das capturas: layout e painel de chat renderizam nos três viewports; o edifício continua pequeno na vista geral portrait e os avatares permanecem placeholders CSS. Não é regressão introduzida por PR #41 e continua como dívida visual.
+- O CI Windows é runner nativo Windows, não teste de instalação/desinstalação numa máquina física. SQLite Node continua a emitir aviso de funcionalidade experimental; actions/checkout e setup-node emitem aviso de runtime Node 20 deprecado.
+- Branch atual feat/identity-algorithm-agility: NodeIdentityManager passa a declarar Ed25519 ou ECDSA-P256-SHA256 no metadata e na prova de posse. Foi adicionado EphemeralP256KeyStore apenas para testes, com private CryptoKey não exportável. Isto prepara CNG/Android Keystore/Secure Enclave, mas não implementa ainda qualquer provider persistente nativo.
+- PR #25 feat/adapter-runtime-bridge permanece draft e divergiu de main (7 commits ahead, 25 behind no último compare). O seu AdapterRuntimeBridge parece sobreposto pelo AdapterGateway já integrado; não fazer merge direto. Reconciliar o comportamento único e os testes antes de decidir fechar ou recuperar a branch.
+- Universal continua sem dependência obrigatória de DGM-MAT/VST. Os perfis DGM-MAT e VST mantêm allowlists e namespaces próprios; o adaptador DGM-MAT existe em modo read-only e o adaptador VST concreto continua por implementar.

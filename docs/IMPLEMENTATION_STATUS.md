@@ -268,3 +268,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - A workflow principal executa a suite completa em `ubuntu-latest` e `windows-latest`, com Node.js 22.
 - A primeira execução Windows encontrou um defeito no teste SQLite multi-processo: converter `URL.pathname` com `pathToFileURL` duplicava a unidade do disco (`D:\\D:\\...`). A construção foi corrigida para usar diretamente `new URL(..., import.meta.url).href`.
 - Primeiro HEAD corrigido do PR #41 (`f8e84462e4c7533b22a528bbeb4a50f7ebf1f40b`): CI run `42383194963` passou nos jobs `core-tests (windows-latest)` e `core-tests (ubuntu-latest)`; regressão visual run `42383194951` passou e produziu o artifact `13578905427` com capturas desktop, landscape e portrait, com/sem painel de conversa. Esta evidência refere-se a esse SHA; qualquer commit posterior no PR exige nova validação do HEAD final antes do merge. Runner Windows é CI nativa automatizada, não teste de instalação em máquina física nem prova de CNG/DPAPI, ACLs, assinatura ou desinstalação.
+
+
+## Identity algorithm compatibility — in progress
+- NodeIdentityManager now supports the explicit algorithms Ed25519 and ECDSA-P256-SHA256, with algorithm-specific public-key/signature lengths recorded in metadata and returned in possession proofs.
+- Added EphemeralP256KeyStore as a test-only WebCrypto provider. It creates non-extractable P-256 private CryptoKey objects; this is not a persistent or hardware-backed provider.
+- Added lifecycle coverage for P-256 create/sign/verify/replay rejection/rotation and private-key non-exportability.
+- This work enables native providers to use the algorithms exposed by common platform keystores without changing the neutral identity protocol. Native CNG/TPM, Keychain/Secure Enclave, Android Keystore, PKCS#11 and browser-persistent providers remain unimplemented.
+- Validation for this branch is pending; do not treat this increment as production identity storage until CI and provider-specific persistence tests pass.

@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto, createHash, randomBytes } from "node:crypto";
-import { EphemeralEd25519KeyStore, NodeIdentityManager } from "../src/node-identity.mjs";
+import { EphemeralEd25519KeyStore, EphemeralP256KeyStore, NodeIdentityManager } from "../src/node-identity.mjs";
 
-function fixture() {
+function fixture({ keyStore = new EphemeralEd25519KeyStore({ subtle: webcrypto.subtle, randomUUID: () => webcrypto.randomUUID() }) } = {}) {
   let now = 1_800_000_000_000;
   const values = { current: null };
   const metadataStore = {
@@ -15,7 +15,6 @@ function fixture() {
       return true;
     }
   };
-  const keyStore = new EphemeralEd25519KeyStore({ subtle: webcrypto.subtle, randomUUID: () => webcrypto.randomUUID() });
   const manager = new NodeIdentityManager({
     keyStore, metadataStore, clock: () => now, allowEphemeral: true,
     digest: async value => new Uint8Array(createHash("sha256").update(value).digest()),
@@ -31,6 +30,80 @@ test("creates a scoped Ed25519 identity and exposes no private key material", as
   assert.match(identity.identityFingerprint, /^(?:[a-f0-9]{2}:){31}[a-f0-9]{2}$/);
   assert.equal("privateKey" in identity, false);
   assert.equal((await manager.getPublicIdentity()).publicKey, identity.publicKey);
+});
+
+test("creates, signs and verifies an ECDSA P-256 identity with explicit algorithm metadata", async () => {
+  const keyStore = new EphemeralP256KeyStore({ subtle: webcrypto.subtle, randomUUID: () => webcrypto.randomUUID() });
+  const { manager } = fixture({ keyStore });
+  const identity = await manager.create({ organizationId: "acme-office", nodeId: "node:desktop-02" });
+  assert.equal(identity.algorithm, "ECDSA-P256-SHA256");
+  assert.equal(Buffer.from(identity.publicKey, "base64url").length, 65);
+
+  const challenge = await manager.createChallenge({ audience: "node:remote-02" });
+  const proof = await manager.provePossession(challenge);
+  assert.equal(proof.algorithm, identity.algorithm);
+  assert.equal(Buffer.from(proof.signature, "base64url").length, 64);
+  assert.equal(await manager.verifyProof({
+    publicKey: identity.publicKey,
+    challenge,
+    signature: proof.signature,
+    algorithm: identity.algorithm
+  }), true);
+  assert.equal(await manager.verifyProof({
+    publicKey: identity.publicKey,
+    challenge,
+    signature: proof.signature,
+    algorithm: "Ed25519"
+  }), false);
+  await assert.rejects(manager.provePossession(challenge), /challenge_replayed_or_already_consumed/);
+
+  const rotated = await manager.rotate();
+  assert.equal(rotated.algorithm, identity.algorithm);
+  assert.notEqual(rotated.identityFingerprint, identity.identityFingerprint);
+});
+
+test("does not silently migrate legacy Ed25519 metadata to P-256 during rotation", async () => {
+  const { manager, metadataStore } = fixture();
+  const identity = await manager.create({ organizationId: "acme-office", nodeId: "node:legacy-01" });
+  const legacy = { ...(await metadataStore.get()) };
+  delete legacy.algorithm;
+  metadataStore.get = async () => legacy;
+
+  const p256KeyStore = new EphemeralP256KeyStore({ subtle: webcrypto.subtle, randomUUID: () => webcrypto.randomUUID() });
+  const p256Manager = new NodeIdentityManager({
+    keyStore: p256KeyStore,
+    metadataStore,
+    clock: () => 1_800_000_000_000,
+    allowEphemeral: true,
+    digest: async value => new Uint8Array(createHash("sha256").update(value).digest()),
+    randomBytes: async size => new Uint8Array(randomBytes(size))
+  });
+
+  await assert.rejects(p256Manager.rotate(), /keystore_algorithm_unsupported/);
+  assert.equal(legacy.keyId, identity.keyId);
+  assert.equal(legacy.algorithm, undefined);
+  assert.equal(await p256KeyStore.hasKey(identity.keyId), false);
+});
+
+test("ECDSA P-256 test provider keeps generated private CryptoKeys non-extractable", async () => {
+  let generatedPrivateKey;
+  const subtle = new Proxy(webcrypto.subtle, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target);
+      if (property === "generateKey") {
+        return async (...args) => {
+          const pair = await value.apply(target, args);
+          generatedPrivateKey = pair.privateKey;
+          return pair;
+        };
+      }
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+  });
+  const keyStore = new EphemeralP256KeyStore({ subtle, randomUUID: () => webcrypto.randomUUID() });
+  await keyStore.createKeyPair();
+  assert.equal(generatedPrivateKey.extractable, false);
+  await assert.rejects(webcrypto.subtle.exportKey("pkcs8", generatedPrivateKey), /not extractable/i);
 });
 
 test("rejects duplicate active identity and malformed scope", async () => {
