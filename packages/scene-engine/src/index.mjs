@@ -57,3 +57,5 @@ export { DgmMatReadOnlyAdapter, dgmMatAdapterContract } from "./dgmat-readonly-a
 export { DgmMatLocalSessionProvider, dgmMatLocalSessionContract } from "./dgmat-local-session-provider.mjs";
 
 export { SqliteNodeIdentityMetadataStore } from "./sqlite-node-identity-metadata-store.mjs";
+
+export { InMemoryNodeIdentityChallengeStore, SqliteNodeIdentityChallengeStore } from "./node-identity-challenge-store.mjs";

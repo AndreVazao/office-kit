@@ -253,3 +253,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Após reabrir a base, o teste exige que a revisão anterior continue intacta e que `PRAGMA integrity_check` devolva `ok`.
 - Isto cobre recuperação após terminação do processo com transação não confirmada; não prova perda física de energia, falha do disco/controlador, ACLs, cifragem ou backup/restore.
 - CI e regressão visual da PR de teste ainda pendentes.
+
+
+### Identidade — proteção contra replay de challenges
+- Adicionados stores de nonce one-time em memória e SQLite.
+- O manager consome atomicamente o nonce antes de assinar; reutilização é rejeitada.
+- O store SQLite usa chave primária única e transação imediata para coordenar processos que partilham a mesma DB; entradas expiradas são limpas durante o consumo.
+- Keystores persistentes exigem store de replay persistente. O store em memória só é permitido no modo explicitamente efémero/teste.
+- CI valida persistência através de duas ligações SQLite e reabertura da DB. Isto não substitui validação do verificador remoto nem testes de power-loss/Windows nativo.
