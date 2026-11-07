@@ -252,4 +252,11 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Adicionado teste de integração que usa SQLite real em ficheiro e modo WAL; um processo filho executa o UPDATE de metadados dentro de `BEGIN IMMEDIATE` e é terminado antes de `COMMIT`.
 - Após reabrir a base, o teste exige que a revisão anterior continue intacta e que `PRAGMA integrity_check` devolva `ok`.
 - Isto cobre recuperação após terminação do processo com transação não confirmada; não prova perda física de energia, falha do disco/controlador, ACLs, cifragem ou backup/restore.
-- CI e regressão visual da PR de teste ainda pendentes.
+- PR #37 integrada por squash no commit `9cc92f3ed6be21d1140ce9fe76f843d5186fc9b4`; CI run `42382078748` e regressão visual run `42382078743` passaram no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`.
+
+
+## CI nativa em Windows e Linux — em validação
+- A workflow principal foi alterada para executar a suite completa em `ubuntu-latest` e `windows-latest`, ambos com Node.js 22.
+- O objetivo é exercitar o motor `node:sqlite`, locking entre processos e terminação abrupta em ambos os sistemas operativos.
+- Runner Windows é validação nativa automatizada, não equivale a instalação/desinstalação do produto, teste em máquina física do utilizador ou provider CNG/DPAPI.
+- CI da matriz multiplataforma ainda pendente nesta branch.
