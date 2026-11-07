@@ -46,6 +46,7 @@ test("proves possession and rejects tampered challenge or expired proof", async 
   const challenge = await manager.createChallenge({ audience: "node:remote-02" });
   const proof = await manager.provePossession(challenge);
   assert.equal(await manager.verifyProof({ publicKey: identity.publicKey, challenge, signature: proof.signature }), true);
+  await assert.rejects(manager.provePossession(challenge), /challenge_replayed_or_already_consumed/);
   assert.equal(await manager.verifyProof({ publicKey: identity.publicKey, challenge: { ...challenge, audience: "attacker-node" }, signature: proof.signature }), false);
   advance(31_000);
   await assert.rejects(manager.provePossession(challenge), /challenge_expired/);
