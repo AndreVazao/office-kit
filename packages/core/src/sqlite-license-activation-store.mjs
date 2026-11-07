@@ -68,12 +68,14 @@ export class SqliteLicenseActivationStore {
         }
       }
       const updaterState = current === null ? null : structuredClone(current);
+      const originalStateJson = updaterState === null ? null : JSON.stringify(updaterState);
       const update = updater(updaterState);
       if (!isRecord(update) || !Object.prototype.hasOwnProperty.call(update, "state")
         || !Object.prototype.hasOwnProperty.call(update, "result")) {
         throw new TypeError("license_activation_updater_result_invalid");
       }
-      if (update.state !== updaterState) {
+      const nextStateJson = update.state === null ? null : JSON.stringify(update.state);
+      if (nextStateJson !== originalStateJson) {
         if (!isRecord(update.state) || update.state.schemaVersion !== 1 || update.state.licenseId !== licenseId) {
           throw new TypeError("license_activation_next_state_invalid");
         }
