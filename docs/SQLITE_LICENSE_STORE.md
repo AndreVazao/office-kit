@@ -24,3 +24,10 @@ The adapter compares the serialized pre-update and post-update states, so it per
 Tests in this repository use a deterministic fake driver to verify SQL adapter behavior and transaction requirements. They do not prove actual SQLite locking, crash recovery, filesystem durability, OS access control, encryption or multi-process behavior. A real-driver integration test and native host are still required before production use.
 
 This module is a persistent-store adapter boundary, not a completed desktop installer or a production licensing service.
+
+
+## Real SQLite integration coverage (2026-11-07)
+- CI uses Node.js 22 to execute the `node:sqlite` integration suite against a temporary on-disk database.
+- Covered: close/reopen persistence, in-place mutation persistence, invalid-state rollback, independent-connection writer lock behavior using `BEGIN IMMEDIATE`, and corrupt JSON rejection.
+- The locking test proves SQLite's real writer reservation across two independent connections in one process. It is not a multi-process crash-recovery or power-loss durability test.
+- Branch `test/sqlite-multi-connection-locking` adds the independent-connection and corruption cases; CI/visual regression must pass on the final PR HEAD before merge.
