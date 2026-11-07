@@ -262,7 +262,7 @@ export class NodeIdentityManager {
       }
       const algorithm = pair.algorithm ?? preferredAlgorithm;
       const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
-      if (!algorithmShape || !this.#algorithms.has(algorithm)) {
+      if (!algorithmShape || !this.#algorithms.has(algorithm) || algorithm !== preferredAlgorithm) {
         throw new TypeError("identity_algorithm_not_supported_by_keystore");
       }
       const publicKey = bytes(pair.publicKey, "public_key", algorithmShape.publicKeyBytes);
@@ -406,7 +406,8 @@ export class NodeIdentityManager {
       const message = canonicalChallenge(challenge);
       const now = this.#clock();
       const algorithmShape = IDENTITY_ALGORITHMS[algorithm];
-      if (!algorithmShape || !Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) return false;
+      if (!Object.hasOwn(IDENTITY_ALGORITHMS, algorithm) || !algorithmShape
+        || !Number.isSafeInteger(now) || challenge.issuedAt > now || challenge.expiresAt <= now) return false;
       return await this.#keyStore.verify(
         bytes(fromBase64url(publicKey), "public_key", algorithmShape.publicKeyBytes),
         message,
