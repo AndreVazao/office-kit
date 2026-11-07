@@ -4,7 +4,7 @@
 Define the production boundary for persisting node identity keys and metadata without coupling the Office Kit core to one operating system, browser, cloud, or backend.
 
 ## Security requirements
-- Private Ed25519 key material MUST be generated inside the platform keystore or generated as a non-extractable Web Crypto CryptoKey where durable structured cloning is supported.
+- Private identity key material MUST be generated inside the platform keystore or as a non-extractable Web Crypto CryptoKey where durable structured cloning is supported. The identity protocol supports Ed25519 and ECDSA P-256/SHA-256; each provider must advertise its actual supported algorithms.
 - Production providers MUST NOT export private keys as PKCS#8, PEM, JWK, or raw bytes.
 - The public key and SHA-256 fingerprint may be exported. Private key operations are handle-based: create, sign, delete and (where supported) verify.
 - Key handles are opaque, installation-scoped identifiers. They are not credentials and must not contain secret material.
@@ -15,21 +15,30 @@ Define the production boundary for persisting node identity keys and metadata wi
 - Storage must be isolated by installation and organization scope. No global vendor account or remote service is required.
 
 ## Provider matrix
-| Runtime | Intended secure provider | Persistence |
-|---|---|---|
-| Windows desktop | CNG/Windows platform key storage through a native host adapter | OS-managed key handle |
-| macOS desktop | Keychain/Secure Enclave where supported through a native host adapter | OS-managed key handle |
-| Linux desktop/server | Secret Service/libsecret or TPM-backed adapter where available | OS-managed key handle |
-| Android | Android Keystore through native bridge | hardware-backed when available |
-| Browser/PWA | IndexedDB storing non-extractable Web Crypto CryptoKey objects, subject to browser support and origin storage policy | browser-origin scoped |
-| Test/demo | EphemeralEd25519KeyStore | memory only; never production |
+| Runtime | Intended secure provider | Candidate signing algorithm(s) | Persistence |
+|---|---|---|---|
+| Windows desktop | CNG Key Storage Provider / Microsoft Platform Crypto Provider through a native host | ECDSA P-256/SHA-256; do not assume Ed25519 from the built-in KSP | OS-managed key handle |
+| macOS desktop | Keychain; Secure Enclave where available through a native host | ECDSA P-256 for Secure Enclave-backed signing; report other Keychain algorithms separately | OS-managed key handle |
+| Linux desktop/server | PKCS#11/TPM provider for signing; Secret Service for secret wrapping where appropriate | Provider-reported Ed25519 or ECDSA P-256 | OS-managed key handle |
+| Android | Android Keystore through native bridge | ECDSA P-256; do not assume Ed25519 support | app-scoped OS key handle; hardware-backed only when attested |
+| Browser/PWA | IndexedDB storing non-extractable Web Crypto CryptoKey objects, subject to browser support and origin storage policy | Ed25519 or ECDSA P-256 where WebCrypto supports it | browser-origin scoped |
+| Test/demo | EphemeralEd25519KeyStore / EphemeralP256KeyStore | Ed25519 and ECDSA P-256 | memory only; never production |
 
 A provider must report its protection level and capabilities. The application must not label software-backed storage as hardware-backed.
+
+## Identity algorithm selection
+
+- `NodeIdentityManager` supports `Ed25519` and `ECDSA-P256-SHA256`.
+- Ed25519 uses a 32-byte raw public key and a 64-byte signature. ECDSA P-256 uses a 65-byte uncompressed raw public key and a 64-byte fixed-width `r || s` signature over SHA-256.
+- The algorithm is stored in public identity metadata and included in possession proofs. Verifiers must use the explicit algorithm; there is no implicit downgrade or fallback.
+- Legacy identity metadata without an `algorithm` field is interpreted as Ed25519 for compatibility.
+- A provider must advertise only algorithms it can actually generate and sign with. Its optional `defaultAlgorithm` must be one of those advertised.
+- Platform references: [Microsoft CNG Key Storage Providers](https://learn.microsoft.com/en-us/windows/win32/seccertenroll/cng-key-storage-providers), [Android Keystore](https://developer.android.com/privacy-and-security/keystore), and [Apple Keychain Services](https://developer.apple.com/documentation/security/keychain-services). These platform APIs do not imply that every algorithm is available in hardware on every device.
 
 ## Required provider contract
 A production implementation must satisfy NodeKeyStoreProvider and additionally declare:
 - stable opaque key handles across process restarts;
-- Ed25519 generation without exporting private material;
+- Generation of one or more explicitly declared algorithms without exporting private material;
 - signing using the opaque handle;
 - deletion with verifiable success/failure and key-existence inspection (`hasKey`);
 - provider capability metadata describing persistence, protection level, hardware backing and private-key exportability;
@@ -59,7 +68,7 @@ Metadata storage must provide `get()` and an atomic `compareAndSet(expectedRevis
 - Ephemeral provider is rejected by production configuration.
 
 ## Current status
-This document is a specification, not a platform-provider implementation. `NodeIdentityManager` now requires an atomic revisioned metadata store and a keystore `hasKey`/capability contract; it records cleanup tombstones and can reconcile pending deletion or missing active keys. `EphemeralEd25519KeyStore` reports itself as non-persistent/ephemeral and is rejected unless tests explicitly opt in with `allowEphemeral: true`. `SqliteNodeIdentityMetadataStore` now provides durable public-metadata persistence with installation scoping and revisioned compare-and-set over a host-supplied SQLite connection. It stores public identity metadata and opaque key handles only; it does not store private keys. This is not a platform-specific keystore: no Windows CNG/DPAPI, macOS Keychain, Linux Secret Service, Android Keystore or browser persistent CryptoKey provider is shipped yet. The host still owns the database file, driver, OS permissions, encryption and backup policy.
+This document remains a specification, not a platform-provider implementation. `NodeIdentityManager` supports Ed25519 and ECDSA P-256/SHA-256, records the explicit algorithm in identity metadata and possession proofs, and requires an atomic revisioned metadata store plus a keystore `hasKey`/capability contract. `EphemeralEd25519KeyStore` and `EphemeralP256KeyStore` are test/demo providers only and are rejected by production configuration unless tests explicitly opt in with `allowEphemeral: true`. `SqliteNodeIdentityMetadataStore` provides durable public-metadata persistence with installation scoping and revisioned compare-and-set over a host-supplied SQLite connection. It stores public identity metadata and opaque key handles only; it does not store private keys. No persistent Windows CNG, macOS Keychain/Secure Enclave, Linux PKCS#11/TPM, Android Keystore or browser IndexedDB CryptoKey provider is shipped yet. The host still owns the database file, driver, OS permissions, encryption and backup policy.
 
 
 ## DGM-MAT bootstrap and access-session handling
