@@ -47,6 +47,7 @@ $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $bundl
 
 $launcher = @'
 @echo off
+set "OFFICE_KIT_CNG_HOST_PATH=%~dp0OfficeKit.CngHost.exe"
 "%~dp0node.exe" "%~dp0packages\windows-host\src\cli.mjs" %*
 exit /b %ERRORLEVEL%
 '@

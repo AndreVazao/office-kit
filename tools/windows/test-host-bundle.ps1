@@ -8,10 +8,10 @@ $ErrorActionPreference = "Stop"
 $bundleRoot = (Resolve-Path $BundleDirectory).Path
 $nodePath = Join-Path $bundleRoot "node.exe"
 $helperPath = Join-Path $bundleRoot "OfficeKit.CngHost.exe"
-$cliPath = Join-Path $bundleRoot "packages\windows-host\src\cli.mjs"
+$launcherPath = Join-Path $bundleRoot "office-kit-host.cmd"
 $hostCommandTimeoutSeconds = 90
 
-foreach ($required in @($nodePath, $helperPath, $cliPath)) {
+foreach ($required in @($nodePath, $helperPath, $launcherPath)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
     throw ("Portable host bundle is incomplete: " + $required)
   }
@@ -30,14 +30,15 @@ function Invoke-OfficeKitHost {
 
   $description = $Arguments -join " "
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-  $startInfo.FileName = $nodePath
+  $startInfo.FileName = (Get-Command "powershell.exe" -ErrorAction Stop).Source
   $startInfo.WorkingDirectory = $bundleRoot
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
-  $null = $startInfo.ArgumentList.Add($cliPath)
-  foreach ($argument in $Arguments) {
+  $escapedLauncher = $launcherPath.Replace("'", "''")
+  $command = "& '" + $escapedLauncher + "' " + ($Arguments -join " ")
+  foreach ($argument in @("-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", $command)) {
     $null = $startInfo.ArgumentList.Add($argument)
   }
 
@@ -100,7 +101,8 @@ try {
   Write-Host "Signed the bundled CNG helper with the ephemeral CI certificate."
 
   $env:LOCALAPPDATA = $testLocalAppData
-  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
+  # The launcher must resolve the bundled helper itself; do not inject its path here.
+  Remove-Item Env:OFFICE_KIT_CNG_HOST_PATH -ErrorAction SilentlyContinue
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
 
   $initial = Invoke-OfficeKitHost -Arguments @("health")
