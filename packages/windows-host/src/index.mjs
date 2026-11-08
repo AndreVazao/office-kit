@@ -212,6 +212,7 @@ export function createWindowsHost({
   const lockPath = join(root, "host.lock");
   let database;
   let runtime;
+  let installationId;
   let releaseLock;
   let closed = false;
 
@@ -226,7 +227,7 @@ export function createWindowsHost({
     if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
     if (verifyHelper(helperPath) !== true) throw new Error("windows_host_cng_helper_untrusted");
 
-    const installationId = readOrCreateInstallationId(identityPath, makeId);
+    installationId = readOrCreateInstallationId(identityPath, makeId);
     applyAcl(identityPath, userSid);
 
     rejectRedirectedFile(databasePath);
