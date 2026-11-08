@@ -343,3 +343,5 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - O composition root executa `manager.reconcile()` no arranque e expõe `ready`; operações de identidade e CLI aguardam essa barreira.
 - Se a recuperação de metadata/chaves falhar, create/rotate/revoke não são executados. O encerramento aguarda a reconciliação e fecha DB/lock mesmo em erro.
 - Testes acrescentados para ordem reconcile-before-mutation e fail-closed em erro de reconciliação. CI pendente no HEAD desta PR.
+
+- A barreira `ready` também bloqueia estados de reconciliação não finais (por exemplo `cleanup_pending`): health fica degraded, não expõe identidade possivelmente obsoleta e nenhuma mutação é executada.
