@@ -77,8 +77,8 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 
 This integration map was derived from repository documentation and source review. End-to-end authentication and live contract tests against running local instances remain required before enabling either adapter.
 
-## DGM-MAT local session provider — implementation in progress
-- `DgmMatLocalSessionProvider` exchanges the protected bootstrap credential for a short-lived local-client session using `POST /auth/session` on `127.0.0.1:8181` only.
+## DGM-MAT local session provider — integrado no core; host wiring pendente
+- `DgmMatLocalSessionProvider` foi integrado na main pela PR #22 (`69946aaa01f22ab243dd0b785dd1dff5b190c2f5`) e troca o bootstrap protegido por uma sessão local de curta duração através de `POST /auth/session` em `127.0.0.1:8181`.
 - The bootstrap credential is fetched on demand from an injected host keystore provider and is not persisted or cached by Office Kit. The returned access token is held in process memory only, bounded to the server's 30-minute maximum, and refreshed before expiry.
 - Session responses must be HTTP 201 JSON, Bearer, include `local-client`, and provide a bounded expiry/session identifier. Invalid credentials, malformed responses and transport errors fail closed.
 - The adapter invalidates its cached session on 401/403. The host must wire `getBootstrapCredential` to a real OS-keystore/native provider; no such platform provider is included yet.
