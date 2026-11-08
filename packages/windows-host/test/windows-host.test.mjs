@@ -138,3 +138,58 @@ test("Authenticode validation requires and pins the configured publisher thumbpr
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+
+test("host startup reconciliation completes before identity mutations are exposed", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-ready-"));
+  const events = [];
+  const runtimeFactory = () => ({
+    capabilities: Object.freeze({ providerId: "startup-test", persistent: true, hardwareBacked: false }),
+    manager: {
+      async reconcile() { events.push("reconcile"); return { status: "empty" }; },
+      async create(input) {
+        events.push("create");
+        return { organizationId: input.organizationId, nodeId: input.nodeId, generation: 1 };
+      },
+      async rotate() { events.push("rotate"); },
+      async revoke() { events.push("revoke"); },
+      async getPublicIdentity() { return null; }
+    }
+  });
+  let host;
+  try {
+    host = setup(directory, { runtimeFactory });
+    await host.manager.create({ organizationId: "office-kit-test", nodeId: "startup-node" });
+    assert.deepEqual(events, ["reconcile", "create"]);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("host fails closed when startup reconciliation cannot recover persisted identity state", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-reconcile-fail-"));
+  let mutationCalled = false;
+  const runtimeFactory = () => ({
+    capabilities: Object.freeze({ providerId: "startup-failure-test", persistent: true, hardwareBacked: false }),
+    manager: {
+      async reconcile() { throw new Error("startup_reconcile_failed"); },
+      async create() { mutationCalled = true; },
+      async rotate() {},
+      async revoke() {},
+      async getPublicIdentity() { return null; }
+    }
+  });
+  let host;
+  try {
+    host = setup(directory, { runtimeFactory });
+    await assert.rejects(host.manager.create({
+      organizationId: "office-kit-test",
+      nodeId: "blocked-node"
+    }), /startup_reconcile_failed/);
+    assert.equal(mutationCalled, false);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
