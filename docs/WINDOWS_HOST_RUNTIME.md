@@ -39,3 +39,14 @@ A criação de identidade é sempre explícita. `health` num primeiro arranque a
 - A autenticação do utilizador Windows e as ACLs do sistema protegem o armazenamento local; não há autenticação remota nem exposição de porta local.
 
 Este incremento é um host de runtime local executável, não uma release instalável/comercial.
+
+## Validação Windows real acrescentada
+A suite `windows-host.windows.integration.test.mjs` executa no runner Windows:
+- resolve o SID real do utilizador com `whoami.exe`;
+- executa `icacls.exe` no diretório da instalação, diretório de dados, metadados de instalação e base SQLite;
+- consulta a saída de `icacls` para cada caminho e confirma explicitamente o SID/nome do utilizador e SYSTEM;
+- confirma que o verificador Authenticode rejeita um helper sem assinatura.
+
+O teste injeta apenas a aceitação do helper no cenário de ACL para isolar a validação de permissões. O cenário separado usa o verificador real e um ficheiro sem assinatura. Isto é validação no runner Windows, não substitui teste no PC físico nem uma cadeia de assinatura de release.
+
+As ACLs distinguem diretórios e ficheiros: diretórios recebem permissões herdáveis `(OI)(CI)F`; ficheiros recebem `F` diretamente. A validação Windows cobre ambos os tipos, incluindo a base SQLite e o ficheiro de installation ID.

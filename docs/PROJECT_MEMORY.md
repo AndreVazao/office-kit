@@ -257,3 +257,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - O CLI oferece apenas ações locais explícitas: health/create/rotate/revoke; startup não cria identidade nem abre rede.
 - Testes automatizados usam SQLite real e injeção para runtime/ACL/trust. Não equivalem a validar ACLs do Windows, certificado de distribuição ou PC físico.
 - Bloqueio para execução real: helper CNG precisa de assinatura Authenticode confiável; o artefacto CI ainda não está assinado. Sem MSI/MSIX, assinatura de release, upgrade/rollback e backup/restore, não declarar instalável.
+
+### Windows host ACL/trust integration — em validação
+- Branch `test/windows-host-acl-integration` acrescenta teste nativo Windows com SID do utilizador real, ACLs verificadas por `icacls` e icacls para diretórios e ficheiros de dados.
+- Inclui teste real de rejeição Authenticode para helper sem assinatura; o cenário ACL injeta somente a confiança do helper.
+- Aguardam-se CI e regressão visual no mesmo HEAD; PC físico e release assinada continuam pendentes.
+
+- A validação real no Windows detetou e corrigiu uma falha na ACL: permissões herdáveis são usadas apenas em diretórios; ficheiros recebem permissões diretas. Aguardam-se novos resultados CI no HEAD atualizado.

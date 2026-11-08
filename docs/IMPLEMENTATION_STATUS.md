@@ -331,3 +331,10 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Testes de host usam runtime/ACL/verificação de assinatura injetados e SQLite real; não são validação de ACLs, certificados ou instalação física.
 - Limite de release: o helper CNG do CI ainda não tem assinatura de distribuição; o CLI rejeita corretamente helpers sem Authenticode válido. MSI/MSIX, assinatura de release, atualização/rollback, backup/restore e PC físico continuam pendentes.
 - Requisito do host: Windows + Node.js 22.5+ (`node:sqlite`). O pacote não é importado pelo core genérico nem pela preview.
+
+### Windows host — integração nativa de ACL/trust em CI
+- Acrescentado teste Windows-only que executa `whoami`, `icacls` e icacls reais; verifica ACL efetiva do utilizador atual e SYSTEM na pasta de instalação, pasta de dados, installation metadata e SQLite.
+- O teste separado usa `Get-AuthenticodeSignature` real e confirma rejeição de helper sem assinatura. O cenário de ACL injeta apenas a aceitação do helper para não depender de certificado de release.
+- A validação está pendente até o runner Windows executar o novo HEAD. Não equivale a PC físico, assinatura de release ou instalador.
+
+- Correção encontrada pela integração nativa: ACLs de diretório usam herança `(OI)(CI)F`; ACLs de ficheiros usam `F` direto. A regra anterior podia deixar ficheiros sem ACE efetiva. A nova execução Windows deve confirmar o SID do utilizador e SYSTEM em ambos.
