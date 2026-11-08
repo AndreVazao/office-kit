@@ -48,3 +48,5 @@ A suite `windows-host.windows.integration.test.mjs` executa no runner Windows:
 - confirma que o verificador Authenticode rejeita um helper sem assinatura.
 
 O teste injeta apenas a aceitação do helper no cenário de ACL para isolar a validação de permissões. O cenário separado usa o verificador real e um ficheiro sem assinatura. Isto é validação no runner Windows, não substitui teste no PC físico nem uma cadeia de assinatura de release.
+
+As ACLs distinguem diretórios e ficheiros: diretórios recebem permissões herdáveis `(OI)(CI)F`; ficheiros recebem `F` diretamente. A validação Windows cobre ambos os tipos, incluindo a base SQLite e o ficheiro de installation ID.
