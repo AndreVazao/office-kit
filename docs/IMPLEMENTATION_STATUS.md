@@ -324,3 +324,10 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - O novo cenário injeta falhas no limite do provider durante a remoção da chave antiga na rotação e durante revoke; depois fecha/reabre SQLite, cria runtime novo e usa o helper CNG real para reconciliar. A identidade fica ativa após recuperar a rotação; a revogação fica concluída após recuperar a remoção. Isto é fault injection do contrato do provider, não simulação de falha física do Windows, disco ou ACL.
 - A suite geral registou 157 pass, 0 fail e 3 skips antes dos testes Windows-only serem executados explicitamente com o helper configurado. Regressão visual run `42485145823` passou no mesmo HEAD, seis capturas (artifact `13619182381`), `browserErrors: []`.
 - Continuam pendentes host/launcher, instalador, ACL/assinatura reais, backup/restore, upgrade/uninstall, falhas físicas de armazenamento, restart do processo host/sistema e PC físico.
+
+## Windows local host runtime — implementação inicial
+- Adicionado `packages/windows-host`: composição local Windows-only, armazenamento SQLite local, instalação ID estável, lock de instância única, ACLs por SID, verificação Authenticode do helper CNG, reconciliação no arranque, health e encerramento limpo.
+- CLI explícito: `health`, `create-identity`, `rotate-identity`, `revoke-identity`. O arranque nunca cria uma identidade automaticamente e não inicia listeners, descoberta, telemetria ou comandos remotos.
+- Testes de host usam runtime/ACL/verificação de assinatura injetados e SQLite real; não são validação de ACLs, certificados ou instalação física.
+- Limite de release: o helper CNG do CI ainda não tem assinatura de distribuição; o CLI rejeita corretamente helpers sem Authenticode válido. MSI/MSIX, assinatura de release, atualização/rollback, backup/restore e PC físico continuam pendentes.
+- Requisito do host: Windows + Node.js 22.5+ (`node:sqlite`). O pacote não é importado pelo core genérico nem pela preview.

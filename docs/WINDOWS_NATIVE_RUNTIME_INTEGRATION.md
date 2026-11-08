@@ -49,3 +49,6 @@ The returned object exposes `manager`, `keyStore`, `metadataStore`, `challengeSt
 - [x] Injected rotation-delete and revoke-delete failures, then reopened SQLite and recovered with a fresh manager and the real CNG helper (PR #50, code HEAD `2d62835a4e2e58187205b523b4b4bb27feb21155`; CI `42485145796`). This is provider-boundary fault injection, not a physical OS/storage failure.
 - [ ] Installer: per-user ACL verification, helper signature verification, upgrade/rollback, health check, uninstall with both retain/delete choices.
 - [ ] Physical PC: validate on a supported Windows installation and verify recovery after forced process termination. CI is not a substitute for this.
+
+## Host composition follow-up
+The initial local Windows host now lives in `packages/windows-host`. It applies user/SYSTEM ACLs, validates Authenticode trust for the CNG helper, owns SQLite lifecycle, persists an installation ID, reconciles identity at startup and exposes local health. The host requires Windows and Node.js 22.5+; it does not provide an installer or a signed release. See `docs/WINDOWS_HOST_RUNTIME.md`.
