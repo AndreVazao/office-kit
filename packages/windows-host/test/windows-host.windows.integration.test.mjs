@@ -65,7 +65,7 @@ test("Windows host applies real user and SYSTEM ACLs to installation data", {
     for (const path of [appDataPath, join(appDataPath, "data"), join(appDataPath, "installation.json"), host.databasePath]) {
       const acl = readAclText(path);
       assert.ok(acl.includes(userSid) || acl.toLowerCase().includes(account.toLowerCase()), "current user ACL missing from " + path + ": " + acl);
-      assert.ok(/NT AUTHORITY\\\\SYSTEM|S-1-5-18/i.test(acl), "SYSTEM ACL missing from " + path + ": " + acl);
+      assert.ok(/NT AUTHORITY\\SYSTEM|S-1-5-18/i.test(acl), "SYSTEM ACL missing from " + path + ": " + acl);
       const verification = spawnSync("icacls.exe", [path, "/verify"], {
         encoding: "utf8",
         windowsHide: true
