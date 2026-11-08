@@ -268,3 +268,5 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ### Windows host startup reconciliation — em validação
 - Branch `fix/windows-host-startup-reconcile` garante reconcile antes de mutações. `host.ready` é aguardado pelo CLI e pelas operações manager; erro de recovery bloqueia mutações e não deixa DB/lock abertos.
 - Testes verificam ordem e fail-closed. CI/visual no HEAD final ainda pendentes.
+
+- A reconciliação de startup não basta apenas terminar sem exceção: só `empty`, `active` e `revoked` autorizam mutações. `cleanup_pending` mantém health degraded, oculta identidade e bloqueia create/rotate/revoke.
