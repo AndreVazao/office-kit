@@ -262,3 +262,5 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Branch `test/windows-host-acl-integration` acrescenta teste nativo Windows com SID do utilizador real, ACLs verificadas por `icacls` e icacls para diretórios e ficheiros de dados.
 - Inclui teste real de rejeição Authenticode para helper sem assinatura; o cenário ACL injeta somente a confiança do helper.
 - Aguardam-se CI e regressão visual no mesmo HEAD; PC físico e release assinada continuam pendentes.
+
+- A validação real no Windows detetou e corrigiu uma falha na ACL: permissões herdáveis são usadas apenas em diretórios; ficheiros recebem permissões diretas. Aguardam-se novos resultados CI no HEAD atualizado.
