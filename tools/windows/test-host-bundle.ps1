@@ -9,6 +9,7 @@ $bundleRoot = (Resolve-Path $BundleDirectory).Path
 $nodePath = Join-Path $bundleRoot "node.exe"
 $helperPath = Join-Path $bundleRoot "OfficeKit.CngHost.exe"
 $cliPath = Join-Path $bundleRoot "packages\windows-host\src\cli.mjs"
+$hostCommandTimeoutSeconds = 90
 
 foreach ($required in @($nodePath, $helperPath, $cliPath)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
@@ -26,27 +27,77 @@ $certificateFile = Join-Path $tempRoot "office-kit-ci-publisher.cer"
 
 function Invoke-OfficeKitHost {
   param([string[]]$Arguments)
-  $output = & $nodePath $cliPath @Arguments
-  if ($LASTEXITCODE -ne 0) {
-    throw ("Office Kit host command failed (" + ($Arguments -join " ") + "): " + ($output -join [Environment]::NewLine))
+
+  $description = $Arguments -join " "
+  $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $nodePath
+  $startInfo.WorkingDirectory = $bundleRoot
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $null = $startInfo.ArgumentList.Add($cliPath)
+  foreach ($argument in $Arguments) {
+    $null = $startInfo.ArgumentList.Add($argument)
   }
-  return (($output -join [Environment]::NewLine) | ConvertFrom-Json)
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  try {
+    Write-Host ("Running portable host command: " + $description)
+    if (-not $process.Start()) {
+      throw ("Could not start portable host command: " + $description)
+    }
+
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit($hostCommandTimeoutSeconds * 1000)) {
+      try { $process.Kill($true) } catch { }
+      try { $process.WaitForExit() } catch { }
+      $stdout = $stdoutTask.GetAwaiter().GetResult()
+      $stderr = $stderrTask.GetAwaiter().GetResult()
+      throw (
+        "Portable host command timed out after " + $hostCommandTimeoutSeconds +
+        " seconds (" + $description + "). stdout: " + $stdout + " stderr: " + $stderr
+      )
+    }
+
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
+    if ($process.ExitCode -ne 0) {
+      throw (
+        "Office Kit host command failed (" + $description + ", exit " +
+        $process.ExitCode + "). stdout: " + $stdout + " stderr: " + $stderr
+      )
+    }
+    try {
+      return ($stdout | ConvertFrom-Json -ErrorAction Stop)
+    } catch {
+      throw ("Office Kit host returned invalid JSON (" + $description + "). stderr: " + $stderr)
+    }
+  } finally {
+    $process.Dispose()
+  }
 }
 
 try {
   New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $testLocalAppData -Force | Out-Null
+  Write-Host "Created isolated LocalAppData for the portable host test."
 
   $certificate = New-SelfSignedCertificate -Subject "CN=Office Kit CI Ephemeral Publisher" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
+  Write-Host "Created an ephemeral CI code-signing certificate."
 
   Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
   Import-Certificate -FilePath $certificateFile -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
   Import-Certificate -FilePath $certificateFile -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
+  Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
 
   $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
   if ($signature.Status -ne "Valid") {
     throw ("CI signing failed: " + $signature.Status + " " + $signature.StatusMessage)
   }
+  Write-Host "Signed the bundled CNG helper with the ephemeral CI certificate."
 
   $env:LOCALAPPDATA = $testLocalAppData
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
