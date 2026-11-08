@@ -338,3 +338,8 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - A validação está pendente até o runner Windows executar o novo HEAD. Não equivale a PC físico, assinatura de release ou instalador.
 
 - Correção encontrada pela integração nativa: ACLs de diretório usam herança `(OI)(CI)F`; ACLs de ficheiros usam `F` direto. A regra anterior podia deixar ficheiros sem ACE efetiva. A nova execução Windows deve confirmar o SID do utilizador e SYSTEM em ambos.
+
+### Windows host startup reconciliation
+- O composition root executa `manager.reconcile()` no arranque e expõe `ready`; operações de identidade e CLI aguardam essa barreira.
+- Se a recuperação de metadata/chaves falhar, create/rotate/revoke não são executados. O encerramento aguarda a reconciliação e fecha DB/lock mesmo em erro.
+- Testes acrescentados para ordem reconcile-before-mutation e fail-closed em erro de reconciliação. CI pendente no HEAD desta PR.
