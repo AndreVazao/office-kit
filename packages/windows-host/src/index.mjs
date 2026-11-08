@@ -74,12 +74,13 @@ export function applyWindowsPrivateAcl(path, {
   if (typeof userSid !== "string" || !/^S-1-(?:\d+-){1,14}\d+$/.test(userSid)) {
     throw new TypeError("windows_host_user_sid_invalid");
   }
+  const inheritance = statSync(path).isDirectory() ? "(OI)(CI)F" : "F";
   runChecked("icacls.exe", [
     path,
     "/inheritance:r",
     "/grant:r",
-    `*${userSid}:(OI)(CI)F`,
-    "*S-1-5-18:(OI)(CI)F"
+    `*${userSid}:${inheritance}`,
+    `*S-1-5-18:${inheritance}`
   ], spawnImpl);
 }
 
