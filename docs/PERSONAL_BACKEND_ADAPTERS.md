@@ -17,8 +17,8 @@ Repository: `AndreVazao/DGM-MAT`.
 | Office Kit view | DGM-MAT route | Current security classification |
 |---|---|---|
 | Runtime health | `GET /runtime/health` | local-client session |
-| Runtime status | `GET /runtime/status` | local-client session |
-| Runtime truth/state | `GET /runtime/truth`, `GET /runtime/state` | local-client session |
+| Runtime status | `GET /runtime/status` (summary; no source timestamp) | local-client session |
+| Runtime truth/state | `GET /runtime/state` (primary snapshot; includes `timestamp` in seconds), `GET /runtime/truth` | local-client session |
 | Agents and mission activity | `GET /runtime/office/telemetry`, `GET /runtime/missions/page` | local-client session |
 | Capability inventory | `GET /mobile/capabilities` | local-client session |
 | Self/workspace audit | `GET /governance/audit/self`, `GET /governance/audit/workspace` | operator session |
@@ -69,9 +69,11 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 - The first DGM-MAT read-only adapter was merged in PR #20; endpoint hardening is under review in PR #21.
 - It is loopback-only, accepts only GET `/runtime/status` only, requires an injected short-lived local-session token provider, and exposes only `read_state`.
 - It does not read the protected bootstrap credential, create sessions, pair remote devices, store tokens, call WebSockets, or issue write requests.
-- The current `/runtime/status` response does not expose a source freshness watermark; the adapter deliberately returns `synchronizing`/unverified data and does not mark agents/tasks as active. A later DGM-MAT contract change or verified timestamp source is required before operational states can be displayed as confirmed.
-- The host-side secure session provider and persistent OS keystore are not implemented; the adapter cannot be activated in a real installation until those are available.
-- VST adapter remains unimplemented. Live tests against the running DGM-MAT PC remain pending.
+- The adapter work branch now reads `GET /runtime/state`, whose `RuntimeTruthState.timestamp` is the source-state update time in seconds since epoch. Office Kit converts it to UTC and accepts it only inside a 30-second freshness window; missing, future or stale timestamps remain unverified.
+- DGM-MAT applies provider-level freshness separately inside the serialized state. A fresh top-level timestamp does not prove every provider observation is fresh; the adapter must preserve those distinctions.
+- Agent/task collections remain empty until a stable per-record mapping is reviewed. This deliberately avoids inventing activity from unvalidated payloads.
+- `DgmMatLocalSessionProvider` exists and keeps the short-lived access token in memory, but the native host still lacks a durable OS credential store/wiring for the protected bootstrap credential. Live tests against the running DGM-MAT PC remain pending.
+- VST adapter remains unimplemented.
 
 This integration map was derived from repository documentation and source review. End-to-end authentication and live contract tests against running local instances remain required before enabling either adapter.
 
