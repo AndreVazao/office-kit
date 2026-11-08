@@ -345,3 +345,8 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Testes acrescentados para ordem reconcile-before-mutation e fail-closed em erro de reconciliação. CI pendente no HEAD desta PR.
 
 - A barreira `ready` também bloqueia estados de reconciliação não finais (por exemplo `cleanup_pending`): health fica degraded, não expõe identidade possivelmente obsoleta e nenhuma mutação é executada.
+
+### Portable Windows host bundle — em validação
+- Criado builder que inclui Node.js 22, módulos scene-engine/windows-host e helper CNG.
+- CI cria certificado Code Signing efémero, instala-o apenas nos stores do runner, assina o helper e executa o CLI portátil em processos separados para health, create, reopen, rotate e revoke.
+- Este teste não equivale a certificado de distribuição nem a instalador MSI/MSIX. O workflow ainda tem de passar no HEAD final.
