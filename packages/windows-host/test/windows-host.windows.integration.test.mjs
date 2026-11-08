@@ -28,13 +28,13 @@ function fakeRuntime() {
   };
 }
 
-function readAclDump(directory, outputPath) {
-  const result = spawnSync("icacls.exe", [directory, "/save", outputPath, "/T", "/C"], {
+function readAclText(path) {
+  const result = spawnSync("icacls.exe", [path], {
     encoding: "utf8",
     windowsHide: true
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  return readFileSync(outputPath, "utf8");
+  return result.stdout;
 }
 
 test("Windows host applies real user and SYSTEM ACLs to installation data", {
@@ -59,16 +59,13 @@ test("Windows host applies real user and SYSTEM ACLs to installation data", {
     });
     assert.equal((await host.health()).identityStatus, "empty");
 
-    const aclDumpPath = join(directory, "office-kit-acl.dump");
-    const aclDump = readAclDump(appDataPath, aclDumpPath);
-    const entries = aclDump.split(/\\r?\\n/);
-    for (const name of ["data", "installation.json", "office-kit.sqlite"]) {
-      const entry = entries.find(line => line.includes(name));
-      assert.ok(entry, "ACL dump missing " + name);
-      assert.ok(entry.includes(userSid), "current user SID missing from " + name);
-      assert.ok(entry.includes("S-1-5-18"), "SYSTEM SID missing from " + name);
-    }
+    const whoami = spawnSync("whoami.exe", [], { encoding: "utf8", windowsHide: true });
+    assert.equal(whoami.status, 0, whoami.stderr || whoami.stdout);
+    const account = whoami.stdout.trim();
     for (const path of [appDataPath, join(appDataPath, "data"), join(appDataPath, "installation.json"), host.databasePath]) {
+      const acl = readAclText(path);
+      assert.ok(acl.includes(userSid) || acl.toLowerCase().includes(account.toLowerCase()), "current user ACL missing from " + path + ": " + acl);
+      assert.ok(/NT AUTHORITY\\\\SYSTEM|S-1-5-18/i.test(acl), "SYSTEM ACL missing from " + path + ": " + acl);
       const verification = spawnSync("icacls.exe", [path, "/verify"], {
         encoding: "utf8",
         windowsHide: true
