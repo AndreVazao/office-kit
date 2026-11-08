@@ -390,3 +390,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Add a real Authenticode negative test that rejects an unsigned helper.
 - [ ] Pass the native Windows runner on the final PR HEAD and inspect the effective ACL test output.
 - [ ] Validate on a physical PC with the actual signed distribution helper and installer.
+
+## Windows host startup safety
+- [x] Reconcile persisted identity at host startup before create/rotate/revoke.
+- [x] Fail closed on startup recovery errors and release DB/process lock during shutdown.
+- [ ] Pass CI Linux/Windows and visual regression on the exact PR HEAD.
