@@ -304,3 +304,9 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - O teste da factory cria identidade, prova posse, fecha/reabre SQLite, recria o manager, confirma a identidade, rejeita replay e revoga. A integração CNG já tinha validado persistência da chave entre processos helper na PR #44. Isto não equivale a reinício do processo host ou do sistema.
 - O helper usa Microsoft Software KSP: proteção OS-level/software-backed, `hardwareBacked=false`; não é TPM.
 - Continuam fora do âmbito desta PR: launcher/host desktop, instalador/desinstalador, ACLs e backup/restore do ficheiro SQLite, teste no PC físico e integração de adaptadores autenticados.
+
+
+### Windows native host integration contract
+- Added `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` defining startup, reconciliation, health, lifecycle, ACL, helper trust, retention and explicit validation boundaries.
+- Extended the Windows runtime integration test to cover key rotation, old-key deletion and persistence after reopening SQLite.
+- A desktop host/installer is still not present; this document is a contract for future integration, not evidence of an installed product.
