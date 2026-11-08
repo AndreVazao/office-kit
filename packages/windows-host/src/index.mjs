@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   closeSync,
+  fsyncSync,
   existsSync,
   mkdirSync,
   openSync,
@@ -82,12 +83,19 @@ export function applyWindowsPrivateAcl(path, {
   ], spawnImpl);
 }
 
-export function verifyAuthenticodeHelper(helperPath, { spawnImpl = spawnSync } = {}) {
+export function verifyAuthenticodeHelper(helperPath, {
+  spawnImpl = spawnSync,
+  expectedThumbprint = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT
+} = {}) {
   if (typeof helperPath !== "string" || !isAbsolute(helperPath) || !existsSync(helperPath)) {
     throw new Error("windows_host_cng_helper_missing");
   }
+  if (typeof expectedThumbprint !== "string" || !/^[A-Fa-f0-9]{40}$/.test(expectedThumbprint)) {
+    throw new Error("windows_host_cng_signer_thumbprint_required");
+  }
   const escaped = helperPath.replace(/'/g, "''");
-  const script = `$s = Get-AuthenticodeSignature -LiteralPath '${escaped}'; if ($s.Status -ne 'Valid') { exit 3 }`;
+  const thumbprint = expectedThumbprint.toUpperCase();
+  const script = `$s = Get-AuthenticodeSignature -LiteralPath '${escaped}'; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Thumbprint -ne '${thumbprint}') { exit 3 }`;
   runChecked("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
@@ -129,6 +137,7 @@ function readOrCreateInstallationId(path, makeId = randomUUID) {
   const descriptor = openSync(path, "wx", 0o600);
   try {
     writeFileSync(descriptor, JSON.stringify({ installationId }) + "\n");
+    fsyncSync(descriptor);
   } finally {
     closeSync(descriptor);
   }
@@ -140,6 +149,7 @@ function acquireProcessLock(path, now = Date.now, pid = process.pid) {
   try {
     const descriptor = openSync(path, "wx", 0o600);
     writeFileSync(descriptor, content);
+    fsyncSync(descriptor);
     closeSync(descriptor);
     return () => {
       try {
