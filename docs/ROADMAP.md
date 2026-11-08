@@ -376,3 +376,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Extend native integration coverage to rotation, old-key deletion and reopened-database persistence.
 - [ ] Implement the actual desktop host/launcher and signed helper installation.
 - [ ] Validate ACLs, upgrade/rollback, health and uninstall on Windows runner and physical PC.
+
+## Windows local host runtime
+- [x] Implementar composition root local Windows com diretório de dados privado, ACL por SID, installation ID estável e lock de instância única.
+- [x] Abrir SQLite local com WAL/FULL e compor CNG + stores persistentes; reconcile e health antes de expor estado.
+- [x] Exigir helper com Authenticode válido; CLI com health/create/rotate/revoke explícitos, sem enrollment automático ou rede.
+- [ ] Validar ACLs e assinatura/trust chain em runner Windows com certificado de teste e num PC físico.
+- [ ] Criar assinatura de release e instalador MSI/MSIX, atualização/rollback, uninstall com retenção explícita e backup/restore.
+- [ ] Testar recuperação após crash/forçar terminação do host e reinício do Windows.
