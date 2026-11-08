@@ -97,7 +97,8 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Os manifests não incluem credenciais, installationId nem storageNamespace reais; esses valores serão provisionados por instalação.
 - Os artifacts atuais são pacotes de código-fonte perfilados, não instaladores nativos nem adaptadores backend funcionais.
 - A política é disparar os builds manualmente apenas em marcos de desenvolvimento, antes de validar uma edição ou preparar um artifact para teste. Não os executar em cada commit.
-- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\\n` literais e provocava SyntaxError na CI anterior.
+- Corrigido no branch o teste `product-profile.test.mjs` que continha caracteres `\
+` literais e provocava SyntaxError na CI anterior.
 
 
 ## DGM-MAT adapter — incremento 2026-11-04
@@ -223,4 +224,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - A branch antiga `feat/adapter-runtime-bridge` continha 7 commits exclusivos, mas PR #25 estava em draft, apontava para base de recuperação antiga e não era mergeável. PR #10 anterior também estava encerrada sem merge.
 - Em vez de duplicar `AdapterRuntimeBridge`, foram portados para o `AdapterGateway` existente os comportamentos de segurança que faltavam: buffer limitado de eventos durante startup, sequência contígua, sessão fixa, fail-closed para lacunas/troca de sessão/eventos incrementais não suportados, cleanup em erro e reset no reconnect.
 - PR #44 integrada em `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`: CNG Windows nativo validado em runner Windows, provider isolado em `windows.mjs`, índice genérico/browser safe. Próximo incremento ativo é recuperação do gateway.
-\n\n### Windows identity runtime factory (incremento em curso)\n- A factory `createWindowsNodeIdentityRuntime` é exportada apenas pelo entrypoint `windows.mjs`; não contamina o entrypoint browser-neutral.\n- Compõe CNG P-256 persistente, metadata SQLite e consumo durável de challenges. A ligação SQLite e a segurança do diretório continuam a pertencer ao host.\n- O helper usa Microsoft Software KSP: proteção OS-level, não TPM/hardware-backed.\n- A integração real com launcher/installer e validação física no PC continuam pendentes.\n
+
+
+### Windows identity runtime factory (incremento em curso)
+- A factory `createWindowsNodeIdentityRuntime` é exportada apenas pelo entrypoint `windows.mjs`; não contamina o entrypoint browser-neutral.
+- Compõe CNG P-256 persistente, metadata SQLite e consumo durável de challenges. A ligação SQLite e a segurança do diretório continuam a pertencer ao host.
+- O helper usa Microsoft Software KSP: proteção OS-level, não TPM/hardware-backed.
+- A integração real com launcher/installer e validação física no PC continuam pendentes.

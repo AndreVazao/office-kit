@@ -8,6 +8,20 @@ import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../src/windows.mjs";
 
 const hostExecutable = process.env.OFFICE_KIT_CNG_HOST_PATH;
+
+function sqliteAdapter(database) {
+  const transaction = callback => {
+    const run = mode => {
+      database.exec(`BEGIN ${mode}`);
+      try { const result = callback(); database.exec("COMMIT"); return result; }
+      catch (error) { database.exec("ROLLBACK"); throw error; }
+    };
+    const wrapped = () => run("");
+    wrapped.immediate = () => run("IMMEDIATE");
+    return wrapped;
+  };
+  return { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction };
+}
 const skipReason = process.platform !== "win32"
   ? "Windows identity runtime integration requires a Windows runner."
   : !hostExecutable
@@ -24,7 +38,7 @@ test("Windows runtime persists identity and one-time challenges across manager r
   let runtime;
   try {
     database = new DatabaseSync(filename);
-    runtime = createWindowsNodeIdentityRuntime({ database, installationId, hostExecutable });
+    runtime = createWindowsNodeIdentityRuntime({ database: sqliteAdapter(database), installationId, hostExecutable });
     const identity = await runtime.manager.create({
       organizationId: "office-kit-ci",
       nodeId: "node:windows-runtime"
@@ -45,7 +59,7 @@ test("Windows runtime persists identity and one-time challenges across manager r
 
     database.close();
     database = new DatabaseSync(filename);
-    runtime = createWindowsNodeIdentityRuntime({ database, installationId, hostExecutable });
+    runtime = createWindowsNodeIdentityRuntime({ database: sqliteAdapter(database), installationId, hostExecutable });
     assert.equal(
       (await runtime.manager.getPublicIdentity()).identityFingerprint,
       identity.identityFingerprint
