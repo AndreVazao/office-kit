@@ -49,8 +49,8 @@ export class DgmMatReadOnlyAdapter {
     if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 1_000 || pollIntervalMs > 60_000) {
       throw new TypeError("pollIntervalMs must be between 1000 and 60000");
     }
-    if (!Number.isSafeInteger(snapshotTtlMs) || snapshotTtlMs < 1_000 || snapshotTtlMs > 300_000) {
-      throw new TypeError("snapshotTtlMs must be between 1000 and 300000");
+    if (!Number.isSafeInteger(snapshotTtlMs) || snapshotTtlMs < 1_000 || snapshotTtlMs > 30_000) {
+      throw new TypeError("snapshotTtlMs must be between 1000 and 30000");
     }
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.getAccessToken = getAccessToken;
@@ -115,8 +115,11 @@ export class DgmMatReadOnlyAdapter {
 
   #toSnapshot(state) {
     const receivedAt = this.now();
+    if (!Number.isFinite(receivedAt) || Math.abs(receivedAt) > 8_640_000_000_000_000) {
+      throw new Error("dgm_mat_clock_invalid");
+    }
     const sourceTimestampSeconds = typeof state.timestamp === "number" && Number.isFinite(state.timestamp)
-      && !Object.is(state.timestamp, -0) && state.timestamp > 0
+      && !Object.is(state.timestamp, -0) && state.timestamp > 0 && state.timestamp <= 8_640_000_000_000
       ? state.timestamp
       : null;
     const sourceTimestampMs = sourceTimestampSeconds === null ? null : sourceTimestampSeconds * 1000;
