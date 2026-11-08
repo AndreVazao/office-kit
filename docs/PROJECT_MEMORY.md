@@ -226,8 +226,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #44 integrada em `6d9d8498a5e965e18eb6edf221bebb8b5f2bf8df`: CNG Windows nativo validado em runner Windows, provider isolado em `windows.mjs`, índice genérico/browser safe. Próximo incremento ativo é recuperação do gateway.
 
 
-### Windows identity runtime factory (incremento em curso)
-- A factory `createWindowsNodeIdentityRuntime` é exportada apenas pelo entrypoint `windows.mjs`; não contamina o entrypoint browser-neutral.
-- Compõe CNG P-256 persistente, metadata SQLite e consumo durável de challenges. A ligação SQLite e a segurança do diretório continuam a pertencer ao host.
-- O helper usa Microsoft Software KSP: proteção OS-level, não TPM/hardware-backed.
-- A integração real com launcher/installer e validação física no PC continuam pendentes.
+### Windows identity runtime factory — validação PR #46
+- PR #46 adiciona `createWindowsNodeIdentityRuntime`, exportada exclusivamente por `packages/scene-engine/src/windows.mjs`. O entrypoint genérico/browser mantém-se livre de imports nativos Node.
+- HEAD validado: `77669de98b42bdc6bcf1d866797cc6ef1a066707`. CI `42483528564` passou em Linux/Windows; no runner Windows foram publicados o helper .NET e executados com sucesso os testes CNG e runtime identity (1/1 cada). Regressão visual `42483528517` passou no mesmo SHA e gerou seis capturas (artifact `13618816020`), sem erros de browser.
+- A integração cobre create/prove, fecho/reabertura SQLite, recriação do manager, persistência da identidade, replay rejection e revoke. A persistência CNG entre processos helper foi validada separadamente na PR #44. Não foi testado restart do processo host nem do sistema.
+- O host continua dono da conexão/ficheiro SQLite, ACLs, cifragem, backups, instalação do helper e lifecycle. O Microsoft Software KSP é OS-protected/software-backed, nunca declarar TPM/hardware-backed.
+- Próximo bloqueio: construir o host/launcher Windows e instalador, definir ACL/backup/restore, validar instalação/desinstalação e executar teste no PC físico. Providers macOS, Linux, Android e browser persistente continuam pendentes.

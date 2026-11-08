@@ -170,9 +170,9 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - PR #17 integrado: `docs/SECURE_STORAGE.md` define os requisitos de providers persistentes para Windows, macOS, Linux, Android e browser; continua a ser especificação, não implementação nativa.
 - O ciclo de vida revisionado está em `main`: `NodeKeyStoreProvider.hasKey/getCapabilities`, metadata CAS, rejeição de providers efémeros/exportáveis em produção, limpeza de chaves após falhas, tombstones e reconciliação de pendências.
 - PR #33 integrada: `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, isolados por `installationId`; não armazena chaves privadas.
-- A store SQLite recebe uma conexão do host. Ainda não existe provider persistente de chaves para Windows CNG/DPAPI, macOS Keychain, Linux Secret Service, Android Keystore ou browser CryptoKey.
+- A store SQLite recebe uma conexão do host. O provider `WindowsCngP256KeyStore` e o helper .NET já fornecem chaves ECDSA P-256 persistentes, não exportáveis e isoladas por installation ID no Microsoft Software KSP; `createWindowsNodeIdentityRuntime` compõe esse provider com metadata e replay stores SQLite apenas no entrypoint Windows. O host continua responsável pela conexão/ficheiro SQLite, ACLs, cifragem, backups e ciclo de vida do helper. macOS Keychain, Linux Secret Service/PKCS#11, Android Keystore e browser CryptoKey persistente continuam por implementar.
 - `EphemeralEd25519KeyStore` é exclusivo de testes/sessões efémeras e é rejeitado em configuração de produção.
-- Branch `feat/sqlite-identity-manager-integration`: acrescenta testes de integração do manager com SQLite, recriação do manager após reabertura da base e reconciliação de limpeza pendente. O provider de chaves é deliberadamente efémero/test-only; não é prova de reinício real do processo nem de armazenamento seguro por plataforma. CI/visual ainda pendentes.
+- PR #36 integrada: testes de integração do manager com SQLite real, reabertura da base e reconciliação de limpeza pendente. O provider de chaves usado nessa suite era deliberadamente efémero/test-only; a validação posterior do provider CNG persistente e da factory Windows está registada abaixo.
 
 
 ## Pipelines de build por edição — adicionados ao branch ativo
@@ -297,8 +297,10 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - A bridge não autentica adaptadores, não implementa patches de agentes/tarefas e não envia comandos. O host deve autenticar/autorizar antes de fornecer o adaptador; capacidade inicial continua read-only.
 
 
-### Windows identity runtime composition (PR em desenvolvimento)
-- [x] Criar factory Windows-only que compõe o provider CNG, metadata SQLite e replay store SQLite num `NodeIdentityManager` pronto a ser usado pelo host.
-- [x] Manter a ligação SQLite, o caminho do helper, ACLs, backups e ciclo de vida do processo sob responsabilidade do host; nenhum segredo ou chave privada entra na base de dados.
-- [ ] Validar persistência create/prove/restart/replay/revoke no runner Windows com helper publicado e CI/visual no mesmo SHA.
-- [ ] Integrar a factory num launcher/host real quando esse produto existir; ainda não existe instalador desktop.
+### Windows identity runtime composition — PR #46 validada
+- A factory `createWindowsNodeIdentityRuntime` compõe o CNG P-256 persistente, `SqliteNodeIdentityMetadataStore` e `SqliteNodeIdentityChallengeStore`; é exportada apenas por `windows.mjs`, mantendo o entrypoint genérico/browser-neutral sem dependências Node nativas.
+- PR #46 validada no HEAD `77669de98b42bdc6bcf1d866797cc6ef1a066707`: CI run `42483528564` passou em Linux e Windows; o job Windows publicou o helper .NET e passou os testes explícitos de CNG e runtime identity (1/1 cada). A suite geral registou 157 pass, 0 fail e 2 skips antes desses testes nativos serem executados explicitamente com o helper configurado.
+- Regressão visual run `42483528517` passou no mesmo HEAD, gerou seis capturas desktop/landscape/portrait com e sem chat (artifact `13618816020`) e reportou `browserErrors: []`. Inspeção manual das capturas não encontrou regressão; a vista geral portrait continua com o edifício pequeno, dívida visual anterior a esta alteração.
+- O teste da factory cria identidade, prova posse, fecha/reabre SQLite, recria o manager, confirma a identidade, rejeita replay e revoga. A integração CNG já tinha validado persistência da chave entre processos helper na PR #44. Isto não equivale a reinício do processo host ou do sistema.
+- O helper usa Microsoft Software KSP: proteção OS-level/software-backed, `hardwareBacked=false`; não é TPM.
+- Continuam fora do âmbito desta PR: launcher/host desktop, instalador/desinstalador, ACLs e backup/restore do ficheiro SQLite, teste no PC físico e integração de adaptadores autenticados.

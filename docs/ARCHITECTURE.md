@@ -301,3 +301,12 @@ O entrypoint genérico `packages/scene-engine/src/index.mjs` é browser-safe e n
 
 ## Gateway de runtime — sequencia e sincronização fail-closed
 `AdapterGateway` recebe apenas o adaptador explicitamente selecionado pelo host. A subscrição é instalada antes da leitura do snapshot inicial e os eventos iniciais são guardados numa fila limitada; só são processados depois do snapshot. A bridge fixa a identidade da origem ao `metadata.id` do adaptador e mantém uma única sessão de eventos até desconexão/religação. Lacunas de sequência, mudança de sessão sem reconnect, overflow da fila e eventos incrementais agent/task ainda sem contrato de patch retiram a autoridade do runtime (fail-closed). Heartbeats não elevam um estado não sincronizado a live. Autenticação, autorização, credenciais e transporte continuam responsabilidade do host; não há descoberta nem dispatch de comandos.
+
+
+## 13. Windows node identity runtime boundary
+
+The Windows-only entry point `packages/scene-engine/src/windows.mjs` exposes `createWindowsNodeIdentityRuntime`. It composes the native `WindowsCngP256KeyStore` with SQLite-backed public identity metadata and one-time challenge replay storage. The browser-neutral entry point must not import this module or its Node/.NET dependencies.
+
+The factory receives a host-owned SQLite adapter, installation ID and published CNG helper path. It does not open or secure the database file, create Windows ACLs, encrypt or back up the database, install/update/remove the helper, or manage process lifecycle. The host must provide these controls and must preserve the same installation scope when reopening the runtime. Private keys remain in the Windows CNG provider; SQLite stores public metadata and opaque handles only. Microsoft Software KSP is OS-protected and software-backed, not TPM/hardware-backed.
+
+PR #46 validated create/prove, SQLite close/reopen, manager recreation, identity persistence, challenge replay rejection and revocation on a Windows CI runner. The separate PR #44 CNG test validates key persistence across helper processes. Neither test is a full host-process/system restart or physical-PC installation test. Until the native host and installer exist, this factory is a platform integration component, not an installable Office Kit product.
