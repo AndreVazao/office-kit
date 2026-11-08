@@ -10,6 +10,7 @@ async function main() {
   const command = process.argv[2] ?? "health";
   const host = createWindowsHost();
   try {
+    await host.ready;
     if (command === "health") {
       console.log(JSON.stringify(await host.health(), null, 2));
       return;
