@@ -251,3 +251,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #50 testa dois caminhos de falha: delete da chave antiga falha após commit de rotação; delete da chave ativa falha depois de gravar o tombstone de revoke. Em ambos os casos, SQLite é fechada/reaberta, o manager é recriado e `reconcile()` recupera o estado com o helper CNG real.
 - Code HEAD `2d62835a4e2e58187205b523b4b4bb27feb21155`: CI `42485145796` passou em Linux/Windows; no runner Windows, 2/2 cenários compostos e o teste CNG 1/1 passaram. Visual `42485145823` passou com seis capturas e sem erros de browser.
 - As falhas são injetadas no método do provider; não provam falha real de ACL, disco, CNG/OS, perda de energia ou restart do host. Continuam pendentes launcher/installer, ACL/backup/restore e validação física.
+
+### Windows local host runtime — incremento em desenvolvimento
+- Branch `feat/windows-native-host-lifecycle-v2` cria o primeiro composition root local Windows: diretório privado, ACL por SID, installation ID persistente, lock de processo, SQLite WAL/FULL, verificação Authenticode do helper, factory CNG+SQLite, reconcile e health.
+- O CLI oferece apenas ações locais explícitas: health/create/rotate/revoke; startup não cria identidade nem abre rede.
+- Testes automatizados usam SQLite real e injeção para runtime/ACL/trust. Não equivalem a validar ACLs do Windows, certificado de distribuição ou PC físico.
+- Bloqueio para execução real: helper CNG precisa de assinatura Authenticode confiável; o artefacto CI ainda não está assinado. Sem MSI/MSIX, assinatura de release, upgrade/rollback e backup/restore, não declarar instalável.
