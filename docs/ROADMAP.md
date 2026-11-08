@@ -365,7 +365,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 ## Windows native identity runtime
 - [x] Compor `NodeIdentityManager` com Windows CNG P-256, metadata SQLite e replay store SQLite numa factory específica da plataforma.
 - [x] Validar create/prove, fecho/reabertura SQLite, recriação do manager, persistência da identidade, replay rejection e revoke no runner Windows (PR #46, HEAD `77669de98b42bdc6bcf1d866797cc6ef1a066707`; CI `42483528564`, visual `42483528517`).
-- [ ] Testar rotação e falhas de cleanup no runtime composto, restart do processo host/sistema e recuperação no PC físico.
+- [x] Testar rotação, remoção da chave anterior, persistência após reabrir SQLite, replay rejection, prova pós-restart do manager, revoke e reconciliação no runner Windows (PR #48, HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`; CI `42484745984`, visual `42484745951`).
+- [ ] Testar falhas de cleanup/recovery, restart do processo host/sistema e recuperação no PC físico.
 - [ ] Ligar a factory ao host desktop/launcher e instalador; o host mantém responsabilidade por ACLs, gestão do ficheiro SQLite, instalação do helper e ciclo de vida do processo.
 
 

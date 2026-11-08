@@ -43,8 +43,9 @@ The returned object exposes `manager`, `keyStore`, `metadataStore`, `challengeSt
 - Do not enable network discovery, federation, remote commands, or adapter write operations as a side effect of identity initialization.
 - The generic browser entrypoint must remain free of Node and Windows imports.
 
-## Validation still required
+## Validation status
 
-- Native Windows runner: create, sign/verify, restart/reopen, replay rejection, rotate, old-key deletion, revoke, and cleanup recovery.
-- Installer: per-user ACL verification, helper signature verification, upgrade/rollback, health check, uninstall with both retain/delete choices.
-- Physical PC: validate on a supported Windows installation and verify recovery after forced process termination. CI is not a substitute for this.
+- [x] Native Windows runner: create, sign/verify, SQLite close/reopen, manager recreation, replay rejection, rotate, old-key deletion, post-restart proof, revoke and post-revoke reconciliation. PR #48 code HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`; CI `42484745984`, visual `42484745951`.
+- [ ] Injected cleanup failure and interrupted-cleanup recovery in the composed runtime.
+- [ ] Installer: per-user ACL verification, helper signature verification, upgrade/rollback, health check, uninstall with both retain/delete choices.
+- [ ] Physical PC: validate on a supported Windows installation and verify recovery after forced process termination. CI is not a substitute for this.

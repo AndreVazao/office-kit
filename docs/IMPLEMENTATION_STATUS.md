@@ -310,3 +310,10 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Added `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` defining startup, reconciliation, health, lifecycle, ACL, helper trust, retention and explicit validation boundaries.
 - Extended the Windows runtime integration test to cover key rotation, old-key deletion and persistence after reopening SQLite.
 - A desktop host/installer is still not present; this document is a contract for future integration, not evidence of an installed product.
+
+
+### Windows native host contract and rotation integration — PR #48 validated
+- PR #48 final code HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`: CI run `42484745984` passou em Linux e Windows; o runner Windows publicou o helper .NET e executou a integração composta (1/1) com create/prove/rotate, remoção da chave anterior, fecho/reabertura SQLite, persistência da nova identidade, rejeição de replay, nova prova após restart do manager, revoke e reconciliação após reabertura.
+- A suite geral registou 157 pass, 0 fail e 2 skips antes do teste Windows-only ser executado explicitamente com o helper configurado; o teste nativo explícito passou com 1 pass, 0 fail e 0 skips. O teste CNG separado também passou.
+- Regressão visual run `42484745951` passou no mesmo HEAD, gerou seis capturas desktop/landscape/portrait com e sem chat (artifact `13618319943`) e reportou `browserErrors: []`.
+- `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` é um contrato para um futuro host, não implementação de launcher/installer. Continuam pendentes falhas de cleanup/recovery, ACLs reais, assinatura/trust do helper, upgrade/rollback, uninstall, backup/restore, restart do processo host/sistema e validação no PC físico.
