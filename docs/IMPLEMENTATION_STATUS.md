@@ -317,3 +317,11 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - A suite geral registou 157 pass, 0 fail e 2 skips antes do teste Windows-only ser executado explicitamente com o helper configurado; o teste nativo explícito passou com 1 pass, 0 fail e 0 skips. O teste CNG separado também passou.
 - Regressão visual run `42484745951` passou no mesmo HEAD, gerou seis capturas desktop/landscape/portrait com e sem chat (artifact `13618319943`) e reportou `browserErrors: []`.
 - `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` é um contrato para um futuro host, não implementação de launcher/installer. Continuam pendentes falhas de cleanup/recovery, ACLs reais, assinatura/trust do helper, upgrade/rollback, uninstall, backup/restore, restart do processo host/sistema e validação no PC físico.
+
+
+## Windows local host runtime — implementação inicial
+- Adicionado `packages/windows-host`: composição local Windows-only, armazenamento SQLite local, instalação ID estável, lock de instância única, ACLs por SID, verificação Authenticode do helper CNG, reconciliação no arranque, health e encerramento limpo.
+- CLI explícito: `health`, `create-identity`, `rotate-identity`, `revoke-identity`. O arranque nunca cria uma identidade automaticamente e não inicia listeners, descoberta, telemetria ou comandos remotos.
+- Testes de host usam runtime/ACL/verificação de assinatura injetados e SQLite real; não são validação de ACLs, certificados ou instalação física.
+- Limite de release: o helper CNG do CI ainda não tem assinatura de distribuição; o CLI rejeita corretamente helpers sem Authenticode válido. MSI/MSIX, assinatura de release, atualização/rollback, backup/restore e PC físico continuam pendentes.
+- Requisito do host: Windows + Node.js 22.5+ (`node:sqlite`). O pacote não é importado pelo core genérico nem pela preview.
