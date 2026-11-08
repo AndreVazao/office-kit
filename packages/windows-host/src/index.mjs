@@ -253,25 +253,32 @@ export function createWindowsHost({
   }
 
   const ready = Promise.resolve().then(() => runtime.manager.reconcile());
+  async function ensureReady() {
+    const result = await ready;
+    if (!["empty", "active", "revoked"].includes(result?.status)) {
+      throw new Error("windows_host_startup_reconciliation_incomplete");
+    }
+    return result;
+  }
   const manager = Object.freeze({
     create: async input => {
-      await ready;
+      await ensureReady();
       return runtime.manager.create(input);
     },
     rotate: async () => {
-      await ready;
+      await ensureReady();
       return runtime.manager.rotate();
     },
     revoke: async () => {
-      await ready;
+      await ensureReady();
       return runtime.manager.revoke();
     },
     getPublicIdentity: async () => {
-      await ready;
+      await ensureReady();
       return runtime.manager.getPublicIdentity();
     },
     reconcile: async () => {
-      await ready;
+      await ensureReady();
       return runtime.manager.reconcile();
     }
   });
@@ -279,10 +286,10 @@ export function createWindowsHost({
   async function health() {
     if (closed) return Object.freeze({ status: "stopped", identityStatus: "unknown" });
     await ready;
-    const identity = await runtime.manager.getPublicIdentity();
     const reconciliation = await runtime.manager.reconcile();
     const identityStatus = reconciliation.status;
     const healthy = identityStatus === "empty" || identityStatus === "active" || identityStatus === "revoked";
+    const identity = healthy ? await runtime.manager.getPublicIdentity() : null;
     return Object.freeze({
       status: healthy ? "ready" : "degraded",
       identityStatus,
