@@ -86,12 +86,12 @@ test("Windows host enforces a single process lock and releases it on close", asy
   }
 });
 
-test("Windows host refuses redirected or invalid installation metadata", () => {
+test("Windows host refuses redirected or invalid installation metadata", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-metadata-"));
   const appDataPath = join(directory, "OfficeKit");
   try {
     const host = setup(directory);
-    host.close();
+    await host.close();
     writeFileSync(join(appDataPath, "installation.json"), JSON.stringify({ installationId: "other" }));
     assert.throws(() => setup(directory), /windows_host_installation_id_corrupt/);
   } finally {
