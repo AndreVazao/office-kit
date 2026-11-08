@@ -384,3 +384,9 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar ACLs e assinatura/trust chain em runner Windows com certificado de teste e num PC físico.
 - [ ] Criar assinatura de release e instalador MSI/MSIX, atualização/rollback, uninstall com retenção explícita e backup/restore.
 - [ ] Testar recuperação após crash/forçar terminação do host e reinício do Windows.
+
+## Windows host security validation
+- [x] Add Windows-runner integration coverage for effective ACLs (current user + SYSTEM) on install/data directories and SQLite metadata.
+- [x] Add a real Authenticode negative test that rejects an unsigned helper.
+- [ ] Pass the native Windows runner on the final PR HEAD and inspect the effective ACL test output.
+- [ ] Validate on a physical PC with the actual signed distribution helper and installer.
