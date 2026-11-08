@@ -22,7 +22,7 @@ const freshState = (overrides = {}) => ({
   ...overrides
 });
 
-test("requires a loopback endpoint and injected secure session provider", () => {
+test("requires a loopback endpoint, injected secure session provider and bounded freshness TTL", () => {
   const tokenProvider = async () => "abcdefghijklmnop";
   for (const baseUrl of [
     "http://192.168.1.20:8181",
@@ -35,6 +35,7 @@ test("requires a loopback endpoint and injected secure session provider", () => 
   }
   assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: tokenProvider, baseUrl: "https://127.0.0.1:8181" }), /loopback/);
   assert.throws(() => new DgmMatReadOnlyAdapter(), /secure_session_provider/);
+  assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: tokenProvider, snapshotTtlMs: 30_001 }), /snapshotTtlMs/);
 });
 
 test("uses the timestamped runtime state endpoint with authenticated GET only", async () => {
