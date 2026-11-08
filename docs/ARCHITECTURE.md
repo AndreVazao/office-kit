@@ -310,3 +310,11 @@ The Windows-only entry point `packages/scene-engine/src/windows.mjs` exposes `cr
 The factory receives a host-owned SQLite adapter, installation ID and published CNG helper path. It does not open or secure the database file, create Windows ACLs, encrypt or back up the database, install/update/remove the helper, or manage process lifecycle. The host must provide these controls and must preserve the same installation scope when reopening the runtime. Private keys remain in the Windows CNG provider; SQLite stores public metadata and opaque handles only. Microsoft Software KSP is OS-protected and software-backed, not TPM/hardware-backed.
 
 PR #46 validated create/prove, SQLite close/reopen, manager recreation, identity persistence, challenge replay rejection and revocation on a Windows CI runner. The separate PR #44 CNG test validates key persistence across helper processes. Neither test is a full host-process/system restart or physical-PC installation test. Until the native host and installer exist, this factory is a platform integration component, not an installable Office Kit product.
+
+
+## 14. Windows local host composition root
+O pacote `packages/windows-host` fornece o primeiro host local executável para Windows. É separado do core e do entrypoint browser-neutral. O host cria um diretório por instalação, restringe ACLs ao utilizador atual e SYSTEM, guarda um installation ID estável, impede instâncias concorrentes, abre SQLite local e compõe o runtime CNG já existente.
+
+O helper só é aceite quando a assinatura Authenticode é válida. O host reconcilia a identidade antes de reportar health e encerra a base de dados/lock de forma explícita. O arranque não cria identidade, não inicia listeners, não descobre backends e não executa comandos remotos. As operações de identidade são ações locais explícitas.
+
+O CLI depende de Windows e Node.js 22.5+ (`node:sqlite`). A implementação não inclui ainda instalador, certificado de release, serviço Windows, UI, atualização/rollback ou backup/restore. O helper gerado no CI ainda não tem assinatura confiável; por isso, os testes injetam o verificador e não alegam que o artefacto CI pode ser executado pelo host de produção.
