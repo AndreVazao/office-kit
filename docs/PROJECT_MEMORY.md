@@ -104,7 +104,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ## DGM-MAT adapter — atualização 2026-11-08
 - O adaptador DGM-MAT GET-only está integrado na main; a evolução atual está na branch `feat/dgmat-runtime-state-freshness`, baseada no HEAD `e35ac346f663dbf7b1fe8e1fc80f740286174848`.
 - A branch muda a leitura principal para `GET /runtime/state` (scope `local-client`), cujo `RuntimeTruthState.timestamp` é a marca temporal de atualização do estado em segundos desde epoch.
-- O Office Kit converte o timestamp para UTC e exige frescura máxima de 30 segundos. Timestamp ausente, futuro ou stale não pode ser promovido com a hora local.
+- O timestamp é a hora da última mutação de `RuntimeTruthState`, não um heartbeat nem a hora de geração do snapshot. A branch expõe-o apenas para diagnóstico; o adaptador permanece `synchronizing` até DGM-MAT fornecer um heartbeat ou snapshot timestamp verificável.
 - O adaptador continua read-only, loopback-only e com token de sessão injetado. Agentes/tarefas permanecem vazios até existir mapeamento validado; o snapshot não inventa atividade.
 - Os testes novos são unitários/fakes; CI/visual ainda pendentes nesta branch e não existe E2E contra o DGM-MAT ativo.
 - Bloqueios: ligar o bootstrap protegido a um credential vault/keystore nativo, confirmar a semântica temporal numa instância real e executar E2E sem efeitos laterais.
