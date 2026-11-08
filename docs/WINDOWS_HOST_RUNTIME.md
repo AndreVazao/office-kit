@@ -53,3 +53,5 @@ As ACLs distinguem diretórios e ficheiros: diretórios recebem permissões herd
 
 ## Startup reconciliation gate
 O host inicia uma promessa `ready` que reconcilia a identidade persistida antes de qualquer mutação exposta por `host.manager`. O CLI aguarda `host.ready` antes de executar o comando pedido. Se a reconciliação falhar, create/rotate/revoke falham sem executar a mutação; `close()` aguarda o resultado e liberta SQLite/lock mesmo em falha. O health continua a distinguir estado recuperado de estado degradado.
+
+Estados de reconciliação que não sejam `empty`, `active` ou `revoked` são considerados incompletos: health reporta `degraded`, a identidade persistida não é exposta e create/rotate/revoke ficam bloqueados. Um erro de reconciliação também bloqueia as operações.
