@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createWindowsHost } from "../src/index.mjs";
+import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
 
 function runtimeFactory() {
   let identity = null;
@@ -108,6 +108,32 @@ test("Windows host rejects non-Windows execution and relative storage paths", ()
       appDataPath: "relative",
       helperPath: "relative"
     }), /windows_host_app_data_path_must_be_absolute/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("Authenticode validation requires and pins the configured publisher thumbprint", () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-signer-"));
+  const helperPath = join(directory, "helper.exe");
+  writeFileSync(helperPath, "test helper");
+  const expectedThumbprint = "A".repeat(40);
+  let command;
+  try {
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ status: 0, stdout: "" }),
+      expectedThumbprint: ""
+    }), /windows_host_cng_signer_thumbprint_required/);
+    assert.equal(verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: (name, args) => {
+        command = { name, args };
+        return { status: 0, stdout: "" };
+      },
+      expectedThumbprint
+    }), true);
+    assert.equal(command.name, "powershell.exe");
+    assert.ok(command.args.at(-1).includes(expectedThumbprint));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
