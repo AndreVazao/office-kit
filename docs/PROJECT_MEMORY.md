@@ -270,3 +270,8 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Testes verificam ordem e fail-closed. CI/visual no HEAD final ainda pendentes.
 
 - A reconciliação de startup não basta apenas terminar sem exceção: só `empty`, `active` e `revoked` autorizam mutações. `cleanup_pending` mantém health degraded, oculta identidade e bloqueia create/rotate/revoke.
+
+### Portable Windows bundle — em desenvolvimento
+- Branch `feat/windows-portable-host-bundle` adiciona builder PowerShell e teste end-to-end no runner Windows. O pacote inclui node.exe, scene-engine, windows-host e helper CNG.
+- CI usa certificado efémero Code Signing, confia-o apenas no runner, assina o helper e testa create/reopen/rotate/revoke em processos separados.
+- Não é release assinada para utilizadores nem MSI/MSIX; signing comercial, instalação, upgrade/uninstall e PC físico continuam pendentes.
