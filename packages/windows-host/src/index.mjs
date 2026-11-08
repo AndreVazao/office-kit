@@ -252,12 +252,44 @@ export function createWindowsHost({
     throw error;
   }
 
+  const ready = Promise.resolve().then(() => runtime.manager.reconcile());
+  async function ensureReady() {
+    const result = await ready;
+    if (!["empty", "active", "revoked"].includes(result?.status)) {
+      throw new Error("windows_host_startup_reconciliation_incomplete");
+    }
+    return result;
+  }
+  const manager = Object.freeze({
+    create: async input => {
+      await ensureReady();
+      return runtime.manager.create(input);
+    },
+    rotate: async () => {
+      await ensureReady();
+      return runtime.manager.rotate();
+    },
+    revoke: async () => {
+      await ensureReady();
+      return runtime.manager.revoke();
+    },
+    getPublicIdentity: async () => {
+      await ensureReady();
+      return runtime.manager.getPublicIdentity();
+    },
+    reconcile: async () => {
+      await ensureReady();
+      return runtime.manager.reconcile();
+    }
+  });
+
   async function health() {
     if (closed) return Object.freeze({ status: "stopped", identityStatus: "unknown" });
-    const identity = await runtime.manager.getPublicIdentity();
+    await ready;
     const reconciliation = await runtime.manager.reconcile();
     const identityStatus = reconciliation.status;
     const healthy = identityStatus === "empty" || identityStatus === "active" || identityStatus === "revoked";
+    const identity = healthy ? await runtime.manager.getPublicIdentity() : null;
     return Object.freeze({
       status: healthy ? "ready" : "degraded",
       identityStatus,
@@ -276,6 +308,7 @@ export function createWindowsHost({
   async function close() {
     if (closed) return;
     closed = true;
+    try { await ready; } catch { /* Initialization failure must not leak the database or lock. */ }
     try { database.close(); }
     finally {
       releaseLock?.();
@@ -287,7 +320,8 @@ export function createWindowsHost({
     installationId,
     databasePath,
     helperPath,
-    manager: runtime.manager,
+    ready,
+    manager,
     health,
     close
   });

@@ -86,12 +86,12 @@ test("Windows host enforces a single process lock and releases it on close", asy
   }
 });
 
-test("Windows host refuses redirected or invalid installation metadata", () => {
+test("Windows host refuses redirected or invalid installation metadata", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-metadata-"));
   const appDataPath = join(directory, "OfficeKit");
   try {
     const host = setup(directory);
-    host.close();
+    await host.close();
     writeFileSync(join(appDataPath, "installation.json"), JSON.stringify({ installationId: "other" }));
     assert.throws(() => setup(directory), /windows_host_installation_id_corrupt/);
   } finally {
@@ -135,6 +135,101 @@ test("Authenticode validation requires and pins the configured publisher thumbpr
     assert.equal(command.name, "powershell.exe");
     assert.ok(command.args.at(-1).includes(expectedThumbprint));
   } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("host startup reconciliation completes before identity mutations are exposed", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-ready-"));
+  const events = [];
+  const runtimeFactory = () => ({
+    capabilities: Object.freeze({ providerId: "startup-test", persistent: true, hardwareBacked: false }),
+    manager: {
+      async reconcile() { events.push("reconcile"); return { status: "empty" }; },
+      async create(input) {
+        events.push("create");
+        return { organizationId: input.organizationId, nodeId: input.nodeId, generation: 1 };
+      },
+      async rotate() { events.push("rotate"); },
+      async revoke() { events.push("revoke"); },
+      async getPublicIdentity() { return null; }
+    }
+  });
+  let host;
+  try {
+    host = setup(directory, { runtimeFactory });
+    await host.manager.create({ organizationId: "office-kit-test", nodeId: "startup-node" });
+    assert.deepEqual(events, ["reconcile", "create"]);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("host fails closed when startup reconciliation cannot recover persisted identity state", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-reconcile-fail-"));
+  let mutationCalled = false;
+  const runtimeFactory = () => ({
+    capabilities: Object.freeze({ providerId: "startup-failure-test", persistent: true, hardwareBacked: false }),
+    manager: {
+      async reconcile() { throw new Error("startup_reconcile_failed"); },
+      async create() { mutationCalled = true; },
+      async rotate() {},
+      async revoke() {},
+      async getPublicIdentity() { return null; }
+    }
+  });
+  let host;
+  try {
+    host = setup(directory, { runtimeFactory });
+    await assert.rejects(host.manager.create({
+      organizationId: "office-kit-test",
+      nodeId: "blocked-node"
+    }), /startup_reconcile_failed/);
+    assert.equal(mutationCalled, false);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("host blocks mutations and hides identity while reconciliation remains pending", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-pending-"));
+  let mutationCalled = false;
+  const runtimeFactory = () => ({
+    capabilities: Object.freeze({ providerId: "startup-pending-test", persistent: true, hardwareBacked: false }),
+    manager: {
+      async reconcile() { return { status: "cleanup_pending" }; },
+      async create() { mutationCalled = true; },
+      async rotate() {},
+      async revoke() {},
+      async getPublicIdentity() {
+        return {
+          organizationId: "stale-org",
+          nodeId: "stale-node",
+          generation: 1,
+          algorithm: "ECDSA-P256-SHA256",
+          identityFingerprint: "stale-fingerprint"
+        };
+      }
+    }
+  });
+  let host;
+  try {
+    host = setup(directory, { runtimeFactory });
+    await assert.rejects(host.manager.create({
+      organizationId: "office-kit-test",
+      nodeId: "pending-node"
+    }), /windows_host_startup_reconciliation_incomplete/);
+    const health = await host.health();
+    assert.equal(health.status, "degraded");
+    assert.equal(health.identityStatus, "cleanup_pending");
+    assert.equal(health.identity, null);
+    assert.equal(mutationCalled, false);
+  } finally {
+    await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });

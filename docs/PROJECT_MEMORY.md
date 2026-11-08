@@ -264,3 +264,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Aguardam-se CI e regressão visual no mesmo HEAD; PC físico e release assinada continuam pendentes.
 
 - A validação real no Windows detetou e corrigiu uma falha na ACL: permissões herdáveis são usadas apenas em diretórios; ficheiros recebem permissões diretas. Aguardam-se novos resultados CI no HEAD atualizado.
+
+### Windows host startup reconciliation — em validação
+- Branch `fix/windows-host-startup-reconcile` garante reconcile antes de mutações. `host.ready` é aguardado pelo CLI e pelas operações manager; erro de recovery bloqueia mutações e não deixa DB/lock abertos.
+- Testes verificam ordem e fail-closed. CI/visual no HEAD final ainda pendentes.
+
+- A reconciliação de startup não basta apenas terminar sem exceção: só `empty`, `active` e `revoked` autorizam mutações. `cleanup_pending` mantém health degraded, oculta identidade e bloqueia create/rotate/revoke.
