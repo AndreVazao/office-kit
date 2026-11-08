@@ -148,9 +148,12 @@ function acquireProcessLock(path, now = Date.now, pid = process.pid) {
   const content = JSON.stringify({ pid, createdAt: now() }) + "\n";
   try {
     const descriptor = openSync(path, "wx", 0o600);
-    writeFileSync(descriptor, content);
-    fsyncSync(descriptor);
-    closeSync(descriptor);
+    try {
+      writeFileSync(descriptor, content);
+      fsyncSync(descriptor);
+    } finally {
+      closeSync(descriptor);
+    }
     return () => {
       try {
         const current = JSON.parse(readFileSync(path, "utf8"));
