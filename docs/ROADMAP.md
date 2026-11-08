@@ -252,7 +252,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Exigir provider de sessão local injetado; nunca ler bootstrap token, criar sessão ou armazenar credenciais no adaptador.
 - [x] Expor apenas capacidade `read_state`; timeout limitado, `no-store`, redirects bloqueados e polling serializado.
 - [x] Falhas 401/403 e erros de transporte falham fechados.
-- [x] Na branch `feat/dgmat-runtime-state-freshness`, usar `GET /runtime/state` e converter o `RuntimeTruthState.timestamp` de segundos para UTC.
+- [x] Na branch `feat/dgmat-runtime-state-freshness`, usar `GET /runtime/state` e expor o `RuntimeTruthState.timestamp` convertido para UTC apenas como diagnóstico da última mutação.
+- [ ] Obter um heartbeat ou timestamp de geração de snapshot explícito do DGM-MAT; não tratar a hora da última mutação como prova de frescura.
 - [x] Manter agentes/tarefas vazios enquanto não houver mapeamento de schema revisto; não inferir atividade.
 - [ ] Validar em CI e regressão visual no mesmo HEAD, incluindo snapshots frescos, stale, timestamp ausente e futuro.
 - [ ] Ligar o host à sessão local DGM-MAT através de credential vault/keystore persistente e bootstrap protegido.
