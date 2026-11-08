@@ -246,19 +246,21 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Evoluir o pacote de código-fonte para instaladores reais desktop/mobile quando o launcher e packaging estiverem implementados.
 
 
-## Integração DGM-MAT — primeiro adaptador GET-only (2026-11-04)
+## Integração DGM-MAT — adaptador GET-only e frescura de estado (2026-11-08)
 - [x] Criar adaptador DGM-MAT isolado do core Universal, compatível com Adapter Contract v1.
-- [x] Restringir endpoint HTTP a loopback e caminhos GET explicitamente allowlisted (`/runtime/status`).
+- [x] Restringir endpoint HTTP a loopback e caminhos GET explicitamente allowlisted.
 - [x] Exigir provider de sessão local injetado; nunca ler bootstrap token, criar sessão ou armazenar credenciais no adaptador.
 - [x] Expor apenas capacidade `read_state`; timeout limitado, `no-store`, redirects bloqueados e polling serializado.
 - [x] Falhas 401/403 e erros de transporte falham fechados.
-- [ ] Ligar o host à sessão local DGM-MAT através de keystore persistente e bootstrap protegido.
-- [ ] Obter do DGM-MAT uma marca temporal/freshness watermark autoritativa para validar estado sincronizado.
-- [ ] Executar testes E2E contra o DGM-MAT ativo no PC e confirmar leitura sem efeitos laterais.
+- [x] Na branch `feat/dgmat-runtime-state-freshness`, usar `GET /runtime/state` e converter o `RuntimeTruthState.timestamp` de segundos para UTC.
+- [x] Manter agentes/tarefas vazios enquanto não houver mapeamento de schema revisto; não inferir atividade.
+- [ ] Validar em CI e regressão visual no mesmo HEAD, incluindo snapshots frescos, stale, timestamp ausente e futuro.
+- [ ] Ligar o host à sessão local DGM-MAT através de credential vault/keystore persistente e bootstrap protegido.
+- [ ] Confirmar a semântica do timestamp numa instância real e executar E2E no PC sem efeitos laterais.
 - [ ] Integrar o resumo verificado no Office UI sem confundir telemetria com agentes ativos.
-- [ ] Implementar depois o adaptador VST em branch separado.
+- [ ] Implementar o adaptador VST de leitura em incremento separado.
 
-**Estado:** adaptador inicial e testes unitários em revisão; ligação operacional real ainda bloqueada pelo provider seguro de sessão e pela ausência de watermark de frescura no endpoint consultado.
+**Estado:** código e testes unitários/fakes preparados numa branch de trabalho; CI/visual ainda pendentes. Não existe ligação operacional real até existir keystore nativo e E2E com DGM-MAT ativo.
 
 
 ### DGM-MAT adapter hardening (2026-11-04)
