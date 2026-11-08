@@ -186,14 +186,14 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 ` literais); corrigido no branch antes da nova validação.
 
 
-## Adaptador DGM-MAT GET-only — branch em revisão
-- Adicionado `packages/scene-engine/src/dgmat-readonly-adapter.mjs`, compatível com o contrato de adaptadores v1.
-- Endpoint limitado a loopback HTTP, rotas GET allowlisted `/runtime/status` apenas, token de sessão curto fornecido por provider seguro externo.
-- Não faz bootstrap, pairing, armazenamento de credenciais, WebSocket ou chamadas de escrita. Capacidade única: `read_state`.
-- Polling serializado com intervalo configurável e timeout limitado; 401/403, redirects e respostas inesperadas falham fechados.
-- A resposta atual `/runtime/status` não tem watermark de frescura de origem. O adaptador mantém o snapshot como `synchronizing` e não publica agentes/tarefas como confirmados.
-- Testes unitários cobrem loopback, sessão injetada, GET-only, allowlist, sanitização, estado não verificado e rejeição de sessão.
-- Pendente: provider real de sessão ligado ao keystore seguro, watermark autoritativo, testes E2E no PC com DGM-MAT ativo e validação CI/visual no HEAD final. Não declarar integração operacional antes disso.
+## Adaptador DGM-MAT GET-only — freshness do estado em implementação
+- O adaptador `packages/scene-engine/src/dgmat-readonly-adapter.mjs` mantém API v1 e capacidade única `read_state`, limitado a HTTP loopback na porta 8181.
+- A branch `feat/dgmat-runtime-state-freshness` troca a leitura de `/runtime/status` por `GET /runtime/state`, classificado como `local-client`, porque a resposta serializada inclui `RuntimeTruthState.timestamp`.
+- O timestamp de origem é convertido de segundos para UTC; snapshots só são sincronizados dentro de 30 segundos. Ausência, futuro ou idade excessiva não são substituídos pelo relógio local como prova de frescura.
+- O adaptador mantém agentes/tarefas vazios até existir mapeamento de schema validado; só expõe campos de resumo explicitamente allowlisted.
+- Bootstrap continua fora do adaptador: sessão curta injetada, token apenas em memória, GET-only, polling serializado, timeout, `no-store`, redirects bloqueados e fail-closed em 401/403.
+- Testes unitários/fakes cobrem endpoint, token injetado, timestamp fresco/stale/ausente/futuro, sanitização e rejeição de sessão. CI/visual da branch ainda pendentes; não existe E2E com o PC DGM-MAT ativo.
+- Pendente: keystore/credential vault nativo para o bootstrap protegido, validação CI/visual no mesmo HEAD, E2E no PC e confirmação da semântica temporal com instância real.
 
 
 ## DGM-MAT endpoint security hardening — 2026-11-04
