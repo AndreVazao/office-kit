@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -28,18 +28,13 @@ function fakeRuntime() {
   };
 }
 
-function readAclSids(path) {
-  const escaped = path.replace(/'/g, "''");
-  const script = `(Get-Acl -LiteralPath '${escaped}').Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }`;
-  const result = spawnSync("powershell.exe", [
-    "-NoLogo",
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    script
-  ], { encoding: "utf8", windowsHide: true });
+function readAclDump(directory, outputPath) {
+  const result = spawnSync("icacls.exe", [directory, "/save", outputPath, "/T", "/C"], {
+    encoding: "utf8",
+    windowsHide: true
+  });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  return new Set(result.stdout.split(/\r?\n/).map(value => value.trim()).filter(Boolean));
+  return readFileSync(outputPath, "utf8");
 }
 
 test("Windows host applies real user and SYSTEM ACLs to installation data", {
@@ -64,16 +59,16 @@ test("Windows host applies real user and SYSTEM ACLs to installation data", {
     });
     assert.equal((await host.health()).identityStatus, "empty");
 
-    const paths = [
-      appDataPath,
-      join(appDataPath, "data"),
-      join(appDataPath, "installation.json"),
-      host.databasePath
-    ];
-    for (const path of paths) {
-      const sids = readAclSids(path);
-      assert.ok(sids.has(userSid), "current user ACL missing from " + path);
-      assert.ok(sids.has("S-1-5-18"), "SYSTEM ACL missing from " + path);
+    const aclDumpPath = join(directory, "office-kit-acl.dump");
+    const aclDump = readAclDump(appDataPath, aclDumpPath);
+    const entries = aclDump.split(/\\r?\\n/);
+    for (const name of ["data", "installation.json", "office-kit.sqlite"]) {
+      const entry = entries.find(line => line.includes(name));
+      assert.ok(entry, "ACL dump missing " + name);
+      assert.ok(entry.includes(userSid), "current user SID missing from " + name);
+      assert.ok(entry.includes("S-1-5-18"), "SYSTEM SID missing from " + name);
+    }
+    for (const path of [appDataPath, join(appDataPath, "data"), join(appDataPath, "installation.json"), host.databasePath]) {
       const verification = spawnSync("icacls.exe", [path, "/verify"], {
         encoding: "utf8",
         windowsHide: true
