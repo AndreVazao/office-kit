@@ -1,7 +1,6 @@
 const DEFAULT_BASE_URL = "http://127.0.0.1:8181";
 const SOURCE_ID = "dgm-mat";
 const ALLOWED_PATHS = new Set(["/runtime/state"]);
-const DEFAULT_SNAPSHOT_TTL_MS = 30_000;
 
 const isLoopbackUrl = value => {
   try {
@@ -23,9 +22,9 @@ const boundedText = (value, fallback = "unknown") =>
  * Read-only DGM-MAT adapter.
  *
  * The host injects an access-token provider backed by its secure local session
- * manager. The adapter consumes the timestamped runtime state endpoint, keeps
- * agent/task collections empty until their source schema is explicitly mapped,
- * and never issues non-GET requests.
+ * manager. The adapter reads the serialized runtime state but treats its
+ * timestamp as the last state mutation, not as a heartbeat or snapshot time.
+ * It therefore never promotes the response to synchronized/live state.
  */
 export class DgmMatReadOnlyAdapter {
   constructor({
@@ -35,8 +34,7 @@ export class DgmMatReadOnlyAdapter {
     fetchImpl = globalThis.fetch,
     now = () => Date.now(),
     timeoutMs = 5_000,
-    pollIntervalMs = 5_000,
-    snapshotTtlMs = DEFAULT_SNAPSHOT_TTL_MS
+    pollIntervalMs = 5_000
   } = {}) {
     if (!isLoopbackUrl(baseUrl)) throw new TypeError("dgm_mat_loopback_http_endpoint_required");
     if (typeof getAccessToken !== "function") throw new TypeError("dgm_mat_secure_session_provider_required");
@@ -49,9 +47,6 @@ export class DgmMatReadOnlyAdapter {
     if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 1_000 || pollIntervalMs > 60_000) {
       throw new TypeError("pollIntervalMs must be between 1000 and 60000");
     }
-    if (!Number.isSafeInteger(snapshotTtlMs) || snapshotTtlMs < 1_000 || snapshotTtlMs > 30_000) {
-      throw new TypeError("snapshotTtlMs must be between 1000 and 30000");
-    }
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.getAccessToken = getAccessToken;
     this.invalidateAccessToken = invalidateAccessToken;
@@ -59,7 +54,6 @@ export class DgmMatReadOnlyAdapter {
     this.now = now;
     this.timeoutMs = timeoutMs;
     this.pollIntervalMs = pollIntervalMs;
-    this.snapshotTtlMs = snapshotTtlMs;
     this.apiVersion = 1;
     this.metadata = Object.freeze({ id: SOURCE_ID, name: "DGM-MAT read-only adapter", version: "0.2.0" });
     this.capabilities = Object.freeze(["read_state"]);
@@ -118,41 +112,47 @@ export class DgmMatReadOnlyAdapter {
     if (!Number.isFinite(receivedAt) || Math.abs(receivedAt) > 8_640_000_000_000_000) {
       throw new Error("dgm_mat_clock_invalid");
     }
-    const sourceTimestampSeconds = typeof state.timestamp === "number" && Number.isFinite(state.timestamp)
-      && !Object.is(state.timestamp, -0) && state.timestamp > 0 && state.timestamp <= 8_640_000_000_000
+
+    const sourceTimestampSeconds = typeof state.timestamp === "number"
+      && Number.isFinite(state.timestamp)
+      && !Object.is(state.timestamp, -0)
+      && state.timestamp > 0
+      && state.timestamp <= 8_640_000_000_000
       ? state.timestamp
       : null;
     const sourceTimestampMs = sourceTimestampSeconds === null ? null : sourceTimestampSeconds * 1000;
-    const ageMs = sourceTimestampMs === null ? null : receivedAt - sourceTimestampMs;
-    const timestampValid = sourceTimestampMs !== null && Number.isFinite(sourceTimestampMs)
-      && sourceTimestampMs > 0 && ageMs >= 0;
-    const fresh = timestampValid && ageMs <= this.snapshotTtlMs;
-    const generatedAt = timestampValid ? new Date(sourceTimestampMs).toISOString() : new Date(receivedAt).toISOString();
-    const freshness = sourceTimestampMs === null
-      ? "missing_timestamp"
-      : !timestampValid
-        ? "invalid_timestamp"
-        : fresh ? "fresh" : "stale";
+    const sourceAgeMs = sourceTimestampMs === null ? null : receivedAt - sourceTimestampMs;
+    const timestampValid = sourceTimestampMs !== null
+      && Number.isFinite(sourceTimestampMs)
+      && sourceTimestampMs > 0
+      && sourceTimestampMs <= 8_640_000_000_000_000;
+    const mutationAge = !timestampValid
+      ? "unavailable"
+      : sourceAgeMs < 0
+        ? "future_or_clock_skew"
+        : sourceAgeMs <= 30_000 ? "recent_mutation" : "older_mutation";
 
     return {
       schemaVersion: 1,
       sourceId: SOURCE_ID,
       snapshotId: "dgm-mat-" + (sourceTimestampMs ?? "unavailable") + "-" + (++this.snapshotSequence),
-      generatedAt,
-      connectionState: "connected",
-      synchronized: fresh,
+      generatedAt: new Date(receivedAt).toISOString(),
+      connectionState: "synchronizing",
+      synchronized: false,
       agents: [],
       tasks: [],
       backend: {
+        transportReachable: true,
         runtimeStatus: boundedText(state.runtime_status),
         systemState: boundedText(state.system_state),
         bootPhase: boundedText(state.boot_phase),
         nodeStatus: boundedText(state.node_status),
         degraded: typeof state.is_degraded === "boolean" ? state.is_degraded : null,
-        sourceTimestamp: sourceTimestampMs === null ? null : new Date(sourceTimestampMs).toISOString(),
-        sourceAgeMs: ageMs,
-        freshness,
-        freshnessTtlMs: this.snapshotTtlMs,
+        sourceStateUpdatedAt: timestampValid ? new Date(sourceTimestampMs).toISOString() : null,
+        sourceStateMutationAgeMs: timestampValid ? sourceAgeMs : null,
+        sourceStateMutationAge: mutationAge,
+        sourceTimestampSemantics: "last_state_mutation_not_snapshot_heartbeat",
+        sourceSnapshotFreshness: "unverified",
         receivedAt: new Date(receivedAt).toISOString()
       }
     };
@@ -234,7 +234,8 @@ export const dgmMatAdapterContract = Object.freeze({
   allowedMethods: Object.freeze(["GET"]),
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
   sourceTimestampField: "timestamp",
-  defaultSnapshotTtlMs: DEFAULT_SNAPSHOT_TTL_MS,
+  sourceTimestampSemantics: "last_state_mutation_not_snapshot_heartbeat",
+  sourceSnapshotFreshnessVerified: false,
   requiresInjectedSecureSession: true,
   remotePairingSupported: false
 });
