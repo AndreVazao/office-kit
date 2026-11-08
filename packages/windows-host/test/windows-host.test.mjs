@@ -193,3 +193,43 @@ test("host fails closed when startup reconciliation cannot recover persisted ide
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+
+test("host blocks mutations and hides identity while reconciliation remains pending", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-pending-"));
+  let mutationCalled = false;
+  const runtimeFactory = () => ({
+    capabilities: Object.freeze({ providerId: "startup-pending-test", persistent: true, hardwareBacked: false }),
+    manager: {
+      async reconcile() { return { status: "cleanup_pending" }; },
+      async create() { mutationCalled = true; },
+      async rotate() {},
+      async revoke() {},
+      async getPublicIdentity() {
+        return {
+          organizationId: "stale-org",
+          nodeId: "stale-node",
+          generation: 1,
+          algorithm: "ECDSA-P256-SHA256",
+          identityFingerprint: "stale-fingerprint"
+        };
+      }
+    }
+  });
+  let host;
+  try {
+    host = setup(directory, { runtimeFactory });
+    await assert.rejects(host.manager.create({
+      organizationId: "office-kit-test",
+      nodeId: "pending-node"
+    }), /windows_host_startup_reconciliation_incomplete/);
+    const health = await host.health();
+    assert.equal(health.status, "degraded");
+    assert.equal(health.identityStatus, "cleanup_pending");
+    assert.equal(health.identity, null);
+    assert.equal(mutationCalled, false);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
