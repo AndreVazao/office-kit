@@ -189,7 +189,7 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 ## Adaptador DGM-MAT GET-only — freshness do estado em implementação
 - O adaptador `packages/scene-engine/src/dgmat-readonly-adapter.mjs` mantém API v1 e capacidade única `read_state`, limitado a HTTP loopback na porta 8181.
 - A branch `feat/dgmat-runtime-state-freshness` troca a leitura de `/runtime/status` por `GET /runtime/state`, classificado como `local-client`, porque a resposta serializada inclui `RuntimeTruthState.timestamp`.
-- O timestamp de origem é convertido de segundos para UTC; snapshots só são sincronizados dentro de 30 segundos. Ausência, futuro ou idade excessiva não são substituídos pelo relógio local como prova de frescura.
+- `RuntimeTruthState.timestamp` é a hora da última mutação do estado, não um heartbeat nem a hora de geração da resposta. É exposto apenas como diagnóstico; o adaptador mantém `synchronizing` e nunca promove o snapshot a live com esse campo.
 - O adaptador mantém agentes/tarefas vazios até existir mapeamento de schema validado; só expõe campos de resumo explicitamente allowlisted.
 - Bootstrap continua fora do adaptador: sessão curta injetada, token apenas em memória, GET-only, polling serializado, timeout, `no-store`, redirects bloqueados e fail-closed em 401/403.
 - Testes unitários/fakes cobrem endpoint, token injetado, timestamp fresco/stale/ausente/futuro, sanitização e rejeição de sessão. CI/visual da branch ainda pendentes; não existe E2E com o PC DGM-MAT ativo.
