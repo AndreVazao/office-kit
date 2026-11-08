@@ -395,3 +395,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Reconcile persisted identity at host startup before create/rotate/revoke.
 - [x] Fail closed on startup recovery errors and release DB/process lock during shutdown.
 - [ ] Pass CI Linux/Windows and visual regression on the exact PR HEAD.
+
+## Windows portable distribution
+- [x] Bundle Node.js runtime, Windows host modules and CNG helper into a portable directory.
+- [ ] Pass CI end-to-end test using an ephemeral trusted signing certificate on Windows.
+- [ ] Add release signing using a protected publisher certificate and verify signer thumbprint.
+- [ ] Build MSI/MSIX installer with start/health/uninstall and explicit data retention.
+- [ ] Validate upgrade/rollback, backup/restore and physical-PC installation.
