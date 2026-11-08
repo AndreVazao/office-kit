@@ -37,7 +37,7 @@ function Invoke-OfficeKitHost {
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
   $escapedLauncher = $launcherPath.Replace("'", "''")
-  $command = "& '" + $escapedLauncher + "' " + ($Arguments -join " ")
+  $command = "& '" + $escapedLauncher + "' " + ($Arguments -join " ") + "; exit $LASTEXITCODE"
   foreach ($argument in @("-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", $command)) {
     $null = $startInfo.ArgumentList.Add($argument)
   }
