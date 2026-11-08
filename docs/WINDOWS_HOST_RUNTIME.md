@@ -16,10 +16,11 @@ O host não inicia rede, descoberta, telemetria, federation, backend adapter, en
 
 ## Uso de desenvolvimento
 
-Requer Windows, Node.js 22.5+ com `node:sqlite`, helper CNG publicado e assinado por um certificado confiável no computador:
+Requer Windows, Node.js 22.5+ com `node:sqlite`, helper CNG publicado e assinado por um certificado confiável no computador. O publisher é fixado por `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` (thumbprint SHA-1 de 40 caracteres):
 
 ```powershell
 $env:OFFICE_KIT_CNG_HOST_PATH = "C:\Program Files\Office Kit\OfficeKit.CngHost.exe"
+$env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = "<40-character trusted publisher certificate thumbprint>"
 node packages/windows-host/src/cli.mjs health
 node packages/windows-host/src/cli.mjs create-identity --organization-id=andre-vazao --node-id=office-pc-01
 node packages/windows-host/src/cli.mjs rotate-identity
