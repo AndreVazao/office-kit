@@ -360,3 +360,4 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Rejeitar eventos agent/task incrementais enquanto não existir contrato de patch/estado autoritativo.
 - [ ] Definir schema de patches versionado e aplicar atualizações incrementais com testes de snapshot reconciliation.
 - [ ] Integrar autenticação/credenciais/transport no host desktop sem permitir comandos no modo inicial read-only.
+\n\n## Windows native identity runtime\n- [x] Compor `NodeIdentityManager` com Windows CNG P-256, metadata SQLite e replay store SQLite numa factory específica da plataforma.\n- [ ] Testar reinício do manager/processo, persistência da identidade, replay one-time, rotação/revogação e falha/recuperação no runner Windows.\n- [ ] Ligar ao futuro host desktop; não assumir que a factory substitui ACLs, gestão do ficheiro SQLite, instalação do helper ou ciclo de vida do launcher.\n
