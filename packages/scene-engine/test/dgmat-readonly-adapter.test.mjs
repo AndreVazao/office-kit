@@ -22,7 +22,7 @@ const freshState = (overrides = {}) => ({
   ...overrides
 });
 
-test("requires a loopback endpoint, injected secure session provider and bounded freshness TTL", () => {
+test("requires a loopback endpoint and injected secure session provider", () => {
   const tokenProvider = async () => "abcdefghijklmnop";
   for (const baseUrl of [
     "http://192.168.1.20:8181",
@@ -35,7 +35,6 @@ test("requires a loopback endpoint, injected secure session provider and bounded
   }
   assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: tokenProvider, baseUrl: "https://127.0.0.1:8181" }), /loopback/);
   assert.throws(() => new DgmMatReadOnlyAdapter(), /secure_session_provider/);
-  assert.throws(() => new DgmMatReadOnlyAdapter({ getAccessToken: tokenProvider, snapshotTtlMs: 30_001 }), /snapshotTtlMs/);
 });
 
 test("uses the timestamped runtime state endpoint with authenticated GET only", async () => {
@@ -58,7 +57,7 @@ test("uses the timestamped runtime state endpoint with authenticated GET only", 
   await adapter.disconnect();
 });
 
-test("maps only allowlisted runtime metadata and verifies a fresh source timestamp", async () => {
+test("exposes source mutation time for diagnostics but never claims a live snapshot", async () => {
   const adapter = new DgmMatReadOnlyAdapter({
     now: () => fixedNow,
     getAccessToken: async () => "secure-session-token-123",
@@ -66,16 +65,20 @@ test("maps only allowlisted runtime metadata and verifies a fresh source timesta
   });
   await adapter.connect();
   const snapshot = await adapter.getSnapshot();
-  assert.equal(snapshot.connectionState, "connected");
-  assert.equal(snapshot.synchronized, true);
+  assert.equal(snapshot.connectionState, "synchronizing");
+  assert.equal(snapshot.synchronized, false);
   assert.equal(snapshot.generatedAt, new Date(fixedNow).toISOString());
+  assert.equal(snapshot.backend.transportReachable, true);
   assert.equal(snapshot.backend.runtimeStatus, "running");
   assert.equal(snapshot.backend.systemState, "READY");
   assert.equal(snapshot.backend.bootPhase, "COMPLETE");
   assert.equal(snapshot.backend.nodeStatus, "ONLINE");
   assert.equal(snapshot.backend.degraded, false);
-  assert.equal(snapshot.backend.freshness, "fresh");
-  assert.equal(snapshot.backend.sourceAgeMs, 0);
+  assert.equal(snapshot.backend.sourceStateUpdatedAt, new Date(fixedNow).toISOString());
+  assert.equal(snapshot.backend.sourceStateMutationAgeMs, 0);
+  assert.equal(snapshot.backend.sourceStateMutationAge, "recent_mutation");
+  assert.equal(snapshot.backend.sourceTimestampSemantics, "last_state_mutation_not_snapshot_heartbeat");
+  assert.equal(snapshot.backend.sourceSnapshotFreshness, "unverified");
   assert.deepEqual(snapshot.agents, []);
   assert.deepEqual(snapshot.tasks, []);
   assert.equal("private_agent" in snapshot.backend, false);
@@ -84,23 +87,24 @@ test("maps only allowlisted runtime metadata and verifies a fresh source timesta
   await adapter.disconnect();
 });
 
-test("marks old runtime state stale instead of promoting the request time", async () => {
+test("an old state mutation timestamp does not imply a stale transport or promote activity", async () => {
   const adapter = new DgmMatReadOnlyAdapter({
     now: () => fixedNow,
-    snapshotTtlMs: 30_000,
     getAccessToken: async () => "secure-session-token-123",
     fetchImpl: async () => response(freshState({ timestamp: fixedNow / 1000 - 31 }))
   });
   await adapter.connect();
   const snapshot = await adapter.getSnapshot();
+  assert.equal(snapshot.connectionState, "synchronizing");
   assert.equal(snapshot.synchronized, false);
-  assert.equal(snapshot.backend.freshness, "stale");
-  assert.equal(snapshot.backend.sourceAgeMs, 31_000);
-  assert.equal(snapshot.generatedAt, new Date(fixedNow - 31_000).toISOString());
+  assert.equal(snapshot.backend.transportReachable, true);
+  assert.equal(snapshot.backend.sourceStateMutationAgeMs, 31_000);
+  assert.equal(snapshot.backend.sourceStateMutationAge, "older_mutation");
+  assert.equal(snapshot.backend.sourceSnapshotFreshness, "unverified");
   await adapter.disconnect();
 });
 
-test("missing and future source timestamps remain unverified", async () => {
+test("missing and future source mutation timestamps remain unverified", async () => {
   for (const state of [
     freshState({ timestamp: undefined }),
     freshState({ timestamp: fixedNow / 1000 + 60 })
@@ -113,7 +117,8 @@ test("missing and future source timestamps remain unverified", async () => {
     await adapter.connect();
     const snapshot = await adapter.getSnapshot();
     assert.equal(snapshot.synchronized, false);
-    assert.notEqual(snapshot.backend.freshness, "fresh");
+    assert.equal(snapshot.backend.sourceSnapshotFreshness, "unverified");
+    assert.notEqual(snapshot.backend.sourceStateMutationAge, "recent_mutation");
     await adapter.disconnect();
   }
 });
@@ -140,10 +145,12 @@ test("refuses missing or malformed session tokens", async () => {
   await assert.rejects(adapter.connect(), /session_unavailable/);
 });
 
-test("publishes only read-only route and freshness contract metadata", () => {
+test("publishes only read-only route and honest source timestamp semantics", () => {
   assert.deepEqual(dgmMatAdapterContract.allowedMethods, ["GET"]);
   assert.deepEqual(dgmMatAdapterContract.allowedPaths, ["/runtime/state"]);
   assert.equal(dgmMatAdapterContract.sourceTimestampField, "timestamp");
+  assert.equal(dgmMatAdapterContract.sourceTimestampSemantics, "last_state_mutation_not_snapshot_heartbeat");
+  assert.equal(dgmMatAdapterContract.sourceSnapshotFreshnessVerified, false);
   assert.equal(dgmMatAdapterContract.requiresInjectedSecureSession, true);
   assert.equal(dgmMatAdapterContract.remotePairingSupported, false);
 });
