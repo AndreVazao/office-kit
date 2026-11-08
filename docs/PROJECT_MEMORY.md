@@ -232,3 +232,16 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - A integração cobre create/prove, fecho/reabertura SQLite, recriação do manager, persistência da identidade, replay rejection e revoke. A persistência CNG entre processos helper foi validada separadamente na PR #44. Não foi testado restart do processo host nem do sistema.
 - O host continua dono da conexão/ficheiro SQLite, ACLs, cifragem, backups, instalação do helper e lifecycle. O Microsoft Software KSP é OS-protected/software-backed, nunca declarar TPM/hardware-backed.
 - Próximo bloqueio: construir o host/launcher Windows e instalador, definir ACL/backup/restore, validar instalação/desinstalação e executar teste no PC físico. Providers macOS, Linux, Android e browser persistente continuam pendentes.
+
+
+### Windows runtime integration contract
+- The Windows runtime factory is composed and exported only from `windows.mjs`. The host owns the SQLite connection, per-installation database path, ACLs, helper signature/trust, backups, shutdown and uninstall retention choice.
+- `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` records the host lifecycle and security boundary. The native test now includes rotation and old-key cleanup across database reopen.
+- CNG Software KSP remains OS-protected, not TPM-backed. Desktop launcher/installer and physical-PC validation remain outstanding.
+
+
+### Windows identity rotation — PR #48
+- PR #48 acrescenta rotação real ao teste composto CNG + SQLite: valida nova geração/keyId/fingerprint, remoção da chave antiga, persistência após reabrir a base, prova com a nova chave, replay rejection da challenge anterior, revoke e reconciliação após nova reabertura.
+- Code HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`: CI `42484745984` passou em Linux/Windows; integração Windows explícita 1/1. Visual `42484745951` passou, seis screenshots no artifact `13618319943`, sem erros de browser.
+- O novo `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` define a fronteira do futuro host: startup/reconcile, health, SQLite/ACL, trust do helper, shutdown e política explícita de retenção no uninstall. Não é um host instalado.
+- Próximo bloqueio: implementar launcher/host e instalador, testar cleanup interrompido, ACL/assinatura/backup/restore, upgrade/uninstall e PC físico. Não declarar o produto pronto.
