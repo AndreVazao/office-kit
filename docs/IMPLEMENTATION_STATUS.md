@@ -333,6 +333,6 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Requisito do host: Windows + Node.js 22.5+ (`node:sqlite`). O pacote não é importado pelo core genérico nem pela preview.
 
 ### Windows host — integração nativa de ACL/trust em CI
-- Acrescentado teste Windows-only que executa `whoami`, `icacls` e PowerShell reais; verifica ACL efetiva do utilizador atual e SYSTEM na pasta de instalação, pasta de dados, installation metadata e SQLite.
+- Acrescentado teste Windows-only que executa `whoami`, `icacls` e icacls/SDDL reais; verifica ACL efetiva do utilizador atual e SYSTEM na pasta de instalação, pasta de dados, installation metadata e SQLite.
 - O teste separado usa `Get-AuthenticodeSignature` real e confirma rejeição de helper sem assinatura. O cenário de ACL injeta apenas a aceitação do helper para não depender de certificado de release.
 - A validação está pendente até o runner Windows executar o novo HEAD. Não equivale a PC físico, assinatura de release ou instalador.
