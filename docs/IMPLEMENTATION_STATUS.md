@@ -38,7 +38,8 @@ This page records implemented work separately from planned or independently veri
 
 ## Verification
 GitHub Actions run #122, ID 41308561429, completed successfully for the core checks. Visual regression run #42, ID 41308561426, completed successfully on commit 5467eb4822f7f31436645d1355073e0233bbe3a9 and produced artifact 13084118255; the portrait chat screenshot was manually inspected and confirms the corrected capture timing. After the corrected-import commit, CI run #134 passed and visual run #54 passed. The SVG shell integration is in commits 287901f and 2e622cd. Visual regression runs #61 and #62 (commit 86e0f6356d97de413ba1188c75e377b3a4b8b4f2) completed successfully and produced artifact 13086102640; manual inspection confirms the SVG shell renders in portrait, landscape and desktop. The renderer focus-offset alignment improvement is in commit cc293c1737e34224f49438bfd13b4b20ca0729fa. PR #2 merged after CI and visual regression both passed on latest commit 436e79e5fa5044811e8065e66fa2ec6a73ea1c0f. The follow-up branch adds explicit visual assertions for selected-department details and overview reset; its fresh CI/visual checks are pending. Earlier run #120 and visual run #40 remain historical evidence for the prior state. Earlier historical run records are retained below.
-GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.\nGitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). GitHub Actions run #70, ID 41292191794, completed successfully for the centered-layout fix and source-level regression tests on commit f13f8233348134fc741e032ae5d170349d3d28ba. Visual regression run #2, ID 41293249440, succeeded and produced screenshot artifact ID 13077921682; all three viewport screenshots were inspected. This verifies the current preview layout only, not the final angular cutaway design or physical devices. The later focus-zoom/reset test additions still await CI.
+GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970246aebc3abcb2d8203a64b8a1c2983afc. Syntax checks, all core/scene-engine/profile tests, and example JSON parsing passed after the preview integration.
+GitHub Actions run #62, ID 41291442920, completed successfully for the preview quality-selector changes (commit 55031c9456533a579de459cdc7ead87a92b5edd3). GitHub Actions run #70, ID 41292191794, completed successfully for the centered-layout fix and source-level regression tests on commit f13f8233348134fc741e032ae5d170349d3d28ba. Visual regression run #2, ID 41293249440, succeeded and produced screenshot artifact ID 13077921682; all three viewport screenshots were inspected. This verifies the current preview layout only, not the final angular cutaway design or physical devices. The later focus-zoom/reset test additions still await CI.
 
 ## Design rules
 - The core is authoritative for configuration and state interpretation; renderers consume its outputs.
@@ -169,9 +170,9 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - PR #17 integrado: `docs/SECURE_STORAGE.md` define os requisitos de providers persistentes para Windows, macOS, Linux, Android e browser; continua a ser especificação, não implementação nativa.
 - O ciclo de vida revisionado está em `main`: `NodeKeyStoreProvider.hasKey/getCapabilities`, metadata CAS, rejeição de providers efémeros/exportáveis em produção, limpeza de chaves após falhas, tombstones e reconciliação de pendências.
 - PR #33 integrada: `SqliteNodeIdentityMetadataStore` persiste metadados públicos e handles opacos, isolados por `installationId`; não armazena chaves privadas.
-- A store SQLite recebe uma conexão do host. Ainda não existe provider persistente de chaves para Windows CNG/DPAPI, macOS Keychain, Linux Secret Service, Android Keystore ou browser CryptoKey.
+- A store SQLite recebe uma conexão do host. O provider `WindowsCngP256KeyStore` e o helper .NET já fornecem chaves ECDSA P-256 persistentes, não exportáveis e isoladas por installation ID no Microsoft Software KSP; `createWindowsNodeIdentityRuntime` compõe esse provider com metadata e replay stores SQLite apenas no entrypoint Windows. O host continua responsável pela conexão/ficheiro SQLite, ACLs, cifragem, backups e ciclo de vida do helper. macOS Keychain, Linux Secret Service/PKCS#11, Android Keystore e browser CryptoKey persistente continuam por implementar.
 - `EphemeralEd25519KeyStore` é exclusivo de testes/sessões efémeras e é rejeitado em configuração de produção.
-- Branch `feat/sqlite-identity-manager-integration`: acrescenta testes de integração do manager com SQLite, recriação do manager após reabertura da base e reconciliação de limpeza pendente. O provider de chaves é deliberadamente efémero/test-only; não é prova de reinício real do processo nem de armazenamento seguro por plataforma. CI/visual ainda pendentes.
+- PR #36 integrada: testes de integração do manager com SQLite real, reabertura da base e reconciliação de limpeza pendente. O provider de chaves usado nessa suite era deliberadamente efémero/test-only; a validação posterior do provider CNG persistente e da factory Windows está registada abaixo.
 
 
 ## Pipelines de build por edição — adicionados ao branch ativo
@@ -181,7 +182,8 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Cada workflow executa `npm run check` antes do empacotamento e publica o artifact correspondente durante 14 dias.
 - Limite: estes artifacts são source packages perfilados, não instaladores Windows/Android nem prova de integração real com DGM-MAT/VST.
 - Não executar os workflows automaticamente a cada commit. A validação de cada pacote será iniciada manualmente em marcos estratégicos.
-- A CI automática existente do PR #19 detetou um defeito real no teste de perfis (sequências `\\n` literais); corrigido no branch antes da nova validação.
+- A CI automática existente do PR #19 detetou um defeito real no teste de perfis (sequências `\
+` literais); corrigido no branch antes da nova validação.
 
 
 ## Adaptador DGM-MAT GET-only — branch em revisão
@@ -293,3 +295,12 @@ GitHub Actions run #50, ID 41291148536, completed successfully on commit 5a96970
 - Falhas na obtenção do snapshot limpam a subscrição e desligam o adaptador. Desconexão explícita limpa sequência e identidade de sessão.
 - Testes adicionados para lacunas, troca de sessão, eventos incrementais, eventos durante startup, overflow, cleanup e reconnect. CI/visual ainda pendentes no HEAD da PR.
 - A bridge não autentica adaptadores, não implementa patches de agentes/tarefas e não envia comandos. O host deve autenticar/autorizar antes de fornecer o adaptador; capacidade inicial continua read-only.
+
+
+### Windows identity runtime composition — PR #46 validada
+- A factory `createWindowsNodeIdentityRuntime` compõe o CNG P-256 persistente, `SqliteNodeIdentityMetadataStore` e `SqliteNodeIdentityChallengeStore`; é exportada apenas por `windows.mjs`, mantendo o entrypoint genérico/browser-neutral sem dependências Node nativas.
+- PR #46 validada no HEAD `77669de98b42bdc6bcf1d866797cc6ef1a066707`: CI run `42483528564` passou em Linux e Windows; o job Windows publicou o helper .NET e passou os testes explícitos de CNG e runtime identity (1/1 cada). A suite geral registou 157 pass, 0 fail e 2 skips antes desses testes nativos serem executados explicitamente com o helper configurado.
+- Regressão visual run `42483528517` passou no mesmo HEAD, gerou seis capturas desktop/landscape/portrait com e sem chat (artifact `13618816020`) e reportou `browserErrors: []`. Inspeção manual das capturas não encontrou regressão; a vista geral portrait continua com o edifício pequeno, dívida visual anterior a esta alteração.
+- O teste da factory cria identidade, prova posse, fecha/reabre SQLite, recria o manager, confirma a identidade, rejeita replay e revoga. A integração CNG já tinha validado persistência da chave entre processos helper na PR #44. Isto não equivale a reinício do processo host ou do sistema.
+- O helper usa Microsoft Software KSP: proteção OS-level/software-backed, `hardwareBacked=false`; não é TPM.
+- Continuam fora do âmbito desta PR: launcher/host desktop, instalador/desinstalador, ACLs e backup/restore do ficheiro SQLite, teste no PC físico e integração de adaptadores autenticados.

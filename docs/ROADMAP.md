@@ -313,15 +313,15 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 ### Atualização — integração do manager com metadata SQLite
 - [x] Store SQLite para metadados públicos, isolado por `installationId` e com CAS revisionado (PR #33).
 - [x] PR #36 integrada: validar `NodeIdentityManager` com a store após reabertura da base e ciclo create/prove/rotate/reconcile/revoke (CI e visual verdes no HEAD `4a95875df759c7df37701568a5910bd7abb62125`; usa keystore efémero no mesmo processo, não provider nativo).
-- [ ] Implementar keystore persistente real no Windows (CNG/DPAPI/Windows Credential Manager), sem exportar chaves privadas.
+- [x] Implementar provider persistente Windows CNG P-256, com chave privada não exportável no Microsoft Software KSP (PR #44); DPAPI/Windows Credential Manager não são usados por este provider.
 - [x] Validar recuperação após terminação abrupta de processo durante transação SQLite WAL, com verificação do último estado confirmado e `PRAGMA integrity_check` (PR #37; CI/visual verdes no HEAD `6b99b093a0912d705cea551f8bcf3e020ef584ab`).
 - [ ] Validar perda física de energia/falha de armazenamento, ACLs, cifragem, backup/restore e recuperação no host Windows.
 
 
 ### Validação do ciclo de vida SQLite — PR #36 integrada
 - [x] Testar create, leitura da identidade pública, prova de posse, rotate, reconcile e revoke com SQLite real em ficheiro temporário e reabertura da DB.
-- [ ] Repetir com keystore persistente real após encerramento/reinício do processo Windows.
-- [ ] Implementar e testar provider nativo Windows CNG/DPAPI; manter chaves privadas fora da SQLite.
+- [x] Validar a factory com CNG persistente e SQLite reaberta, recriando o `NodeIdentityManager` e verificando replay/revoke no runner Windows (PR #46); o restart do processo host completo continua pendente.
+- [x] Implementar/testar provider nativo Windows CNG e manter chaves privadas fora da SQLite (PR #44); DPAPI é alternativa não implementada, não requisito do provider CNG.
 
 
 ### Identidade e federação — replay protection
@@ -336,7 +336,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Validar a seleção explícita entre Ed25519 e ECDSA P-256/SHA-256 no mesmo HEAD em Linux e Windows (PR #42, HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`, CI 150/150 por runner e regressão visual verde; squash merge `5212c3044bf890cc924180c6030012d55647d5f9`).
 - [x] Implementar provider Windows CNG persistente com chave privada não exportável no Microsoft Software KSP; integração validada em runner Windows (PR #44).
 - [x] Testar persistência entre processos, sign/verify, export refusal, delete e isolamento de installation IDs no runner Windows.
-- [ ] Testar reinício do sistema, rotação/revogação via NodeIdentityManager, falhas de cleanup e capacidades do provider no host desktop/PC físico.
+- [x] Testar create/prove/recriação do manager/replay/revoke com CNG + SQLite no runner Windows (PR #46).\n- [ ] Testar rotação, falhas de cleanup, restart do processo host/sistema e capacidades no desktop/PC físico.
 - [ ] Definir migração explícita de algoritmo para identidades já emitidas; nunca trocar algoritmo silenciosamente.
 
 
@@ -349,7 +349,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ### Providers nativos e isolamento de runtime
 - [x] Separar o entrypoint Windows CNG do entrypoint genérico/browser para impedir que dependências Node nativas contaminem Universal e a pré-visualização web.
-- [ ] Validar CI Windows/Linux e regressão visual no mesmo HEAD após a separação.
+- [x] Validar CI Windows/Linux e regressão visual no mesmo HEAD `77669de98b42bdc6bcf1d866797cc6ef1a066707` (PR #46; CI `42483528564`, visual `42483528517`).
 - [ ] Integrar provider CNG com o host desktop e instalador Windows, incluindo ACLs, atualização e limpeza de chaves.
 
 
@@ -360,3 +360,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Rejeitar eventos agent/task incrementais enquanto não existir contrato de patch/estado autoritativo.
 - [ ] Definir schema de patches versionado e aplicar atualizações incrementais com testes de snapshot reconciliation.
 - [ ] Integrar autenticação/credenciais/transport no host desktop sem permitir comandos no modo inicial read-only.
+
+
+## Windows native identity runtime
+- [x] Compor `NodeIdentityManager` com Windows CNG P-256, metadata SQLite e replay store SQLite numa factory específica da plataforma.
+- [x] Validar create/prove, fecho/reabertura SQLite, recriação do manager, persistência da identidade, replay rejection e revoke no runner Windows (PR #46, HEAD `77669de98b42bdc6bcf1d866797cc6ef1a066707`; CI `42483528564`, visual `42483528517`).
+- [ ] Testar rotação e falhas de cleanup no runtime composto, restart do processo host/sistema e recuperação no PC físico.
+- [ ] Ligar a factory ao host desktop/launcher e instalador; o host mantém responsabilidade por ACLs, gestão do ficheiro SQLite, instalação do helper e ciclo de vida do processo.

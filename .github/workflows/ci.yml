@@ -36,3 +36,8 @@ jobs:
         env:
           OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
         run: node --test packages/scene-engine/test/windows-cng-p256-keystore.integration.test.mjs
+      - name: Exercise persistent Windows node identity runtime
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}/artifacts/windows-cng/OfficeKit.CngHost.exe
+        run: node --test packages/scene-engine/test/windows-node-identity-runtime.integration.test.mjs
