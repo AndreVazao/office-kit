@@ -1,17 +1,16 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   closeSync,
   existsSync,
-  fstatSync,
   mkdirSync,
   openSync,
   readFileSync,
-  realpathSync,
+  lstatSync,
   rmSync,
   statSync,
   writeFileSync
 } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
@@ -104,11 +103,11 @@ export function verifyAuthenticodeHelper(helperPath, { spawnImpl = spawnSync } =
 
 function ensureRealDirectory(path) {
   mkdirSync(path, { recursive: true, mode: 0o700 });
+  const linkInfo = lstatSync(path);
+  if (linkInfo.isSymbolicLink()) throw new Error("windows_host_data_path_redirected");
   const info = statSync(path);
   if (!info.isDirectory()) throw new Error("windows_host_data_path_not_directory");
-  const real = realpathSync(path);
-  if (resolve(real) !== resolve(path)) throw new Error("windows_host_data_path_redirected");
-  return real;
+  return resolve(path);
 }
 
 function readOrCreateInstallationId(path, makeId = randomUUID) {
@@ -207,6 +206,8 @@ export function createWindowsHost({
     ensureRealDirectory(root);
     const userSid = resolveUserSid();
     applyAcl(root, userSid);
+    releaseLock = acquireProcessLock(lockPath, now);
+    applyAcl(lockPath, userSid);
     ensureRealDirectory(dataDirectory);
     applyAcl(dataDirectory, userSid);
     if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
@@ -214,8 +215,6 @@ export function createWindowsHost({
 
     const installationId = readOrCreateInstallationId(identityPath, makeId);
     applyAcl(identityPath, userSid);
-    releaseLock = acquireProcessLock(lockPath, now);
-    applyAcl(lockPath, userSid);
 
     database = databaseFactory(databasePath);
     database.exec("PRAGMA journal_mode = WAL");
