@@ -16,7 +16,6 @@ import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
-const LOCK_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function assertWindows(platform) {
   if (platform !== "win32") throw new Error("windows_host_requires_windows");
@@ -154,9 +153,6 @@ function acquireProcessLock(path, now = Date.now, pid = process.pid) {
     } catch (probeError) {
       if (probeError?.message === "windows_host_already_running") throw probeError;
       if (probeError?.code !== "ESRCH") throw new Error("windows_host_lock_owner_unknown");
-    }
-    if (Number.isSafeInteger(current.createdAt) && now() - current.createdAt < LOCK_STALE_AFTER_MS) {
-      throw new Error("windows_host_lock_recent_stale");
     }
     rmSync(path, { force: true });
     return acquireProcessLock(path, now, pid);
