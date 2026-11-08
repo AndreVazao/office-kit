@@ -336,3 +336,5 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Acrescentado teste Windows-only que executa `whoami`, `icacls` e icacls reais; verifica ACL efetiva do utilizador atual e SYSTEM na pasta de instalação, pasta de dados, installation metadata e SQLite.
 - O teste separado usa `Get-AuthenticodeSignature` real e confirma rejeição de helper sem assinatura. O cenário de ACL injeta apenas a aceitação do helper para não depender de certificado de release.
 - A validação está pendente até o runner Windows executar o novo HEAD. Não equivale a PC físico, assinatura de release ou instalador.
+
+- Correção encontrada pela integração nativa: ACLs de diretório usam herança `(OI)(CI)F`; ACLs de ficheiros usam `F` direto. A regra anterior podia deixar ficheiros sem ACE efetiva. A nova execução Windows deve confirmar o SID do utilizador e SYSTEM em ambos.
