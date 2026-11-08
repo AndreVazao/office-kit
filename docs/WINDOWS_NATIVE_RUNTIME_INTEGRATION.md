@@ -46,6 +46,6 @@ The returned object exposes `manager`, `keyStore`, `metadataStore`, `challengeSt
 ## Validation status
 
 - [x] Native Windows runner: create, sign/verify, SQLite close/reopen, manager recreation, replay rejection, rotate, old-key deletion, post-restart proof, revoke and post-revoke reconciliation. PR #48 code HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`; CI `42484745984`, visual `42484745951`.
-- [ ] Injected cleanup failure and interrupted-cleanup recovery in the composed runtime.
+- [x] Injected rotation-delete and revoke-delete failures, then reopened SQLite and recovered with a fresh manager and the real CNG helper (PR #50, code HEAD `2d62835a4e2e58187205b523b4b4bb27feb21155`; CI `42485145796`). This is provider-boundary fault injection, not a physical OS/storage failure.
 - [ ] Installer: per-user ACL verification, helper signature verification, upgrade/rollback, health check, uninstall with both retain/delete choices.
 - [ ] Physical PC: validate on a supported Windows installation and verify recovery after forced process termination. CI is not a substitute for this.

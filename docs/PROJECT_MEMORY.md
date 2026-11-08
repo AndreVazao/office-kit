@@ -245,3 +245,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Code HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`: CI `42484745984` passou em Linux/Windows; integração Windows explícita 1/1. Visual `42484745951` passou, seis screenshots no artifact `13618319943`, sem erros de browser.
 - O novo `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` define a fronteira do futuro host: startup/reconcile, health, SQLite/ACL, trust do helper, shutdown e política explícita de retenção no uninstall. Não é um host instalado.
 - Próximo bloqueio: implementar launcher/host e instalador, testar cleanup interrompido, ACL/assinatura/backup/restore, upgrade/uninstall e PC físico. Não declarar o produto pronto.
+
+
+### Windows cleanup recovery — PR #50
+- PR #50 testa dois caminhos de falha: delete da chave antiga falha após commit de rotação; delete da chave ativa falha depois de gravar o tombstone de revoke. Em ambos os casos, SQLite é fechada/reaberta, o manager é recriado e `reconcile()` recupera o estado com o helper CNG real.
+- Code HEAD `2d62835a4e2e58187205b523b4b4bb27feb21155`: CI `42485145796` passou em Linux/Windows; no runner Windows, 2/2 cenários compostos e o teste CNG 1/1 passaram. Visual `42485145823` passou com seis capturas e sem erros de browser.
+- As falhas são injetadas no método do provider; não provam falha real de ACL, disco, CNG/OS, perda de energia ou restart do host. Continuam pendentes launcher/installer, ACL/backup/restore e validação física.
