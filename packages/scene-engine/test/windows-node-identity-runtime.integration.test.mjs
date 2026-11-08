@@ -66,6 +66,17 @@ test("Windows runtime persists identity and one-time challenges across manager r
     );
     assert.equal((await runtime.manager.reconcile()).status, "active");
     await assert.rejects(runtime.manager.provePossession(challenge), /challenge_replayed_or_already_consumed/);
+
+    const rotated = await runtime.manager.rotate();
+    assert.equal(rotated.generation, identity.generation + 1);
+    assert.notEqual(rotated.identityFingerprint, identity.identityFingerprint);
+    assert.equal(await runtime.keyStore.hasKey(identity.keyId), false);
+
+    database.close();
+    database = new DatabaseSync(filename);
+    runtime = createWindowsNodeIdentityRuntime({ database: sqliteAdapter(database), installationId, hostExecutable });
+    assert.equal((await runtime.manager.reconcile()).status, "active");
+    assert.equal((await runtime.manager.getPublicIdentity()).identityFingerprint, rotated.identityFingerprint);
     assert.equal(await runtime.manager.revoke(), true);
     assert.equal(await runtime.manager.getPublicIdentity(), null);
   } finally {

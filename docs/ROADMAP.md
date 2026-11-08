@@ -367,3 +367,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Validar create/prove, fecho/reabertura SQLite, recriação do manager, persistência da identidade, replay rejection e revoke no runner Windows (PR #46, HEAD `77669de98b42bdc6bcf1d866797cc6ef1a066707`; CI `42483528564`, visual `42483528517`).
 - [ ] Testar rotação e falhas de cleanup no runtime composto, restart do processo host/sistema e recuperação no PC físico.
 - [ ] Ligar a factory ao host desktop/launcher e instalador; o host mantém responsabilidade por ACLs, gestão do ficheiro SQLite, instalação do helper e ciclo de vida do processo.
+
+
+## Windows host integration contract
+- [x] Document the future host composition API, startup reconciliation, health states, lifecycle, ACL boundary and uninstall retention behavior.
+- [x] Extend native integration coverage to rotation, old-key deletion and reopened-database persistence.
+- [ ] Implement the actual desktop host/launcher and signed helper installation.
+- [ ] Validate ACLs, upgrade/rollback, health and uninstall on Windows runner and physical PC.
