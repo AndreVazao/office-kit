@@ -263,15 +263,17 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 **Estado:** código e testes unitários/fakes preparados numa branch de trabalho; CI/visual ainda pendentes. Não existe ligação operacional real até existir keystore nativo e E2E com DGM-MAT ativo.
 
 
-### DGM-MAT adapter hardening (2026-11-04)
-- [x] Merge initial GET-only adapter (PR #20).
-- [ ] Restrict the adapter to the exact loopback service origin and remove unused route allowance (PR #21).
-- [ ] Implement secure host session provider and persistent OS-keystore integration.
-- [ ] Add authoritative freshness metadata and run live DGM-MAT PC E2E.
+### DGM-MAT adapter hardening — estado atualizado
+- [x] Integrar adaptador GET-only inicial (PR #20).
+- [x] Restringir a origem a HTTP loopback na porta 8181 e allowlist exata (PR #21).
+- [x] Integrar provider de sessão local com bootstrap injetado e token de sessão apenas em memória (PR #22).
+- [ ] Ligar o provider a credential vault/keystore nativo para o bootstrap protegido.
+- [x] Implementar consumo de timestamp de origem em `GET /runtime/state` na branch `feat/dgmat-runtime-state-freshness`.
+- [ ] Validar freshness em CI/visual no HEAD final e E2E com DGM-MAT ativo no PC.
 
 
-## DGM-MAT local session provider — 2026-11-04
-- New branch `feat/dgmat-local-session-provider` implements `DgmMatLocalSessionProvider` for the documented `POST /auth/session` contract.
+## DGM-MAT local session provider — integrado pela PR #22
+- A PR #22 integrou `DgmMatLocalSessionProvider` para o contrato documentado `POST /auth/session`.
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
 - Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
