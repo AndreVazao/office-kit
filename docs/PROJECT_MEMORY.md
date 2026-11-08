@@ -245,3 +245,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Code HEAD `1b856195ada69de5fbb0ab64b7c82d736aafdacb`: CI `42484745984` passou em Linux/Windows; integração Windows explícita 1/1. Visual `42484745951` passou, seis screenshots no artifact `13618319943`, sem erros de browser.
 - O novo `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` define a fronteira do futuro host: startup/reconcile, health, SQLite/ACL, trust do helper, shutdown e política explícita de retenção no uninstall. Não é um host instalado.
 - Próximo bloqueio: implementar launcher/host e instalador, testar cleanup interrompido, ACL/assinatura/backup/restore, upgrade/uninstall e PC físico. Não declarar o produto pronto.
+
+
+### Windows local host runtime — incremento em desenvolvimento
+- Branch `feat/windows-native-host-lifecycle` cria o primeiro composition root local Windows: diretório privado, ACL por SID, installation ID persistente, lock de processo, SQLite WAL/FULL, verificação Authenticode do helper, factory CNG+SQLite, reconcile e health.
+- O CLI oferece apenas ações locais explícitas: health/create/rotate/revoke; startup não cria identidade nem abre rede.
+- Testes automatizados usam SQLite real e injeção para runtime/ACL/trust. Não equivalem a validar ACLs do Windows, certificado de distribuição ou PC físico.
+- Bloqueio para execução real: helper CNG precisa de assinatura Authenticode confiável; o artefacto CI ainda não está assinado. Sem MSI/MSIX, assinatura de release, upgrade/rollback e backup/restore, não declarar instalável.
