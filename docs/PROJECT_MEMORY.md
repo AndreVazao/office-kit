@@ -101,13 +101,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ` literais e provocava SyntaxError na CI anterior.
 
 
-## DGM-MAT adapter — incremento 2026-11-04
-- Branch ativo: `feat/dgmat-readonly-adapter`, criado a partir do merge `d0471453dfa890b83cd67acb0a83360c36cd9319` do PR #19.
-- Primeiro adaptador em `packages/scene-engine/src/dgmat-readonly-adapter.mjs`, API v1, `read_state` apenas. Loopback HTTP only; GET allowlist `/runtime/status` apenas; token de sessão fornecido por provider injetado; timeout, `no-store`, redirect error, polling serializado e sem escrita.
-- O adaptador não acede ao bootstrap token do DGM-MAT, não inicia sessões, não faz pairing e não persiste tokens. Host secure-session provider ainda por implementar.
-- A rota `/runtime/status` atual não oferece source timestamp/watermark de sincronização verificável. O snapshot é deliberadamente `synchronizing` e não confirma atividade de agentes/tarefas. Não contornar esta limitação com timestamps locais.
-- Testes em `packages/scene-engine/test/dgmat-readonly-adapter.test.mjs`. CI/visual PR ainda pendentes; live E2E aguarda PC/keystore/provider.
-- Próxima prioridade: concluir e verificar este PR, depois implementar provider de sessão seguro/keystore e obter freshness watermark; só então validar a integração no DGM-MAT ativo. VST adapter virá em incremento separado.
+## DGM-MAT adapter — atualização 2026-11-08
+- O adaptador DGM-MAT GET-only está integrado na main; a evolução atual está na branch `feat/dgmat-runtime-state-freshness`, baseada no HEAD `e35ac346f663dbf7b1fe8e1fc80f740286174848`.
+- A branch muda a leitura principal para `GET /runtime/state` (scope `local-client`), cujo `RuntimeTruthState.timestamp` é a marca temporal de atualização do estado em segundos desde epoch.
+- O Office Kit converte o timestamp para UTC e exige frescura máxima de 30 segundos. Timestamp ausente, futuro ou stale não pode ser promovido com a hora local.
+- O adaptador continua read-only, loopback-only e com token de sessão injetado. Agentes/tarefas permanecem vazios até existir mapeamento validado; o snapshot não inventa atividade.
+- Os testes novos são unitários/fakes; CI/visual ainda pendentes nesta branch e não existe E2E contra o DGM-MAT ativo.
+- Bloqueios: ligar o bootstrap protegido a um credential vault/keystore nativo, confirmar a semântica temporal numa instância real e executar E2E sem efeitos laterais.
 
 
 ## DGM-MAT endpoint security hardening — 2026-11-04
@@ -202,7 +202,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Inspeção manual das capturas: layout e painel de chat renderizam nos três viewports; o edifício continua pequeno na vista geral portrait e os avatares permanecem placeholders CSS. Não é regressão introduzida por PR #41 e continua como dívida visual.
 - O CI Windows é runner nativo Windows, não teste de instalação/desinstalação numa máquina física. SQLite Node continua a emitir aviso de funcionalidade experimental; actions/checkout e setup-node emitem aviso de runtime Node 20 deprecado.
 - PR #42 foi squash-merged após CI run `42384699834` e visual run `42384699857` passarem no HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`. Os dois runners executaram 150/150 testes, 0 falhas e 0 skips; o teste adicional confirma que metadados legados sem algoritmo continuam Ed25519 e não migram silenciosamente para P-256. Merge SHA `5212c3044bf890cc924180c6030012d55647d5f9`; CI pós-merge `42384818786` e visual pós-merge `42384818767` passaram no mesmo SHA de main. EphemeralP256KeyStore continua apenas para testes; nenhum provider persistente nativo foi implementado.
-- PR #25 feat/adapter-runtime-bridge permanece draft e divergiu de main (7 commits ahead, 25 behind no último compare). O seu AdapterRuntimeBridge parece sobreposto pelo AdapterGateway já integrado; não fazer merge direto. Reconciliar o comportamento único e os testes antes de decidir fechar ou recuperar a branch.
+- PR #25 `feat/adapter-runtime-bridge` foi fechada sem merge; a implementação paralela foi substituída pelo `AdapterGateway` da main. Os invariantes de buffer de startup, limite de eventos, sequência, binding de sessão e cleanup estão cobertos por `adapter-gateway.test.mjs` e foram integrados na PR #45. Não recuperar a classe duplicada.
 - Universal continua sem dependência obrigatória de DGM-MAT/VST. Os perfis DGM-MAT e VST mantêm allowlists e namespaces próprios; o adaptador DGM-MAT existe em modo read-only e o adaptador VST concreto continua por implementar.
 
 
