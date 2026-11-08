@@ -109,7 +109,14 @@ function ensureRealDirectory(path) {
   return resolve(path);
 }
 
+function rejectRedirectedFile(path) {
+  if (existsSync(path) && lstatSync(path).isSymbolicLink()) {
+    throw new Error("windows_host_data_file_redirected");
+  }
+}
+
 function readOrCreateInstallationId(path, makeId = randomUUID) {
+  rejectRedirectedFile(path);
   if (existsSync(path)) {
     const value = JSON.parse(readFileSync(path, "utf8"));
     if (!INSTALLATION_ID_PATTERN.test(value?.installationId ?? "")) {
@@ -212,7 +219,9 @@ export function createWindowsHost({
     const installationId = readOrCreateInstallationId(identityPath, makeId);
     applyAcl(identityPath, userSid);
 
+    rejectRedirectedFile(databasePath);
     database = databaseFactory(databasePath);
+    applyAcl(databasePath, userSid);
     database.exec("PRAGMA journal_mode = WAL");
     database.exec("PRAGMA synchronous = FULL");
     database.exec("PRAGMA foreign_keys = ON");
