@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -82,6 +82,13 @@ test("Windows host applies real user and SYSTEM ACLs to installation data", {
     }
   } finally {
     await host?.close();
+    if (existsSync(appDataPath)) {
+      const reset = spawnSync("icacls.exe", [appDataPath, "/reset", "/T", "/C"], {
+        encoding: "utf8",
+        windowsHide: true
+      });
+      assert.equal(reset.status, 0, reset.stderr || reset.stdout);
+    }
     rmSync(directory, { recursive: true, force: true });
   }
 });
