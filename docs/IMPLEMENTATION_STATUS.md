@@ -317,3 +317,10 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - A suite geral registou 157 pass, 0 fail e 2 skips antes do teste Windows-only ser executado explicitamente com o helper configurado; o teste nativo explícito passou com 1 pass, 0 fail e 0 skips. O teste CNG separado também passou.
 - Regressão visual run `42484745951` passou no mesmo HEAD, gerou seis capturas desktop/landscape/portrait com e sem chat (artifact `13618319943`) e reportou `browserErrors: []`.
 - `docs/WINDOWS_NATIVE_RUNTIME_INTEGRATION.md` é um contrato para um futuro host, não implementação de launcher/installer. Continuam pendentes falhas de cleanup/recovery, ACLs reais, assinatura/trust do helper, upgrade/rollback, uninstall, backup/restore, restart do processo host/sistema e validação no PC físico.
+
+
+### Windows cleanup failure/recovery — PR #50 validated
+- PR #50 code HEAD `2d62835a4e2e58187205b523b4b4bb27feb21155`: CI run `42485145796` passou em Linux e Windows; no runner Windows, o teste composto executou 2 cenários (rotação/replay/revoke e recuperação de cleanup) com 2 pass, 0 fail, 0 skips. O teste CNG nativo separado passou 1/1.
+- O novo cenário injeta falhas no limite do provider durante a remoção da chave antiga na rotação e durante revoke; depois fecha/reabre SQLite, cria runtime novo e usa o helper CNG real para reconciliar. A identidade fica ativa após recuperar a rotação; a revogação fica concluída após recuperar a remoção. Isto é fault injection do contrato do provider, não simulação de falha física do Windows, disco ou ACL.
+- A suite geral registou 157 pass, 0 fail e 3 skips antes dos testes Windows-only serem executados explicitamente com o helper configurado. Regressão visual run `42485145823` passou no mesmo HEAD, seis capturas (artifact `13619182381`), `browserErrors: []`.
+- Continuam pendentes host/launcher, instalador, ACL/assinatura reais, backup/restore, upgrade/uninstall, falhas físicas de armazenamento, restart do processo host/sistema e PC físico.
