@@ -64,7 +64,7 @@ test("secret-like evidence is redacted before persistence or export", async () =
 
 test("recovery is limited to local scopes and requires a fresh consistent snapshot", async () => {
   const calls = [];
-  const { engine } = fixture({
+  const { engine, store } = fixture({
     recoveryActions: [
       { id: "restart-adapter", scope: "local_adapter", run: async () => { calls.push("adapter"); return { ok: true }; } },
       { id: "renew-session", scope: "local_session", run: async () => { calls.push("session"); return { ok: true }; } }
@@ -75,6 +75,8 @@ test("recovery is limited to local scopes and requires a fresh consistent snapsh
   assert.deepEqual(calls, ["adapter", "session"]);
   const passed = await engine.attemptRecovery({ verifyFreshSnapshot: async () => ({ ok: true, fresh: true, consistent: true }) });
   assert.equal(passed.status, "recovered");
+  const incidents = await store.list();
+  assert.equal(incidents.length, 0);
 });
 
 test("rejects external backend write or service restart recovery scopes", () => {
