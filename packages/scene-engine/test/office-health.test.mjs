@@ -113,3 +113,39 @@ test("incident store returns isolated copies and supports portable JSON export",
   assert.equal(JSON.parse(await store.export()).incidents.length, 1);
   assert.ok(officeHealthContract.layers.includes("backend"));
 });
+
+test("diagnostic probes and local recovery actions are bounded by deadlines", async () => {
+  const store = new InMemoryIncidentStore();
+  const engine = new OfficeHealthRecoveryEngine({
+    incidentStore: store,
+    probeTimeoutMs: 10,
+    recoveryTimeoutMs: 10,
+    probes: [{
+      id: "transport-hangs",
+      layer: "transport",
+      run: async () => new Promise(() => {})
+    }],
+    recoveryActions: [{
+      id: "local-reconnect-hangs",
+      scope: "local_session",
+      run: async () => new Promise(() => {})
+    }]
+  });
+  const report = await engine.diagnose();
+  assert.equal(report.status, "degraded");
+  assert.equal(report.origin, "indeterminate");
+  assert.equal(report.results[0].code, "timeout");
+  const recovery = await engine.attemptRecovery({
+    verifyFreshSnapshot: async () => new Promise(() => {})
+  });
+  assert.equal(recovery.recovered, false);
+  assert.equal(recovery.attempts[0].code, "timeout");
+  assert.equal(recovery.verification.code, "fresh_snapshot_verification_timeout");
+});
+
+test("rejects unsafe diagnostic and recovery timeout configuration", () => {
+  const store = new InMemoryIncidentStore();
+  const probes = [{ id: "runtime", layer: "office_runtime", run: async () => ({ ok: true }) }];
+  assert.throws(() => new OfficeHealthRecoveryEngine({ incidentStore: store, probes, probeTimeoutMs: 0 }), /probe_timeout_out_of_range/);
+  assert.throws(() => new OfficeHealthRecoveryEngine({ incidentStore: store, probes, recoveryTimeoutMs: 90_000 }), /recovery_timeout_out_of_range/);
+});
