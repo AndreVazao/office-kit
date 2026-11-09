@@ -317,3 +317,17 @@ O pacote `packages/windows-host` fornece o primeiro host local executável para 
 O helper só é aceite quando a assinatura Authenticode é válida. O host reconcilia a identidade antes de reportar health e encerra a base de dados/lock de forma explícita. O arranque não cria identidade, não inicia listeners, não descobre backends e não executa comandos remotos. As operações de identidade são ações locais explícitas.
 
 O CLI depende de Windows e Node.js 22.5+ (`node:sqlite`). A implementação não inclui ainda instalador, certificado de release, serviço Windows, UI, atualização/rollback ou backup/restore. O helper gerado no CI ainda não tem assinatura confiável; por isso, os testes injetam o verificador e não alegam que o artefacto CI pode ser executado pelo host de produção.
+## Office Health & Recovery, Social Simulation and Adaptive Rendering
+
+The architecture separates five authorities:
+- SocialSimulationEngine owns local, non-operational avatar behavior when no confirmed backend work is available.
+- BackendActivityEngine owns only fresh snapshots/events/progress supplied by the selected adapter.
+- OfficeHealthRecoveryEngine performs layered diagnostics, incident persistence/redaction and bounded local recovery.
+- AdaptiveRenderingEngine renders a shared scene/behavior model through advanced 3D, low-poly, pixel or minimal renderers.
+- OfficeStateManager arbitrates per-agent/per-department state and prevents simulated activity from being represented as backend work.
+
+### Failure attribution and recovery
+Diagnostics probe the Office Kit runtime first, then adapter health, transport/network and backend health where the selected adapter exposes authorized read-only capabilities. Results carry evidence, timestamp, confidence and classification (confirmed, probable, indeterminate). A timeout or missing response alone cannot prove which party failed. Incident storage is local-first, exportable and secret-redacted. Recovery is bounded, rate-limited and idempotent; it may revalidate local config, rediscover configured/authorized endpoints, restart the local adapter, renew an authorized session and reconnect. It must obtain a fresh coherent snapshot before returning to healthy. It cannot rotate user credentials, bypass auth, issue backend writes or restart external services without explicit authorization.
+
+### Simulation/rendering separation
+Social simulation uses variable pseudo-random decisions and durations, route/interaction constraints and optional seeded randomness for reproducible tests. It runs independently from the render loop and backend transport. A low frame rate must not freeze behavior decisions. Renderer tiers alter visual fidelity and resource cost only; they do not remove semantic actions. Runtime profiling uses hysteresis and a manual override, with independent renderer/backend resource budgets. Simulated state remains visibly labelled and is never used as evidence of task execution or completion.
