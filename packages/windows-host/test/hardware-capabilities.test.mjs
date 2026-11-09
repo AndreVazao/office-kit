@@ -57,3 +57,15 @@ test("reports failed CPU and memory probes without preventing startup", () => {
   assert.ok(facts.detectionWarnings.includes("cpu_probe_failed"));
   assert.ok(facts.detectionWarnings.includes("total_memory_probe_failed"));
 });
+
+test("default OS metadata uses detected platform strings rather than provider function text", () => {
+  const facts = detectHostHardwareCapabilities({
+    storageProbe: () => ({ bavail: 1, bsize: 1024 }),
+    graphicsProbe: () => null,
+    displayProbe: () => null,
+    clock: () => 0
+  });
+  assert.match(facts.os, new RegExp(process.platform));
+  assert.doesNotMatch(facts.os, /function\s+(platform|release)/);
+  assert.ok(facts.architecture.length > 0);
+});
