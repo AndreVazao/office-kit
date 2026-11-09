@@ -1,11 +1,22 @@
-import { chooseSocialActivity, validateOfficeConfig } from "../../packages/core/src/index.mjs";
-import { calculateSceneLayout } from "../../packages/scene-engine/src/index.mjs";
+import { validateOfficeConfig } from "../../packages/core/src/index.mjs";
+import { calculateSceneLayout, SocialSimulationEngine } from "../../packages/scene-engine/src/index.mjs";
 import { calculateDioramaGeometry } from "../../packages/scene-engine/src/diorama.mjs";
 import { resolveQualityProfile } from "../../packages/scene-engine/src/quality.mjs";
 
 const response = await fetch("../minimal-office.json");
 if (!response.ok) throw new Error("Não foi possível carregar a configuração de demonstração.");
 const config = await response.json();
+const socialAgents = config.departments.flatMap(department =>
+  (department.agents || []).map(agent => ({
+    id: agent.id,
+    name: agent.name,
+    departmentId: department.id
+  }))
+);
+const socialSimulation = new SocialSimulationEngine({ agents: socialAgents });
+let socialSnapshot = socialSimulation.snapshot();
+const socialStates = new Map(socialSnapshot.agents.map(agent => [agent.agentId, agent]));
+const agentNodes = new Map();
 const validation = validateOfficeConfig(config);
 if (!validation.valid) throw new Error(validation.errors.join("\n"));
 
@@ -44,22 +55,24 @@ function updateQuality() {
     : "Perfil selecionado manualmente; afeta apenas efeitos da pré-visualização CSS nesta fase.";
 }
 const names = {
-  "at-desk": "Na secretária",
-  walking: "A caminhar",
-  "coffee-break": "Pausa para café",
-  "looking-at-clock": "A consultar o relógio",
-  chatting: "A conversar",
-  "balcony-break": "Pausa na varanda",
-  resting: "Em pausa"
+  work_at_desk: "A trabalhar no computador",
+  use_whiteboard: "A usar o quadro",
+  coffee_break: "Pausa para café",
+  smoke_break: "Pausa na varanda",
+  walk: "A circular pelo escritório",
+  conversation: "A conversar com um colega",
+  greet_colleague: "A cumprimentar um colega",
+  rest: "Em pausa"
 };
-let tick = 0;
 let paused = false;
 let selectedZoom = Number(zoomControl.value) / 100;
 let focusedDepartmentId = null;
 document.querySelector("#office-name").textContent = config.name;
 document.querySelector("#agent-count").textContent = config.departments.reduce((n, d) => n + (d.agents || []).length, 0) + " personagens";
-document.querySelector(".status span:last-child").textContent = config.backend && config.backend.enabled ? "Backend declarado · estado não verificado" : "Simulação local · não verificado";
-document.querySelector(".status").setAttribute("aria-label", "Estado da demonstração: nenhum estado operacional foi confirmado por um backend");
+document.querySelector(".status span:last-child").textContent = config.backend && config.backend.enabled
+  ? "Backend declarado · ligação não verificada"
+  : "OFFLINE — movimento social simulado; sem backend";
+document.querySelector(".status").setAttribute("aria-label", "Estado da demonstração: não existe comunicação backend confirmada; a atividade dos avatares é simulação social local");
 
 function updateSceneLayout() {
   const rect = viewport.getBoundingClientRect();
@@ -114,6 +127,7 @@ function updateSceneLayout() {
 function render() {
   floors.replaceChildren();
   buttons.replaceChildren();
+  agentNodes.clear();
   for (const dept of [...config.departments].sort((a, b) => (b.floor || 0) - (a.floor || 0))) {
     const floor = document.createElement("article");
     floor.className = "floor";
@@ -133,9 +147,14 @@ function render() {
     const room = document.createElement("div");
     room.className = "floor-room";
     for (const agent of dept.agents || []) {
-      const activity = chooseSocialActivity(config.id, agent.id, tick);
+      const activityState = socialStates.get(agent.id) ?? { activity: "walk", location: "office", partnerId: null, simulated: true };
+      const activity = activityState.activity;
       const figure = document.createElement("div");
       figure.className = "agent";
+      figure.dataset.agentId = agent.id;
+      figure.dataset.activity = activity;
+      figure.dataset.location = activityState.location;
+      figure.dataset.partnerId = activityState.partnerId || "";
       figure.tabIndex = 0;
       figure.setAttribute("role", "button");
       figure.setAttribute("aria-label", "Conversar com " + agent.name);
@@ -143,7 +162,7 @@ function render() {
       const avatar = document.createElement("span");
       avatar.className = "avatar";
       avatar.style.setProperty("--agent-color", dept.color || "#6b98d0");
-      avatar.innerHTML = '<i class="hair"></i><i class="head"></i><i class="body"></i><i class="legs"></i>';
+      avatar.innerHTML = '<i class="hair"></i><i class="head"></i><i class="body"></i><i class="legs"></i><i class="desk-device"></i><i class="activity-prop"></i>';
       const name = document.createElement("span");
       name.className = "agent-name";
       name.textContent = agent.name;
@@ -157,6 +176,7 @@ function render() {
       provenance.title = "Animação local; não confirma atividade real do agente.";
       figure.setAttribute("aria-label", "Conversar com " + agent.name + ". Atividade visual simulada, não verificada pelo backend.");
       figure.append(avatar, name, status, provenance);
+      agentNodes.set(agent.id, figure);
       const openChat = () => openAgentChat(agent, dept);
       figure.addEventListener("click", event => { event.stopPropagation(); openChat(); });
       figure.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); openChat(); } });
@@ -199,6 +219,35 @@ function render() {
   updateSceneLayout();
 }
 
+
+function updateSocialVisuals(snapshot) {
+  for (const state of snapshot.agents) {
+    socialStates.set(state.agentId, state);
+    const figure = agentNodes.get(state.agentId);
+    if (!figure) continue;
+    const changed = figure.dataset.activity !== state.activity || figure.dataset.location !== state.location ||
+      figure.dataset.partnerId !== (state.partnerId || "");
+    if (!changed) continue;
+    figure.dataset.activity = state.activity;
+    figure.dataset.location = state.location;
+    figure.dataset.partnerId = state.partnerId || "";
+    const offsets = {
+      desk: 0, whiteboard: -18, kitchen: 14, coffee_area: 22,
+      balcony: 28, corridor: -26, lounge: -12, office: 0
+    };
+    figure.style.setProperty("--social-offset", (offsets[state.location] ?? 0) + "px");
+    const status = figure.querySelector(".agent-activity");
+    const partner = state.partnerId ? socialAgents.find(agent => agent.id === state.partnerId)?.name : null;
+    status.textContent = names[state.activity] || "Atividade social";
+    if (partner && ["conversation", "greet_colleague"].includes(state.activity)) {
+      status.textContent += " · " + partner;
+    }
+    figure.setAttribute("aria-label",
+      "Conversar com " + (figure.querySelector(".agent-name")?.textContent || state.agentId) +
+      ". " + status.textContent + ". Atividade social simulada, não confirmada por backend."
+    );
+  }
+}
 
 function openAgentChat(agent, dept) {
   chatReturnFocus = document.activeElement;
@@ -246,6 +295,7 @@ document.querySelector("#chat-form").addEventListener("submit", event => {
 });
 
 render();
+updateSocialVisuals(socialSnapshot);
 document.querySelector("#view-overview").addEventListener("click", () => {
   focusedDepartmentId = null;
   departmentDetail.classList.remove("is-visible");
@@ -269,5 +319,8 @@ qualityControl.addEventListener("change", event => { selectedQuality = event.tar
 window.addEventListener("resize", () => { updateSceneLayout(); updateQuality(); });
 updateQuality();
 if ("ResizeObserver" in window) new ResizeObserver(updateSceneLayout).observe(viewport);
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-setInterval(() => { if (!paused && !reducedMotion) { tick++; render(); } }, 6500);
+setInterval(() => {
+  if (paused) return;
+  socialSnapshot = socialSimulation.advance(Date.now());
+  updateSocialVisuals(socialSnapshot);
+}, 1000);
