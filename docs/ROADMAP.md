@@ -436,3 +436,19 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Ligar motor social à cena/renderers e testar equivalência comportamental em todos os tiers.
 
 **Nota:** os quatro itens marcados como código inicial são protótipos de arquitetura/testes; não significam integração de produção nem validação física.
+
+
+### Atualização 2026-11-09 — motores sociais, saúde e política de recursos (PR #55; validação pendente)
+
+- [x] Adicionar o primeiro motor local de simulação social com seed de QA, durações variáveis, locais, interações e autoridade explicitamente simulada.
+- [x] Adicionar a primeira arbitragem pura entre offline social, sincronização, enfermaria e estado live verificado; progresso visual só é exposto para tarefas de backend em execução com percentagem válida.
+- [x] Adicionar coordenador inicial de diagnóstico por camadas, redaction de evidência, contrato de incident store e execução limitada por chamada de ações locais fornecidas pelo host.
+- [x] Adicionar política adaptativa automática/manual de renderer, histerese e orçamento de recursos separado do backend.
+- [ ] Validar CI Linux/Windows e regressão visual no mesmo HEAD final da PR #55.
+- [ ] Integrar sondas reais autorizadas e atribuição positiva de causa confirmada.
+- [ ] Substituir o provider de incidentes em memória por persistência SQLite durável, exportação de suporte e proteção contra adulteração.
+- [ ] Implementar limites de frequência/idempotência de recuperação entre chamadas e ligar ações locais reais do host.
+- [ ] Ligar a política de recursos à deteção nativa de CPU/RAM/GPU/VRAM e aos renderers efetivamente instalados.
+- [ ] Validar equivalência comportamental dos renderers e desempenho em máquinas físicas.
+
+**Limite de evidência:** os módulos e testes desta PR são um primeiro incremento de core. Não representam integração com drivers reais, persistência de incidentes em produção, instalador, renderer integrado, nem testes em PC físico. A edição Universal continua independente; os adaptadores DGM-MAT e VST não são alterados por este incremento.
