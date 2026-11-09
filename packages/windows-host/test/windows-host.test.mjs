@@ -263,3 +263,34 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Windows host detects hardware and exposes adaptive policy with safe manual overrides", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-hardware-"));
+  const weakFacts = {
+    os: "Windows 10", architecture: "x64", cpuModel: "Test CPU",
+    cpuCores: 2, memoryTotalMB: 3072, memoryAvailableMB: 1024,
+    gpuName: "Integrated GPU", gpuVramMB: 512,
+    storageFreeMB: 20_000, displayWidth: 1920, displayHeight: 1080
+  };
+  let probes = 0;
+  let host;
+  try {
+    host = setup(directory, { hardwareProbe: () => { probes += 1; return weakFacts; } });
+    const initial = await host.health();
+    assert.equal(initial.hardware.cpuCores, 2);
+    assert.equal(initial.resourcePolicy.profile, "economy");
+    assert.equal(initial.resourcePolicy.socialActivitySemantics, "full");
+    const manual = host.setResourceOverrides({ profile: "cinematic", renderer: "three_d" });
+    assert.equal(manual.selectedBy, "user");
+    assert.equal(manual.profile, "cinematic");
+    assert.equal(host.getResourcePolicy().rendererTier, "three_d");
+    assert.throws(() => host.setResourceOverrides({ profile: "invalid" }), /invalid_quality_profile/);
+    assert.equal(host.getResourcePolicy().profile, "cinematic");
+    const refreshed = host.refreshResourcePolicy({ measurements: { frameTimeMs: 14 } });
+    assert.equal(refreshed.profile, "cinematic");
+    assert.ok(probes >= 2);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
