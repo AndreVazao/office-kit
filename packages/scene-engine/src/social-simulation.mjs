@@ -121,7 +121,7 @@ export class SocialSimulationEngine {
       if (!agent.enabled) continue;
       const current = this.#states.get(agent.id);
       if (!current || now >= current.endsAt) {
-        const nextStart = current ? current.endsAt : now;
+        const nextStart = now;
         this.#states.set(agent.id, this.#startActivity(agent, nextStart, current));
       }
     }
