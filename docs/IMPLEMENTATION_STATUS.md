@@ -401,3 +401,5 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 ### Preview social regression coverage
 - Updated preview contract tests for the explicit OFFLINE banner and added checks that the preview uses the local social simulation engine, updates activity without rebuilding the scene, displays work/coffee/conversation states, and preserves movement in economy quality.
 - The prior CI failure on HEAD 7d0025e was a stale text assertion expecting the old "estado não verificado" label; the new assertion matches the explicit OFFLINE wording. The final branch HEAD includes the corrected test.
+### Hardware capability naming correction
+- The Node OS API reports logical processor count, not physical CPU cores. The detector now records this fact as cpuThreads; the resource policy accepts cpuThreads and retains cpuCores only for host providers that can genuinely report physical cores.

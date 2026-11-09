@@ -476,3 +476,4 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Ligar o mesmo motor ao renderer desktop/native.
 - [ ] Integrar o estado live real e barras de progresso apenas com snapshots backend verificados.
 - [x] Atualizar testes de preview para o banner OFFLINE e integração do SocialSimulationEngine; remover expectativa textual obsoleta e verificar movimento no perfil economy.
+- [x] Distinguir threads lógicas reportadas pelo sistema operativo de núcleos físicos; não apresentar a contagem lógica como cores físicos.
