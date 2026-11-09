@@ -49,6 +49,7 @@ export class OfficeHealthRecoveryEngine {
   #clock;
   #sequence = 0;
   #lastIncidentId = null;
+  #recoveryHistory = [];
   #recoveryActions;
   #maxRecoveryActions;
 
@@ -127,6 +128,7 @@ export class OfficeHealthRecoveryEngine {
       outcome: "unresolved"
     };
     this.#lastIncidentId = incident.id;
+    this.#recoveryHistory = [];
     await this.#store.append(incident);
     return incident;
   }
@@ -171,8 +173,9 @@ export class OfficeHealthRecoveryEngine {
       completedAt: iso(this.#clock())
     };
     if (this.#lastIncidentId) {
+      this.#recoveryHistory.push(...attempts);
       await this.#store.update(this.#lastIncidentId, {
-        recoveryAttempts: attempts,
+        recoveryAttempts: this.#recoveryHistory,
         outcome: outcome.status,
         recoveryVerification: outcome.verification,
         recoveredAt: recovered ? outcome.completedAt : null
