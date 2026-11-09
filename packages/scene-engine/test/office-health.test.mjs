@@ -72,6 +72,7 @@ test("recovery is limited to local scopes and requires a fresh consistent snapsh
     ]
   });
   await engine.diagnose({ edition: "Universal", adapterId: "demo" });
+  await engine.diagnose({ edition: "Universal", adapterId: "demo" });
   const failed = await engine.attemptRecovery({ verifyFreshSnapshot: async () => ({ ok: true, fresh: false, consistent: true }) });
   assert.equal(failed.recovered, false);
   assert.deepEqual(calls, ["adapter", "session"]);
