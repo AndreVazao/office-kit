@@ -80,7 +80,7 @@ export class SocialSimulationEngine {
     if (!finite(seed)) throw new TypeError("seed must be a finite number.");
     this.#random = seededRandom(seed);
     this.#minDecisionMs = options.minDecisionMs ?? 5_000;
-    this.#maxDecisionMs = options.maxDecisionMs ?? 45_000;
+    this.#maxDecisionMs = options.maxDecisionMs ?? 240_000;
     if (!finite(this.#minDecisionMs) || !finite(this.#maxDecisionMs) ||
       this.#minDecisionMs <= 0 || this.#maxDecisionMs < this.#minDecisionMs) {
       throw new RangeError("decision interval must be positive and maxDecisionMs >= minDecisionMs.");
@@ -108,7 +108,7 @@ export class SocialSimulationEngine {
       location,
       partnerId,
       startedAt: now,
-      endsAt: now + clamp(durationMs, this.#minDecisionMs, Math.max(this.#maxDecisionMs, durationMs)),
+      endsAt: now + clamp(durationMs, this.#minDecisionMs, this.#maxDecisionMs),
       simulated: true,
       authority: "local_social_simulation"
     };
