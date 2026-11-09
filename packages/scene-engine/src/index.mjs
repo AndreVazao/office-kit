@@ -62,3 +62,4 @@ export { InMemoryNodeIdentityChallengeStore, SqliteNodeIdentityChallengeStore } 
 
 export { NodeKeyStoreProvider, NodeIdentityMetadataStore, NodeIdentityManager, EphemeralEd25519KeyStore, EphemeralP256KeyStore } from "./node-identity.mjs";
 
+export { SocialSimulationEngine, socialSimulationContract } from "./social-simulation.mjs";
