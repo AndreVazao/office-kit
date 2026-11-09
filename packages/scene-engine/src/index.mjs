@@ -67,3 +67,5 @@ export { SocialSimulationEngine, socialSimulationContract } from "./social-simul
 export { OfficeHealthRecoveryEngine, InMemoryIncidentStore, officeHealthContract } from "./office-health.mjs";
 
 export { resolveOfficeActivityState, officeActivityStateContract } from "./office-state-manager.mjs";
+
+export { normalizeHardwareCapabilities, resolveAdaptiveResourcePolicy, adaptiveResourceContract } from "./resource-policy.mjs";
