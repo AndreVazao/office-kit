@@ -6,6 +6,8 @@ import { resolveQualityProfile } from "../../packages/scene-engine/src/quality.m
 const response = await fetch("../minimal-office.json");
 if (!response.ok) throw new Error("Não foi possível carregar a configuração de demonstração.");
 const config = await response.json();
+const validation = validateOfficeConfig(config);
+if (!validation.valid) throw new Error(validation.errors.join("\n"));
 const socialAgents = config.departments.flatMap(department =>
   (department.agents || []).map(agent => ({
     id: agent.id,
@@ -17,8 +19,6 @@ const socialSimulation = new SocialSimulationEngine({ agents: socialAgents });
 let socialSnapshot = socialSimulation.snapshot();
 const socialStates = new Map(socialSnapshot.agents.map(agent => [agent.agentId, agent]));
 const agentNodes = new Map();
-const validation = validateOfficeConfig(config);
-if (!validation.valid) throw new Error(validation.errors.join("\n"));
 
 const floors = document.querySelector("#floors");
 const buttons = document.querySelector("#department-buttons");
@@ -225,9 +225,11 @@ function updateSocialVisuals(snapshot) {
     socialStates.set(state.agentId, state);
     const figure = agentNodes.get(state.agentId);
     if (!figure) continue;
-    const changed = figure.dataset.activity !== state.activity || figure.dataset.location !== state.location ||
+    const changed = figure.dataset.socialInitialized !== "true" ||
+      figure.dataset.activity !== state.activity || figure.dataset.location !== state.location ||
       figure.dataset.partnerId !== (state.partnerId || "");
     if (!changed) continue;
+    figure.dataset.socialInitialized = "true";
     figure.dataset.activity = state.activity;
     figure.dataset.location = state.location;
     figure.dataset.partnerId = state.partnerId || "";
