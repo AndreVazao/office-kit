@@ -15,7 +15,7 @@ test("detects CPU, memory, storage, GPU and display without confusing adapter RA
     clock: () => Date.parse("2026-11-09T12:00:00.000Z")
   });
   assert.equal(facts.os, "win32 10.0");
-  assert.equal(facts.cpuCores, 2);
+  assert.equal(facts.cpuThreads, 2);
   assert.equal(facts.memoryTotalMB, 3072);
   assert.equal(facts.memoryAvailableMB, 1024);
   assert.equal(facts.gpuName, "Test GPU");
@@ -51,7 +51,7 @@ test("reports failed CPU and memory probes without preventing startup", () => {
     storageProbe: () => ({ bavail: 1, bsize: 1024 }),
     clock: () => 0
   });
-  assert.equal(facts.cpuCores, null);
+  assert.equal(facts.cpuThreads, null);
   assert.equal(facts.memoryTotalMB, null);
   assert.equal(facts.memoryAvailableMB, null);
   assert.ok(facts.detectionWarnings.includes("cpu_probe_failed"));
