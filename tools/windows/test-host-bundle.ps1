@@ -30,15 +30,14 @@ function Invoke-OfficeKitHost {
 
   $description = $Arguments -join " "
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-  $startInfo.FileName = (Get-Command "pwsh.exe" -ErrorAction Stop).Source
+  $startInfo.FileName = Join-Path $env:SystemRoot "System32\cmd.exe"
   $startInfo.WorkingDirectory = $bundleRoot
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
-  $escapedLauncher = $launcherPath.Replace("'", "''")
-  $command = "& '" + $escapedLauncher + "' " + ($Arguments -join " ") + "; exit $LASTEXITCODE"
-  foreach ($argument in @("-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", $command)) {
+  $command = '""' + $launcherPath + '" ' + ($Arguments -join " ") + '"'
+  foreach ($argument in @("/d", "/s", "/c", $command)) {
     $null = $startInfo.ArgumentList.Add($argument)
   }
 
