@@ -331,3 +331,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Teste Windows host verifica que o incidente permanece após fechar e reabrir o host.
 - Ainda faltam probes reais (renderer/runtime, adapter, transporte, backend), exportação de suporte com consentimento e integração com reparação/UX. Não declarar causa sem evidência suficiente; timeouts permanecem indeterminados; não reiniciar nem escrever no backend automaticamente.
 - Teste do bundle Windows: o job anterior ficou 29 minutos bloqueado depois de criar o certificado efémero, antes de qualquer comando do host. Substituídas importações PowerShell do certificado por `certutil.exe -user -addstore` explícito para Root/TrustedPublisher, com logs entre etapas. Resultado CI desta correção ainda pendente.
+## Hardware detection e adaptação no Windows host — 2026-11-09
+- Novo packages/windows-host/src/hardware-capabilities.mjs: recolhe OS/release, arquitetura, CPU/modelo/cores, RAM total/disponível e espaço livre. GPU/VRAM dedicada/API gráfica e resolução são providers opcionais; desconhecido permanece null e não confunde AdapterRAM com VRAM dedicada.
+- Windows host calcula o perfil adaptativo no arranque, expõe factos de hardware no health e oferece refreshResourcePolicy() para reavaliação, getResourcePolicy() e setResourceOverrides() com validação antes de aplicar.
+- O perfil muda fidelidade/orçamento do renderer; não remove comportamentos sociais nem corta funcionalidades. O orçamento do backend continua independente.
+- Limites: falta ligar providers reais de GPU/resolução por plataforma, refrescamento periódico automático, persistência das preferências manuais e aplicação da política no renderer real.
+- OfficeHealthRecoveryEngine agora impõe deadlines às probes, ações locais e verificação de snapshot; passa AbortSignal e classifica timeouts como indeterminados. Não faz restart nem writes no backend.
+- O teste Windows do bundle passa a executar o launcher diretamente com cmd.exe, evitando o wrapper PowerShell adicional. A validação E2E ainda tem de terminar no HEAD final.

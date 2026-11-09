@@ -459,3 +459,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implementar probes reais por camada e identificação da origem com confiança/evidência.
 - [ ] Integrar recuperação local autorizada, snapshot de verificação e exportação de suporte com consentimento.
 - [ ] Confirmar Windows portable E2E após substituir trust-store PowerShell por certutil com logs.
+### Hardware host e limites de diagnóstico — incremento
+- [x] Detetar OS, CPU, RAM e espaço livre através do host Node.
+- [x] Aceitar providers opcionais de GPU/VRAM dedicada/API gráfica e resolução sem inventar dados.
+- [x] Calcular política adaptativa no arranque e expor refresh/override manual no host Windows.
+- [x] Aplicar deadlines às probes, recuperação local e verificação de snapshot.
+- [x] Executar o teste do bundle através do launcher .cmd sem wrapper PowerShell extra.
+- [ ] Implementar providers reais de GPU/resolução em Windows/Linux.
+- [ ] Agendar reavaliação dinâmica e persistir overrides do utilizador.
+- [ ] Aplicar os orçamentos/perfis ao renderer real preservando a semântica social.

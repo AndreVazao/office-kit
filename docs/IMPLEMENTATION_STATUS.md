@@ -381,3 +381,13 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Added a Windows host integration test proving an incident survives host close/reopen.
 - This establishes durable local incident history but does not yet ship real OS/renderer/adapter/transport/backend probes. Cause attribution remains evidence-based and may be indeterminate; no automatic backend restart/write is permitted.
 - Windows CI certificate trust now uses explicit `certutil` CurrentUser store operations with progress output instead of certificate-provider import cmdlets. This addresses a runner hang observed after ephemeral certificate creation; new Windows E2E result is pending.
+### Hardware detection and host resource policy — initial host integration
+- Added packages/windows-host/src/hardware-capabilities.mjs to detect OS/release, architecture, CPU model/core count, total/available RAM and free storage.
+- GPU name/dedicated VRAM/graphics API and display dimensions are optional platform providers. Unknown values remain null; adapter-reported memory is not mislabeled as dedicated VRAM.
+- Windows host now computes the initial adaptive resource policy, exposes hardware facts in health, supports runtime refresh and validated manual profile/renderer overrides.
+- Renderer profile is separate from backend execution; social activity semantics remain full at every renderer tier.
+- This is the initial detection and policy composition. GPU/display platform probes, automatic periodic refresh, persistence of user overrides and actual renderer application remain pending.
+### Diagnostic safety hardening
+- Diagnostic probes, local recovery actions and fresh-snapshot verification now have bounded deadlines and receive AbortSignals.
+- Timeout or inconclusive evidence remains indeterminate; backend restart/write operations remain outside automatic recovery.
+- Windows portable E2E now invokes the actual .cmd launcher directly via cmd.exe, avoiding a nested PowerShell wrapper.
