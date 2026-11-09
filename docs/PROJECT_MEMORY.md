@@ -352,3 +352,4 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Correção adicional: os providers nativos platform(), release() e arch() são invocados no default da deteção; o teste confirma que o relatório contém valores do sistema e não texto de funções.
 - Correção do wrapper cmd.exe: a string /s /c termina agora com a aspa exterior adicional exigida depois da aspa que fecha o caminho do ficheiro stderr. O runner com este ajuste ainda tem de concluir o E2E.
 - O teste do bundle passou a impor 20s de timeout a cada operação certutil de trust/removal, para que qualquer bloqueio do Windows Certificate Store produza falha explícita e logs em vez de deixar o runner preso.
+- A assinatura Authenticode do helper também passou a correr num processo PowerShell filho com timeout de 20s, usando o certificado efémero do CurrentUser/My. O teste E2E fica assim com limites para trust, signing e comandos do host.
