@@ -316,3 +316,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Escritório standalone sem backend, responsivo, com simulação social claramente identificada.
 - Testar falha de ligação depois de uma sessão live, atribuição/diagnóstico da causa, registo, recuperação, perda/retoma de snapshot, isolamento de credenciais e ausência de ações reais não autorizadas.
 - PC de 2 cores/3 GB é apenas ambiente de teste; não pode definir o teto de capacidades do produto.
+## Código iniciado — social simulation, health/recovery, state arbitration e resource policy (PR #55 branch, 2026-11-09)
+- Implementado em código no branch ativo feat/windows-portable-host-bundle:
+  - packages/scene-engine/src/social-simulation.mjs: motor social local, pseudoaleatório ponderado, duração variável, locais/atividades/interações, seed QA, clock injetado, sem tarefas/progresso de backend.
+  - packages/scene-engine/src/office-health.mjs: coordenador de diagnóstico por camadas, redaction, incident store interface, tentativas de recuperação apenas locais e validação obrigatória de snapshot fresco/coerente.
+  - packages/scene-engine/src/office-state-manager.mjs: arbitra offline social, sincronização, enfermaria e live; barras só com progresso backend válido e fresco.
+  - packages/scene-engine/src/resource-policy.mjs: normaliza capacidades fornecidas pelo host e resolve qualidade/renderer com hysteresis, override manual, sem cortar semântica social e com orçamento do renderer separado.
+- Testes correspondentes adicionados e módulos exportados pelo scene-engine; npm run check inclui validação de sintaxe.
+- Limites honestos: diagnóstico ainda usa probes injetados, sem sondas reais integradas; InMemoryIncidentStore não é persistência de produção; deteção real de hardware e integração com renderer/installer continuam pendentes. Os módulos estão sujeitos ao CI do HEAD final da PR #55.
+- A matriz física continua por executar: Universal offline, DGM-MAT read-only, VST read-only e standalone offline. Não instalar no PC do utilizador antes do pacote e lifecycle passarem os gates.
