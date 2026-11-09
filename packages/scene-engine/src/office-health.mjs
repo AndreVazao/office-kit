@@ -14,6 +14,25 @@ const safeText = value => {
 };
 const iso = value => new Date(value).toISOString();
 
+async function runBounded(run, timeoutMs, context) {
+  const controller = new AbortController();
+  let timer;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ timedOut: true });
+    }, timeoutMs);
+  });
+  const operation = Promise.resolve()
+    .then(() => run({ ...context, signal: controller.signal }))
+    .then(value => ({ value }), error => ({ error }));
+  const result = await Promise.race([operation, timeout]);
+  clearTimeout(timer);
+  if (result.timedOut) return { timedOut: true };
+  if (result.error) throw result.error;
+  return { value: result.value };
+}
+
 function normalizeProbeResult(probe, result, checkedAt) {
   if (!isRecord(result) || typeof result.ok !== "boolean") {
     return { probeId: probe.id, layer: probe.layer, ok: false, code: "invalid_probe_result", evidence: "Probe returned an invalid result.", checkedAt };
@@ -53,6 +72,8 @@ export class OfficeHealthRecoveryEngine {
   #recoveryHistory = [];
   #recoveryActions;
   #maxRecoveryActions;
+  #probeTimeoutMs;
+  #recoveryTimeoutMs;
 
   constructor(options = {}) {
     if (!Array.isArray(options.probes) || !options.probes.every(probe =>
@@ -69,6 +90,10 @@ export class OfficeHealthRecoveryEngine {
     this.#clock = typeof options.clock === "function" ? options.clock : Date.now;
     this.#recoveryActions = Array.isArray(options.recoveryActions) ? options.recoveryActions : [];
     this.#maxRecoveryActions = options.maxRecoveryActions ?? 3;
+    this.#probeTimeoutMs = options.probeTimeoutMs ?? 5_000;
+    this.#recoveryTimeoutMs = options.recoveryTimeoutMs ?? 5_000;
+    if (!Number.isInteger(this.#probeTimeoutMs) || this.#probeTimeoutMs < 10 || this.#probeTimeoutMs > 60_000) throw new RangeError("probe_timeout_out_of_range");
+    if (!Number.isInteger(this.#recoveryTimeoutMs) || this.#recoveryTimeoutMs < 10 || this.#recoveryTimeoutMs > 60_000) throw new RangeError("recovery_timeout_out_of_range");
     if (!Number.isInteger(this.#maxRecoveryActions) || this.#maxRecoveryActions < 0 || this.#maxRecoveryActions > 10) {
       throw new RangeError("maxRecoveryActions must be an integer between 0 and 10.");
     }
@@ -84,7 +109,19 @@ export class OfficeHealthRecoveryEngine {
     for (const probe of this.#probes) {
       const checkedAt = iso(this.#clock());
       try {
-        results.push(normalizeProbeResult(probe, await probe.run({ ...context, readOnly: true }), checkedAt));
+        const execution = await runBounded(probe.run, this.#probeTimeoutMs, { ...context, readOnly: true });
+        if (execution.timedOut) {
+          results.push({
+            probeId: probe.id,
+            layer: probe.layer,
+            ok: false,
+            code: "timeout",
+            evidence: "Diagnostic probe exceeded its execution deadline.",
+            checkedAt
+          });
+        } else {
+          results.push(normalizeProbeResult(probe, execution.value, checkedAt));
+        }
       } catch (error) {
         results.push({
           probeId: probe.id,
@@ -139,14 +176,15 @@ export class OfficeHealthRecoveryEngine {
     for (const action of this.#recoveryActions.slice(0, this.#maxRecoveryActions)) {
       const attemptedAt = iso(this.#clock());
       try {
-        const result = await action.run({ ...context, scope: action.scope });
+        const execution = await runBounded(action.run, this.#recoveryTimeoutMs, { ...context, scope: action.scope });
+        const result = execution.value;
         attempts.push({
           actionId: action.id,
           scope: action.scope,
           attemptedAt,
-          ok: isRecord(result) && result.ok === true,
-          code: safeCode(isRecord(result) ? result.code : null, "completed"),
-          evidence: safeText(isRecord(result) ? result.evidence : "")
+          ok: !execution.timedOut && isRecord(result) && result.ok === true,
+          code: execution.timedOut ? "timeout" : safeCode(isRecord(result) ? result.code : null, "completed"),
+          evidence: execution.timedOut ? "Local recovery action exceeded its execution deadline." : safeText(isRecord(result) ? result.evidence : "")
         });
       } catch (error) {
         attempts.push({
@@ -159,9 +197,12 @@ export class OfficeHealthRecoveryEngine {
         });
       }
     }
-    const verification = typeof context.verifyFreshSnapshot === "function"
-      ? await context.verifyFreshSnapshot()
-      : { ok: false, code: "fresh_snapshot_verifier_missing" };
+    const verificationExecution = typeof context.verifyFreshSnapshot === "function"
+      ? await runBounded(context.verifyFreshSnapshot, this.#recoveryTimeoutMs, {})
+      : { value: { ok: false, code: "fresh_snapshot_verifier_missing" } };
+    const verification = verificationExecution.timedOut
+      ? { ok: false, code: "fresh_snapshot_verification_timeout" }
+      : verificationExecution.value;
     const recovered = isRecord(verification) && verification.ok === true && verification.fresh === true && verification.consistent === true;
     const outcome = {
       status: recovered ? "recovered" : "unresolved",
