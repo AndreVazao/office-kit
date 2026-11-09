@@ -375,3 +375,9 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Added packages/scene-engine/src/resource-policy.mjs: host-supplied hardware capability normalization, automatic/manual renderer policy, independent renderer budget, protected backend execution policy and degradation/recovery hysteresis. This is a policy engine; OS/GPU/VRAM detection and integration into actual renderer/installer remain pending.
 - Added unit tests for all four modules and included the modules in public scene-engine exports and syntax checks.
 - These source additions are not yet marked production-ready. Final Linux/Windows CI and visual regression must pass on the exact final PR HEAD. No physical-PC validation has occurred.
+### Persistent diagnostics increment — PR #55 branch
+- Added `SqliteOfficeIncidentStore`, installation-scoped with append/get/list/update/export, corruption checks, bounded listing, duplicate protection and secret-field/value redaction.
+- Windows host now composes the SQLite incident store over its existing host-owned database and exposes `createDiagnostics({ probes, recoveryActions, clock })`; the caller supplies explicitly authorized probes and local recovery actions.
+- Added a Windows host integration test proving an incident survives host close/reopen.
+- This establishes durable local incident history but does not yet ship real OS/renderer/adapter/transport/backend probes. Cause attribution remains evidence-based and may be indeterminate; no automatic backend restart/write is permitted.
+- Windows CI certificate trust now uses explicit `certutil` CurrentUser store operations with progress output instead of certificate-provider import cmdlets. This addresses a runner hang observed after ephemeral certificate creation; new Windows E2E result is pending.
