@@ -15,6 +15,8 @@ import { isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
+import { detectHostHardwareCapabilities } from "./hardware-capabilities.mjs";
+import { resolveAdaptiveResourcePolicy } from "../../scene-engine/src/resource-policy.mjs";
 import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-incident-store.mjs";
 import { OfficeHealthRecoveryEngine } from "../../scene-engine/src/office-health.mjs";
 
@@ -197,6 +199,10 @@ export function createWindowsHost({
   verifyHelper = path => verifyAuthenticodeHelper(path, { spawnImpl }),
   databaseFactory = path => new DatabaseSync(path),
   runtimeFactory = createWindowsNodeIdentityRuntime,
+  hardwareProbe = detectHostHardwareCapabilities,
+  hardwareOptions = {},
+  requestedProfile = "auto",
+  requestedRenderer = "auto",
   now = Date.now,
   makeId = randomUUID
 } = {}) {
@@ -207,7 +213,7 @@ export function createWindowsHost({
   if (typeof helperPath !== "string" || !isAbsolute(helperPath)) {
     throw new TypeError("windows_host_cng_helper_path_must_be_absolute");
   }
-  if (typeof runtimeFactory !== "function" || typeof databaseFactory !== "function") {
+  if (typeof runtimeFactory !== "function" || typeof databaseFactory !== "function" || typeof hardwareProbe !== "function") {
     throw new TypeError("windows_host_factories_required");
   }
 
@@ -220,6 +226,10 @@ export function createWindowsHost({
   let runtime;
   let installationId;
   let releaseLock;
+  let hardwareCapabilities;
+  let resourcePolicy;
+  let profileOverride = requestedProfile;
+  let rendererOverride = requestedRenderer;
   let closed = false;
 
   try {
@@ -230,6 +240,12 @@ export function createWindowsHost({
     applyAcl(lockPath, userSid);
     ensureRealDirectory(dataDirectory);
     applyAcl(dataDirectory, userSid);
+    hardwareCapabilities = hardwareProbe({ ...hardwareOptions, storagePath: dataDirectory });
+    resourcePolicy = resolveAdaptiveResourcePolicy({
+      capabilities: hardwareCapabilities,
+      requestedProfile: profileOverride,
+      requestedRenderer: rendererOverride
+    });
     if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
     if (verifyHelper(helperPath) !== true) throw new Error("windows_host_cng_helper_untrusted");
 
@@ -307,8 +323,34 @@ export function createWindowsHost({
         algorithm: identity.algorithm,
         identityFingerprint: identity.identityFingerprint
       }) : null,
-      capabilities: runtime.capabilities
+      capabilities: runtime.capabilities,
+      hardware: hardwareCapabilities,
+      resourcePolicy
     });
+  }
+
+  function refreshResourcePolicy({ measurements = {} } = {}) {
+    if (closed) throw new Error("windows_host_stopped");
+    hardwareCapabilities = hardwareProbe({ ...hardwareOptions, storagePath: dataDirectory });
+    resourcePolicy = resolveAdaptiveResourcePolicy({
+      capabilities: hardwareCapabilities,
+      measurements,
+      previousPolicy: resourcePolicy,
+      requestedProfile: profileOverride,
+      requestedRenderer: rendererOverride
+    });
+    return structuredClone(resourcePolicy);
+  }
+
+  function setResourceOverrides({ profile = "auto", renderer = "auto" } = {}) {
+    if (closed) throw new Error("windows_host_stopped");
+    profileOverride = profile;
+    rendererOverride = renderer;
+    return refreshResourcePolicy();
+  }
+
+  function getResourcePolicy() {
+    return structuredClone(resourcePolicy);
   }
 
   async function close() {
@@ -335,6 +377,9 @@ export function createWindowsHost({
     installationId,
     incidentStore,
     createDiagnostics,
+    getResourcePolicy,
+    refreshResourcePolicy,
+    setResourceOverrides,
     databasePath,
     helperPath,
     ready,
