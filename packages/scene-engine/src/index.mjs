@@ -69,3 +69,4 @@ export { OfficeHealthRecoveryEngine, InMemoryIncidentStore, officeHealthContract
 export { resolveOfficeActivityState, officeActivityStateContract } from "./office-state-manager.mjs";
 
 export { normalizeHardwareCapabilities, resolveAdaptiveResourcePolicy, adaptiveResourceContract } from "./resource-policy.mjs";
+export { SqliteOfficeIncidentStore } from "./sqlite-office-incident-store.mjs";
