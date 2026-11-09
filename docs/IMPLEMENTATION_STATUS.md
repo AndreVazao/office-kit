@@ -403,3 +403,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - The prior CI failure on HEAD 7d0025e was a stale text assertion expecting the old "estado não verificado" label; the new assertion matches the explicit OFFLINE wording. The final branch HEAD includes the corrected test.
 ### Hardware capability naming correction
 - The Node OS API reports logical processor count, not physical CPU cores. The detector now records this fact as cpuThreads; the resource policy accepts cpuThreads and retains cpuCores only for host providers that can genuinely report physical cores.
+### Windows bundle E2E process isolation
+- The portable bundle test now redirects each launcher invocation to isolated output files instead of inherited stdout/stderr pipes. This avoids a child process keeping redirected pipe handles open and blocking PowerShell's asynchronous output drain.
+- Per-command timeout is 45 seconds; timeout cleanup terminates the process tree and includes captured stdout/stderr in the failure.
+- The final Windows E2E run with this process/output isolation is pending.

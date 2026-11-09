@@ -477,3 +477,5 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Integrar o estado live real e barras de progresso apenas com snapshots backend verificados.
 - [x] Atualizar testes de preview para o banner OFFLINE e integração do SocialSimulationEngine; remover expectativa textual obsoleta e verificar movimento no perfil economy.
 - [x] Distinguir threads lógicas reportadas pelo sistema operativo de núcleos físicos; não apresentar a contagem lógica como cores físicos.
+- [x] Isolar stdout/stderr do E2E Windows em ficheiros temporários para evitar bloqueios por pipes herdados.
+- [ ] Validar o ciclo portátil completo no runner Windows com o novo mecanismo de saída.
