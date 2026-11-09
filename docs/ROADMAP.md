@@ -425,3 +425,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 5. Implement social simulation independent of backend and renderer FPS, then renderer-tier equivalence.
 6. Implement and validate the four physical scenarios: Universal offline, DGM-MAT read-only, VST read-only and standalone offline.
 7. Generate the Desktop Commander installation/test prompt only after the package passes automated release gates. Never use live trading or destructive DGM-MAT operations during validation.
+### Estado do primeiro incremento de código — PR #55 branch
+- [x] Criar protótipo puro do motor social local, com seed QA, atividades variáveis e sem autoridade operacional.
+- [x] Criar contrato de diagnóstico por camadas, redaction e coordenador de recuperação local com verificação de snapshot.
+- [x] Criar arbitragem explícita offline/synchronizing/infirmary/live e regra de progresso real.
+- [x] Criar política adaptativa de recursos com tiers de renderer, override e hysteresis, preservando semântica social.
+- [ ] Obter CI Linux + Windows e regressão visual verdes no mesmo HEAD final.
+- [ ] Ligar probes reais e armazenamento persistente de incidentes no host.
+- [ ] Integrar deteção de hardware e política no instalador e renderer de produção.
+- [ ] Ligar motor social à cena/renderers e testar equivalência comportamental em todos os tiers.
+
+**Nota:** os quatro itens marcados como código inicial são protótipos de arquitetura/testes; não significam integração de produção nem validação física.
