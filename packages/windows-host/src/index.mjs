@@ -15,6 +15,8 @@ import { isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
+import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-incident-store.mjs";
+import { OfficeHealthRecoveryEngine } from "../../scene-engine/src/office-health.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
 
@@ -246,6 +248,10 @@ export function createWindowsHost({
       installationId,
       hostExecutable: helperPath
     });
+    var incidentStore = new SqliteOfficeIncidentStore({
+      database: sqliteAdapter(database),
+      installationId
+    });
   } catch (error) {
     try { database?.close(); } catch { /* Preserve initialization error. */ }
     try { releaseLock?.(); } catch { /* Preserve initialization error. */ }
@@ -316,8 +322,19 @@ export function createWindowsHost({
     }
   }
 
+  function createDiagnostics({ probes, recoveryActions = [], clock } = {}) {
+    return new OfficeHealthRecoveryEngine({
+      probes,
+      incidentStore,
+      recoveryActions,
+      ...(typeof clock === "function" ? { clock } : {})
+    });
+  }
+
   return Object.freeze({
     installationId,
+    incidentStore,
+    createDiagnostics,
     databasePath,
     helperPath,
     ready,
