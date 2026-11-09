@@ -65,6 +65,11 @@ function Invoke-OfficeKitHost {
           throw ("Portable host process tree could not be stopped after timeout (" + $description + ").")
         }
       }
+      $stdoutReady = $stdoutTask.Wait(10000)
+      $stderrReady = $stderrTask.Wait(10000)
+      if (-not $stdoutReady -or -not $stderrReady) {
+        throw ("Portable host command timed out and redirected output did not close (" + $description + ").")
+      }
       $stdout = $stdoutTask.GetAwaiter().GetResult()
       $stderr = $stderrTask.GetAwaiter().GetResult()
       throw (
@@ -73,6 +78,11 @@ function Invoke-OfficeKitHost {
       )
     }
 
+    $stdoutReady = $stdoutTask.Wait(10000)
+    $stderrReady = $stderrTask.Wait(10000)
+    if (-not $stdoutReady -or -not $stderrReady) {
+      throw ("Portable host process exited but redirected output did not close (" + $description + ").")
+    }
     $stdout = $stdoutTask.GetAwaiter().GetResult()
     $stderr = $stderrTask.GetAwaiter().GetResult()
     if ($process.ExitCode -ne 0) {
