@@ -30,7 +30,7 @@ function Invoke-OfficeKitHost {
 
   $description = $Arguments -join " "
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-  $startInfo.FileName = (Get-Command "powershell.exe" -ErrorAction Stop).Source
+  $startInfo.FileName = (Get-Command "pwsh.exe" -ErrorAction Stop).Source
   $startInfo.WorkingDirectory = $bundleRoot
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
@@ -53,8 +53,16 @@ function Invoke-OfficeKitHost {
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
     if (-not $process.WaitForExit($hostCommandTimeoutSeconds * 1000)) {
-      try { $process.Kill($true) } catch { }
-      try { $process.WaitForExit() } catch { }
+      try {
+        $process.Kill($true)
+      } catch {
+        try { $process.Kill() } catch { }
+        try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { }
+      }
+      if (-not $process.WaitForExit(10_000)) {
+        try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { }
+        $null = $process.WaitForExit(10_000)
+      }
       $stdout = $stdoutTask.GetAwaiter().GetResult()
       $stderr = $stderrTask.GetAwaiter().GetResult()
       throw (
