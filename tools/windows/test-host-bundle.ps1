@@ -137,11 +137,13 @@ try {
   Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
 
   Write-Host "Signing the bundled CNG helper."
-  $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
-  Write-Host ("CNG helper signature status: " + $signature.Status)
-  if ($signature.Status -ne "Valid") {
-    throw ("CI signing failed: " + $signature.Status + " " + $signature.StatusMessage)
-  }
+  $escapedHelperPath = $helperPath.Replace("'", "''")
+  $signingCommand = '$cert = Get-Item -LiteralPath ''Cert:\CurrentUser\My\' + $certificate.Thumbprint +
+    '''; $signature = Set-AuthenticodeSignature -FilePath ''' + $escapedHelperPath +
+    ''' -Certificate $cert -HashAlgorithm SHA256; if ($signature.Status -ne ''Valid'') { exit 5 }'
+  Invoke-BoundedNative -FileName "powershell.exe" -NativeArguments @(
+    "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", $signingCommand
+  ) -Description "sign bundled CNG helper" -TimeoutMilliseconds 20000
   Write-Host "Signed the bundled CNG helper with the ephemeral CI certificate."
 
   $env:LOCALAPPDATA = $testLocalAppData
