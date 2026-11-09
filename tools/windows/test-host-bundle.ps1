@@ -109,12 +109,19 @@ try {
   $certificate = New-SelfSignedCertificate -Subject "CN=Office Kit CI Ephemeral Publisher" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
   Write-Host "Created an ephemeral CI code-signing certificate."
 
+  Write-Host "Exporting ephemeral publisher certificate."
   Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
-  Import-Certificate -FilePath $certificateFile -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
-  Import-Certificate -FilePath $certificateFile -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
+  Write-Host "Adding ephemeral certificate to CurrentUser Root store."
+  & certutil.exe -f -user -addstore Root $certificateFile
+  if ($LASTEXITCODE -ne 0) { throw "Could not trust ephemeral certificate in CurrentUser Root store." }
+  Write-Host "Adding ephemeral certificate to CurrentUser TrustedPublisher store."
+  & certutil.exe -f -user -addstore TrustedPublisher $certificateFile
+  if ($LASTEXITCODE -ne 0) { throw "Could not trust ephemeral certificate in CurrentUser TrustedPublisher store." }
   Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
 
+  Write-Host "Signing the bundled CNG helper."
   $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
+  Write-Host ("CNG helper signature status: " + $signature.Status)
   if ($signature.Status -ne "Valid") {
     throw ("CI signing failed: " + $signature.Status + " " + $signature.StatusMessage)
   }
@@ -169,7 +176,7 @@ finally {
 
   if ($null -ne $certificate) {
     foreach ($store in @("My", "Root", "TrustedPublisher")) {
-      Remove-Item -LiteralPath ("Cert:\CurrentUser\" + $store + "\" + $certificate.Thumbprint) -Force -ErrorAction SilentlyContinue
+      & certutil.exe -f -user -delstore $store $certificate.Thumbprint | Out-Null
     }
   }
 
