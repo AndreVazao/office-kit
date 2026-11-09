@@ -233,3 +233,33 @@ test("host blocks mutations and hides identity while reconciliation remains pend
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Windows host exposes installation-scoped persistent incident diagnostics across restarts", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-incidents-"));
+  let host;
+  try {
+    host = setup(directory);
+    const diagnostics = host.createDiagnostics({
+      probes: [{
+        id: "office-runtime-check",
+        layer: "office_runtime",
+        run: async () => ({ ok: false, code: "renderer_invariant", evidence: "renderer heartbeat failed" })
+      }]
+    });
+    const report = await diagnostics.diagnose({ edition: "universal", adapterId: "local" });
+    assert.equal(report.origin, "office_runtime");
+    const [incident] = await host.incidentStore.list();
+    assert.equal(incident.origin, "office_runtime");
+    assert.equal(incident.installationId, host.installationId);
+    await host.close();
+    host = null;
+
+    const reopened = setup(directory);
+    assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
+    assert.equal((await reopened.incidentStore.list()).length, 1);
+    await reopened.close();
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
