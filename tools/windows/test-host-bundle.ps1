@@ -25,6 +25,42 @@ $testLocalAppData = Join-Path $tempRoot "LocalAppData"
 $certificate = $null
 $certificateFile = Join-Path $tempRoot "office-kit-ci-publisher.cer"
 
+function Invoke-BoundedNative {
+  param(
+    [string]$FileName,
+    [string[]]$NativeArguments,
+    [string]$Description,
+    [int]$TimeoutMilliseconds = 20000
+  )
+
+  $info = [System.Diagnostics.ProcessStartInfo]::new()
+  $info.FileName = $FileName
+  $info.WorkingDirectory = $bundleRoot
+  $info.UseShellExecute = $false
+  $info.CreateNoWindow = $true
+  foreach ($argument in $NativeArguments) {
+    $null = $info.ArgumentList.Add($argument)
+  }
+  $native = [System.Diagnostics.Process]::new()
+  $native.StartInfo = $info
+  try {
+    Write-Host ("Running bounded native command: " + $Description)
+    if (-not $native.Start()) { throw ("Could not start native command: " + $Description) }
+    if (-not $native.WaitForExit($TimeoutMilliseconds)) {
+      try { $native.Kill() } catch { }
+      if (-not $native.WaitForExit(5000)) {
+        throw ("Native command could not be stopped after timeout: " + $Description)
+      }
+      throw ("Native command timed out: " + $Description)
+    }
+    if ($native.ExitCode -ne 0) {
+      throw ("Native command failed (" + $Description + ", exit " + $native.ExitCode + ").")
+    }
+  } finally {
+    $native.Dispose()
+  }
+}
+
 function Invoke-OfficeKitHost {
   param([string[]]$Arguments)
 
@@ -95,11 +131,9 @@ try {
   Write-Host "Exporting ephemeral publisher certificate."
   Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
   Write-Host "Adding ephemeral certificate to CurrentUser Root store."
-  & certutil.exe -f -user -addstore Root $certificateFile
-  if ($LASTEXITCODE -ne 0) { throw "Could not trust ephemeral certificate in CurrentUser Root store." }
+  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-f", "-user", "-addstore", "Root", $certificateFile) -Description "trust ephemeral CurrentUser Root certificate"
   Write-Host "Adding ephemeral certificate to CurrentUser TrustedPublisher store."
-  & certutil.exe -f -user -addstore TrustedPublisher $certificateFile
-  if ($LASTEXITCODE -ne 0) { throw "Could not trust ephemeral certificate in CurrentUser TrustedPublisher store." }
+  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-f", "-user", "-addstore", "TrustedPublisher", $certificateFile) -Description "trust ephemeral CurrentUser TrustedPublisher certificate"
   Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
 
   Write-Host "Signing the bundled CNG helper."
@@ -159,7 +193,7 @@ finally {
 
   if ($null -ne $certificate) {
     foreach ($store in @("My", "Root", "TrustedPublisher")) {
-      & certutil.exe -f -user -delstore $store $certificate.Thumbprint | Out-Null
+      try { Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-f", "-user", "-delstore", $store, $certificate.Thumbprint) -Description ("remove ephemeral certificate from " + $store) } catch { }
     }
   }
 
