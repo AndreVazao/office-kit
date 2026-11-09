@@ -324,8 +324,8 @@ export function createWindowsHost({
         identityFingerprint: identity.identityFingerprint
       }) : null,
       capabilities: runtime.capabilities,
-      hardware: hardwareCapabilities,
-      resourcePolicy
+      hardware: structuredClone(hardwareCapabilities),
+      resourcePolicy: structuredClone(resourcePolicy)
     });
   }
 
