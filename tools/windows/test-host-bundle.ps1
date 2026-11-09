@@ -34,9 +34,12 @@ function Invoke-OfficeKitHost {
   $startInfo.WorkingDirectory = $bundleRoot
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
-  $startInfo.RedirectStandardOutput = $true
-  $startInfo.RedirectStandardError = $true
-  $command = '""' + $launcherPath + '" ' + ($Arguments -join " ") + '"'
+  $stdoutPath = Join-Path $tempRoot ("host-" + [guid]::NewGuid().ToString("N") + ".stdout.txt")
+  $stderrPath = Join-Path $tempRoot ("host-" + [guid]::NewGuid().ToString("N") + ".stderr.txt")
+  $startInfo.RedirectStandardOutput = $false
+  $startInfo.RedirectStandardError = $false
+  $command = '""' + $launcherPath + '" ' + ($Arguments -join " ") +
+    ' 1> "' + $stdoutPath + '" 2> "' + $stderrPath + '"'
   foreach ($argument in @("/d", "/s", "/c", $command)) {
     $null = $startInfo.ArgumentList.Add($argument)
   }
@@ -49,41 +52,24 @@ function Invoke-OfficeKitHost {
       throw ("Could not start portable host command: " + $description)
     }
 
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-    $stderrTask = $process.StandardError.ReadToEndAsync()
     if (-not $process.WaitForExit($hostCommandTimeoutSeconds * 1000)) {
-      try {
-        $process.Kill($true)
-      } catch {
-        try { $process.Kill() } catch { }
+      try { $process.Kill($true) } catch { }
+      if (-not $process.WaitForExit(10_000)) {
         try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { }
-      }
-      if (-not $process.WaitForExit(10000)) {
-        try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { }
-        if (-not $process.WaitForExit(10000)) {
+        if (-not $process.WaitForExit(10_000)) {
           throw ("Portable host process tree could not be stopped after timeout (" + $description + ").")
         }
       }
-      $stdoutReady = $stdoutTask.Wait(10000)
-      $stderrReady = $stderrTask.Wait(10000)
-      if (-not $stdoutReady -or -not $stderrReady) {
-        throw ("Portable host command timed out and redirected output did not close (" + $description + ").")
-      }
-      $stdout = $stdoutTask.GetAwaiter().GetResult()
-      $stderr = $stderrTask.GetAwaiter().GetResult()
+      $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { "" }
+      $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
       throw (
         "Portable host command timed out after " + $hostCommandTimeoutSeconds +
         " seconds (" + $description + "). stdout: " + $stdout + " stderr: " + $stderr
       )
     }
 
-    $stdoutReady = $stdoutTask.Wait(10000)
-    $stderrReady = $stderrTask.Wait(10000)
-    if (-not $stdoutReady -or -not $stderrReady) {
-      throw ("Portable host process exited but redirected output did not close (" + $description + ").")
-    }
-    $stdout = $stdoutTask.GetAwaiter().GetResult()
-    $stderr = $stderrTask.GetAwaiter().GetResult()
+    $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { "" }
+    $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
     if ($process.ExitCode -ne 0) {
       throw (
         "Office Kit host command failed (" + $description + ", exit " +
