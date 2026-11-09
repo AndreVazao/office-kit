@@ -40,9 +40,7 @@ function Invoke-OfficeKitHost {
   $startInfo.RedirectStandardError = $false
   $command = '""' + $launcherPath + '" ' + ($Arguments -join " ") +
     ' 1> "' + $stdoutPath + '" 2> "' + $stderrPath + '"'
-  foreach ($argument in @("/d", "/s", "/c", $command)) {
-    $null = $startInfo.ArgumentList.Add($argument)
-  }
+  $startInfo.Arguments = "/d /s /c " + $command
 
   $process = [System.Diagnostics.Process]::new()
   $process.StartInfo = $startInfo
