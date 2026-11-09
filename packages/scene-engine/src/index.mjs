@@ -65,3 +65,5 @@ export { NodeKeyStoreProvider, NodeIdentityMetadataStore, NodeIdentityManager, E
 export { SocialSimulationEngine, socialSimulationContract } from "./social-simulation.mjs";
 
 export { OfficeHealthRecoveryEngine, InMemoryIncidentStore, officeHealthContract } from "./office-health.mjs";
+
+export { resolveOfficeActivityState, officeActivityStateContract } from "./office-state-manager.mjs";
