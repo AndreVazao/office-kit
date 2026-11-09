@@ -59,9 +59,11 @@ function Invoke-OfficeKitHost {
         try { $process.Kill() } catch { }
         try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { }
       }
-      if (-not $process.WaitForExit(10_000)) {
+      if (-not $process.WaitForExit(10000)) {
         try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch { }
-        $null = $process.WaitForExit(10_000)
+        if (-not $process.WaitForExit(10000)) {
+          throw ("Portable host process tree could not be stopped after timeout (" + $description + ").")
+        }
       }
       $stdout = $stdoutTask.GetAwaiter().GetResult()
       $stderr = $stderrTask.GetAwaiter().GetResult()
