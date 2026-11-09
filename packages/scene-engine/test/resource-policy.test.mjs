@@ -58,10 +58,11 @@ test("degradation and recovery use hysteresis to avoid profile oscillation", () 
   });
   assert.equal(secondPoor.transition, "degraded");
   assert.equal(secondPoor.profile, "economy");
-  const firstGood = resolveAdaptiveResourcePolicy({ capabilities: strong, previousPolicy: { ...current, recoveryStreak: 0 } });
+  const weakCurrent = { profile: "economy", rendererTier: "minimal", degradationStreak: 0, recoveryStreak: 0 };
+  const firstGood = resolveAdaptiveResourcePolicy({ capabilities: strong, previousPolicy: weakCurrent });
   assert.equal(firstGood.transition, "holding_before_recovery");
   const recovered = resolveAdaptiveResourcePolicy({
-    capabilities: strong, previousPolicy: { ...current, recoveryStreak: 3 }
+    capabilities: strong, previousPolicy: { ...weakCurrent, recoveryStreak: 3 }
   });
   assert.equal(recovered.transition, "recovered");
   assert.equal(recovered.profile, "detailed");
