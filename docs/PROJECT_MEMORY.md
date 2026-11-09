@@ -325,3 +325,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Testes correspondentes adicionados e módulos exportados pelo scene-engine; npm run check inclui validação de sintaxe.
 - Limites honestos: diagnóstico ainda usa probes injetados, sem sondas reais integradas; InMemoryIncidentStore não é persistência de produção; deteção real de hardware e integração com renderer/installer continuam pendentes. Os módulos estão sujeitos ao CI do HEAD final da PR #55.
 - A matriz física continua por executar: Universal offline, DGM-MAT read-only, VST read-only e standalone offline. Não instalar no PC do utilizador antes do pacote e lifecycle passarem os gates.
+## Persistência de incidentes — PR #55 branch (2026-11-09)
+- Novo `SqliteOfficeIncidentStore` em `packages/scene-engine/src/sqlite-office-incident-store.mjs`: histórico persistente por installationId, append/get/list/update/export, validação/corrupção, duplicados, limite de leitura e redação de campos/valores secretos.
+- Windows host cria o store na base SQLite local já protegida por ACL e expõe `createDiagnostics({ probes, recoveryActions, clock })`, sempre com probes e ações locais fornecidas explicitamente pelo host.
+- Teste Windows host verifica que o incidente permanece após fechar e reabrir o host.
+- Ainda faltam probes reais (renderer/runtime, adapter, transporte, backend), exportação de suporte com consentimento e integração com reparação/UX. Não declarar causa sem evidência suficiente; timeouts permanecem indeterminados; não reiniciar nem escrever no backend automaticamente.
+- Teste do bundle Windows: o job anterior ficou 29 minutos bloqueado depois de criar o certificado efémero, antes de qualquer comando do host. Substituídas importações PowerShell do certificado por `certutil.exe -user -addstore` explícito para Root/TrustedPublisher, com logs entre etapas. Resultado CI desta correção ainda pendente.
