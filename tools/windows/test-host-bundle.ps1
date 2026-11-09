@@ -9,7 +9,7 @@ $bundleRoot = (Resolve-Path $BundleDirectory).Path
 $nodePath = Join-Path $bundleRoot "node.exe"
 $helperPath = Join-Path $bundleRoot "OfficeKit.CngHost.exe"
 $launcherPath = Join-Path $bundleRoot "office-kit-host.cmd"
-$hostCommandTimeoutSeconds = 90
+$hostCommandTimeoutSeconds = 45
 
 foreach ($required in @($nodePath, $helperPath, $launcherPath)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
