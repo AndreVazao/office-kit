@@ -1,7 +1,7 @@
 const SECRET_KEY = /(?:token|password|secret|api[_-]?key|authorization|cookie|private[_-]?key)/i;
 const SECRET_TEXT = [
-  /bearer\\s+[A-Za-z0-9._~+\\/-]+=*/gi,
-  /((?:token|password|secret|api[_-]?key|authorization|cookie)\\s*[:=]\\s*)[^\\s,;]+/gi
+  /bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,
+  /((?:token|password|secret|api[_-]?key|authorization|cookie)\s*[:=]\s*)[^\s,;]+/gi
 ];
 
 function validateInstallationId(value) {
