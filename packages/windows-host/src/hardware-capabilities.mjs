@@ -12,7 +12,7 @@ const validDimension = value => Number.isInteger(value) && value > 0 && value <=
 export function detectHostHardwareCapabilities({
   osPlatform = platform(),
   osRelease = release(),
-  osArchitecture = arch()
+  osArchitecture = arch(),
   cpuProbe = cpus,
   totalMemoryProbe = totalmem,
   availableMemoryProbe = freemem,
