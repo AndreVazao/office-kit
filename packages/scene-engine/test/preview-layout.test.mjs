@@ -43,6 +43,22 @@ test("preview labels every local agent activity as simulated and unverified", ()
   assert.match(app, /provenance\.dataset\.state = "unverified"/);
   assert.match(app, /provenance\.textContent = "Simulado"/);
   assert.match(app, /não confirma atividade real do agente/);
-  assert.match(app, /estado não verificado/);
+  assert.match(app, /OFFLINE — movimento social simulado; sem backend/);
   assert.match(css, /\.agent-provenance\[data-state="unverified"\]/);
+});
+
+test("preview uses the local social simulation engine and keeps activity updates separate from rendering", () => {
+  assert.match(app, /new SocialSimulationEngine\(\{ agents: socialAgents, seed: 20261109 \}\)/);
+  assert.match(app, /socialSimulation\.advance\(Date\.now\(\)\)/);
+  assert.match(app, /updateSocialVisuals\(socialSnapshot\)/);
+  assert.match(app, /A trabalhar no computador/);
+  assert.match(app, /Pausa para café/);
+  assert.match(app, /A conversar com um colega/);
+  assert.match(css, /agent\[data-activity="work_at_desk"\] \.desk-device/);
+  assert.match(css, /@keyframes socialWalk/);
+});
+
+test("economy quality removes visual effects without disabling social animation", () => {
+  assert.doesNotMatch(css, /body\[data-quality="economy"\] \.avatar\{animation:none/);
+  assert.match(css, /body\[data-quality="economy"\] \.agent\[data-activity="walk"\] \.avatar\{animation-duration:/);
 });
