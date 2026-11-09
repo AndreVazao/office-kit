@@ -344,9 +344,16 @@ export function createWindowsHost({
 
   function setResourceOverrides({ profile = "auto", renderer = "auto" } = {}) {
     if (closed) throw new Error("windows_host_stopped");
+    const nextPolicy = resolveAdaptiveResourcePolicy({
+      capabilities: hardwareCapabilities,
+      previousPolicy: resourcePolicy,
+      requestedProfile: profile,
+      requestedRenderer: renderer
+    });
     profileOverride = profile;
     rendererOverride = renderer;
-    return refreshResourcePolicy();
+    resourcePolicy = nextPolicy;
+    return structuredClone(resourcePolicy);
   }
 
   function getResourcePolicy() {
