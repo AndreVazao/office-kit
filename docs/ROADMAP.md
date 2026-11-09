@@ -37,7 +37,7 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Animações idle, caminhar, sentar/levantar, conversar e pausa.
 - Rotinas de cafetaria, conversas, relógio, varanda e regresso.
 - Caminhos e prevenção de sobreposição, seed determinística para QA.
-- Reduzir/desligar animações em hardware fraco e provar que não envia comandos.
+- Preservar as mesmas atividades sociais em todos os níveis; reduzir apenas fidelidade/custo de renderização em hardware fraco e provar que a simulação nunca envia comandos.
 
 ## Fase 5 — descoberta assistida de possíveis backends
 - Descobrir apenas fontes autorizadas/configuradas: endpoints fornecidos, documentação selecionada, catálogo de adaptadores e conectores explicitamente ligados.
@@ -402,3 +402,26 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Add release signing using a protected publisher certificate and verify signer thumbprint.
 - [ ] Build MSI/MSIX installer with start/health/uninstall and explicit data retention.
 - [ ] Validate upgrade/rollback, backup/restore and physical-PC installation.
+## New product increment — Office Health & Recovery (2026-11-09)
+- [ ] Add layered diagnostics for Office Kit runtime, adapter, transport/network and backend, with confirmed/probable/indeterminate cause and evidence.
+- [ ] Add persistent, exportable, secret-redacted incident records and local support bundle.
+- [ ] Add bounded self-recovery and reconnection; require a fresh consistent snapshot before restoring healthy/live status.
+- [ ] Keep offline/no backend distinct from configured backend failure; use social mode for the former and infirmary/incident state for the latter.
+- [ ] Add fault-injection tests for runtime bugs, adapter exceptions, DNS/port/timeout, authentication, backend unavailable, stale snapshots and successful recovery.
+
+## New product increment — social simulation with behavior-preserving adaptive rendering (2026-11-09)
+- [ ] Implement a local pseudo-random social behavior engine with variable activities, durations, routes and interactions; no fixed repetitive daily loop.
+- [ ] Preserve the same activity semantics across advanced 3D, low-poly, pixel and minimal renderers. Lower hardware capability changes visual fidelity and rendering cost only; it must not remove social activities or avatar interactions.
+- [ ] Decouple simulation time from frame rate and keep local social behavior active without a backend.
+- [ ] Keep simulated activity explicitly labelled and separate from backend-confirmed work; real progress bars require fresh authoritative progress data.
+- [ ] Add independent CPU/memory budgets for renderer and backend; detect hardware at install and runtime, apply hysteresis, allow manual override and recover quality as resources return.
+- [ ] Validate on low-resource Windows and stronger desktop hardware without making the test PC a feature ceiling.
+
+## Next implementation order after the portable Windows bundle gate
+1. Complete and merge the portable Windows host bundle only after Linux, Windows E2E and visual regression pass on the same HEAD.
+2. Implement the installable Windows host lifecycle (install/start/health/stop/restart/uninstall/upgrade/rollback/data retention) without touching existing DGM-MAT or VST installations.
+3. Implement hardware capability discovery and dynamic resource budgets, separating renderer cost from backend resources.
+4. Implement Office Health & Recovery incident contracts, safe diagnostic probes, redaction and bounded recovery.
+5. Implement social simulation independent of backend and renderer FPS, then renderer-tier equivalence.
+6. Implement and validate the four physical scenarios: Universal offline, DGM-MAT read-only, VST read-only and standalone offline.
+7. Generate the Desktop Commander installation/test prompt only after the package passes automated release gates. Never use live trading or destructive DGM-MAT operations during validation.
