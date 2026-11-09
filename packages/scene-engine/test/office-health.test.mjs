@@ -62,6 +62,21 @@ test("secret-like evidence is redacted before persistence or export", async () =
   assert.match(exported, /REDACTED/);
 });
 
+test("secret-like diagnostic codes are normalized before incident persistence", async () => {
+  const { engine, store } = fixture({
+    probes: [{ id: "backend", layer: "backend", run: async () => ({
+      ok: false,
+      code: "api_key=secret-value",
+      evidence: "backend unavailable"
+    }) }]
+  });
+  await engine.diagnose();
+  const exported = await store.export();
+  assert.equal(exported.includes("secret-value"), false);
+  assert.equal(exported.includes("api_key="), false);
+  assert.match(exported, /probe_failed/);
+});
+
 test("recovery is limited to local scopes and requires a fresh consistent snapshot", async () => {
   const calls = [];
   const { engine, store } = fixture({

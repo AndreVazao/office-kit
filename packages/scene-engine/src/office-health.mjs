@@ -7,6 +7,7 @@ const SECRET_PATTERNS = [
 
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
+const safeCode = (value, fallback) => typeof value === "string" && /^[a-z0-9_.:-]{1,120}$/i.test(value) ? value : fallback;
 const safeText = value => {
   if (typeof value !== "string") return "";
   return SECRET_PATTERNS.reduce((text, pattern) => text.replace(pattern, "[REDACTED]"), value).slice(0, 2_000);
@@ -21,7 +22,7 @@ function normalizeProbeResult(probe, result, checkedAt) {
     probeId: probe.id,
     layer: probe.layer,
     ok: result.ok,
-    code: nonEmpty(result.code) ? result.code.slice(0, 120) : result.ok ? "ok" : "probe_failed",
+    code: safeCode(result.code, result.ok ? "ok" : "probe_failed"),
     evidence: safeText(result.evidence),
     checkedAt
   };
@@ -144,7 +145,7 @@ export class OfficeHealthRecoveryEngine {
           scope: action.scope,
           attemptedAt,
           ok: isRecord(result) && result.ok === true,
-          code: isRecord(result) && nonEmpty(result.code) ? result.code : "completed",
+          code: safeCode(isRecord(result) ? result.code : null, "completed"),
           evidence: safeText(isRecord(result) ? result.evidence : "")
         });
       } catch (error) {

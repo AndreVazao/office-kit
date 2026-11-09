@@ -57,6 +57,18 @@ test("supports enabling and disabling an avatar without fabricating backend stat
   assert.throws(() => engine.setAgentEnabled("missing", true), /unknown_agent/);
 });
 
+test("agent enablement preserves monotonic simulation time", () => {
+  const engine = new SocialSimulationEngine({ agents, seed: 11, now: 100 });
+  assert.throws(() => engine.setAgentEnabled("b", false, 99), /move backwards/);
+  const disabled = engine.setAgentEnabled("b", false, 150);
+  assert.equal(disabled.generatedAt, new Date(150).toISOString());
+  const enabled = engine.setAgentEnabled("b", true, 175);
+  const agent = enabled.agents.find(item => item.id === "b");
+  assert.equal(enabled.generatedAt, new Date(175).toISOString());
+  assert.equal(agent.startedAt, 175);
+  assert.throws(() => engine.advance(174), /move backwards/);
+});
+
 test("rejects invalid agents, duplicate IDs, invalid intervals and backwards time", () => {
   assert.throws(() => new SocialSimulationEngine({ agents: [{ id: "" }] }), /non-empty/);
   assert.throws(() => new SocialSimulationEngine({ agents: [{ id: "x" }, { id: "x" }] }), /unique/);

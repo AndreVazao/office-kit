@@ -133,6 +133,8 @@ export class SocialSimulationEngine {
     if (typeof agentId !== "string" || typeof enabled !== "boolean" || !finite(now)) {
       throw new TypeError("agentId, enabled and timestamp are required.");
     }
+    if (now < this.#lastNow) throw new RangeError("simulation time cannot move backwards.");
+    this.#lastNow = now;
     const agent = this.#agents.find(item => item.id === agentId);
     if (!agent) throw new RangeError("unknown_agent");
     agent.enabled = enabled;
