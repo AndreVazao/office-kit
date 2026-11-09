@@ -338,3 +338,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Limites: falta ligar providers reais de GPU/resolução por plataforma, refrescamento periódico automático, persistência das preferências manuais e aplicação da política no renderer real.
 - OfficeHealthRecoveryEngine agora impõe deadlines às probes, ações locais e verificação de snapshot; passa AbortSignal e classifica timeouts como indeterminados. Não faz restart nem writes no backend.
 - O teste Windows do bundle passa a executar o launcher diretamente com cmd.exe, evitando o wrapper PowerShell adicional. A validação E2E ainda tem de terminar no HEAD final.
+## Motor social ligado à preview — 2026-11-09
+- A preview de browser agora usa SocialSimulationEngine real, em vez do helper antigo que escolhia atividades fixas por tick.
+- Cada avatar mantém atividade, localização e eventual colega; a UI só atualiza quando o estado social muda para não reiniciar a animação a cada segundo.
+- Existem cues/animacões leves para caminhar, conversar, cumprimentar, trabalhar no computador, usar quadro, café e pausa de varanda. A seleção pseudoaleatória permite repetir a mesma atividade.
+- O estado sem backend fica explicitamente OFFLINE e SIMULADO. Perfil economy reduz efeitos, mas mantém a movimentação social e as mudanças de atividade.
+- A preview usa seed QA fixa para screenshots reproduzíveis; runtime de produção deve usar seed variável/não fixa.
+- Limite: integração atual é na browser preview; falta ligar o mesmo modelo ao renderer nativo/desktop e à arbitragem backend real. A preview não simula progresso operacional.

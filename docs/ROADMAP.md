@@ -468,3 +468,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implementar providers reais de GPU/resolução em Windows/Linux.
 - [ ] Agendar reavaliação dinâmica e persistir overrides do utilizador.
 - [ ] Aplicar os orçamentos/perfis ao renderer real preservando a semântica social.
+### Ligação do motor social à preview
+- [x] Substituir escolha de atividade fixa pelo SocialSimulationEngine.
+- [x] Preservar estado entre atualizações e mover avatares quando a atividade/localização muda.
+- [x] Mostrar cues visuais leves para atividades sociais e trabalho ao computador.
+- [x] Manter animações no perfil gráfico economy e identificar explicitamente modo offline simulado.
+- [ ] Ligar o mesmo motor ao renderer desktop/native.
+- [ ] Integrar o estado live real e barras de progresso apenas com snapshots backend verificados.

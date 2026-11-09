@@ -391,3 +391,10 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Diagnostic probes, local recovery actions and fresh-snapshot verification now have bounded deadlines and receive AbortSignals.
 - Timeout or inconclusive evidence remains indeterminate; backend restart/write operations remain outside automatic recovery.
 - Windows portable E2E now invokes the actual .cmd launcher directly via cmd.exe, avoiding a nested PowerShell wrapper.
+### Social simulation connected to the browser office preview
+- The preview now instantiates the SocialSimulationEngine from the generic scene-engine instead of selecting a fixed activity from the legacy demo helper.
+- Agent activity/location/peer state is retained between UI updates; the preview updates only when an agent's social state changes, so CSS movement is not restarted on every timer tick.
+- Added distinct low-cost activity animations and visual cues for walking, conversation, greeting, computer work, whiteboard use, coffee and smoke breaks.
+- Offline banner explicitly says there is no backend and all movement is simulated. Economy quality no longer disables avatar animation; it removes effects while preserving social motion.
+- The preview uses a fixed QA seed for repeatable visual regression. Production runtime must use a non-fixed seed.
+- This connects the social model to the browser preview, not yet to a packaged native renderer or real desktop host UI.
