@@ -10,9 +10,9 @@ const validDimension = value => Number.isInteger(value) && value > 0 && value <=
  * reliably equivalent to dedicated VRAM.
  */
 export function detectHostHardwareCapabilities({
-  osPlatform = platform,
-  osRelease = release,
-  osArchitecture = arch,
+  osPlatform = platform(),
+  osRelease = release(),
+  osArchitecture = arch()
   cpuProbe = cpus,
   totalMemoryProbe = totalmem,
   availableMemoryProbe = freemem,
