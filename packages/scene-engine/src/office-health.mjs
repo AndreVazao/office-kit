@@ -48,6 +48,7 @@ export class OfficeHealthRecoveryEngine {
   #store;
   #clock;
   #sequence = 0;
+  #lastIncidentId = null;
   #recoveryActions;
   #maxRecoveryActions;
 
@@ -58,8 +59,8 @@ export class OfficeHealthRecoveryEngine {
     }
     const ids = options.probes.map(probe => probe.id);
     if (new Set(ids).size !== ids.length) throw new TypeError("probe ids must be unique.");
-    if (!options.incidentStore || typeof options.incidentStore.append !== "function") {
-      throw new TypeError("incidentStore.append is required.");
+    if (!options.incidentStore || typeof options.incidentStore.append !== "function" || typeof options.incidentStore.update !== "function") {
+      throw new TypeError("incidentStore.append and incidentStore.update are required.");
     }
     this.#probes = [...options.probes];
     this.#store = options.incidentStore;
@@ -125,6 +126,7 @@ export class OfficeHealthRecoveryEngine {
       recoveryAttempts: [],
       outcome: "unresolved"
     };
+    this.#lastIncidentId = incident.id;
     await this.#store.append(incident);
     return incident;
   }
@@ -158,7 +160,7 @@ export class OfficeHealthRecoveryEngine {
       ? await context.verifyFreshSnapshot()
       : { ok: false, code: "fresh_snapshot_verifier_missing" };
     const recovered = isRecord(verification) && verification.ok === true && verification.fresh === true && verification.consistent === true;
-    return {
+    const outcome = {
       status: recovered ? "recovered" : "unresolved",
       recovered,
       attempts,
@@ -168,6 +170,15 @@ export class OfficeHealthRecoveryEngine {
       },
       completedAt: iso(this.#clock())
     };
+    if (this.#lastIncidentId) {
+      await this.#store.update(this.#lastIncidentId, {
+        recoveryAttempts: attempts,
+        outcome: outcome.status,
+        recoveryVerification: outcome.verification,
+        recoveredAt: recovered ? outcome.completedAt : null
+      });
+    }
+    return outcome;
   }
 }
 
@@ -179,6 +190,13 @@ export class InMemoryIncidentStore {
     if (this.#incidents.some(item => item.id === incident.id)) throw new Error("duplicate_incident_id");
     this.#incidents.push(structuredClone(incident));
     return incident.id;
+  }
+
+  async update(id, patch) {
+    const index = this.#incidents.findIndex(incident => incident.id === id);
+    if (index < 0) throw new Error("incident_not_found");
+    this.#incidents[index] = { ...this.#incidents[index], ...structuredClone(patch) };
+    return id;
   }
 
   async list() {
