@@ -54,7 +54,8 @@ test("supports enabling and disabling an avatar without fabricating backend stat
   const engine = new SocialSimulationEngine({ agents, seed: 3, now: 100 });
   assert.equal(engine.setAgentEnabled("b", false).agents.length, 2);
   assert.equal(engine.setAgentEnabled("b", true).agents.length, 3);
-  assert.throws(() => engine.setAgentEnabled("missing", true), /unknown_agent/);
+  assert.throws(() => engine.setAgentEnabled("missing", true, 200), /unknown_agent/);
+  assert.equal(engine.snapshot().generatedAt, new Date(100).toISOString());
 });
 
 test("agent enablement preserves monotonic simulation time", () => {
