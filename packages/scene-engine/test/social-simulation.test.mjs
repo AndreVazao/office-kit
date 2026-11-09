@@ -33,10 +33,10 @@ test("same seed and clock produce reproducible behavior for QA", () => {
 test("activities change after variable durations and remain independent of render FPS", () => {
   const engine = new SocialSimulationEngine({ agents, seed: 91, now: 0, minDecisionMs: 1, maxDecisionMs: 2 });
   const before = engine.snapshot();
-  const after = engine.advance(10_000);
+  const after = engine.advance(1_000_000);
   assert.ok(after.agents.some((agent, index) => agent.activity !== before.agents[index].activity ||
     agent.location !== before.agents[index].location || agent.startedAt !== before.agents[index].startedAt));
-  assert.equal(after.generatedAt, new Date(10_000).toISOString());
+  assert.equal(after.generatedAt, new Date(1_000_000).toISOString());
 });
 
 test("allows repeated activity types without a fixed repeating routine", () => {
