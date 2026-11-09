@@ -350,3 +350,21 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Criado builder que inclui Node.js 22, módulos scene-engine/windows-host e helper CNG.
 - CI cria certificado Code Signing efémero, instala-o apenas nos stores do runner, assina o helper e executa o CLI portátil em processos separados para health, create, reopen, rotate e revoke.
 - Este teste não equivale a certificado de distribuição nem a instalador MSI/MSIX. O workflow ainda tem de passar no HEAD final.
+## Product requirements added — incident diagnosis, recovery and behavior-preserving adaptive rendering (2026-11-09)
+
+### Required architecture (not yet claimed implemented)
+- [ ] Add OfficeHealthRecoveryEngine to classify evidence across Office Kit runtime, adapter, transport/network and backend. Outcomes must distinguish confirmed, probable and indeterminate causes; do not blame a component from a timeout alone.
+- [ ] Persist/export incident records with ID, timestamps, edition/version, adapter/backend, last confirmed communication, diagnostic checks, evidence, confidence, impact, recovery attempts, duration and final outcome. Redact credentials, tokens, secret headers and sensitive payloads.
+- [ ] Add bounded safe recovery: validate local configuration; rediscover only authorized/configured endpoints; verify endpoint/port; restart local adapter only when safe; renew sessions through the host provider; reconnect and require a fresh consistent snapshot before declaring healthy.
+- [ ] Never alter credentials, bypass authentication, write to external backends or restart external services without explicit authorization.
+- [ ] Add SocialSimulationEngine with variable pseudo-random activities, durations, routes and avatar interactions. It must run without a backend and clearly label all activity as simulated.
+- [ ] On loss of a previously working backend, preserve the incident and mark real tasks interrupted/unknown; social animation may continue but must not imply real task progress/completion.
+- [ ] Distinguish backend absent/not configured (offline social mode) from configured backend unhealthy (infirmary/diagnostic mode).
+- [ ] Add BackendActivityEngine and OfficeStateManager arbitration. Real work/progress bars require fresh backend evidence; never invent task progress.
+- [ ] Add AdaptiveRenderingEngine with multiple renderers (advanced 3D, low-poly, pixel, minimal/retro) over the same behavior/scene model. Hardware reduction changes rendering fidelity/cost, not available social activities or interaction semantics.
+- [ ] Decouple simulation clock from renderer FPS. Adapt shadows, lighting, textures, polygons/LOD, pixel ratio and render cadence with hysteresis; support automatic and manual profiles.
+- [ ] Detect/reassess CPU, available RAM, GPU/VRAM and graphics API, OS, storage, display resolution and measured frame time. Resource profiles must never hard-cap product editions/features.
+- [ ] Keep renderer and backend resource budgets separate.
+- [ ] Add tests for simulated-vs-real state leakage, random scheduling determinism under seeded QA, endpoint/adapter/backend fault attribution, redaction, bounded recovery, offline operation, renderer equivalence and low-resource behavior.
+
+The 2-core/approximately 3-GB Windows PC is a validation target only, not a product support ceiling. The physical test matrix remains Universal offline, DGM-MAT read-only, VST read-only and standalone office without backend. No physical installation is authorized until the portable runtime/installer gate is complete.
