@@ -452,3 +452,10 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar equivalência comportamental dos renderers e desempenho em máquinas físicas.
 
 **Limite de evidência:** os módulos e testes desta PR são um primeiro incremento de core. Não representam integração com drivers reais, persistência de incidentes em produção, instalador, renderer integrado, nem testes em PC físico. A edição Universal continua independente; os adaptadores DGM-MAT e VST não são alterados por este incremento.
+### Diagnóstico persistente e Windows bundle — incremento em PR #55
+- [x] Implementar armazenamento SQLite de incidentes isolado por instalação.
+- [x] Ligar store ao Windows host e permitir criar motor de diagnóstico com probes/actions injetados.
+- [x] Testar persistência do incidente após reinício do host.
+- [ ] Implementar probes reais por camada e identificação da origem com confiança/evidência.
+- [ ] Integrar recuperação local autorizada, snapshot de verificação e exportação de suporte com consentimento.
+- [ ] Confirmar Windows portable E2E após substituir trust-store PowerShell por certutil com logs.
