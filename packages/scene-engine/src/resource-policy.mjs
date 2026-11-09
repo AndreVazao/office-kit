@@ -9,7 +9,7 @@ export function normalizeHardwareCapabilities(input = {}) {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     throw new TypeError("hardware capabilities must be an object.");
   }
-  const integerFields = ["cpuCores", "memoryTotalMB", "memoryAvailableMB", "gpuVramMB", "storageFreeMB", "displayWidth", "displayHeight"];
+  const integerFields = ["cpuCores", "cpuThreads", "memoryTotalMB", "memoryAvailableMB", "gpuVramMB", "storageFreeMB", "displayWidth", "displayHeight"];
   for (const field of integerFields) {
     if (input[field] != null && (!Number.isInteger(input[field]) || input[field] <= 0)) {
       throw new RangeError(`${field} must be a positive integer when supplied.`);
@@ -20,6 +20,7 @@ export function normalizeHardwareCapabilities(input = {}) {
     architecture: typeof input.architecture === "string" ? input.architecture : "unknown",
     cpuModel: typeof input.cpuModel === "string" ? input.cpuModel : null,
     cpuCores: input.cpuCores ?? null,
+    cpuThreads: input.cpuThreads ?? null,
     memoryTotalMB: input.memoryTotalMB ?? null,
     memoryAvailableMB: input.memoryAvailableMB ?? null,
     gpuName: typeof input.gpuName === "string" ? input.gpuName : null,
@@ -32,7 +33,7 @@ export function normalizeHardwareCapabilities(input = {}) {
 }
 
 function candidateFrom(capabilities, measurements = {}) {
-  const cores = capabilities.cpuCores;
+  const cores = capabilities.cpuThreads ?? capabilities.cpuCores;
   const memory = capabilities.memoryAvailableMB ?? capabilities.memoryTotalMB;
   const vram = capabilities.gpuVramMB;
   const frameTime = measurements.frameTimeMs;
