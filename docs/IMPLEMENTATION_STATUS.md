@@ -398,3 +398,6 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Offline banner explicitly says there is no backend and all movement is simulated. Economy quality no longer disables avatar animation; it removes effects while preserving social motion.
 - The preview uses a fixed QA seed for repeatable visual regression. Production runtime must use a non-fixed seed.
 - This connects the social model to the browser preview, not yet to a packaged native renderer or real desktop host UI.
+### Preview social regression coverage
+- Updated preview contract tests for the explicit OFFLINE banner and added checks that the preview uses the local social simulation engine, updates activity without rebuilding the scene, displays work/coffee/conversation states, and preserves movement in economy quality.
+- The prior CI failure on HEAD 7d0025e was a stale text assertion expecting the old "estado não verificado" label; the new assertion matches the explicit OFFLINE wording. The final branch HEAD includes the corrected test.

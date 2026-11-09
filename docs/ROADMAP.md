@@ -475,3 +475,4 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Manter animações no perfil gráfico economy e identificar explicitamente modo offline simulado.
 - [ ] Ligar o mesmo motor ao renderer desktop/native.
 - [ ] Integrar o estado live real e barras de progresso apenas com snapshots backend verificados.
+- [x] Atualizar testes de preview para o banner OFFLINE e integração do SocialSimulationEngine; remover expectativa textual obsoleta e verificar movimento no perfil economy.
