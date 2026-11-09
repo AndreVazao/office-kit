@@ -275,3 +275,44 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Branch `feat/windows-portable-host-bundle` adiciona builder PowerShell e teste end-to-end no runner Windows. O pacote inclui node.exe, scene-engine, windows-host e helper CNG.
 - CI usa certificado efémero Code Signing, confia-o apenas no runner, assina o helper e testa create/reopen/rotate/revoke em processos separados.
 - Não é release assinada para utilizadores nem MSI/MSIX; signing comercial, instalação, upgrade/uninstall e PC físico continuam pendentes.
+## Decisões de produto — diagnóstico, recuperação e simulação social adaptativa (2026-11-09)
+
+### Office Health & Recovery Engine
+- O Office Kit deve diagnosticar falhas de comunicação separando runtime do Office Kit, adaptador, transporte/rede e backend.
+- Os diagnósticos distinguem causa confirmada, causa provável e causa indeterminada. Timeout isolado não prova culpa do backend nem do Office Kit.
+- Cada incidente gera registo persistente e exportável: ID, timestamps, versão/edição, adaptador/backend, última comunicação confirmada, testes e evidências, origem/confiança, impacto, reparações tentadas, duração e resultado.
+- Nunca guardar tokens, palavras-passe, headers secretos ou payloads sensíveis nos relatórios. Logs devem ser protegidos contra alteração acidental e ter política de retenção/exportação explícita.
+- Recuperação automática limitada e segura: validar configuração; redescobrir apenas fontes autorizadas; verificar endpoint/porta; reiniciar apenas o adaptador local quando seguro; renovar sessão pelos providers autorizados; reconectar; exigir snapshot completo e consistente antes de declarar recuperação.
+- Não alterar credenciais, contornar autenticação, executar operações de escrita no backend nem reiniciar serviços externos sem autorização explícita.
+- Falhas internas do Office Kit devem gerar relatório local para suporte e permitir auto-recuperação segura. Falhas externas devem ser atribuídas apenas com evidência suficiente.
+
+### Social Simulation Engine e atividade real
+- O escritório permanece visualmente vivo sem backend através de simulação social local pseudoaleatória, com decisões e durações variáveis, destinos, deslocações, interações e atividades como trabalhar visualmente, pausas, café, varanda, conversas e circulação.
+- Repetição de atividades é permitida; não há uma rotina fixa sincronizada. Seed determinística é permitida exclusivamente para QA/reprodução de bugs.
+- Simulação nunca é apresentada como trabalho real. Banner/estado persistente identifica explicitamente offline e movimento social simulado.
+- Se uma ligação previamente funcional cair, a tarefa real fica interrompida/desconhecida e o incidente é registado. A simulação pode continuar sem apagar o histórico ou declarar tarefas concluídas.
+- Backend detetado mas com falha confirmada coloca o agente/departamento afetado em enfermaria; backend ausente/não configurado usa estado offline, não enfermaria.
+- Atividade real e progresso só podem ser mostrados a partir de dados/eventos reais e frescos do adaptador. Sem progresso fornecido pelo backend, não inventar percentagens nem barras.
+
+### Adaptive Rendering — preservar comportamento, reduzir fidelidade
+- Hardware fraco deve reduzir fidelidade/custo de renderização, não remover atividades, interações ou semântica da simulação social.
+- Um único modelo de comportamento e cena alimenta vários renderers/níveis: 3D avançado, low-poly, pixel e mínimo/retro. Cada nível preserva caminhar, sentar/levantar, interagir com computador/quadro, pausas, conversas e deslocações; a representação usa menos polígonos, texturas, efeitos ou frames quando necessário.
+- Separar relógio/simulação da taxa de frames do renderer: a lógica social continua a progredir mesmo com FPS baixo.
+- Deteção e reavaliação de CPU, RAM disponível, GPU/VRAM/capacidades gráficas, OS, armazenamento, resolução e frame time; perfis são políticas de recursos, nunca limites de funcionalidades ou de edição.
+- Ajustar qualidade, pixel ratio, sombras, iluminação, texturas, LOD, frequência de render e concorrência gráfica com histerese. Perfil manual pode sobrepor Auto. Recuperar qualidade quando houver recursos.
+- Orçamentos do renderer e backend são separados para que o escritório não prejudique o backend anfitrião.
+
+### Subsistemas de referência
+- Social Simulation Engine: comportamento visual local sem autoridade operacional.
+- Backend Activity Engine: snapshots/eventos reais e progresso confirmado.
+- Office Health & Recovery Engine: diagnóstico, incidentes e recuperação segura.
+- Adaptive Rendering Engine: renderiza a mesma simulação com níveis de fidelidade diferentes.
+- Office State Manager: arbitra estados por agente/departamento e impede mistura de estados simulados/reais.
+
+### Matriz de validação física futura
+- Universal sem backend.
+- Edição DGM-MAT ligada em modo read-only ao backend DGM-MAT já instalado.
+- Edição VST ligada em modo read-only ao backend VST já instalado.
+- Escritório standalone sem backend, responsivo, com simulação social claramente identificada.
+- Testar falha de ligação depois de uma sessão live, atribuição/diagnóstico da causa, registo, recuperação, perda/retoma de snapshot, isolamento de credenciais e ausência de ações reais não autorizadas.
+- PC de 2 cores/3 GB é apenas ambiente de teste; não pode definir o teto de capacidades do produto.
