@@ -59,7 +59,7 @@ export function detectHostHardwareCapabilities({
     os: [osPlatform, osRelease].filter(Boolean).join(" "),
     architecture: osArchitecture,
     cpuModel: typeof cpuList[0]?.model === "string" ? cpuList[0].model : null,
-    cpuCores: cpuList.length || null,
+    cpuThreads: cpuList.length || null,
     memoryTotalMB: Number.isInteger(memoryTotal) && memoryTotal > 0 ? memoryTotal : null,
     memoryAvailableMB: Number.isInteger(memoryAvailable) && memoryAvailable > 0 ? memoryAvailable : null,
     gpuName: typeof graphics?.name === "string" ? graphics.name : null,
