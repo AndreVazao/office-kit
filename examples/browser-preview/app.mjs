@@ -15,7 +15,7 @@ const socialAgents = config.departments.flatMap(department =>
     departmentId: department.id
   }))
 );
-const socialSimulation = new SocialSimulationEngine({ agents: socialAgents });
+const socialSimulation = new SocialSimulationEngine({ agents: socialAgents, seed: 20261109 });
 let socialSnapshot = socialSimulation.snapshot();
 const socialStates = new Map(socialSnapshot.agents.map(agent => [agent.agentId, agent]));
 const agentNodes = new Map();
