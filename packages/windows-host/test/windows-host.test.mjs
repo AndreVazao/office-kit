@@ -294,3 +294,21 @@ test("Windows host detects hardware and exposes adaptive policy with safe manual
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("health snapshots cannot mutate the host's active resource policy", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-policy-copy-"));
+  let host;
+  try {
+    host = setup(directory, {
+      hardwareProbe: () => ({ os: "Windows", cpuCores: 8, memoryTotalMB: 16_384, memoryAvailableMB: 8_000, gpuVramMB: 4_096 })
+    });
+    const health = await host.health();
+    const originalFps = host.getResourcePolicy().rendererBudget.targetFps;
+    health.resourcePolicy.rendererBudget.targetFps = 999;
+    health.hardware.cpuCores = 999;
+    assert.equal(host.getResourcePolicy().rendererBudget.targetFps, originalFps);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
