@@ -502,3 +502,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Add real SQLite migration and two-process contention tests.
 - [ ] Add append-only event history and keystore-backed integrity chain.
 - [ ] Add chain verification, crash/power-loss recovery and owner-consent support export.
+
+### Connection supervision and incident lifecycle — PR #61
+- [x] Detect verified live-to-unhealthy session transitions without confusing startup with an outage.
+- [x] Add transport transition evidence to layered diagnostics.
+- [x] Keep one incident per outage and append subsequent diagnostic observations.
+- [x] Resolve only after healthy probes plus a fresh authoritative live snapshot.
+- [x] Add deterministic lifecycle tests and generic entrypoint export.
+- [ ] Pass Linux/Windows CI and visual regression on final PR HEAD.
+- [ ] Wire supervisor into the installed host lifecycle and verify with real DGM-MAT/VST adapters.
