@@ -525,3 +525,13 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Verify the live `/runtime/state` and `/auth/session` contracts against the running local DGM-MAT instance without enabling writes.
 - [ ] Run the full DGM-MAT edition workflow and validate on a physical PC. Unit/fake tests are not live integration.
 - [ ] Implement the VST adapter separately; keep VST credentials and code out of Universal and DGM-MAT.
+
+## PR #61 — merged validation record (2026-11-10)
+- [x] Linux CI passed on final PR HEAD `ded5a449b452fdf56048ff547279fe3b06ddda23`.
+- [x] Windows CI passed on that exact HEAD, including native CNG, persistent identity and portable host bundle end-to-end.
+- [x] Visual regression passed on that exact HEAD.
+- [x] PR #61 merged; merge commit `43adb778b8e03d85c1766f5f1bc68ca15ecea027`.
+- [ ] Integrate OfficeConnectionSupervisor with the installed host lifecycle.
+- [ ] Implement and validate real DGM-MAT and VST adapters in their isolated editions; VST adapter remains unimplemented.
+- [ ] Complete physical-PC install/lifecycle tests; do not treat CI bundle tests as physical validation.
+- [ ] Complete production signing and MSI/MSIX installer, upgrade/rollback and explicit uninstall/data-retention behavior.
