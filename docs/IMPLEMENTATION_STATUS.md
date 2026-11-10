@@ -442,3 +442,11 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Added monotonic per-incident revision, compare-and-set update predicate, reserved-field rejection and legacy schema migration to revision 1.
 - Added real node:sqlite migration and two-process contention tests.
 - This is concurrency consistency, not tamper evidence. Append-only journal, keystore-backed MAC/signature chain, chain verification, crash/power-loss recovery and owner-consent support export remain pending.
+
+### Connection supervisor — PR #61, awaiting CI
+- Added an event-driven OfficeConnectionSupervisor fed by authoritative RuntimeSession state.
+- It records only a confirmed live-to-unhealthy transition; startup connection attempts do not create backend outage incidents.
+- A session-loss observation is included as transport-layer evidence. Repeated observations during one outage update the same incident rather than creating duplicates.
+- An incident is marked recovered only after diagnostic probes pass and the host supplies a fresh, synchronized, authoritative live snapshot.
+- The supervisor opens no sockets and owns no timers. Host remains responsible for polling, transport, authentication, and adapter lifecycle.
+- Tests cover outage lifecycle, duplicate suppression, recovery verification, and startup failure handling. CI is pending.
