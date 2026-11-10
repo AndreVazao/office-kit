@@ -461,7 +461,10 @@ export function createWindowsHost({
         await synchronize();
         return result;
       },
-      getState: () => gateway.getState(),
+      getState: () => {
+        if (disposed || closed) throw new Error("managed_gateway_closed");
+        return gateway.getState();
+      },
       getSupervisorState: () => Object.freeze({
         ...supervisor.getState(),
         supervisionDegraded: lastSupervisionFailure
