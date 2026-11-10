@@ -511,3 +511,17 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Add deterministic lifecycle tests and generic entrypoint export.
 - [ ] Pass Linux/Windows CI and visual regression on final PR HEAD.
 - [ ] Wire supervisor into the installed host lifecycle and verify with real DGM-MAT/VST adapters.
+
+
+## DGM-MAT adapter/session hardening — branch feat/dgmat-session-hardening (2026-11-10)
+- [x] Restrict the adapter to authenticated loopback `GET /runtime/state` only.
+- [x] Treat source `timestamp` as last state mutation, not heartbeat/snapshot freshness; remain synchronizing and suppress agent/task activity until a separate authoritative watermark exists.
+- [x] Bound token-provider, fetch and response-body work under one request deadline.
+- [x] Normalize provider/fetch errors; await bounded async invalidation on 401/403; prevent secret-shaped status/error values from entering Office Kit state/events.
+- [x] Generate a fresh UUID session identity per successful connection and reject late poll completions from earlier connection generations.
+- [x] Bound the full DGM-MAT local session exchange (bootstrap provider, POST and JSON body) and propagate caller cancellation.
+- [ ] Implement a dedicated Windows OS-keystore record/provider for the protected DGM-MAT bootstrap credential; do not reuse node-identity keys.
+- [ ] Wire the DGM-MAT session provider into a DGM-MAT-only Windows host composition root.
+- [ ] Verify the live `/runtime/state` and `/auth/session` contracts against the running local DGM-MAT instance without enabling writes.
+- [ ] Run the full DGM-MAT edition workflow and validate on a physical PC. Unit/fake tests are not live integration.
+- [ ] Implement the VST adapter separately; keep VST credentials and code out of Universal and DGM-MAT.

@@ -393,11 +393,20 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Added real node:sqlite migration test and separate-process contention test. The test proves a child update waits while a parent holds BEGIN IMMEDIATE and both updates survive with revision 3.
 - Revision is not cryptographic integrity. Append-only history, keystore MAC/signature chain, chain verification, power-loss recovery and consent-based support export remain pending.
 
-## Supervisor de ligação e ciclo de incidentes (PR #61, 2026-11-10)
-- PR #60 foi integrado em main: serialização SQLite de incidentes com revisões monotónicas e teste de concorrência multi-processo. Main atual inclui esse merge.
-- Nova PR #61 acrescenta OfficeConnectionSupervisor, um coordenador event-driven alimentado pelo estado autoritativo de RuntimeSession. Não abre sockets nem inventa timers.
-- Só uma transição de sessão previamente live para stale/disconnected/error inicia incidente. Falhas durante o arranque inicial não são atribuídas falsamente a uma queda de backend.
-- A queda da sessão é registada como evidência da camada transport, distinguindo-a de falhas internas office_runtime/adapter e falhas backend quando os probes fornecem evidência.
-- O mesmo outage mantém um único incidente: verificações repetidas atualizam a linha temporal em vez de criar incidentes duplicados.
-- O incidente só é fechado depois de todos os probes passarem e chegar um snapshot live, fresco e autoritativo. Recuperação local continua limitada a adapter/session/configuration; nunca reinicia nem escreve no backend remoto.
-- Testes cobrem live -> stale -> error -> live, deduplicação e exclusão de falsos incidentes durante startup. CI pendente; não confundir implementação com validação física.
+## Supervisor de ligação e ciclo de incidentes — PR #61 merged (2026-11-10)
+- PR #60 was already integrated; PR #61 then added `OfficeConnectionSupervisor` and was squash-merged as `43adb778b8e03d85c1766f5f1bc68ca15ecea027`.
+- Final PR #61 HEAD: `ded5a449b452fdf56048ff547279fe3b06ddda23`. Linux CI, Windows CI (including real CNG/SQLite and portable-bundle E2E), and browser visual regression all passed on that exact SHA.
+- Only a previously verified live session transitioning to stale/disconnected/error opens an incident. Startup failures are not attributed as an outage.
+- Supervisor observations are serialized to prevent a fast recovery racing incident persistence. Incident identity is assigned only after the store append succeeds.
+- Diagnostic codes reject opaque and secret-shaped values. One outage is coalesced; recovery requires successful probes and a fresh authoritative live snapshot.
+- CI lifecycle probes are injected/fake probes. Real DGM-MAT/VST adapter integration and physical-PC validation remain pending.
+
+## DGM-MAT adapter/session hardening — branch feat/dgmat-session-hardening (2026-11-10)
+- Recovered the useful source-freshness change from the divergent `feat/dgmat-runtime-state-freshness` branch without merging its 18-commit divergent history.
+- DGM-MAT adapter now targets authenticated loopback `GET /runtime/state` only. Its `timestamp` is treated as the last state mutation in seconds, never as a heartbeat or snapshot-generation timestamp. Snapshot remains `synchronizing`, unsynchronized and without agent/task activity.
+- One request deadline covers token acquisition, fetch and response-body parsing. Provider/fetch error text is reduced to safe allowlisted codes; 401/403 awaits bounded async invalidation.
+- Each successful connection receives a fresh UUID session ID. A generation fence prevents late polls from an older connection being emitted after reconnect.
+- `DgmMatLocalSessionProvider` now applies one deadline to bootstrap keystore retrieval, loopback `POST /auth/session`, and response-body parsing; caller cancellation propagates. Bootstrap credentials are not retained and access tokens remain memory-only.
+- Added unit/fake tests for hanging providers, fetch/body deadlines, cancellation, secret-safe events, source mutation timestamps, reconnect identity and late-poll suppression. CI is pending on this branch.
+- Remaining production gate: dedicated Windows OS-keystore storage/retrieval for the DGM-MAT bootstrap secret, host composition wiring, live DGM-MAT contract tests, and physical-PC validation. Never reuse the node-identity private key as a backend credential.
+- VST adapter remains unimplemented. Universal must remain free of both personal adapters and credentials.
