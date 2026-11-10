@@ -63,21 +63,23 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 - If authentication, authorization, endpoint identity or data freshness cannot be verified, show disconnected/unverified and suppress operational claims.
 - Do not create missions, send chat messages, approve actions, execute repairs, start/stop engines or submit trading commands in this read-only phase.
 
-## Implementation status — updated 2026-11-04
+## Implementation status — updated 2026-11-10
 
-- Product edition profiles and adapter allowlists are merged into `main` (PR #19).
-- The first DGM-MAT read-only adapter was merged in PR #20; endpoint hardening is under review in PR #21.
-- It is loopback-only, accepts only GET `/runtime/status` only, requires an injected short-lived local-session token provider, and exposes only `read_state`.
-- It does not read the protected bootstrap credential, create sessions, pair remote devices, store tokens, call WebSockets, or issue write requests.
-- The current `/runtime/status` response does not expose a source freshness watermark; the adapter deliberately returns `synchronizing`/unverified data and does not mark agents/tasks as active. A later DGM-MAT contract change or verified timestamp source is required before operational states can be displayed as confirmed.
-- The host-side secure session provider and persistent OS keystore are not implemented; the adapter cannot be activated in a real installation until those are available.
-- VST adapter remains unimplemented. Live tests against the running DGM-MAT PC remain pending.
+- Product edition profiles and physical source-package isolation are merged. Universal remains backend-neutral; DGM-MAT and VST adapters/credentials remain edition-specific.
+- The DGM-MAT adapter hardening is being developed on `feat/dgmat-session-hardening`. It uses only authenticated loopback `GET /runtime/state` and exposes only `read_state`.
+- The documented `timestamp` is treated as the last state mutation in seconds, not a heartbeat or snapshot-generation timestamp. The adapter reports mutation age for diagnostics but always returns `synchronizing` / `synchronized: false`; agents and tasks remain empty. It does not infer live operational activity.
+- One request deadline covers token acquisition, fetch and response-body parsing. Provider/fetch errors are reduced to safe bounded codes; 401/403 awaits bounded local token invalidation.
+- Each successful adapter connection receives a fresh UUID session identity. A connection-generation fence prevents a late poll from an earlier connection from emitting into a newer session.
+- `DgmMatLocalSessionProvider` now applies one deadline to bootstrap-keystore retrieval, the loopback session exchange and response-body parsing. Caller cancellation is propagated; the bootstrap credential is not retained and the short-lived access token remains memory-only.
+- These are code-level and fake/unit-test increments until CI passes. The actual Windows host still lacks a dedicated OS-keystore bridge and composition for the protected DGM-MAT bootstrap credential. Live tests against a running DGM-MAT instance and physical-PC validation remain pending.
+- The VST adapter remains unimplemented. Do not claim either personal backend is connected or operational.
 
-This integration map was derived from repository documentation and source review. End-to-end authentication and live contract tests against running local instances remain required before enabling either adapter.
+## DGM-MAT local session provider — host wiring pending
 
-## DGM-MAT local session provider — implementation in progress
 - `DgmMatLocalSessionProvider` exchanges the protected bootstrap credential for a short-lived local-client session using `POST /auth/session` on `127.0.0.1:8181` only.
 - The bootstrap credential is fetched on demand from an injected host keystore provider and is not persisted or cached by Office Kit. The returned access token is held in process memory only, bounded to the server's 30-minute maximum, and refreshed before expiry.
+- The full exchange deadline includes the keystore provider, network request and JSON body. The adapter passes cancellation to the provider; a hanging provider cannot block a connection indefinitely.
 - Session responses must be HTTP 201 JSON, Bearer, include `local-client`, and provide a bounded expiry/session identifier. Invalid credentials, malformed responses and transport errors fail closed.
-- The adapter invalidates its cached session on 401/403. The host must wire `getBootstrapCredential` to a real OS-keystore/native provider; no such platform provider is included yet.
+- The adapter awaits bounded invalidation on 401/403. Raw provider/fetch error text is never copied into connection events.
+- Still missing: a dedicated Windows OS-keystore entry for the DGM-MAT bootstrap secret, host composition wiring, live DGM-MAT contract tests, and physical-PC validation. Do not reuse the Windows node-identity private key as a backend credential.
 - This flow is desktop-local only. It does not support mobile pairing, remote bootstrap, LAN exposure, or Tailscale access.

@@ -443,10 +443,18 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Added real node:sqlite migration and two-process contention tests.
 - This is concurrency consistency, not tamper evidence. Append-only journal, keystore-backed MAC/signature chain, chain verification, crash/power-loss recovery and owner-consent support export remain pending.
 
-### Connection supervisor — PR #61, awaiting CI
-- Added an event-driven OfficeConnectionSupervisor fed by authoritative RuntimeSession state.
-- It records only a confirmed live-to-unhealthy transition; startup connection attempts do not create backend outage incidents.
-- A session-loss observation is included as transport-layer evidence. Repeated observations during one outage update the same incident rather than creating duplicates.
-- An incident is marked recovered only after diagnostic probes pass and the host supplies a fresh, synchronized, authoritative live snapshot.
-- The supervisor opens no sockets and owns no timers. Host remains responsible for polling, transport, authentication, and adapter lifecycle.
-- Tests cover outage lifecycle, duplicate suppression, recovery verification, and startup failure handling. CI is pending.
+### Connection supervisor — PR #61 merged (2026-11-10)
+- Squash-merged as `43adb778b8e03d85c1766f5f1bc68ca15ecea027` after Linux CI, Windows CI and browser visual regression passed on exact HEAD `ded5a449b452fdf56048ff547279fe3b06ddda23`.
+- Added an event-driven supervisor that records only a confirmed live-to-unhealthy transition and does not mislabel startup failures as backend outages.
+- Serialized observations to prevent fast recovery racing ahead of incident persistence; incident identity is assigned only after append succeeds.
+- Diagnostic codes reject opaque/secret-shaped values. Repeated state events are coalesced into one outage; recovery requires passing probes plus a fresh authoritative live snapshot.
+- CI used fake/injected probes for supervisor lifecycle. This is not proof of real DGM-MAT/VST adapter integration or physical-PC validation.
+
+## DGM-MAT adapter and session lifecycle hardening — branch feat/dgmat-session-hardening (2026-11-10)
+- Changed the DGM-MAT adapter allowlist to authenticated loopback `GET /runtime/state` only. The source `timestamp` is treated as last state mutation, not heartbeat/snapshot generation; mutation age is diagnostic only and the adapter remains `synchronizing` / unverified.
+- Added one request deadline covering access-token acquisition, fetch and response-body parsing. Hanging injected token providers and stalled response bodies are bounded.
+- Provider/fetch errors are normalized to safe codes; 401/403 awaits bounded async token invalidation. Secret-shaped status values are not copied into snapshots.
+- Each successful connection gets a fresh UUID session ID. A generation fence rejects late polling results from a disconnected/replaced session.
+- Added unit/fake tests for deadline boundaries, cancellation, safe error events, timestamp semantics, session rotation and late-poll suppression. CI has not yet run on the final branch HEAD.
+- The local session provider now bounds the complete bootstrap credential -> loopback POST -> response-body exchange with one deadline and supports caller cancellation.
+- Still blocking production: dedicated Windows OS-keystore storage/retrieval for the DGM-MAT bootstrap secret, host composition wiring, live contract tests against a running DGM-MAT instance, and physical-PC validation. Do not reuse node-identity private keys for backend credentials.
