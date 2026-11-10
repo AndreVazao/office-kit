@@ -17,6 +17,41 @@ foreach ($required in @($nodePath, $helperPath, $launcherPath)) {
   }
 }
 
+$manifestPath = Join-Path $bundleRoot "bundle-manifest.json"
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+  throw "Portable host bundle manifest is missing."
+}
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ($manifest.edition -ne "Universal") {
+  throw "Portable Windows host bundle must identify itself as Universal."
+}
+$expectedSceneModules = @(
+  "windows.mjs",
+  "windows-node-identity-runtime.mjs",
+  "node-identity.mjs",
+  "sqlite-node-identity-metadata-store.mjs",
+  "node-identity-challenge-store.mjs",
+  "windows-cng-p256-keystore.mjs",
+  "resource-policy.mjs",
+  "sqlite-office-incident-store.mjs",
+  "office-health.mjs"
+)
+$expectedHostModules = @("cli.mjs", "hardware-capabilities.mjs", "index.mjs")
+$actualSceneModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\scene-engine\src") -File | Select-Object -ExpandProperty Name)
+$actualHostModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\windows-host\src") -File | Select-Object -ExpandProperty Name)
+if (Compare-Object -ReferenceObject ($expectedSceneModules | Sort-Object) -DifferenceObject ($actualSceneModules | Sort-Object)) {
+  throw ("Universal bundle scene module allowlist mismatch: " + ($actualSceneModules -join ", "))
+}
+if (Compare-Object -ReferenceObject ($expectedHostModules | Sort-Object) -DifferenceObject ($actualHostModules | Sort-Object)) {
+  throw ("Universal bundle host module allowlist mismatch: " + ($actualHostModules -join ", "))
+}
+if (@($manifest.sceneEngineModules).Count -ne $expectedSceneModules.Count
+  -or @($manifest.windowsHostModules).Count -ne $expectedHostModules.Count
+  -or -not (@($manifest.excludedBackendAdapters) -contains "DGM-MAT")
+  -or -not (@($manifest.excludedBackendAdapters) -contains "VST")) {
+  throw "Universal bundle manifest does not declare the exact backend-neutral module allowlist."
+}
+
 $oldLocalAppData = $env:LOCALAPPDATA
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
