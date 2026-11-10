@@ -458,3 +458,13 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Added unit/fake tests for deadline boundaries, cancellation, safe error events, timestamp semantics, session rotation and late-poll suppression. CI has not yet run on the final branch HEAD.
 - The local session provider now bounds the complete bootstrap credential -> loopback POST -> response-body exchange with one deadline and supports caller cancellation.
 - Still blocking production: dedicated Windows OS-keystore storage/retrieval for the DGM-MAT bootstrap secret, host composition wiring, live contract tests against a running DGM-MAT instance, and physical-PC validation. Do not reuse node-identity private keys for backend credentials.
+
+## Connection supervisor — validation and merge (2026-11-10)
+- [x] PR #61 merged into main; merge commit `43adb778b8e03d85c1766f5f1bc68ca15ecea027`.
+- [x] Final PR HEAD `ded5a449b452fdf56048ff547279fe3b06ddda23`: Linux CI passed.
+- [x] Same final HEAD: Windows CI passed, including CNG host publication, persistence/isolation, persistent node identity and portable host E2E.
+- [x] Same final HEAD: browser visual regression passed.
+- [x] Supervisor detects only verified live-to-unhealthy transitions; startup failures remain distinct.
+- [x] One incident per outage; recovery requires passing probes and a fresh authoritative live snapshot.
+- [ ] Integrate supervisor into the installed host lifecycle and validate against real DGM-MAT/VST adapters.
+- [ ] Physical PC validation remains outstanding. CI and browser rendering do not replace installation tests.
