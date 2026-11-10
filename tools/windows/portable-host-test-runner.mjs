@@ -8,7 +8,7 @@ function verifyTestOnlyAuthenticode(helperPath) {
   }
   const escapedPath = helperPath.replace(/'/g, "''");
   const expected = thumbprint.toUpperCase();
-  const script = `$moduleRoot = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $signature = Get-AuthenticodeSignature -LiteralPath '${escapedPath}'; if ($signature.Status -ne 'NotTrusted' -or $signature.SignerCertificate.Thumbprint -ne '${expected}') { exit 3 }`;
+  const script = `$moduleRoot = Join-Path $env:WINDIR 'System32\\WindowsPowerShell\\v1.0\\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $signature = Get-AuthenticodeSignature -LiteralPath '${escapedPath}'; [pscustomobject]@{ status = [string]$signature.Status; thumbprint = [string]$signature.SignerCertificate.Thumbprint; message = [string]$signature.StatusMessage } | ConvertTo-Json -Compress`;
   const result = spawnSync("powershell.exe", [
     "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script
   ], {
@@ -18,18 +18,28 @@ function verifyTestOnlyAuthenticode(helperPath) {
     maxBuffer: 1024 * 1024
   });
   if (result.error || result.status !== 0) {
-    throw new Error("portable_host_test_signature_invalid");
+    throw new Error("portable_host_test_signature_probe_failed");
   }
-  return true;
+  let signature;
+  try { signature = JSON.parse(result.stdout.trim()); }
+  catch { throw new Error("portable_host_test_signature_result_invalid"); }
+  const thumbprintMatches = signature.thumbprint?.toUpperCase() === expected;
+  const untrustedRoot = /root certificate.*not trusted by the trust provider/i.test(signature.message ?? "");
+  const acceptableTrustState = signature.status === "NotTrusted" ||
+    (signature.status === "UnknownError" && untrustedRoot);
+  if (!thumbprintMatches || !acceptableTrustState) {
+    throw new Error("portable_host_test_signature_invalid:" + signature.status);
+  }
+  return signature;
 }
 
 async function main() {
   const command = process.argv[2] ?? "health";
   if (command === "verify-signature") {
-    verifyTestOnlyAuthenticode(process.env.OFFICE_KIT_CNG_HOST_PATH ?? "");
+    const signature = verifyTestOnlyAuthenticode(process.env.OFFICE_KIT_CNG_HOST_PATH ?? "");
     process.stdout.write(JSON.stringify({
       status: "signature_verified",
-      trustStatus: "NotTrusted",
+      trustStatus: signature.status,
       trustBoundary: "test_only_pinned_signature_integrity"
     }) + "\n");
     return;
