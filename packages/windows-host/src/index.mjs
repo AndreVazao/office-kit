@@ -493,6 +493,7 @@ export function createWindowsHost({
     ready,
     manager,
     health,
+    createManagedAdapterGateway,
     close
   });
 }
