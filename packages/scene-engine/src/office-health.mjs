@@ -134,6 +134,16 @@ export class OfficeHealthRecoveryEngine {
         });
       }
     }
+    if (nonEmpty(context.sessionReason) && context.connectionState !== "live") {
+      results.push({
+        probeId: "runtime-session-transition",
+        layer: "transport",
+        ok: false,
+        code: safeCode(context.sessionReason, "connection_lost"),
+        evidence: "The previously verified backend session is no longer live.",
+        checkedAt: iso(this.#clock())
+      });
+    }
     const classification = classify(results);
     const report = {
       schemaVersion: 1,
