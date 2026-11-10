@@ -69,6 +69,52 @@ function Invoke-BoundedNative {
   }
 }
 
+
+function Invoke-CertificateStoreMutation {
+  param(
+    [ValidateSet("My", "Root", "TrustedPublisher")]
+    [string]$StoreName,
+    [ValidateSet("Add", "Remove")]
+    [string]$Action,
+    [string]$CertificatePath,
+    [string]$Thumbprint
+  )
+
+  $escapedCertificatePath = $CertificatePath.Replace("'", "''")
+  if ($Action -eq "Add") {
+    $operation = @"
+`$certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('$escapedCertificatePath')
+try { `$store.Add(`$certificate) } finally { `$certificate.Dispose() }
+"@
+  } else {
+    $operation = @"
+`$certificates = `$store.Certificates.Find([System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint, '$Thumbprint', `$false)
+foreach (`$certificate in `$certificates) {
+  `$store.Remove(`$certificate)
+  `$certificate.Dispose()
+}
+"@
+  }
+
+  $script = @"
+`$ErrorActionPreference = 'Stop'
+`$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+  [System.Security.Cryptography.X509Certificates.StoreName]::$StoreName,
+  [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+)
+`$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+try {
+$operation
+} finally {
+  `$store.Close()
+}
+"@
+  $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+  Invoke-BoundedNative -FileName "powershell.exe" -NativeArguments @(
+    "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encodedCommand
+  ) -Description (($Action.ToLowerInvariant()) + " ephemeral CurrentUser " + $StoreName + " certificate")
+}
+
 function Invoke-OfficeKitHost {
   param([string[]]$Arguments)
 
@@ -139,9 +185,9 @@ try {
   Write-Host "Exporting ephemeral publisher certificate."
   Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
   Write-Host "Adding ephemeral certificate to CurrentUser Root store."
-  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-addstore", "Root", $certificateFile) -Description "trust ephemeral CurrentUser Root certificate"
+  Invoke-CertificateStoreMutation -StoreName "Root" -Action "Add" -CertificatePath $certificateFile -Thumbprint $certificate.Thumbprint
   Write-Host "Adding ephemeral certificate to CurrentUser TrustedPublisher store."
-  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-addstore", "TrustedPublisher", $certificateFile) -Description "trust ephemeral CurrentUser TrustedPublisher certificate"
+  Invoke-CertificateStoreMutation -StoreName "TrustedPublisher" -Action "Add" -CertificatePath $certificateFile -Thumbprint $certificate.Thumbprint
   Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
 
   Write-Host "Signing the bundled CNG helper."
@@ -203,7 +249,7 @@ finally {
 
   if ($null -ne $certificate) {
     foreach ($store in @("My", "Root", "TrustedPublisher")) {
-      try { Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-delstore", $store, $certificate.Thumbprint) -Description ("remove ephemeral certificate from " + $store) } catch { }
+      try { Invoke-CertificateStoreMutation -StoreName $store -Action "Remove" -CertificatePath $certificateFile -Thumbprint $certificate.Thumbprint } catch { }
     }
   }
 
