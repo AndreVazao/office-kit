@@ -544,3 +544,6 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar Linux/Windows CI e regressão visual no mesmo HEAD.
 - [ ] Ligar adapters DGM-MAT e VST reais, mantendo seleção/autorização explícitas e modo read-only.
 - [ ] Validar no PC físico; não confundir testes automatizados com instalação real.
+
+- [x] Corrigir o empacotamento Windows para incluir as dependências transitivas do AdapterGateway e manter build/test allowlists sincronizadas.
+- [ ] Confirmar Linux, Windows E2E e visual regression no mesmo HEAD após a correção.
