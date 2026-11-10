@@ -34,7 +34,11 @@ $sceneModules = @(
   "windows-cng-p256-keystore.mjs",
   "resource-policy.mjs",
   "sqlite-office-incident-store.mjs",
-  "office-health.mjs"
+  "office-health.mjs",
+  "adapter-gateway.mjs",
+  "runtime-session.mjs",
+  "runtime-state.mjs",
+  "adapter-contract.mjs"
 )
 foreach ($module in $sceneModules) {
   $source = Join-Path $repoRoot ("packages\scene-engine\src\" + $module)
