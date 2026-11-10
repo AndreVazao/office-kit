@@ -45,10 +45,11 @@ if (Compare-Object -ReferenceObject ($expectedSceneModules | Sort-Object) -Diffe
 if (Compare-Object -ReferenceObject ($expectedHostModules | Sort-Object) -DifferenceObject ($actualHostModules | Sort-Object)) {
   throw ("Universal bundle host module allowlist mismatch: " + ($actualHostModules -join ", "))
 }
-if (@($manifest.sceneEngineModules).Count -ne $expectedSceneModules.Count
-  -or @($manifest.windowsHostModules).Count -ne $expectedHostModules.Count
-  -or -not (@($manifest.excludedBackendAdapters) -contains "DGM-MAT")
-  -or -not (@($manifest.excludedBackendAdapters) -contains "VST")) {
+$manifestMismatch = (@($manifest.sceneEngineModules).Count -ne $expectedSceneModules.Count) -or
+  (@($manifest.windowsHostModules).Count -ne $expectedHostModules.Count) -or
+  (-not (@($manifest.excludedBackendAdapters) -contains "DGM-MAT")) -or
+  (-not (@($manifest.excludedBackendAdapters) -contains "VST"))
+if ($manifestMismatch) {
   throw "Universal bundle manifest does not declare the exact backend-neutral module allowlist."
 }
 
