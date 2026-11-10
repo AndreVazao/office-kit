@@ -346,10 +346,10 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 
 - A barreira `ready` também bloqueia estados de reconciliação não finais (por exemplo `cleanup_pending`): health fica degraded, não expõe identidade possivelmente obsoleta e nenhuma mutação é executada.
 
-### Portable Windows host bundle — em validação
-- Criado builder que inclui Node.js 22, módulos scene-engine/windows-host e helper CNG.
-- CI cria certificado Code Signing efémero, instala-o apenas nos stores do runner, assina o helper e executa o CLI portátil em processos separados para health, create, reopen, rotate e revoke.
-- Este teste não equivale a certificado de distribuição nem a instalador MSI/MSIX. O workflow ainda tem de passar no HEAD final.
+### Portable Windows host bundle — CI validado; release físico pendente
+- PR #55 foi squash-merged em `cfc16a7ec16e9b0ddf7c7ce812b3f4aa74897816` após Linux, Windows E2E e regressão visual passarem no mesmo HEAD `af562d33541eedab90759c866a3062a35a1ea91b`.
+- O runner Windows validou build do bundle, CNG real e ciclo de identidade create/reopen/rotate/revoke em processos separados. O certificado efémero permaneceu não confiável: o launcher de produção rejeitou-o; o runner de teste verificou thumbprint exato e estado de cadeia não confiável.
+- Isto não equivale a aceitar um publisher de release confiável, instalador MSI/MSIX ou instalação física.
 ## Product requirements added — incident diagnosis, recovery and behavior-preserving adaptive rendering (2026-11-09)
 
 ### Required architecture (not yet claimed implemented)
@@ -370,7 +370,7 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 The 2-core/approximately 3-GB Windows PC is a validation target only, not a product support ceiling. The physical test matrix remains Universal offline, DGM-MAT read-only, VST read-only and standalone office without backend. No physical installation is authorized until the portable runtime/installer gate is complete.
 ### Initial code slice on active PR #55 branch — awaiting final CI
 - Added packages/scene-engine/src/social-simulation.mjs: deterministic-seed-capable local behavior engine with weighted pseudo-random activity selection, variable durations, location changes, peer interactions, explicit simulated authority and host-driven clock. Tests cover offline labeling, reproducibility, activity changes, repetition, enable/disable and invalid input.
-- Added packages/scene-engine/src/office-health.mjs: host-injected layered diagnostic probes for Office Kit runtime, adapter, transport and backend; evidence classification; secret redaction; incident-store contract; local-only bounded recovery scopes; fresh/consistent snapshot verification; recovery history. The included InMemoryIncidentStore is a test/reference implementation, not durable production persistence. Real probes, SQLite persistence, support export integration and actual host recovery actions remain pending.
+- Added packages/scene-engine/src/office-health.mjs: host-injected layered diagnostic probes for Office Kit runtime, adapter, transport and backend; evidence classification; secret redaction; incident-store contract; local-only bounded recovery scopes; fresh/consistent snapshot verification; recovery history. The included InMemoryIncidentStore is a test/reference implementation, not durable production persistence. The Windows host now injects SqliteOfficeIncidentStore; this increment adds required BEGIN IMMEDIATE transactions and monotonic revisions, with a real two-process contention test pending CI. Real probes, append-only event history, platform-key integrity, incident crash/power-loss recovery, owner-consent support export and actual host recovery actions remain pending.
 - Added packages/scene-engine/src/office-state-manager.mjs: explicit offline-social, synchronizing, infirmary and verified-live arbitration. Simulated activity never carries backend tasks/progress; real progress requires a verified live snapshot and a valid backend-supplied percentage.
 - Added packages/scene-engine/src/resource-policy.mjs: host-supplied hardware capability normalization, automatic/manual renderer policy, independent renderer budget, protected backend execution policy and degradation/recovery hysteresis. This is a policy engine; OS/GPU/VRAM detection and integration into actual renderer/installer remain pending.
 - Added unit tests for all four modules and included the modules in public scene-engine exports and syntax checks.
@@ -380,7 +380,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Windows host now composes the SQLite incident store over its existing host-owned database and exposes `createDiagnostics({ probes, recoveryActions, clock })`; the caller supplies explicitly authorized probes and local recovery actions.
 - Added a Windows host integration test proving an incident survives host close/reopen.
 - This establishes durable local incident history but does not yet ship real OS/renderer/adapter/transport/backend probes. Cause attribution remains evidence-based and may be indeterminate; no automatic backend restart/write is permitted.
-- Windows CI certificate trust uses explicit `certutil` CurrentUser store operations rather than certificate-provider import cmdlets. The first run after this change still timed out on the initial Root-store add, before signing or host execution; therefore the earlier change did not resolve the runner hang. The follow-up adds certutil silent mode and bounded stdout/stderr capture; its CI result is pending.
+- Final Windows CI no longer mutates Root/TrustedPublisher stores. It leaves the ephemeral signer untrusted, asserts that the production launcher rejects it, and uses a test-only verifier restricted to the exact signer thumbprint plus `NotTrusted` or `UnknownError` with an explicit untrusted-root message. This validates the negative trust boundary and local CNG/SQLite lifecycle, not positive trusted-publisher acceptance.
 ### Hardware detection and host resource policy — initial host integration
 - Added packages/windows-host/src/hardware-capabilities.mjs to detect OS/release, architecture, CPU model/core count, total/available RAM and free storage.
 - GPU name/dedicated VRAM/graphics API and display dimensions are optional platform providers. Unknown values remain null; adapter-reported memory is not mislabeled as dedicated VRAM.
@@ -429,3 +429,11 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - A execução Windows mais recente tinha passado os 214 testes da suite (211 pass, 0 fail, 3 skips), CNG nativo, runtime de identidade e build do bundle, mas o E2E parou antes da assinatura/execução do host devido a um parêntese em falta na validação do manifesto.
 - Corrigida a expressão no script E2E. No HEAD `60eb648fd7fcaf381039e7805c193ac6474c87f7`, Linux CI está verde; Windows E2E e regressão visual continuam pendentes. Isto ainda não é evidência de bundle E2E aprovado.
 - O workflow Windows valida agora a sintaxe dos scripts PowerShell de build e E2E antes dos passos nativos mais demorados. Isto antecipa erros de parser; não substitui o teste do bundle.
+
+
+## Estado global após PR #55 — 2026-11-10
+- PR #55 integrada por squash no commit `cfc16a7ec16e9b0ddf7c7ce812b3f4aa74897816`; HEAD validado `af562d33541eedab90759c866a3062a35a1ea91b`. Linux CI, Windows CI/E2E e regressão visual passaram nesse mesmo SHA.
+- O bundle Universal Windows tem allowlist backend-neutral e o E2E confirma que DGM-MAT/VST não entram nesse artefacto. A separação do entrypoint genérico e dos pacotes npm por edição continua pendente (issue #56).
+- A aceitação positiva de um publisher Authenticode confiável, MSI/MSIX, upgrade/rollback e instalação física continuam pendentes.
+- A issue #58 permanece aberta: o store de incidentes tem persistência SQLite, mas ainda precisa de histórico append-only, integridade com chave de keystore, verificação da cadeia, crash/power-loss recovery e exportação com consentimento.
+- O incremento seguinte usa `transaction.immediate()` e revisão monotónica; o teste de concorrência com dois processos SQLite está pendente de CI. Não declarar integridade anti-adulteração com base apenas na revisão.

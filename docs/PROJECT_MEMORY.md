@@ -360,12 +360,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 ## Certificate store CI correction — 2026-11-10
 - PR #55 HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba`: visual regression passed; Linux tests passed; Windows core, CNG and persistent identity tests passed, but the portable E2E failed before signing because `certutil -addstore` rejected the unsupported `-Silent` switch. The previous timeout diagnosis was therefore superseded for this run; no portable host operations executed.
-- The .NET `X509Store` attempt also timed out at CurrentUser Root. The revised test avoids Root/TrustedPublisher mutation: production launcher must reject the untrusted ephemeral signer; a separate test-only verifier accepts only Authenticode `NotTrusted` plus exact signer thumbprint to exercise real CNG/SQLite lifecycle. Positive trusted-chain acceptance remains unvalidated until a physical Windows release test.
+- The .NET `X509Store` attempt also timed out at CurrentUser Root. The revised test avoids Root/TrustedPublisher mutation: production launcher must reject the untrusted ephemeral signer; a separate test-only verifier accepts only Authenticode `NotTrusted` or `UnknownError` with explicit untrusted-root message plus exact signer thumbprint to exercise real CNG/SQLite lifecycle. Positive trusted-chain acceptance remains unvalidated until a physical Windows release test.
 
 ## Portable bundle trust boundary — revised test strategy — 2026-11-10
 - The GitHub-hosted Windows runner timed out while adding a self-signed test CA to CurrentUser Root through both certutil and .NET `X509Store`. The E2E no longer attempts to modify trust stores.
-- New harness signs the bundled helper with an ephemeral code-signing cert left untrusted; it asserts that the production launcher rejects it, then uses a test-only pinned-signature verifier (Authenticode `NotTrusted` + exact thumbprint) to exercise the bundled Node host, SQLite persistence and real Windows CNG create/reopen/rotate/revoke across separate processes.
-- This does not prove positive trust-chain acceptance. A signed release publisher must still be validated on a physical Windows installation. Await CI on the new HEAD.
+- New harness signs the bundled helper with an ephemeral code-signing cert left untrusted; it asserts that the production launcher rejects it, then uses a test-only pinned-signature verifier (Authenticode `NotTrusted` or `UnknownError` with explicit untrusted-root message + exact thumbprint) to exercise the bundled Node host, SQLite persistence and real Windows CNG create/reopen/rotate/revoke across separate processes.
+- This does not prove positive trust-chain acceptance. A signed release publisher must still be validated on a physical Windows installation. PR #55 subsequently passed its complete Windows E2E and visual regression on final HEAD `af562d33541eedab90759c866a3062a35a1ea91b` and was squash-merged.
 
 ## Universal Windows bundle isolation — 2026-11-10
 - `build-host-bundle.ps1` now copies only nine explicit backend-neutral scene-engine modules plus three Windows-host modules. It excludes the generic `scene-engine/src/index.mjs` (currently leaking DGM exports), DGM-MAT adapter/session files and VST files; the manifest records this allowlist and exclusions.
@@ -376,3 +376,11 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Corrigido em `tools/windows/test-host-bundle.ps1`: a expressão foi dividida numa variável `$manifestMismatch` e agora fecha corretamente todos os parênteses.
 - HEAD com correção: `60eb648fd7fcaf381039e7805c193ac6474c87f7`. Linux CI passou; Windows E2E e regressão visual deste HEAD ainda estão em execução. Não declarar o bundle aprovado até health/create/reopen/rotate/revoke/health e validação visual concluírem no mesmo SHA.
 - Para evitar desperdiçar runners em falhas de sintaxe PowerShell, o CI Windows passou a executar o parser nativo dos scripts build-host-bundle.ps1 e test-host-bundle.ps1 antes de instalar/publicar o helper .NET e executar os testes CNG. A validação E2E continua obrigatória.
+
+
+## Estado global do Office Kit — 2026-11-10
+- PR #55 foi integrada por squash em `cfc16a7ec16e9b0ddf7c7ce812b3f4aa74897816`, depois de Linux CI, Windows CI/E2E e regressão visual passarem no mesmo HEAD `af562d33541eedab90759c866a3062a35a1ea91b`.
+- O bundle portátil Universal Windows valida allowlist backend-neutral e rejeita o signer efémero não confiável no launcher de produção. O runner de teste aceita apenas o thumbprint exato e um estado Authenticode explicitamente não confiável. Publisher de release confiável e instalação física continuam por validar.
+- A store SQLite de incidentes persiste por instalação e sobrevive ao fecho/reabertura do host. O incremento `feat/sqlite-incident-atomic-updates` acrescenta transações imediatas, revisão monotónica, migração de schema e teste de concorrência entre processos; CI ainda pendente.
+- A store ainda não é um journal append-only nem tamper-resistant: falta MAC/assinatura com chave no keystore, verificação da cadeia, crash/power-loss recovery e exportação com consentimento.
+- Issues abertas prioritárias: #58 integridade/concorrência SQLite; #57 hardening da sessão DGM-MAT; #56 isolamento físico dos pacotes Universal/DGM-MAT/VST.

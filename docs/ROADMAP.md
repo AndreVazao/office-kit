@@ -398,7 +398,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 ## Windows portable distribution
 - [x] Bundle Node.js runtime, Windows host modules and CNG helper into a portable directory.
-- [ ] Pass CI end-to-end test using an ephemeral trusted signing certificate on Windows.
+- [x] Pass Windows CI end-to-end using an ephemeral signer left untrusted: production launcher rejects it and the test-only verifier pins the exact signer. Positive trusted-publisher acceptance remains a physical release gate.
 - [ ] Add release signing using a protected publisher certificate and verify signer thumbprint.
 - [ ] Build MSI/MSIX installer with start/health/uninstall and explicit data retention.
 - [ ] Validate upgrade/rollback, backup/restore and physical-PC installation.
@@ -417,21 +417,22 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Add independent CPU/memory budgets for renderer and backend; detect hardware at install and runtime, apply hysteresis, allow manual override and recover quality as resources return.
 - [ ] Validate on low-resource Windows and stronger desktop hardware without making the test PC a feature ceiling.
 
-## Next implementation order after the portable Windows bundle gate
-1. Complete and merge the portable Windows host bundle only after Linux, Windows E2E and visual regression pass on the same HEAD.
-2. Implement the installable Windows host lifecycle (install/start/health/stop/restart/uninstall/upgrade/rollback/data retention) without touching existing DGM-MAT or VST installations.
-3. Implement hardware capability discovery and dynamic resource budgets, separating renderer cost from backend resources.
-4. Implement Office Health & Recovery incident contracts, safe diagnostic probes, redaction and bounded recovery.
-5. Implement social simulation independent of backend and renderer FPS, then renderer-tier equivalence.
-6. Implement and validate the four physical scenarios: Universal offline, DGM-MAT read-only, VST read-only and standalone offline.
-7. Generate the Desktop Commander installation/test prompt only after the package passes automated release gates. Never use live trading or destructive DGM-MAT operations during validation.
+## Next implementation order after the portable Windows bundle merge
+1. Complete SQLite incident concurrency, append-only history, platform-key integrity, crash recovery and owner-consent export (issue #58).
+2. Harden DGM-MAT session deadlines, event identity, invalidation and error redaction (issue #57), then recover the useful runtime-state freshness work without importing stale lifecycle code.
+3. Physically isolate Universal, DGM-MAT and VST source/package artifacts and align the Node/SQLite runtime contract (issue #56).
+4. Implement the VST read-only adapter and validate its own installation/credential boundary.
+5. Complete Windows installer lifecycle, backup/restore, signed release distribution and physical installation tests.
+6. Integrate real authorized probes, host recovery actions, renderer/native UI and adaptive resource policy.
+7. Validate Universal offline, DGM-MAT read-only, VST read-only and standalone offline on their respective target machines. Never use live trading or destructive DGM-MAT operations during validation.
 ### Estado do primeiro incremento de código — PR #55 branch
 - [x] Criar protótipo puro do motor social local, com seed QA, atividades variáveis e sem autoridade operacional.
 - [x] Criar contrato de diagnóstico por camadas, redaction e coordenador de recuperação local com verificação de snapshot.
 - [x] Criar arbitragem explícita offline/synchronizing/infirmary/live e regra de progresso real.
 - [x] Criar política adaptativa de recursos com tiers de renderer, override e hysteresis, preservando semântica social.
-- [ ] Obter CI Linux + Windows e regressão visual verdes no mesmo HEAD final.
-- [ ] Ligar probes reais e armazenamento persistente de incidentes no host.
+- [x] Obter CI Linux + Windows e regressão visual verdes no mesmo HEAD final da PR #55.
+- [x] Ligar SqliteOfficeIncidentStore ao host Windows e validar persistência após fecho/reabertura.
+- [ ] Ligar probes reais e completar histórico append-only, integridade de keystore e exportação com consentimento.
 - [ ] Integrar deteção de hardware e política no instalador e renderer de produção.
 - [ ] Ligar motor social à cena/renderers e testar equivalência comportamental em todos os tiers.
 
@@ -444,21 +445,22 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Adicionar a primeira arbitragem pura entre offline social, sincronização, enfermaria e estado live verificado; progresso visual só é exposto para tarefas de backend em execução com percentagem válida.
 - [x] Adicionar coordenador inicial de diagnóstico por camadas, redaction de evidência, contrato de incident store e execução limitada por chamada de ações locais fornecidas pelo host.
 - [x] Adicionar política adaptativa automática/manual de renderer, histerese e orçamento de recursos separado do backend.
-- [ ] Validar CI Linux/Windows e regressão visual no mesmo HEAD final da PR #55.
+- [x] Validar CI Linux/Windows e regressão visual no mesmo HEAD final da PR #55 (`af562d33541eedab90759c866a3062a35a1ea91b`).
 - [ ] Integrar sondas reais autorizadas e atribuição positiva de causa confirmada.
-- [ ] Substituir o provider de incidentes em memória por persistência SQLite durável, exportação de suporte e proteção contra adulteração.
+- [x] Substituir o provider em memória por persistência SQLite no host Windows.
+- [ ] Adicionar journal append-only, MAC/assinatura com chave de keystore, verificação de cadeia, crash/power-loss recovery e exportação com consentimento.
 - [ ] Implementar limites de frequência/idempotência de recuperação entre chamadas e ligar ações locais reais do host.
 - [ ] Ligar a política de recursos à deteção nativa de CPU/RAM/GPU/VRAM e aos renderers efetivamente instalados.
 - [ ] Validar equivalência comportamental dos renderers e desempenho em máquinas físicas.
 
-**Limite de evidência:** os módulos e testes desta PR são um primeiro incremento de core. Não representam integração com drivers reais, persistência de incidentes em produção, instalador, renderer integrado, nem testes em PC físico. O bundle portátil Universal Windows usa uma allowlist backend-neutral; a separação do entrypoint genérico e dos pacotes npm por edição continua pendente (issue #56).
+**Limite de evidência:** o bundle portátil Universal Windows passou CI Linux/Windows E2E e regressão visual no mesmo HEAD, incluindo CNG real e SQLite local em processos separados. Isto não representa publisher confiável, instalador MSI/MSIX, upgrade/rollback, renderer integrado, probes reais, MAC de incidentes, nem testes em PC físico. A allowlist isola este bundle específico; a separação do entrypoint genérico e dos pacotes npm por edição continua pendente (issue #56).
 ### Diagnóstico persistente e Windows bundle — incremento em PR #55
 - [x] Implementar armazenamento SQLite de incidentes isolado por instalação.
 - [x] Ligar store ao Windows host e permitir criar motor de diagnóstico com probes/actions injetados.
 - [x] Testar persistência do incidente após reinício do host.
 - [ ] Implementar probes reais por camada e identificação da origem com confiança/evidência.
 - [ ] Integrar recuperação local autorizada, snapshot de verificação e exportação de suporte com consentimento.
-- [ ] Validar Windows portable E2E com rejeição do launcher para signer não confiável e assinatura pinada no runner de teste; aceitação positiva de publisher confiável permanece validação física.
+- [x] Validar Windows portable E2E com rejeição do launcher para signer não confiável e assinatura pinada no runner de teste (HEAD `af562d33541eedab90759c866a3062a35a1ea91b`); aceitação positiva de publisher confiável permanece validação física.
 ### Hardware host e limites de diagnóstico — incremento
 - [x] Detetar OS, CPU, RAM e espaço livre através do host Node.
 - [x] Aceitar providers opcionais de GPU/VRAM dedicada/API gráfica e resolução sem inventar dados.
