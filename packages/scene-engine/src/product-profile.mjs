@@ -2,7 +2,7 @@ const EDITIONS = new Set(["universal", "dgmat", "vst"]);
 const ADAPTER_IDS = Object.freeze({
   universal: Object.freeze([]),
   dgmat: Object.freeze(["dgm-mat"]),
-  vst: Object.freeze(["vazao-sovereign-trader"])
+  vst: Object.freeze([])
 });
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
