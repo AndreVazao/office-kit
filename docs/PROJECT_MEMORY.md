@@ -392,3 +392,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Legacy SQLite rows are migrated to revision 1. Corrupt/mismatched revision metadata fails closed.
 - Added real node:sqlite migration test and separate-process contention test. The test proves a child update waits while a parent holds BEGIN IMMEDIATE and both updates survive with revision 3.
 - Revision is not cryptographic integrity. Append-only history, keystore MAC/signature chain, chain verification, power-loss recovery and consent-based support export remain pending.
+
+## Supervisor de ligação e ciclo de incidentes (PR #61, 2026-11-10)
+- PR #60 foi integrado em main: serialização SQLite de incidentes com revisões monotónicas e teste de concorrência multi-processo. Main atual inclui esse merge.
+- Nova PR #61 acrescenta OfficeConnectionSupervisor, um coordenador event-driven alimentado pelo estado autoritativo de RuntimeSession. Não abre sockets nem inventa timers.
+- Só uma transição de sessão previamente live para stale/disconnected/error inicia incidente. Falhas durante o arranque inicial não são atribuídas falsamente a uma queda de backend.
+- A queda da sessão é registada como evidência da camada transport, distinguindo-a de falhas internas office_runtime/adapter e falhas backend quando os probes fornecem evidência.
+- O mesmo outage mantém um único incidente: verificações repetidas atualizam a linha temporal em vez de criar incidentes duplicados.
+- O incidente só é fechado depois de todos os probes passarem e chegar um snapshot live, fresco e autoritativo. Recuperação local continua limitada a adapter/session/configuration; nunca reinicia nem escreve no backend remoto.
+- Testes cobrem live -> stale -> error -> live, deduplicação e exclusão de falsos incidentes durante startup. CI pendente; não confundir implementação com validação física.
