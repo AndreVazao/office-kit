@@ -52,9 +52,6 @@ export function calculateSceneLayout(config, viewport, options = {}) {
   };
 }
 
-export { DgmMatReadOnlyAdapter, dgmMatAdapterContract } from "./dgmat-readonly-adapter.mjs";
-
-export { DgmMatLocalSessionProvider, dgmMatLocalSessionContract } from "./dgmat-local-session-provider.mjs";
 
 export { SqliteNodeIdentityMetadataStore } from "./sqlite-node-identity-metadata-store.mjs";
 
