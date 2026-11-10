@@ -494,3 +494,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Align package engines and manual workflows with Node 22 / minimum 22.5 for node:sqlite.
 - [x] Add tarball-content assertions for Universal, DGM-MAT and VST.
 - [ ] Pass Linux/Windows CI and all three manual edition build workflows on the final PR HEAD.
+
+### SQLite incident concurrency — PR #60
+- [x] Require immediate SQLite transactions for incident append and read/modify/write updates.
+- [x] Add monotonic revision and compare-and-set update guard.
+- [x] Migrate existing incident rows to revision 1.
+- [x] Add real SQLite migration and two-process contention tests.
+- [ ] Add append-only event history and keystore-backed integrity chain.
+- [ ] Add chain verification, crash/power-loss recovery and owner-consent support export.

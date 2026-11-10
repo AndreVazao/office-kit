@@ -436,3 +436,9 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - VST product metadata no longer claims a vazao-sovereign-trader adapter exists. Its adapter allowlist is empty and status is not_implemented.
 - Root package engine floor and all three manual edition workflows now use Node.js 22.5+ / Node 22, matching the host's node:sqlite requirement. The manifest documents that node:sqlite remains experimental on Node 22.
 - New artifact tests inspect the actual .tgz contents for all three editions, checking both required and forbidden modules. CI on the branch is pending; this is not yet a merged/released package.
+
+### SQLite incident concurrency — PR #60
+- SQLite incident append/update now requires an immediate transaction provider and uses BEGIN IMMEDIATE for atomic read/modify/write.
+- Added monotonic per-incident revision, compare-and-set update predicate, reserved-field rejection and legacy schema migration to revision 1.
+- Added real node:sqlite migration and two-process contention tests.
+- This is concurrency consistency, not tamper evidence. Append-only journal, keystore-backed MAC/signature chain, chain verification, crash/power-loss recovery and owner-consent support export remain pending.

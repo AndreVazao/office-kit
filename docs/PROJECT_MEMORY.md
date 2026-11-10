@@ -385,3 +385,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Todos os tarballs declaram Node >=22.5.0 porque o Windows host usa node:sqlite. Os workflows manuais Universal/DGM-MAT/VST foram alinhados com Node 22. A API node:sqlite continua experimental no Node 22 e essa limitação fica explícita no manifesto.
 - Foram adicionados testes que descompactam/inspecionam os tarballs das três edições e verificam ausência/presença de módulos por allowlist, manifesto e runtime mínimo. CI ainda pendente neste branch.
 - Limites: são source packages isolados, não instaladores OS; adapter VST, instalador, assinatura comercial e validação física continuam pendentes.
+
+## SQLite incident concurrency — PR #60 (2026-11-10)
+- SqliteOfficeIncidentStore requires transaction.immediate() and uses BEGIN IMMEDIATE for append and read/modify/write update.
+- Each incident stores a monotonic revision; updates compare the old revision and atomically advance it. Caller cannot overwrite id, installationId, schemaVersion or revision.
+- Legacy SQLite rows are migrated to revision 1. Corrupt/mismatched revision metadata fails closed.
+- Added real node:sqlite migration test and separate-process contention test. The test proves a child update waits while a parent holds BEGIN IMMEDIATE and both updates survive with revision 3.
+- Revision is not cryptographic integrity. Append-only history, keystore MAC/signature chain, chain verification, power-loss recovery and consent-based support export remain pending.
