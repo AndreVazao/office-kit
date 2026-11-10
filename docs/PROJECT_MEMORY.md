@@ -357,3 +357,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 ## Windows portable bundle CI — 2026-11-10 follow-up
 - Rechecked PR #55 at exact HEAD `0e9dd8e46c9ddf3404eb9fc16b942b1e855a315b`: visual regression passed; Linux tests passed; Windows suite passed 211/214 (three expected platform skips), real Windows CNG test passed 1/1, and persistent Windows identity integration passed 2/2. Bundle construction passed. E2E failed at the first `certutil -f -user -addstore Root` operation after its 20-second deadline; no signing or host lifecycle commands ran.
 - A follow-up commit adds certutil `-silent` for CurrentUser trust/removal and captures bounded native output. The effect is unverified until CI completes on the new branch HEAD. The bundle remains a test artifact, not a production installer.
+
+## Certificate store CI correction — 2026-11-10
+- PR #55 HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba`: visual regression passed; Linux tests passed; Windows core, CNG and persistent identity tests passed, but the portable E2E failed before signing because `certutil -addstore` rejected the unsupported `-Silent` switch. The previous timeout diagnosis was therefore superseded for this run; no portable host operations executed.
+- Replaced certutil store mutations with bounded child PowerShell/.NET `X509Store` operations scoped to CurrentUser. Await the new Windows E2E before treating trust/signing or bundle lifecycle as validated.
