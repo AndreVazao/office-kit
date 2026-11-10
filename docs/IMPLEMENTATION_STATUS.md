@@ -478,3 +478,6 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - [ ] Validar Linux/Windows CI e regressão visual no HEAD final.
 - [ ] Exercitar adapters reais DGM-MAT/VST; GenericDemoAdapter é apenas teste de contrato.
 - [ ] Validar instalação física e comportamento de recuperação no PC do utilizador.
+
+- [x] Corrigir a allowlist do bundle Windows para incluir as dependências transitivas do AdapterGateway (`adapter-gateway`, `runtime-session`, `runtime-state`, `adapter-contract`) e validar a lista no teste independente.
+- [ ] Reexecutar Linux, Windows e regressão visual no mesmo HEAD final; a execução anterior falhou no E2E Windows por módulo ausente no bundle, embora os testes de identidade/CNG tenham passado.
