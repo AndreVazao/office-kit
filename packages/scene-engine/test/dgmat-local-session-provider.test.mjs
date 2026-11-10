@@ -125,3 +125,66 @@ test("refreshes an expiring token and invalidation clears the cached session", a
   provider.invalidate();
   assert.equal(provider.getState().authenticated, false);
 });
+
+
+test("one exchange deadline includes a hanging bootstrap keystore provider", async () => {
+  let providerSignal;
+  const provider = new DgmMatLocalSessionProvider({
+    timeoutMs: 250,
+    getBootstrapCredential: async ({ signal }) => {
+      providerSignal = signal;
+      return new Promise(() => {});
+    },
+    fetchImpl: async () => jsonResponse(validSession())
+  });
+  await assert.rejects(provider.getAccessToken(), /dgm_mat_session_exchange_timeout/);
+  assert.equal(providerSignal.aborted, true);
+  assert.equal(provider.getState().authenticated, false);
+});
+
+test("one exchange deadline includes fetch and response-body parsing", async () => {
+  const hangingFetch = new DgmMatLocalSessionProvider({
+    timeoutMs: 250,
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => new Promise(() => {})
+  });
+  await assert.rejects(hangingFetch.getAccessToken(), /dgm_mat_session_exchange_timeout/);
+
+  const hangingBody = new DgmMatLocalSessionProvider({
+    timeoutMs: 250,
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => ({
+      ok: true,
+      status: 201,
+      headers: { get: () => "application/json" },
+      json: async () => new Promise(() => {})
+    })
+  });
+  await assert.rejects(hangingBody.getAccessToken(), /dgm_mat_session_exchange_timeout/);
+  assert.equal(hangingBody.getState().authenticated, false);
+});
+
+test("caller cancellation aborts the bootstrap exchange and provider errors are normalized", async () => {
+  const controller = new AbortController();
+  let providerStarted;
+  const started = new Promise(resolve => { providerStarted = resolve; });
+  const provider = new DgmMatLocalSessionProvider({
+    timeoutMs: 5_000,
+    getBootstrapCredential: async ({ signal }) => {
+      providerStarted(signal);
+      return new Promise(() => {});
+    },
+    fetchImpl: async () => jsonResponse(validSession())
+  });
+  const request = provider.getAccessToken({ signal: controller.signal });
+  const providerSignal = await started;
+  controller.abort();
+  await assert.rejects(request, /dgm_mat_session_exchange_timeout/);
+  assert.equal(providerSignal.aborted, true);
+
+  const unsafeProvider = new DgmMatLocalSessionProvider({
+    getBootstrapCredential: async () => { throw new Error("Bearer private-bootstrap-secret"); },
+    fetchImpl: async () => jsonResponse(validSession())
+  });
+  await assert.rejects(unsafeProvider.getAccessToken(), /dgm_mat_bootstrap_credential_unavailable/);
+});
