@@ -451,14 +451,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Ligar a política de recursos à deteção nativa de CPU/RAM/GPU/VRAM e aos renderers efetivamente instalados.
 - [ ] Validar equivalência comportamental dos renderers e desempenho em máquinas físicas.
 
-**Limite de evidência:** os módulos e testes desta PR são um primeiro incremento de core. Não representam integração com drivers reais, persistência de incidentes em produção, instalador, renderer integrado, nem testes em PC físico. A edição Universal continua independente; os adaptadores DGM-MAT e VST não são alterados por este incremento.
+**Limite de evidência:** os módulos e testes desta PR são um primeiro incremento de core. Não representam integração com drivers reais, persistência de incidentes em produção, instalador, renderer integrado, nem testes em PC físico. O bundle portátil Universal Windows usa uma allowlist backend-neutral; a separação do entrypoint genérico e dos pacotes npm por edição continua pendente (issue #56).
 ### Diagnóstico persistente e Windows bundle — incremento em PR #55
 - [x] Implementar armazenamento SQLite de incidentes isolado por instalação.
 - [x] Ligar store ao Windows host e permitir criar motor de diagnóstico com probes/actions injetados.
 - [x] Testar persistência do incidente após reinício do host.
 - [ ] Implementar probes reais por camada e identificação da origem com confiança/evidência.
 - [ ] Integrar recuperação local autorizada, snapshot de verificação e exportação de suporte com consentimento.
-- [ ] Confirmar Windows portable E2E após substituir trust-store PowerShell por certutil com logs.
+- [ ] Validar Windows portable E2E com rejeição do launcher para signer não confiável e assinatura pinada no runner de teste; aceitação positiva de publisher confiável permanece validação física.
 ### Hardware host e limites de diagnóstico — incremento
 - [x] Detetar OS, CPU, RAM e espaço livre através do host Node.
 - [x] Aceitar providers opcionais de GPU/VRAM dedicada/API gráfica e resolução sem inventar dados.
@@ -478,4 +478,5 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Atualizar testes de preview para o banner OFFLINE e integração do SocialSimulationEngine; remover expectativa textual obsoleta e verificar movimento no perfil economy.
 - [x] Distinguir threads lógicas reportadas pelo sistema operativo de núcleos físicos; não apresentar a contagem lógica como cores físicos.
 - [x] Isolar stdout/stderr do E2E Windows em ficheiros temporários para evitar bloqueios por pipes herdados.
-- [ ] Validar o ciclo portátil completo no runner Windows com o novo mecanismo de saída.
+- [x] Aplicar allowlist explícita ao bundle Universal Windows e testar ausência de módulos DGM-MAT/VST no artefacto.
+- [ ] Validar o ciclo portátil completo no runner Windows com assinatura pinada de teste; validar publisher confiável numa instalação física.
