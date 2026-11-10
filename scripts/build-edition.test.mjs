@@ -32,9 +32,8 @@ async function build(edition) {
     const entries = tarEntries(result.tarball, archive);
     const manifest = JSON.parse(await readFile(result.manifest, "utf8"));
     return { result, entries, manifest };
-  } catch (error) {
+  } finally {
     await rm(outputDirectory, { recursive: true, force: true });
-    throw error;
   }
 }
 
