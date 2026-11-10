@@ -421,3 +421,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Segurança: diagnóstico read-only; sem sockets/timers próprios; nenhuma escrita ou reinício remoto do backend. Códigos opacos/secret-shaped são rejeitados e o histórico diagnóstico é limitado.
 - Limites mantidos: integração do supervisor no ciclo de vida do host instalado, adaptadores reais DGM-MAT/VST e validação física no PC continuam pendentes. O merge não torna o instalador comercial/produção pronto.
 - Main avançou depois do merge para `2b2e0e33fbbe74e880be16330293e552a8ffa76b`; esta atualização documental parte desse HEAD.
+
+
+## Host-managed connection supervision — PR em desenvolvimento (2026-11-10)
+- Início da integração de `OfficeConnectionSupervisor` no host Windows: novo factory `createManagedAdapterGateway` compõe AdapterGateway, RuntimeSession, OfficeHealthRecoveryEngine, supervisor e SqliteOfficeIncidentStore da instalação.
+- O host exige adapter explicitamente fornecido e probes read-only explícitos; não inicia descoberta, autenticação, rede ou comandos remotos.
+- Transições emitidas pelo gateway são serializadas para o supervisor. Incidentes persistem no SQLite da instalação e a recuperação exige novo snapshot autoritativo live mais probes saudáveis.
+- O host fecha gateways geridos antes de fechar SQLite. Testes usam GenericDemoAdapter apenas como integração de contrato; não provam DGM-MAT/VST real nem instalação física.
