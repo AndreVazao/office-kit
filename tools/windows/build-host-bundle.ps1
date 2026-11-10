@@ -25,8 +25,33 @@ New-Item -ItemType Directory -Path $sceneTarget -Force | Out-Null
 New-Item -ItemType Directory -Path $hostTarget -Force | Out-Null
 
 Copy-Item -LiteralPath $nodePath -Destination (Join-Path $bundleRoot "node.exe")
-Copy-Item -LiteralPath (Join-Path $repoRoot "packages\scene-engine\src") -Destination $sceneTarget -Recurse
-Copy-Item -LiteralPath (Join-Path $repoRoot "packages\windows-host\src") -Destination $hostTarget -Recurse
+$sceneModules = @(
+  "windows.mjs",
+  "windows-node-identity-runtime.mjs",
+  "node-identity.mjs",
+  "sqlite-node-identity-metadata-store.mjs",
+  "node-identity-challenge-store.mjs",
+  "windows-cng-p256-keystore.mjs",
+  "resource-policy.mjs",
+  "sqlite-office-incident-store.mjs",
+  "office-health.mjs"
+)
+foreach ($module in $sceneModules) {
+  $source = Join-Path $repoRoot ("packages\scene-engine\src\" + $module)
+  if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+    throw ("Required Universal scene module is missing: " + $module)
+  }
+  Copy-Item -LiteralPath $source -Destination $sceneTarget
+}
+
+$hostModules = @("cli.mjs", "hardware-capabilities.mjs", "index.mjs")
+foreach ($module in $hostModules) {
+  $source = Join-Path $repoRoot ("packages\windows-host\src\" + $module)
+  if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+    throw ("Required Windows host module is missing: " + $module)
+  }
+  Copy-Item -LiteralPath $source -Destination $hostTarget
+}
 Copy-Item -LiteralPath $helperPath -Destination (Join-Path $bundleRoot "OfficeKit.CngHost.exe")
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination (Join-Path $bundleRoot "LICENSE") -ErrorAction SilentlyContinue
 
@@ -41,6 +66,9 @@ $manifest = [ordered]@{
   minimumNodeVersion = "22.5"
   entrypoint = "packages/windows-host/src/cli.mjs"
   cngHelper = "OfficeKit.CngHost.exe"
+  sceneEngineModules = $sceneModules
+  windowsHostModules = $hostModules
+  excludedBackendAdapters = @("DGM-MAT", "VST")
   requiresTrustedAuthenticodePublisher = $true
 }
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $bundleRoot "bundle-manifest.json") -Encoding utf8
