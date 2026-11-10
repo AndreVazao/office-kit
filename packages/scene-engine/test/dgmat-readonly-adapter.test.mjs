@@ -286,7 +286,6 @@ test("each reconnect gets a new UUID and a late prior-generation poll cannot emi
     });
   });
   assert.equal(newEvent.sessionId, secondSessionId);
-  events.push(newEvent);
 
   releaseOldPoll(response(state()));
   await new Promise(resolve => setTimeout(resolve, 30));
