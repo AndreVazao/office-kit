@@ -175,7 +175,7 @@ try {
   Remove-Item Env:OFFICE_KIT_CNG_HOST_PATH -ErrorAction SilentlyContinue
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
 
-  $launcherRejection = Invoke-PortableHostRunner -Arguments @("health") -ExpectFailure
+  $launcherRejection = Invoke-OfficeKitHost -Arguments @("health") -ExpectFailure
   if ($launcherRejection.status -ne "error" -or $launcherRejection.code -ne "windows_host_command_failed_powershell") {
     throw "Production launcher did not reject the untrusted ephemeral CI certificate."
   }
@@ -203,7 +203,7 @@ try {
     throw "Portable host identity creation failed."
   }
 
-  $reopened = Invoke-OfficeKitHost -Arguments @("health")
+  $reopened = Invoke-PortableHostRunner -Arguments @("health")
   if ($reopened.status -ne "ready" -or $reopened.identityStatus -ne "active" -or $reopened.identity.generation -ne 1) {
     throw "Portable host did not recover the identity in a fresh process."
   }
@@ -218,7 +218,7 @@ try {
     throw "Portable host identity revocation failed."
   }
 
-  $finalHealth = Invoke-OfficeKitHost -Arguments @("health")
+  $finalHealth = Invoke-PortableHostRunner -Arguments @("health")
   if ($finalHealth.status -ne "ready" -or $finalHealth.identityStatus -ne "revoked" -or $null -ne $finalHealth.identity) {
     throw "Portable host did not report the revoked identity state after process restart."
   }
