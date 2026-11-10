@@ -353,3 +353,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Correção do wrapper cmd.exe: a string /s /c termina agora com a aspa exterior adicional exigida depois da aspa que fecha o caminho do ficheiro stderr. O runner com este ajuste ainda tem de concluir o E2E.
 - O teste do bundle passou a impor 20s de timeout a cada operação certutil de trust/removal, para que qualquer bloqueio do Windows Certificate Store produza falha explícita e logs em vez de deixar o runner preso.
 - A assinatura Authenticode do helper também passou a correr num processo PowerShell filho com timeout de 20s, usando o certificado efémero do CurrentUser/My. O teste E2E fica assim com limites para trust, signing e comandos do host.
+
+## Windows portable bundle CI — 2026-11-10 follow-up
+- Rechecked PR #55 at exact HEAD `0e9dd8e46c9ddf3404eb9fc16b942b1e855a315b`: visual regression passed; Linux tests passed; Windows suite passed 211/214 (three expected platform skips), real Windows CNG test passed 1/1, and persistent Windows identity integration passed 2/2. Bundle construction passed. E2E failed at the first `certutil -f -user -addstore Root` operation after its 20-second deadline; no signing or host lifecycle commands ran.
+- A follow-up commit adds certutil `-silent` for CurrentUser trust/removal and captures bounded native output. The effect is unverified until CI completes on the new branch HEAD. The bundle remains a test artifact, not a production installer.
