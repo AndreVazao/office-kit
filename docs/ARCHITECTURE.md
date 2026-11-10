@@ -331,3 +331,9 @@ Diagnostics are host-injected and may probe the Office Kit runtime, adapter, tra
 
 ### Simulation/rendering separation
 Social simulation uses variable pseudo-random decisions and durations, route/interaction constraints and optional seeded randomness for reproducible tests. It runs independently from the render loop and backend transport. A low frame rate must not freeze behavior decisions. Renderer tiers alter visual fidelity and resource cost only; they do not remove semantic actions. Runtime profiling uses hysteresis and a manual override, with independent renderer/backend resource budgets. Simulated state remains visibly labelled and is never used as evidence of task execution or completion.
+
+## Universal portable Windows bundle module boundary
+
+The portable Windows bundle is a Universal host artifact. Its builder copies an explicit allowlist of backend-neutral scene-engine modules (`windows.mjs`, `windows-node-identity-runtime.mjs`, `node-identity.mjs`, `sqlite-node-identity-metadata-store.mjs`, `node-identity-challenge-store.mjs`, `windows-cng-p256-keystore.mjs`, `resource-policy.mjs`, `sqlite-office-incident-store.mjs`, `office-health.mjs`) and the three Windows-host modules (`cli.mjs`, `hardware-capabilities.mjs`, `index.mjs`). It does not copy the generic `scene-engine/src/index.mjs`, the DGM-MAT adapter/session provider or VST modules. The bundle manifest records this list and the E2E test asserts exact file-set equality.
+
+This is a boundary for the portable Windows bundle only. The shared scene-engine entrypoint still re-exports DGM-MAT-specific modules, and the root edition build script still packages the repository as a whole. Those source/package-level isolation gaps remain production blockers tracked in issue #56; do not infer that the Universal npm artifact is isolated from this Windows bundle check.
