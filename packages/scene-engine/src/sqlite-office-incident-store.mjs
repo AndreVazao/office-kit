@@ -39,10 +39,37 @@ function validateIncident(value, installationId) {
   return { ...safe, installationId, schemaVersion: 1 };
 }
 
+function runImmediate(database, operation) {
+  const transaction = database.transaction(operation);
+  if (!transaction || typeof transaction.immediate !== "function") {
+    throw new TypeError("sqlite_immediate_transaction_required");
+  }
+  return transaction.immediate();
+}
+
+function parseStoredIncident(row, installationId) {
+  let parsed;
+  try { parsed = JSON.parse(row.incident_json); }
+  catch (cause) {
+    const error = new Error("incident_corrupt_state");
+    error.cause = cause;
+    throw error;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("incident_corrupt_state");
+  }
+  const revision = Number(row.revision ?? parsed.revision ?? 1);
+  if (!Number.isSafeInteger(revision) || revision < 1
+    || (parsed.revision !== undefined && parsed.revision !== revision)) {
+    throw new Error("incident_corrupt_state");
+  }
+  return structuredClone(validateIncident({ ...parsed, revision }, installationId));
+}
+
 /**
  * Durable incident history isolated per Office Kit installation.
- * The host owns the SQLite connection, file ACLs, encryption, backup and
- * retention policy. Incident content is sanitized before persistence.
+ * Read/modify/write operations require BEGIN IMMEDIATE and a monotonic revision.
+ * The host owns the SQLite connection, file ACLs, encryption, backup and retention.
  */
 export class SqliteOfficeIncidentStore {
   #database;
@@ -56,46 +83,59 @@ export class SqliteOfficeIncidentStore {
       throw new TypeError("sqlite_incident_database_required");
     }
     validateInstallationId(installationId);
+    const transaction = database.transaction(() => {});
+    if (!transaction || typeof transaction.immediate !== "function") {
+      throw new TypeError("sqlite_immediate_transaction_required");
+    }
     this.#database = database;
     this.#installationId = installationId;
-    this.#database.exec(`
-      CREATE TABLE IF NOT EXISTS office_kit_incidents (
-        installation_id TEXT NOT NULL,
-        incident_id TEXT NOT NULL,
-        occurred_at TEXT NOT NULL,
-        status TEXT NOT NULL,
-        origin TEXT NOT NULL,
-        incident_json TEXT NOT NULL,
-        PRIMARY KEY (installation_id, incident_id)
-      );
-      CREATE INDEX IF NOT EXISTS office_kit_incidents_recent
-        ON office_kit_incidents (installation_id, occurred_at DESC);
-    `);
+    this.#database.exec([
+      "CREATE TABLE IF NOT EXISTS office_kit_incidents (",
+      "  installation_id TEXT NOT NULL,",
+      "  incident_id TEXT NOT NULL,",
+      "  occurred_at TEXT NOT NULL,",
+      "  status TEXT NOT NULL,",
+      "  origin TEXT NOT NULL,",
+      "  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),",
+      "  incident_json TEXT NOT NULL,",
+      "  PRIMARY KEY (installation_id, incident_id)",
+      ");",
+      "CREATE INDEX IF NOT EXISTS office_kit_incidents_recent",
+      "  ON office_kit_incidents (installation_id, occurred_at DESC);"
+    ].join("\n"));
+    const columns = this.#database.prepare("PRAGMA table_info(office_kit_incidents)").all();
+    if (!columns.some(column => column.name === "revision")) {
+      this.#database.exec("ALTER TABLE office_kit_incidents ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1)");
+    }
   }
 
   async append(incident) {
     const safe = validateIncident(incident, this.#installationId);
-    const serialized = JSON.stringify(safe);
+    const stored = { ...safe, revision: 1 };
+    const serialized = JSON.stringify(stored);
     try {
-      this.#database.prepare(`
-        INSERT INTO office_kit_incidents
-          (installation_id, incident_id, occurred_at, status, origin, incident_json)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        this.#installationId,
-        safe.id,
-        typeof safe.occurredAt === "string" ? safe.occurredAt : new Date().toISOString(),
-        typeof safe.status === "string" ? safe.status : "unknown",
-        typeof safe.origin === "string" ? safe.origin : "indeterminate",
-        serialized
-      );
+      runImmediate(this.#database, () => {
+        this.#database.prepare([
+          "INSERT INTO office_kit_incidents",
+          "  (installation_id, incident_id, occurred_at, status, origin, revision, incident_json)",
+          "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ].join("\n")).run(
+          this.#installationId,
+          stored.id,
+          typeof stored.occurredAt === "string" ? stored.occurredAt : new Date().toISOString(),
+          typeof stored.status === "string" ? stored.status : "unknown",
+          typeof stored.origin === "string" ? stored.origin : "indeterminate",
+          stored.revision,
+          serialized
+        );
+      });
     } catch (error) {
       if (String(error?.message ?? "").toLowerCase().includes("unique")) {
         throw new Error("duplicate_incident_id");
       }
       throw error;
     }
-    return safe.id;
+    return stored.id;
   }
 
   async update(id, patch) {
@@ -103,48 +143,54 @@ export class SqliteOfficeIncidentStore {
       || !patch || typeof patch !== "object" || Array.isArray(patch)) {
       throw new TypeError("invalid_incident_update");
     }
-    const row = this.#database.prepare(`
-      SELECT incident_json FROM office_kit_incidents
-      WHERE installation_id = ? AND incident_id = ?
-    `).get(this.#installationId, id);
-    if (!row) throw new Error("incident_not_found");
-    let current;
-    try { current = JSON.parse(row.incident_json); }
-    catch (cause) {
-      const error = new Error("incident_corrupt_state");
-      error.cause = cause;
-      throw error;
+    if (["id", "installationId", "schemaVersion", "revision"].some(key => Object.hasOwn(patch, key))) {
+      throw new TypeError("incident_update_reserved_field");
     }
     const safePatch = sanitize(patch);
-    const next = validateIncident({ ...current, ...safePatch, id, installationId: this.#installationId }, this.#installationId);
-    const result = this.#database.prepare(`
-      UPDATE office_kit_incidents
-      SET occurred_at = ?, status = ?, origin = ?, incident_json = ?
-      WHERE installation_id = ? AND incident_id = ?
-    `).run(
-      next.occurredAt,
-      next.status,
-      next.origin,
-      JSON.stringify(next),
-      this.#installationId,
-      id
-    );
-    if (Number(result.changes) !== 1) throw new Error("incident_update_conflict");
-    return id;
+    return runImmediate(this.#database, () => {
+      const row = this.#database.prepare([
+        "SELECT incident_json, revision FROM office_kit_incidents",
+        "WHERE installation_id = ? AND incident_id = ?"
+      ].join(" ")).get(this.#installationId, id);
+      if (!row) throw new Error("incident_not_found");
+      const current = parseStoredIncident(row, this.#installationId);
+      if (current.revision >= Number.MAX_SAFE_INTEGER) throw new RangeError("incident_revision_exhausted");
+      const revision = current.revision + 1;
+      const next = {
+        ...validateIncident({
+          ...current,
+          ...safePatch,
+          id,
+          installationId: this.#installationId
+        }, this.#installationId),
+        revision
+      };
+      const result = this.#database.prepare([
+        "UPDATE office_kit_incidents",
+        "SET occurred_at = ?, status = ?, origin = ?, revision = ?, incident_json = ?",
+        "WHERE installation_id = ? AND incident_id = ? AND revision = ?"
+      ].join(" ")).run(
+        next.occurredAt,
+        next.status,
+        next.origin,
+        revision,
+        JSON.stringify(next),
+        this.#installationId,
+        id,
+        current.revision
+      );
+      if (Number(result.changes) !== 1) throw new Error("incident_update_conflict");
+      return id;
+    });
   }
 
   async get(id) {
-    const row = this.#database.prepare(`
-      SELECT incident_json FROM office_kit_incidents
-      WHERE installation_id = ? AND incident_id = ?
-    `).get(this.#installationId, id);
+    const row = this.#database.prepare([
+      "SELECT incident_json, revision FROM office_kit_incidents",
+      "WHERE installation_id = ? AND incident_id = ?"
+    ].join(" ")).get(this.#installationId, id);
     if (!row) return null;
-    try { return structuredClone(validateIncident(JSON.parse(row.incident_json), this.#installationId)); }
-    catch (cause) {
-      const error = new Error("incident_corrupt_state");
-      error.cause = cause;
-      throw error;
-    }
+    return parseStoredIncident(row, this.#installationId);
   }
 
   async list(options = {}) {
@@ -152,20 +198,13 @@ export class SqliteOfficeIncidentStore {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) {
       throw new RangeError("incident_list_limit_out_of_range");
     }
-    const rows = this.#database.prepare(`
-      SELECT incident_json FROM office_kit_incidents
-      WHERE installation_id = ?
-      ORDER BY occurred_at DESC, incident_id DESC
-      LIMIT ?
-    `).all(this.#installationId, limit);
-    return rows.map(row => {
-      try { return structuredClone(validateIncident(JSON.parse(row.incident_json), this.#installationId)); }
-      catch (cause) {
-        const error = new Error("incident_corrupt_state");
-        error.cause = cause;
-        throw error;
-      }
-    });
+    const rows = this.#database.prepare([
+      "SELECT incident_json, revision FROM office_kit_incidents",
+      "WHERE installation_id = ?",
+      "ORDER BY occurred_at DESC, incident_id DESC",
+      "LIMIT ?"
+    ].join(" ")).all(this.#installationId, limit);
+    return rows.map(row => parseStoredIncident(row, this.#installationId));
   }
 
   async export(options = {}) {

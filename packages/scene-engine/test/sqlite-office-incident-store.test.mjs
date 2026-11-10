@@ -37,12 +37,15 @@ sqliteTest("persists incidents and recovery updates across database reopen", asy
     db = new DatabaseSync(filename);
     const store = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
     await store.append(incident("incident-001"));
+    assert.equal((await store.get("incident-001")).revision, 1);
     await store.update("incident-001", { outcome: "recovered", recoveryAttempts: [{ actionId: "reconnect", ok: true }] });
     assert.equal((await store.get("incident-001")).outcome, "recovered");
+    assert.equal((await store.get("incident-001")).revision, 2);
     db.close();
     db = new DatabaseSync(filename);
     const reopened = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
     assert.equal((await reopened.list())[0].recoveryAttempts[0].actionId, "reconnect");
+    assert.equal((await reopened.get("incident-001")).revision, 2);
   } finally {
     db?.close();
     rmSync(directory, { recursive: true, force: true });
@@ -85,4 +88,53 @@ sqliteTest("rejects duplicate IDs, corrupt rows and invalid list limits", async 
     db.prepare("UPDATE office_kit_incidents SET incident_json = ? WHERE incident_id = ?").run("{bad", "incident-005");
     await assert.rejects(store.get("incident-005"), /incident_corrupt_state/);
   } finally { db.close(); }
+});
+
+
+test("requires an immediate SQLite transaction provider", () => {
+  const database = {
+    exec() {},
+    prepare() { return { all() { return []; } }; },
+    transaction(callback) { return callback; }
+  };
+  assert.throws(() => new SqliteOfficeIncidentStore({
+    database,
+    installationId: "install-office-01"
+  }), /sqlite_immediate_transaction_required/);
+});
+
+sqliteTest("migrates legacy incident rows to monotonic revision metadata", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec([
+      "CREATE TABLE office_kit_incidents (",
+      "  installation_id TEXT NOT NULL,",
+      "  incident_id TEXT NOT NULL,",
+      "  occurred_at TEXT NOT NULL,",
+      "  status TEXT NOT NULL,",
+      "  origin TEXT NOT NULL,",
+      "  incident_json TEXT NOT NULL,",
+      "  PRIMARY KEY (installation_id, incident_id)",
+      ");"
+    ].join("\n"));
+    const legacy = incident("incident-legacy");
+    db.prepare([
+      "INSERT INTO office_kit_incidents",
+      "(installation_id, incident_id, occurred_at, status, origin, incident_json)",
+      "VALUES (?, ?, ?, ?, ?, ?)"
+    ].join(" ")).run(
+      "install-office-01",
+      legacy.id,
+      legacy.occurredAt,
+      legacy.status,
+      legacy.origin,
+      JSON.stringify(legacy)
+    );
+    const store = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
+    assert.equal((await store.get("incident-legacy")).revision, 1);
+    await store.update("incident-legacy", { outcome: "recovered" });
+    assert.equal((await store.get("incident-legacy")).revision, 2);
+  } finally {
+    db.close();
+  }
 });
