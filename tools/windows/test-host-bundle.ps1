@@ -49,7 +49,11 @@ $expectedSceneModules = @(
   "windows-cng-p256-keystore.mjs",
   "resource-policy.mjs",
   "sqlite-office-incident-store.mjs",
-  "office-health.mjs"
+  "office-health.mjs",
+  "adapter-gateway.mjs",
+  "runtime-session.mjs",
+  "runtime-state.mjs",
+  "adapter-contract.mjs"
 )
 $expectedHostModules = @("cli.mjs", "hardware-capabilities.mjs", "index.mjs")
 $actualSceneModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\scene-engine\src") -File | Select-Object -ExpandProperty Name)
