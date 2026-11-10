@@ -176,7 +176,13 @@ function Invoke-OfficeKitHost {
     $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
     if ($process.ExitCode -ne 0) {
       if ($ExpectFailure) {
-        try { return ($stderr | ConvertFrom-Json -ErrorAction Stop) }
+        $jsonLine = $stderr -split "`r?`n" |
+          Where-Object { $_.TrimStart().StartsWith("{") } |
+          Select-Object -First 1
+        if ([string]::IsNullOrWhiteSpace($jsonLine)) {
+          throw ("Expected launcher rejection did not emit a JSON error. stdout: " + $stdout + " stderr: " + $stderr)
+        }
+        try { return ($jsonLine | ConvertFrom-Json -ErrorAction Stop) }
         catch { throw ("Expected launcher rejection returned invalid JSON. stdout: " + $stdout + " stderr: " + $stderr) }
       }
       throw (
