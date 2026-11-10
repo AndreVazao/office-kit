@@ -12,7 +12,7 @@ const SECRET_CODE_PATTERNS = [
   /^(?:sk|pk|rk|ghp|gho|ghu|ghs|github_pat|xox[baprs])[_-]/i,
   /(?:token|password|secret|api[_-]?key|authorization|cookie|private[_-]?key)/i,
   /^[a-f0-9]{32,}$/i,
-  /^[A-Za-z0-9_-]{16,}\\.[A-Za-z0-9_-]{16,}\\.[A-Za-z0-9_-]{16,}$/
+  /^[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}$/
 ];
 const safeCode = (value, fallback) => {
   if (typeof value !== "string" || value.length > 80 || !CODE_PATTERN.test(value)) return fallback;
