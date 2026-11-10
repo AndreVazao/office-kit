@@ -8,7 +8,7 @@ function verifyTestOnlyAuthenticode(helperPath) {
   }
   const escapedPath = helperPath.replace(/'/g, "''");
   const expected = thumbprint.toUpperCase();
-  const script = `$signature = Get-AuthenticodeSignature -LiteralPath '${escapedPath}'; if ($signature.Status -ne 'NotTrusted' -or $signature.SignerCertificate.Thumbprint -ne '${expected}') { exit 3 }`;
+  const script = `$moduleRoot = Join-Path $env:WINDIR 'System32\\WindowsPowerShell\\v1.0\\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $signature = Get-AuthenticodeSignature -LiteralPath '${escapedPath}'; if ($signature.Status -ne 'NotTrusted' -or $signature.SignerCertificate.Thumbprint -ne '${expected}') { exit 3 }`;
   const result = spawnSync("powershell.exe", [
     "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script
   ], {
