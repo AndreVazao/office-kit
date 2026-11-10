@@ -270,3 +270,109 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Testes verificam ordem e fail-closed. CI/visual no HEAD final ainda pendentes.
 
 - A reconciliação de startup não basta apenas terminar sem exceção: só `empty`, `active` e `revoked` autorizam mutações. `cleanup_pending` mantém health degraded, oculta identidade e bloqueia create/rotate/revoke.
+
+### Portable Windows bundle — em desenvolvimento
+- Branch `feat/windows-portable-host-bundle` adiciona builder PowerShell e teste end-to-end no runner Windows. O pacote inclui node.exe, scene-engine, windows-host e helper CNG.
+- CI usa certificado efémero Code Signing, confia-o apenas no runner, assina o helper e testa create/reopen/rotate/revoke em processos separados.
+- Não é release assinada para utilizadores nem MSI/MSIX; signing comercial, instalação, upgrade/uninstall e PC físico continuam pendentes.
+## Decisões de produto — diagnóstico, recuperação e simulação social adaptativa (2026-11-09)
+
+### Office Health & Recovery Engine
+- O Office Kit deve diagnosticar falhas de comunicação separando runtime do Office Kit, adaptador, transporte/rede e backend.
+- Os diagnósticos distinguem causa confirmada, causa provável e causa indeterminada. Timeout isolado não prova culpa do backend nem do Office Kit.
+- Cada incidente gera registo persistente e exportável: ID, timestamps, versão/edição, adaptador/backend, última comunicação confirmada, testes e evidências, origem/confiança, impacto, reparações tentadas, duração e resultado.
+- Nunca guardar tokens, palavras-passe, headers secretos ou payloads sensíveis nos relatórios. Logs devem ser protegidos contra alteração acidental e ter política de retenção/exportação explícita.
+- Recuperação automática limitada e segura: validar configuração; redescobrir apenas fontes autorizadas; verificar endpoint/porta; reiniciar apenas o adaptador local quando seguro; renovar sessão pelos providers autorizados; reconectar; exigir snapshot completo e consistente antes de declarar recuperação.
+- Não alterar credenciais, contornar autenticação, executar operações de escrita no backend nem reiniciar serviços externos sem autorização explícita.
+- Falhas internas do Office Kit devem gerar relatório local para suporte e permitir auto-recuperação segura. Falhas externas devem ser atribuídas apenas com evidência suficiente.
+
+### Social Simulation Engine e atividade real
+- O escritório permanece visualmente vivo sem backend através de simulação social local pseudoaleatória, com decisões e durações variáveis, destinos, deslocações, interações e atividades como trabalhar visualmente, pausas, café, varanda, conversas e circulação.
+- Repetição de atividades é permitida; não há uma rotina fixa sincronizada. Seed determinística é permitida exclusivamente para QA/reprodução de bugs.
+- Simulação nunca é apresentada como trabalho real. Banner/estado persistente identifica explicitamente offline e movimento social simulado.
+- Se uma ligação previamente funcional cair, a tarefa real fica interrompida/desconhecida e o incidente é registado. A simulação pode continuar sem apagar o histórico ou declarar tarefas concluídas.
+- Backend detetado mas com falha confirmada coloca o agente/departamento afetado em enfermaria; backend ausente/não configurado usa estado offline, não enfermaria.
+- Atividade real e progresso só podem ser mostrados a partir de dados/eventos reais e frescos do adaptador. Sem progresso fornecido pelo backend, não inventar percentagens nem barras.
+
+### Adaptive Rendering — preservar comportamento, reduzir fidelidade
+- Hardware fraco deve reduzir fidelidade/custo de renderização, não remover atividades, interações ou semântica da simulação social.
+- Um único modelo de comportamento e cena alimenta vários renderers/níveis: 3D avançado, low-poly, pixel e mínimo/retro. Cada nível preserva caminhar, sentar/levantar, interagir com computador/quadro, pausas, conversas e deslocações; a representação usa menos polígonos, texturas, efeitos ou frames quando necessário.
+- Separar relógio/simulação da taxa de frames do renderer: a lógica social continua a progredir mesmo com FPS baixo.
+- Deteção e reavaliação de CPU, RAM disponível, GPU/VRAM/capacidades gráficas, OS, armazenamento, resolução e frame time; perfis são políticas de recursos, nunca limites de funcionalidades ou de edição.
+- Ajustar qualidade, pixel ratio, sombras, iluminação, texturas, LOD, frequência de render e concorrência gráfica com histerese. Perfil manual pode sobrepor Auto. Recuperar qualidade quando houver recursos.
+- Orçamentos do renderer e backend são separados para que o escritório não prejudique o backend anfitrião.
+
+### Subsistemas de referência
+- Social Simulation Engine: comportamento visual local sem autoridade operacional.
+- Backend Activity Engine: snapshots/eventos reais e progresso confirmado.
+- Office Health & Recovery Engine: diagnóstico, incidentes e recuperação segura.
+- Adaptive Rendering Engine: renderiza a mesma simulação com níveis de fidelidade diferentes.
+- Office State Manager: arbitra estados por agente/departamento e impede mistura de estados simulados/reais.
+
+### Matriz de validação física futura
+- Universal sem backend.
+- Edição DGM-MAT ligada em modo read-only ao backend DGM-MAT já instalado.
+- Edição VST ligada em modo read-only ao backend VST já instalado.
+- Escritório standalone sem backend, responsivo, com simulação social claramente identificada.
+- Testar falha de ligação depois de uma sessão live, atribuição/diagnóstico da causa, registo, recuperação, perda/retoma de snapshot, isolamento de credenciais e ausência de ações reais não autorizadas.
+- PC de 2 cores/3 GB é apenas ambiente de teste; não pode definir o teto de capacidades do produto.
+## Código iniciado — social simulation, health/recovery, state arbitration e resource policy (PR #55 branch, 2026-11-09)
+- Implementado em código no branch ativo feat/windows-portable-host-bundle:
+  - packages/scene-engine/src/social-simulation.mjs: motor social local, pseudoaleatório ponderado, duração variável, locais/atividades/interações, seed QA, clock injetado, sem tarefas/progresso de backend.
+  - packages/scene-engine/src/office-health.mjs: coordenador de diagnóstico por camadas, redaction, incident store interface, tentativas de recuperação apenas locais e validação obrigatória de snapshot fresco/coerente.
+  - packages/scene-engine/src/office-state-manager.mjs: arbitra offline social, sincronização, enfermaria e live; barras só com progresso backend válido e fresco.
+  - packages/scene-engine/src/resource-policy.mjs: normaliza capacidades fornecidas pelo host e resolve qualidade/renderer com hysteresis, override manual, sem cortar semântica social e com orçamento do renderer separado.
+- Testes correspondentes adicionados e módulos exportados pelo scene-engine; npm run check inclui validação de sintaxe.
+- Limites honestos: diagnóstico ainda usa probes injetados, sem sondas reais integradas; InMemoryIncidentStore não é persistência de produção; deteção real de hardware e integração com renderer/installer continuam pendentes. Os módulos estão sujeitos ao CI do HEAD final da PR #55.
+- A matriz física continua por executar: Universal offline, DGM-MAT read-only, VST read-only e standalone offline. Não instalar no PC do utilizador antes do pacote e lifecycle passarem os gates.
+## Persistência de incidentes — PR #55 branch (2026-11-09)
+- Novo `SqliteOfficeIncidentStore` em `packages/scene-engine/src/sqlite-office-incident-store.mjs`: histórico persistente por installationId, append/get/list/update/export, validação/corrupção, duplicados, limite de leitura e redação de campos/valores secretos.
+- Windows host cria o store na base SQLite local já protegida por ACL e expõe `createDiagnostics({ probes, recoveryActions, clock })`, sempre com probes e ações locais fornecidas explicitamente pelo host.
+- Teste Windows host verifica que o incidente permanece após fechar e reabrir o host.
+- Ainda faltam probes reais (renderer/runtime, adapter, transporte, backend), exportação de suporte com consentimento e integração com reparação/UX. Não declarar causa sem evidência suficiente; timeouts permanecem indeterminados; não reiniciar nem escrever no backend automaticamente.
+- Teste do bundle Windows: o job anterior ficou 29 minutos bloqueado depois de criar o certificado efémero, antes de qualquer comando do host. Substituídas importações PowerShell do certificado por `certutil.exe -user -addstore` explícito para Root/TrustedPublisher, com logs entre etapas. Resultado CI desta correção ainda pendente.
+## Hardware detection e adaptação no Windows host — 2026-11-09
+- Novo packages/windows-host/src/hardware-capabilities.mjs: recolhe OS/release, arquitetura, CPU/modelo/cores, RAM total/disponível e espaço livre. GPU/VRAM dedicada/API gráfica e resolução são providers opcionais; desconhecido permanece null e não confunde AdapterRAM com VRAM dedicada.
+- Windows host calcula o perfil adaptativo no arranque, expõe factos de hardware no health e oferece refreshResourcePolicy() para reavaliação, getResourcePolicy() e setResourceOverrides() com validação antes de aplicar.
+- O perfil muda fidelidade/orçamento do renderer; não remove comportamentos sociais nem corta funcionalidades. O orçamento do backend continua independente.
+- Limites: falta ligar providers reais de GPU/resolução por plataforma, refrescamento periódico automático, persistência das preferências manuais e aplicação da política no renderer real.
+- OfficeHealthRecoveryEngine agora impõe deadlines às probes, ações locais e verificação de snapshot; passa AbortSignal e classifica timeouts como indeterminados. Não faz restart nem writes no backend.
+- O teste Windows do bundle passa a executar o launcher diretamente com cmd.exe, evitando o wrapper PowerShell adicional. A validação E2E ainda tem de terminar no HEAD final.
+## Motor social ligado à preview — 2026-11-09
+- A preview de browser agora usa SocialSimulationEngine real, em vez do helper antigo que escolhia atividades fixas por tick.
+- Cada avatar mantém atividade, localização e eventual colega; a UI só atualiza quando o estado social muda para não reiniciar a animação a cada segundo.
+- Existem cues/animacões leves para caminhar, conversar, cumprimentar, trabalhar no computador, usar quadro, café e pausa de varanda. A seleção pseudoaleatória permite repetir a mesma atividade.
+- O estado sem backend fica explicitamente OFFLINE e SIMULADO. Perfil economy reduz efeitos, mas mantém a movimentação social e as mudanças de atividade.
+- A preview usa seed QA fixa para screenshots reproduzíveis; runtime de produção deve usar seed variável/não fixa.
+- Limite: integração atual é na browser preview; falta ligar o mesmo modelo ao renderer nativo/desktop e à arbitragem backend real. A preview não simula progresso operacional.
+- Nota CI: HEAD 7d0025e falhou apenas porque o teste de preview ainda esperava o texto antigo "estado não verificado". O estado agora é explicitamente OFFLINE e SIMULADO. Teste atualizado para validar o novo texto, a utilização do SocialSimulationEngine e a preservação de animações no perfil economy; HEAD 1289644856049a05814c322676c33e76a5991981 inclui a correção.
+- Precisão da deteção CPU: os.cpus() devolve processadores lógicos/threads, não núcleos físicos. O detector reporta agora cpuThreads; cpuCores fica reservado para providers que consigam medir núcleos físicos. A política usa cpuThreads como métrica conservadora quando cpuCores não existe. Esta regra foi adicionada ao contrato de hardware.
+- Os snapshots de health copiam hardware e resourcePolicy em JSON antes de os devolver; consumidores não podem alterar o perfil interno através de objetos retornados.
+- Diagnóstico do E2E Windows: os jobs ficavam presos na etapa de bundle depois de CNG/build. A hipótese mais provável era o processo filho herdar handles dos pipes redirecionados e impedir o drain. O teste foi alterado para redirecionar stdout/stderr do launcher para ficheiros temporários por comando, sem pipes herdados; timeout de 45s, kill da árvore e captura dos logs no erro. Ainda aguarda CI no HEAD final. O teste não deve ser considerado aprovado até o ciclo health/create/reopen/rotate/revoke/health terminar.
+- Correção adicional: os providers nativos platform(), release() e arch() são invocados no default da deteção; o teste confirma que o relatório contém valores do sistema e não texto de funções.
+- Correção do wrapper cmd.exe: a string /s /c termina agora com a aspa exterior adicional exigida depois da aspa que fecha o caminho do ficheiro stderr. O runner com este ajuste ainda tem de concluir o E2E.
+- O teste do bundle passou a impor 20s de timeout a cada operação certutil de trust/removal, para que qualquer bloqueio do Windows Certificate Store produza falha explícita e logs em vez de deixar o runner preso.
+- A assinatura Authenticode do helper também passou a correr num processo PowerShell filho com timeout de 20s, usando o certificado efémero do CurrentUser/My. O teste E2E fica assim com limites para trust, signing e comandos do host.
+
+## Windows portable bundle CI — 2026-11-10 follow-up
+- Rechecked PR #55 at exact HEAD `0e9dd8e46c9ddf3404eb9fc16b942b1e855a315b`: visual regression passed; Linux tests passed; Windows suite passed 211/214 (three expected platform skips), real Windows CNG test passed 1/1, and persistent Windows identity integration passed 2/2. Bundle construction passed. E2E failed at the first `certutil -f -user -addstore Root` operation after its 20-second deadline; no signing or host lifecycle commands ran.
+- A follow-up commit adds certutil `-silent` for CurrentUser trust/removal and captures bounded native output. The effect is unverified until CI completes on the new branch HEAD. The bundle remains a test artifact, not a production installer.
+
+## Certificate store CI correction — 2026-11-10
+- PR #55 HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba`: visual regression passed; Linux tests passed; Windows core, CNG and persistent identity tests passed, but the portable E2E failed before signing because `certutil -addstore` rejected the unsupported `-Silent` switch. The previous timeout diagnosis was therefore superseded for this run; no portable host operations executed.
+- The .NET `X509Store` attempt also timed out at CurrentUser Root. The revised test avoids Root/TrustedPublisher mutation: production launcher must reject the untrusted ephemeral signer; a separate test-only verifier accepts only Authenticode `NotTrusted` plus exact signer thumbprint to exercise real CNG/SQLite lifecycle. Positive trusted-chain acceptance remains unvalidated until a physical Windows release test.
+
+## Portable bundle trust boundary — revised test strategy — 2026-11-10
+- The GitHub-hosted Windows runner timed out while adding a self-signed test CA to CurrentUser Root through both certutil and .NET `X509Store`. The E2E no longer attempts to modify trust stores.
+- New harness signs the bundled helper with an ephemeral code-signing cert left untrusted; it asserts that the production launcher rejects it, then uses a test-only pinned-signature verifier (Authenticode `NotTrusted` + exact thumbprint) to exercise the bundled Node host, SQLite persistence and real Windows CNG create/reopen/rotate/revoke across separate processes.
+- This does not prove positive trust-chain acceptance. A signed release publisher must still be validated on a physical Windows installation. Await CI on the new HEAD.
+
+## Universal Windows bundle isolation — 2026-11-10
+- `build-host-bundle.ps1` now copies only nine explicit backend-neutral scene-engine modules plus three Windows-host modules. It excludes the generic `scene-engine/src/index.mjs` (currently leaking DGM exports), DGM-MAT adapter/session files and VST files; the manifest records this allowlist and exclusions.
+- The E2E script verifies the staged module set and manifest before running the host. This isolates the portable Universal Windows bundle, but does not yet fix the generic source entrypoint or the root `npm pack` edition artifacts; see issue #56.
+- The latest signing attempt replaces Cert: provider access with read-only .NET CurrentUser/My lookup and explicit Microsoft.PowerShell.Security import. Await CI on the new HEAD; positive trusted-publisher acceptance remains a physical release test.
+## Windows portable bundle — PowerShell syntax fix (2026-11-10)
+- O E2E do runner Windows no HEAD anterior completou os 214 testes (211 pass, 0 fail, 3 skips), CNG nativo (1/1), runtime de identidade persistente (2/2) e construção do bundle; falhou antes de executar qualquer comando do host por falta de um parêntese de fecho na expressão PowerShell que valida a allowlist do manifesto.
+- Corrigido em `tools/windows/test-host-bundle.ps1`: a expressão foi dividida numa variável `$manifestMismatch` e agora fecha corretamente todos os parênteses.
+- HEAD com correção: `60eb648fd7fcaf381039e7805c193ac6474c87f7`. Linux CI passou; Windows E2E e regressão visual deste HEAD ainda estão em execução. Não declarar o bundle aprovado até health/create/reopen/rotate/revoke/health e validação visual concluírem no mesmo SHA.
+- Para evitar desperdiçar runners em falhas de sintaxe PowerShell, o CI Windows passou a executar o parser nativo dos scripts build-host-bundle.ps1 e test-host-bundle.ps1 antes de instalar/publicar o helper .NET e executar os testes CNG. A validação E2E continua obrigatória.

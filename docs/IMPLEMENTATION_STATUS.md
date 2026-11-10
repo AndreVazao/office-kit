@@ -345,3 +345,87 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Testes acrescentados para ordem reconcile-before-mutation e fail-closed em erro de reconciliação. CI pendente no HEAD desta PR.
 
 - A barreira `ready` também bloqueia estados de reconciliação não finais (por exemplo `cleanup_pending`): health fica degraded, não expõe identidade possivelmente obsoleta e nenhuma mutação é executada.
+
+### Portable Windows host bundle — em validação
+- Criado builder que inclui Node.js 22, módulos scene-engine/windows-host e helper CNG.
+- CI cria certificado Code Signing efémero, instala-o apenas nos stores do runner, assina o helper e executa o CLI portátil em processos separados para health, create, reopen, rotate e revoke.
+- Este teste não equivale a certificado de distribuição nem a instalador MSI/MSIX. O workflow ainda tem de passar no HEAD final.
+## Product requirements added — incident diagnosis, recovery and behavior-preserving adaptive rendering (2026-11-09)
+
+### Required architecture (not yet claimed implemented)
+- [ ] Add OfficeHealthRecoveryEngine to classify evidence across Office Kit runtime, adapter, transport/network and backend. Outcomes must distinguish confirmed, probable and indeterminate causes; do not blame a component from a timeout alone.
+- [ ] Persist/export incident records with ID, timestamps, edition/version, adapter/backend, last confirmed communication, diagnostic checks, evidence, confidence, impact, recovery attempts, duration and final outcome. Redact credentials, tokens, secret headers and sensitive payloads.
+- [ ] Add bounded safe recovery: validate local configuration; rediscover only authorized/configured endpoints; verify endpoint/port; restart local adapter only when safe; renew sessions through the host provider; reconnect and require a fresh consistent snapshot before declaring healthy.
+- [ ] Never alter credentials, bypass authentication, write to external backends or restart external services without explicit authorization.
+- [ ] Add SocialSimulationEngine with variable pseudo-random activities, durations, routes and avatar interactions. It must run without a backend and clearly label all activity as simulated.
+- [ ] On loss of a previously working backend, preserve the incident and mark real tasks interrupted/unknown; social animation may continue but must not imply real task progress/completion.
+- [ ] Distinguish backend absent/not configured (offline social mode) from configured backend unhealthy (infirmary/diagnostic mode).
+- [ ] Add BackendActivityEngine and OfficeStateManager arbitration. Real work/progress bars require fresh backend evidence; never invent task progress.
+- [ ] Add AdaptiveRenderingEngine with multiple renderers (advanced 3D, low-poly, pixel, minimal/retro) over the same behavior/scene model. Hardware reduction changes rendering fidelity/cost, not available social activities or interaction semantics.
+- [ ] Decouple simulation clock from renderer FPS. Adapt shadows, lighting, textures, polygons/LOD, pixel ratio and render cadence with hysteresis; support automatic and manual profiles.
+- [ ] Detect/reassess CPU, available RAM, GPU/VRAM and graphics API, OS, storage, display resolution and measured frame time. Resource profiles must never hard-cap product editions/features.
+- [ ] Keep renderer and backend resource budgets separate.
+- [ ] Add tests for simulated-vs-real state leakage, random scheduling determinism under seeded QA, endpoint/adapter/backend fault attribution, redaction, bounded recovery, offline operation, renderer equivalence and low-resource behavior.
+
+The 2-core/approximately 3-GB Windows PC is a validation target only, not a product support ceiling. The physical test matrix remains Universal offline, DGM-MAT read-only, VST read-only and standalone office without backend. No physical installation is authorized until the portable runtime/installer gate is complete.
+### Initial code slice on active PR #55 branch — awaiting final CI
+- Added packages/scene-engine/src/social-simulation.mjs: deterministic-seed-capable local behavior engine with weighted pseudo-random activity selection, variable durations, location changes, peer interactions, explicit simulated authority and host-driven clock. Tests cover offline labeling, reproducibility, activity changes, repetition, enable/disable and invalid input.
+- Added packages/scene-engine/src/office-health.mjs: host-injected layered diagnostic probes for Office Kit runtime, adapter, transport and backend; evidence classification; secret redaction; incident-store contract; local-only bounded recovery scopes; fresh/consistent snapshot verification; recovery history. The included InMemoryIncidentStore is a test/reference implementation, not durable production persistence. Real probes, SQLite persistence, support export integration and actual host recovery actions remain pending.
+- Added packages/scene-engine/src/office-state-manager.mjs: explicit offline-social, synchronizing, infirmary and verified-live arbitration. Simulated activity never carries backend tasks/progress; real progress requires a verified live snapshot and a valid backend-supplied percentage.
+- Added packages/scene-engine/src/resource-policy.mjs: host-supplied hardware capability normalization, automatic/manual renderer policy, independent renderer budget, protected backend execution policy and degradation/recovery hysteresis. This is a policy engine; OS/GPU/VRAM detection and integration into actual renderer/installer remain pending.
+- Added unit tests for all four modules and included the modules in public scene-engine exports and syntax checks.
+- These source additions are not yet marked production-ready. Final Linux/Windows CI and visual regression must pass on the exact final PR HEAD. No physical-PC validation has occurred.
+### Persistent diagnostics increment — PR #55 branch
+- Added `SqliteOfficeIncidentStore`, installation-scoped with append/get/list/update/export, corruption checks, bounded listing, duplicate protection and secret-field/value redaction.
+- Windows host now composes the SQLite incident store over its existing host-owned database and exposes `createDiagnostics({ probes, recoveryActions, clock })`; the caller supplies explicitly authorized probes and local recovery actions.
+- Added a Windows host integration test proving an incident survives host close/reopen.
+- This establishes durable local incident history but does not yet ship real OS/renderer/adapter/transport/backend probes. Cause attribution remains evidence-based and may be indeterminate; no automatic backend restart/write is permitted.
+- Windows CI certificate trust uses explicit `certutil` CurrentUser store operations rather than certificate-provider import cmdlets. The first run after this change still timed out on the initial Root-store add, before signing or host execution; therefore the earlier change did not resolve the runner hang. The follow-up adds certutil silent mode and bounded stdout/stderr capture; its CI result is pending.
+### Hardware detection and host resource policy — initial host integration
+- Added packages/windows-host/src/hardware-capabilities.mjs to detect OS/release, architecture, CPU model/core count, total/available RAM and free storage.
+- GPU name/dedicated VRAM/graphics API and display dimensions are optional platform providers. Unknown values remain null; adapter-reported memory is not mislabeled as dedicated VRAM.
+- Windows host now computes the initial adaptive resource policy, exposes hardware facts in health, supports runtime refresh and validated manual profile/renderer overrides.
+- Renderer profile is separate from backend execution; social activity semantics remain full at every renderer tier.
+- This is the initial detection and policy composition. GPU/display platform probes, automatic periodic refresh, persistence of user overrides and actual renderer application remain pending.
+### Diagnostic safety hardening
+- Diagnostic probes, local recovery actions and fresh-snapshot verification now have bounded deadlines and receive AbortSignals.
+- Timeout or inconclusive evidence remains indeterminate; backend restart/write operations remain outside automatic recovery.
+- Windows portable E2E now invokes the actual .cmd launcher directly via cmd.exe, avoiding a nested PowerShell wrapper.
+### Social simulation connected to the browser office preview
+- The preview now instantiates the SocialSimulationEngine from the generic scene-engine instead of selecting a fixed activity from the legacy demo helper.
+- Agent activity/location/peer state is retained between UI updates; the preview updates only when an agent's social state changes, so CSS movement is not restarted on every timer tick.
+- Added distinct low-cost activity animations and visual cues for walking, conversation, greeting, computer work, whiteboard use, coffee and smoke breaks.
+- Offline banner explicitly says there is no backend and all movement is simulated. Economy quality no longer disables avatar animation; it removes effects while preserving social motion.
+- The preview uses a fixed QA seed for repeatable visual regression. Production runtime must use a non-fixed seed.
+- This connects the social model to the browser preview, not yet to a packaged native renderer or real desktop host UI.
+### Preview social regression coverage
+- Updated preview contract tests for the explicit OFFLINE banner and added checks that the preview uses the local social simulation engine, updates activity without rebuilding the scene, displays work/coffee/conversation states, and preserves movement in economy quality.
+- The prior CI failure on HEAD 7d0025e was a stale text assertion expecting the old "estado não verificado" label; the new assertion matches the explicit OFFLINE wording. The final branch HEAD includes the corrected test.
+### Hardware capability naming correction
+- The Node OS API reports logical processor count, not physical CPU cores. The detector now records this fact as cpuThreads; the resource policy accepts cpuThreads and retains cpuCores only for host providers that can genuinely report physical cores.
+### Windows bundle E2E process isolation
+- The portable bundle test now redirects each launcher invocation to isolated output files instead of inherited stdout/stderr pipes. This avoids a child process keeping redirected pipe handles open and blocking PowerShell's asynchronous output drain.
+- Per-command timeout is 45 seconds; timeout cleanup terminates the process tree and includes captured stdout/stderr in the failure.
+- The final Windows E2E run with this process/output isolation is pending.
+
+### Windows certificate-store CI follow-up — 2026-11-10
+- The exact failing job on PR #55 HEAD `0e9dd8e46c9ddf3404eb9fc16b942b1e855a315b` completed the full 214-test suite (211 pass, 0 fail, 3 skip), native CNG integration (1/1), persistent identity integration (2/2), and bundle build. The portable E2E then timed out after 20 seconds at `certutil -f -user -addstore Root`; signing and the portable host lifecycle were not reached.
+- Updated `test-host-bundle.ps1` to pass certutil's documented `-silent` flag for ephemeral CurrentUser trust operations and cleanup, and to capture bounded native stdout/stderr. This is a diagnostic/fix attempt, not a validated resolution; rerun on the new HEAD is required.
+
+### Windows certificate trust API correction — 2026-11-10
+- The rerun on HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba` completed Linux CI and visual regression successfully; Windows failed immediately because this runner's `certutil -addstore` does not accept `-Silent` (exit 1). This disproves the previous silent-flag attempt; no host lifecycle commands ran.
+- A second attempt using the .NET `X509Store` API also timed out after 20 seconds while opening/adding to CurrentUser Root. No signing or host lifecycle commands ran. The CI design is now changed: do not mutate Root/TrustedPublisher stores; leave the ephemeral code-signing cert untrusted, assert the production launcher rejects it, and use a test-only verifier that requires Authenticode `NotTrusted` plus the exact ephemeral signer thumbprint to exercise the portable runtime. This validates signature integrity/pinning and real CNG/SQLite lifecycle, not trusted-chain acceptance. New CI is pending.
+
+### Portable bundle trust boundary — revised CI strategy — 2026-11-10
+- GitHub-hosted Windows runner timed out on both `certutil -addstore Root` and .NET `X509Store` CurrentUser Root mutation. The test no longer writes Root or TrustedPublisher stores.
+- The production launcher is now expected to reject the untrusted ephemeral test signer. A separate test-only runner accepts only a cryptographically intact Authenticode signature with the exact ephemeral thumbprint and `NotTrusted` chain status, then exercises the bundled Node runtime, SQLite, Windows CNG create/reopen/rotate/revoke across fresh processes.
+- This is not a positive trusted-publisher integration test. Acceptance of a real trusted release signer remains a physical Windows/release validation gate. CI on the updated HEAD is pending.
+
+### Universal Windows bundle isolation and Authenticode CI — 2026-11-10
+- The Universal portable bundle builder now stages an explicit allowlist: nine backend-neutral scene-engine modules and three Windows-host modules. It does not copy `scene-engine/src/index.mjs`, DGM-MAT adapter/session modules or VST modules. The manifest records the allowlist and explicitly excludes DGM-MAT/VST.
+- The bundle E2E now compares the actual staged file set with that allowlist before executing any host command. This closes the DGM/VST source leakage in this specific portable Windows bundle; the generic scene-engine entrypoint and npm edition artifacts remain tracked in issue #56.
+- The previous CI run failed during signing because the child Windows PowerShell process lacked the Cert: provider drive. The current attempt explicitly imports Microsoft.PowerShell.Security and retrieves the ephemeral signing certificate from CurrentUser/My through a read-only .NET X509Store. CI on the resulting HEAD is pending. The production launcher must still reject the untrusted CI signer; the test-only verifier is restricted to NotTrusted plus the exact ephemeral thumbprint.
+### Windows portable bundle — correção do parser PowerShell
+- A execução Windows mais recente tinha passado os 214 testes da suite (211 pass, 0 fail, 3 skips), CNG nativo, runtime de identidade e build do bundle, mas o E2E parou antes da assinatura/execução do host devido a um parêntese em falta na validação do manifesto.
+- Corrigida a expressão no script E2E. No HEAD `60eb648fd7fcaf381039e7805c193ac6474c87f7`, Linux CI está verde; Windows E2E e regressão visual continuam pendentes. Isto ainda não é evidência de bundle E2E aprovado.
+- O workflow Windows valida agora a sintaxe dos scripts PowerShell de build e E2E antes dos passos nativos mais demorados. Isto antecipa erros de parser; não substitui o teste do bundle.

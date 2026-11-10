@@ -10,6 +10,7 @@ jobs:
   core-tests:
     name: core-tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -23,6 +24,26 @@ jobs:
         run: npm run check
       - name: Validate example configuration JSON
         run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
+      - name: Validate Windows PowerShell scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $scripts = @(
+            "tools/windows/build-host-bundle.ps1",
+            "tools/windows/test-host-bundle.ps1"
+          )
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $script),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.ToString() }
+            }
+          }
       - name: Set up .NET SDK for native Windows keystore
         if: runner.os == 'Windows'
         uses: actions/setup-dotnet@v4
@@ -41,3 +62,13 @@ jobs:
         env:
           OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}/artifacts/windows-cng/OfficeKit.CngHost.exe
         run: node --test packages/scene-engine/test/windows-node-identity-runtime.integration.test.mjs
+      - name: Build portable Windows host bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+        run: ./tools/windows/build-host-bundle.ps1 -OutputDirectory artifacts/windows-host-bundle
+      - name: Exercise portable Windows host bundle end to end
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/windows/test-host-bundle.ps1 -BundleDirectory artifacts/windows-host-bundle

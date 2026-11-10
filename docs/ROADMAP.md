@@ -37,7 +37,7 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Animações idle, caminhar, sentar/levantar, conversar e pausa.
 - Rotinas de cafetaria, conversas, relógio, varanda e regresso.
 - Caminhos e prevenção de sobreposição, seed determinística para QA.
-- Reduzir/desligar animações em hardware fraco e provar que não envia comandos.
+- Preservar as mesmas atividades sociais em todos os níveis; reduzir apenas fidelidade/custo de renderização em hardware fraco e provar que a simulação nunca envia comandos.
 
 ## Fase 5 — descoberta assistida de possíveis backends
 - Descobrir apenas fontes autorizadas/configuradas: endpoints fornecidos, documentação selecionada, catálogo de adaptadores e conectores explicitamente ligados.
@@ -395,3 +395,93 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Reconcile persisted identity at host startup before create/rotate/revoke.
 - [x] Fail closed on startup recovery errors and release DB/process lock during shutdown.
 - [ ] Pass CI Linux/Windows and visual regression on the exact PR HEAD.
+
+## Windows portable distribution
+- [x] Bundle Node.js runtime, Windows host modules and CNG helper into a portable directory.
+- [ ] Pass CI end-to-end test using an ephemeral trusted signing certificate on Windows.
+- [ ] Add release signing using a protected publisher certificate and verify signer thumbprint.
+- [ ] Build MSI/MSIX installer with start/health/uninstall and explicit data retention.
+- [ ] Validate upgrade/rollback, backup/restore and physical-PC installation.
+## New product increment — Office Health & Recovery (2026-11-09)
+- [ ] Add layered diagnostics for Office Kit runtime, adapter, transport/network and backend, with confirmed/probable/indeterminate cause and evidence.
+- [ ] Add persistent, exportable, secret-redacted incident records and local support bundle.
+- [ ] Add bounded self-recovery and reconnection; require a fresh consistent snapshot before restoring healthy/live status.
+- [ ] Keep offline/no backend distinct from configured backend failure; use social mode for the former and infirmary/incident state for the latter.
+- [ ] Add fault-injection tests for runtime bugs, adapter exceptions, DNS/port/timeout, authentication, backend unavailable, stale snapshots and successful recovery.
+
+## New product increment — social simulation with behavior-preserving adaptive rendering (2026-11-09)
+- [ ] Implement a local pseudo-random social behavior engine with variable activities, durations, routes and interactions; no fixed repetitive daily loop.
+- [ ] Preserve the same activity semantics across advanced 3D, low-poly, pixel and minimal renderers. Lower hardware capability changes visual fidelity and rendering cost only; it must not remove social activities or avatar interactions.
+- [ ] Decouple simulation time from frame rate and keep local social behavior active without a backend.
+- [ ] Keep simulated activity explicitly labelled and separate from backend-confirmed work; real progress bars require fresh authoritative progress data.
+- [ ] Add independent CPU/memory budgets for renderer and backend; detect hardware at install and runtime, apply hysteresis, allow manual override and recover quality as resources return.
+- [ ] Validate on low-resource Windows and stronger desktop hardware without making the test PC a feature ceiling.
+
+## Next implementation order after the portable Windows bundle gate
+1. Complete and merge the portable Windows host bundle only after Linux, Windows E2E and visual regression pass on the same HEAD.
+2. Implement the installable Windows host lifecycle (install/start/health/stop/restart/uninstall/upgrade/rollback/data retention) without touching existing DGM-MAT or VST installations.
+3. Implement hardware capability discovery and dynamic resource budgets, separating renderer cost from backend resources.
+4. Implement Office Health & Recovery incident contracts, safe diagnostic probes, redaction and bounded recovery.
+5. Implement social simulation independent of backend and renderer FPS, then renderer-tier equivalence.
+6. Implement and validate the four physical scenarios: Universal offline, DGM-MAT read-only, VST read-only and standalone offline.
+7. Generate the Desktop Commander installation/test prompt only after the package passes automated release gates. Never use live trading or destructive DGM-MAT operations during validation.
+### Estado do primeiro incremento de código — PR #55 branch
+- [x] Criar protótipo puro do motor social local, com seed QA, atividades variáveis e sem autoridade operacional.
+- [x] Criar contrato de diagnóstico por camadas, redaction e coordenador de recuperação local com verificação de snapshot.
+- [x] Criar arbitragem explícita offline/synchronizing/infirmary/live e regra de progresso real.
+- [x] Criar política adaptativa de recursos com tiers de renderer, override e hysteresis, preservando semântica social.
+- [ ] Obter CI Linux + Windows e regressão visual verdes no mesmo HEAD final.
+- [ ] Ligar probes reais e armazenamento persistente de incidentes no host.
+- [ ] Integrar deteção de hardware e política no instalador e renderer de produção.
+- [ ] Ligar motor social à cena/renderers e testar equivalência comportamental em todos os tiers.
+
+**Nota:** os quatro itens marcados como código inicial são protótipos de arquitetura/testes; não significam integração de produção nem validação física.
+
+
+### Atualização 2026-11-09 — motores sociais, saúde e política de recursos (PR #55; validação pendente)
+
+- [x] Adicionar o primeiro motor local de simulação social com seed de QA, durações variáveis, locais, interações e autoridade explicitamente simulada.
+- [x] Adicionar a primeira arbitragem pura entre offline social, sincronização, enfermaria e estado live verificado; progresso visual só é exposto para tarefas de backend em execução com percentagem válida.
+- [x] Adicionar coordenador inicial de diagnóstico por camadas, redaction de evidência, contrato de incident store e execução limitada por chamada de ações locais fornecidas pelo host.
+- [x] Adicionar política adaptativa automática/manual de renderer, histerese e orçamento de recursos separado do backend.
+- [ ] Validar CI Linux/Windows e regressão visual no mesmo HEAD final da PR #55.
+- [ ] Integrar sondas reais autorizadas e atribuição positiva de causa confirmada.
+- [ ] Substituir o provider de incidentes em memória por persistência SQLite durável, exportação de suporte e proteção contra adulteração.
+- [ ] Implementar limites de frequência/idempotência de recuperação entre chamadas e ligar ações locais reais do host.
+- [ ] Ligar a política de recursos à deteção nativa de CPU/RAM/GPU/VRAM e aos renderers efetivamente instalados.
+- [ ] Validar equivalência comportamental dos renderers e desempenho em máquinas físicas.
+
+**Limite de evidência:** os módulos e testes desta PR são um primeiro incremento de core. Não representam integração com drivers reais, persistência de incidentes em produção, instalador, renderer integrado, nem testes em PC físico. O bundle portátil Universal Windows usa uma allowlist backend-neutral; a separação do entrypoint genérico e dos pacotes npm por edição continua pendente (issue #56).
+### Diagnóstico persistente e Windows bundle — incremento em PR #55
+- [x] Implementar armazenamento SQLite de incidentes isolado por instalação.
+- [x] Ligar store ao Windows host e permitir criar motor de diagnóstico com probes/actions injetados.
+- [x] Testar persistência do incidente após reinício do host.
+- [ ] Implementar probes reais por camada e identificação da origem com confiança/evidência.
+- [ ] Integrar recuperação local autorizada, snapshot de verificação e exportação de suporte com consentimento.
+- [ ] Validar Windows portable E2E com rejeição do launcher para signer não confiável e assinatura pinada no runner de teste; aceitação positiva de publisher confiável permanece validação física.
+### Hardware host e limites de diagnóstico — incremento
+- [x] Detetar OS, CPU, RAM e espaço livre através do host Node.
+- [x] Aceitar providers opcionais de GPU/VRAM dedicada/API gráfica e resolução sem inventar dados.
+- [x] Calcular política adaptativa no arranque e expor refresh/override manual no host Windows.
+- [x] Aplicar deadlines às probes, recuperação local e verificação de snapshot.
+- [x] Executar o teste do bundle através do launcher .cmd sem wrapper PowerShell extra.
+- [ ] Implementar providers reais de GPU/resolução em Windows/Linux.
+- [ ] Agendar reavaliação dinâmica e persistir overrides do utilizador.
+- [ ] Aplicar os orçamentos/perfis ao renderer real preservando a semântica social.
+### Ligação do motor social à preview
+- [x] Substituir escolha de atividade fixa pelo SocialSimulationEngine.
+- [x] Preservar estado entre atualizações e mover avatares quando a atividade/localização muda.
+- [x] Mostrar cues visuais leves para atividades sociais e trabalho ao computador.
+- [x] Manter animações no perfil gráfico economy e identificar explicitamente modo offline simulado.
+- [ ] Ligar o mesmo motor ao renderer desktop/native.
+- [ ] Integrar o estado live real e barras de progresso apenas com snapshots backend verificados.
+- [x] Atualizar testes de preview para o banner OFFLINE e integração do SocialSimulationEngine; remover expectativa textual obsoleta e verificar movimento no perfil economy.
+- [x] Distinguir threads lógicas reportadas pelo sistema operativo de núcleos físicos; não apresentar a contagem lógica como cores físicos.
+- [x] Isolar stdout/stderr do E2E Windows em ficheiros temporários para evitar bloqueios por pipes herdados.
+- [x] Aplicar allowlist explícita ao bundle Universal Windows e testar ausência de módulos DGM-MAT/VST no artefacto.
+- [ ] Validar o ciclo portátil completo no runner Windows com assinatura pinada de teste; validar publisher confiável numa instalação física.
+### Correção E2E Windows — 2026-11-10
+- [x] Corrigir sintaxe PowerShell na validação da allowlist Universal do manifesto.
+- [ ] Confirmar que o runner Windows ultrapassa a validação do manifesto e conclui assinatura pinada + ciclo health/create/reopen/rotate/revoke/health.
+- [ ] Confirmar CI Linux, CI Windows e regressão visual no mesmo HEAD antes de merge.
+- [x] Antecipar validação de sintaxe PowerShell do build e E2E no CI Windows, antes da publicação CNG.

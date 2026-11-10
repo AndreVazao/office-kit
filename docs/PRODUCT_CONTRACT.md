@@ -202,4 +202,22 @@ O CEO deve ser um personagem central e selecionável, configurável para usar um
 - A seleção abre a conversa/painel do personagem correto e apresenta o destinatário sem ambiguidade.
 - Ordens reais só são reportadas como enviadas/aceites/executadas com evidência do adaptador/backend.
 - Testar navegação e seleção em retrato, paisagem e desktop, incluindo alvos pequenos, sobreposições e regressar à vista geral.
+## 14. Diagnóstico, responsabilidade operacional e recuperação
 
+O Office Kit deve distinguir falhas do seu runtime, do adaptador, do transporte/rede e do backend. Cada diagnóstico apresenta evidências e classifica a origem como confirmada, provável ou indeterminada; um timeout isolado nunca atribui culpa. Incidentes são persistentes e exportáveis, incluem versão/edição, adaptador, última comunicação confirmada, testes, impacto, tentativas de recuperação, duração e resultado, e excluem credenciais/tokens/segredos.
+
+A recuperação automática é limitada e segura: revalidar configuração e endpoints autorizados, redescobrir apenas fontes permitidas, verificar porta/transporte, reiniciar o adaptador local quando seguro, renovar sessão através do host e reconectar. O estado saudável só regressa após snapshot fresco e consistente. O Office Kit não altera credenciais, contorna autenticação, executa escritas no backend ou reinicia serviços externos sem autorização explícita.
+
+Backend ausente/não configurado é estado offline com simulação social. Backend configurado que perde comunicação é incidente de conectividade/saúde e coloca os agentes/departamentos afetados em diagnóstico/enfermaria. A origem desconhecida permanece explicitamente desconhecida até haver evidência.
+
+## 15. Simulação social e honestidade dos estados
+
+O escritório deve continuar visualmente ativo sem backend. Um motor social local escolhe atividades pseudoaleatórias com duração e destinos variáveis: deslocar-se, sentar/levantar, interagir visualmente com computador/quadro, fazer pausas, ir buscar café, ir à varanda e conversar/cumprimentar colegas. Repetições são possíveis; não existe rotina fixa. A simulação não cria tarefas, resultados nem progresso operacional.
+
+O modo offline apresenta uma indicação persistente e inequívoca de que não existe backend ligado e de que o movimento é simulado. Quando uma ligação live cai, as tarefas reais passam a interrompidas/desconhecidas e o incidente permanece registado; a simulação social pode continuar sem sugerir que o trabalho real prossegue. Barras de progresso só aparecem com progresso real, fresco e fornecido pelo backend.
+
+## 16. Renderização adaptativa sem perda de comportamento
+
+Todos os níveis gráficos partilham o mesmo modelo de cena e comportamento. O dispositivo pode usar renderer 3D avançado, low-poly, pixel ou mínimo/retro, mas todos preservam as mesmas atividades, deslocações e interações. Hardware modesto reduz fidelidade e custo gráfico — polígonos, texturas, sombras, iluminação, pixel ratio, LOD e cadência de render — não remove a vida social nem funcionalidades.
+
+O relógio da simulação é independente do FPS. Perfis automáticos reavaliam CPU, memória disponível, GPU/VRAM/API gráfica, sistema operativo, armazenamento, resolução e frame time; usam histerese e permitem override manual. Os limites são políticas dinâmicas de recursos, não tetos de edição ou produto. Orçamentos do renderer e do backend são separados.

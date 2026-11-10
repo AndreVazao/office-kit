@@ -55,3 +55,8 @@ As ACLs distinguem diretórios e ficheiros: diretórios recebem permissões herd
 O host inicia uma promessa `ready` que reconcilia a identidade persistida antes de qualquer mutação exposta por `host.manager`. O CLI aguarda `host.ready` antes de executar o comando pedido. Se a reconciliação falhar, create/rotate/revoke falham sem executar a mutação; `close()` aguarda o resultado e liberta SQLite/lock mesmo em falha. O health continua a distinguir estado recuperado de estado degradado.
 
 Estados de reconciliação que não sejam `empty`, `active` ou `revoked` são considerados incompletos: health reporta `degraded`, a identidade persistida não é exposta e create/rotate/revoke ficam bloqueados. Um erro de reconciliação também bloqueia as operações.
+
+## Portable Windows bundle
+Os scripts `tools/windows/build-host-bundle.ps1` e `tools/windows/test-host-bundle.ps1` criam e exercitam uma distribuição portátil com `node.exe`, os módulos de runtime e o helper CNG. O teste CI gera um certificado Code Signing efémero, confia nele apenas no perfil do runner, assina o helper e executa health/create/reopen/rotate/revoke em processos Node separados. O certificado efémero é removido no fim.
+
+Isto valida o empacotamento e o fluxo local com um trust publisher de teste. Não produz um certificado de release confiável nos PCs dos utilizadores, não cria MSI/MSIX nem serviço Windows e não substitui assinatura comercial, upgrade/uninstall ou validação física. O bundle não deve ser distribuído como release.

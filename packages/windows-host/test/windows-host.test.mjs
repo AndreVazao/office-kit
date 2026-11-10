@@ -233,3 +233,82 @@ test("host blocks mutations and hides identity while reconciliation remains pend
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Windows host exposes installation-scoped persistent incident diagnostics across restarts", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-incidents-"));
+  let host;
+  try {
+    host = setup(directory);
+    const diagnostics = host.createDiagnostics({
+      probes: [{
+        id: "office-runtime-check",
+        layer: "office_runtime",
+        run: async () => ({ ok: false, code: "renderer_invariant", evidence: "renderer heartbeat failed" })
+      }]
+    });
+    const report = await diagnostics.diagnose({ edition: "universal", adapterId: "local" });
+    assert.equal(report.origin, "office_runtime");
+    const [incident] = await host.incidentStore.list();
+    assert.equal(incident.origin, "office_runtime");
+    assert.equal(incident.installationId, host.installationId);
+    await host.close();
+    host = null;
+
+    const reopened = setup(directory);
+    assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
+    assert.equal((await reopened.incidentStore.list()).length, 1);
+    await reopened.close();
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows host detects hardware and exposes adaptive policy with safe manual overrides", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-hardware-"));
+  const weakFacts = {
+    os: "Windows 10", architecture: "x64", cpuModel: "Test CPU",
+    cpuCores: 2, memoryTotalMB: 3072, memoryAvailableMB: 1024,
+    gpuName: "Integrated GPU", gpuVramMB: 512,
+    storageFreeMB: 20_000, displayWidth: 1920, displayHeight: 1080
+  };
+  let probes = 0;
+  let host;
+  try {
+    host = setup(directory, { hardwareProbe: () => { probes += 1; return weakFacts; } });
+    const initial = await host.health();
+    assert.equal(initial.hardware.cpuCores, 2);
+    assert.equal(initial.resourcePolicy.profile, "economy");
+    assert.equal(initial.resourcePolicy.socialActivitySemantics, "full");
+    const manual = host.setResourceOverrides({ profile: "cinematic", renderer: "three_d" });
+    assert.equal(manual.selectedBy, "user");
+    assert.equal(manual.profile, "cinematic");
+    assert.equal(host.getResourcePolicy().rendererTier, "three_d");
+    assert.throws(() => host.setResourceOverrides({ profile: "invalid" }), /invalid_quality_profile/);
+    assert.equal(host.getResourcePolicy().profile, "cinematic");
+    const refreshed = host.refreshResourcePolicy({ measurements: { frameTimeMs: 14 } });
+    assert.equal(refreshed.profile, "cinematic");
+    assert.ok(probes >= 2);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("health snapshots cannot mutate the host's active resource policy", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-policy-copy-"));
+  let host;
+  try {
+    host = setup(directory, {
+      hardwareProbe: () => ({ os: "Windows", cpuCores: 8, memoryTotalMB: 16_384, memoryAvailableMB: 8_000, gpuVramMB: 4_096 })
+    });
+    const health = await host.health();
+    const originalFps = host.getResourcePolicy().rendererBudget.targetFps;
+    health.resourcePolicy.rendererBudget.targetFps = 999;
+    health.hardware.cpuCores = 999;
+    assert.equal(host.getResourcePolicy().rendererBudget.targetFps, originalFps);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
