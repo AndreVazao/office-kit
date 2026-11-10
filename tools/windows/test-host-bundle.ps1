@@ -163,9 +163,20 @@ try {
 `$moduleRoot = Join-Path `$env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules'
 `$env:PSModulePath = `$moduleRoot + ';' + `$env:PSModulePath
 Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
-`$cert = Get-Item -LiteralPath 'Cert:\CurrentUser\My\`$($certificate.Thumbprint)'
-`$signature = Set-AuthenticodeSignature -FilePath '$escapedHelperPath' -Certificate `$cert -HashAlgorithm SHA256
-if (`$signature.Status -ne 'Valid') { exit 5 }
+`$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+  [System.Security.Cryptography.X509Certificates.StoreName]::My,
+  [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+)
+`$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+try {
+  `$certificates = `$store.Certificates.Find([System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint, '$($certificate.Thumbprint)', `$false)
+  if (`$certificates.Count -ne 1 -or -not `$certificates[0].HasPrivateKey) { exit 4 }
+  `$cert = `$certificates[0]
+  `$signature = Set-AuthenticodeSignature -FilePath '$escapedHelperPath' -Certificate `$cert -HashAlgorithm SHA256
+  if (`$signature.Status -notin @('Valid', 'NotTrusted') -or `$signature.SignerCertificate.Thumbprint -ne '$($certificate.Thumbprint)') { exit 5 }
+} finally {
+  `$store.Close()
+}
 "@
   $signingCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($signingScript))
   Invoke-BoundedNative -FileName "powershell.exe" -NativeArguments @(
