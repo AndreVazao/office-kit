@@ -205,3 +205,103 @@ test("connection supervisor does not attribute initial startup failures to a bac
   assert.equal(result.transition, "not_yet_established");
   assert.equal((await store.list()).length, 0);
 });
+
+
+test("opaque secret-like diagnostic codes are rejected in probe and session evidence", async () => {
+  const secretLikeCodes = [
+    ["sk", "live", "x".repeat(28)].join("_"),
+    "a".repeat(32),
+    ["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjM0NTY3ODkwIn0", "signaturepayloadlong"].join(".")
+  ];
+  for (const code of secretLikeCodes) {
+    const { engine, store } = fixture({
+      probes: [{ id: "backend", layer: "backend", run: async () => ({
+        ok: false, code, evidence: "backend unavailable"
+      }) }]
+    });
+    await engine.diagnose();
+    const [incident] = await store.list();
+    assert.equal(incident.diagnostics[0].code, "probe_failed");
+    assert.equal((await store.export()).includes(code), false);
+
+    const sessionFixture = fixture();
+    await sessionFixture.engine.diagnose({ connectionState: "stale", sessionReason: code });
+    const [sessionIncident] = await sessionFixture.store.list();
+    const transition = sessionIncident.diagnostics.find(item => item.probeId === "runtime-session-transition");
+    assert.equal(transition.code, "connection_lost");
+    assert.equal((await sessionFixture.store.export()).includes(code), false);
+  }
+});
+
+test("failed incident append does not poison the next diagnosis attempt", async () => {
+  const memory = new InMemoryIncidentStore();
+  let rejectFirstAppend = true;
+  const incidentStore = {
+    append: async incident => {
+      if (rejectFirstAppend) {
+        rejectFirstAppend = false;
+        throw new Error("incident_store_unavailable");
+      }
+      return memory.append(incident);
+    },
+    update: (...args) => memory.update(...args)
+  };
+  const engine = new OfficeHealthRecoveryEngine({
+    incidentStore,
+    probes: [{ id: "backend", layer: "backend", run: async () => ({
+      ok: false, code: "backend_unavailable", evidence: "backend unavailable"
+    }) }]
+  });
+  await assert.rejects(engine.diagnose(), /incident_store_unavailable/);
+  const retry = await engine.diagnose();
+  assert.ok(retry.incidentId);
+  assert.equal((await memory.list()).length, 1);
+});
+
+test("connection supervisor serializes rapid outage and recovery observations", async () => {
+  let firstProbe = true;
+  let signalStarted;
+  const started = new Promise(resolve => { signalStarted = resolve; });
+  let releaseProbe;
+  const gate = new Promise(resolve => { releaseProbe = resolve; });
+  const { engine, store } = fixture({
+    probes: [
+      { id: "runtime", layer: "office_runtime", run: async () => {
+        if (firstProbe) {
+          firstProbe = false;
+          signalStarted();
+          await gate;
+        }
+        return { ok: true };
+      } },
+      { id: "adapter", layer: "adapter", run: async () => ({ ok: true }) },
+      { id: "transport", layer: "transport", run: async () => ({ ok: true }) },
+      { id: "backend", layer: "backend", run: async () => ({ ok: true }) }
+    ]
+  });
+  const supervisor = new OfficeConnectionSupervisor({ healthEngine: engine });
+  const live = {
+    connectionState: "live",
+    authoritativeStateVerified: true,
+    lastHeartbeatAt: "2026-11-10T10:00:00.000Z"
+  };
+  await supervisor.observe(live);
+  const outage = supervisor.observe({
+    connectionState: "stale",
+    authoritativeStateVerified: false,
+    reason: "heartbeat_timeout"
+  });
+  await started;
+  const recovery = supervisor.observe({
+    connectionState: "live",
+    authoritativeStateVerified: true,
+    lastHeartbeatAt: "2026-11-10T10:01:00.000Z"
+  });
+  releaseProbe();
+  const [lost, recovered] = await Promise.all([outage, recovery]);
+  assert.equal(lost.transition, "connection_lost");
+  assert.equal(recovered.transition, "recovered");
+  const incidents = await store.list();
+  assert.equal(incidents.length, 1);
+  assert.equal(incidents[0].outcome, "recovered");
+});
