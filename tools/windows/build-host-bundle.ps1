@@ -19,8 +19,8 @@ if (Test-Path -LiteralPath $bundleRoot) {
   Remove-Item -LiteralPath $bundleRoot -Recurse -Force
 }
 
-$sceneTarget = Join-Path $bundleRoot "packages\scene-engine"
-$hostTarget = Join-Path $bundleRoot "packages\windows-host"
+$sceneTarget = Join-Path $bundleRoot "packages\scene-engine\src"
+$hostTarget = Join-Path $bundleRoot "packages\windows-host\src"
 New-Item -ItemType Directory -Path $sceneTarget -Force | Out-Null
 New-Item -ItemType Directory -Path $hostTarget -Force | Out-Null
 
