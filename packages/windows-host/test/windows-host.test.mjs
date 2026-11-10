@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
+import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
 function runtimeFactory() {
   let identity = null;
@@ -307,6 +308,69 @@ test("health snapshots cannot mutate the host's active resource policy", async (
     health.resourcePolicy.rendererBudget.targetFps = 999;
     health.hardware.cpuCores = 999;
     assert.equal(host.getResourcePolicy().rendererBudget.targetFps, originalFps);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("managed adapter gateway persists outage and verified recovery through the Windows host", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-supervisor-"));
+  let host;
+  let managed;
+  try {
+    host = setup(directory);
+    const probes = ["office_runtime", "adapter", "transport", "backend"].map(layer => ({
+      id: "probe-" + layer,
+      layer,
+      run: async () => ({ ok: true, code: "ok", evidence: "read-only probe passed" })
+    }));
+    managed = host.createManagedAdapterGateway({
+      probes,
+      edition: "universal",
+      officeKitVersion: "test"
+    });
+    const adapter = new GenericDemoAdapter();
+    const connected = await managed.connect(adapter);
+    assert.equal(connected.verified, true);
+    assert.equal(connected.state.connectionState, "live");
+    assert.equal(managed.getSupervisorState().wasLive, true);
+    assert.equal((await host.incidentStore.list()).length, 0);
+
+    adapter.failTransport();
+    await new Promise(resolve => setImmediate(resolve));
+    const [outage] = await host.incidentStore.list();
+    assert.ok(outage);
+    assert.equal(outage.origin, "transport");
+    assert.equal(outage.adapterId, "office-kit.demo");
+    assert.equal(outage.installationId, host.installationId);
+    assert.equal(outage.outcome, "unresolved");
+
+    const reconnected = await managed.connect(adapter);
+    assert.equal(reconnected.verified, true);
+    assert.equal(reconnected.supervision.outageOpen, false);
+    const incidents = await host.incidentStore.list();
+    assert.equal(incidents.length, 1);
+    assert.equal(incidents[0].outcome, "recovered");
+    assert.ok(incidents[0].resolvedAt);
+  } finally {
+    await managed?.close();
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("managed adapter gateway requires explicit diagnostic probes and closes with host", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-supervisor-close-"));
+  let host;
+  try {
+    host = setup(directory);
+    assert.throws(() => host.createManagedAdapterGateway(), /managed_gateway_requires_read_only_diagnostic_probes/);
+    const probes = [{ id: "runtime", layer: "office_runtime", run: async () => ({ ok: true }) }];
+    const managed = host.createManagedAdapterGateway({ probes });
+    await host.close();
+    assert.throws(() => managed.getState(), /windows_host_stopped|managed_gateway_closed/);
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
