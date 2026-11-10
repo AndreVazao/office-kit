@@ -16,7 +16,7 @@ test("creates isolated personal DGM-MAT and VST editions", () => {
   const dgmat = createProductProfile({ edition: "dgmat", installationId: "andre-dgmat-pc", displayName: "DGM-MAT" });
   const vst = createProductProfile({ edition: "vst", installationId: "andre-vst-pc", displayName: "VST" });
   assert.deepEqual(dgmat.adapterAllowlist, ["dgm-mat"]);
-  assert.deepEqual(vst.adapterAllowlist, ["vazao-sovereign-trader"]);
+  assert.deepEqual(vst.adapterAllowlist, []);
   assert.notEqual(dgmat.storageNamespace, vst.storageNamespace);
   assert.equal(assertProfileIsolation([dgmat, vst]), true);
 });
