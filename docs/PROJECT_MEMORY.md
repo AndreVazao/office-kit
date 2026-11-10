@@ -410,3 +410,14 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Added unit/fake tests for hanging providers, fetch/body deadlines, cancellation, secret-safe events, source mutation timestamps, reconnect identity and late-poll suppression. CI is pending on this branch.
 - Remaining production gate: dedicated Windows OS-keystore storage/retrieval for the DGM-MAT bootstrap secret, host composition wiring, live DGM-MAT contract tests, and physical-PC validation. Never reuse the node-identity private key as a backend credential.
 - VST adapter remains unimplemented. Universal must remain free of both personal adapters and credentials.
+
+## Validação integrada — PR #61
+- Atualização: 2026-11-10. PR #61 `feat(health): supervise backend connection outages and recovery` foi integrada em `main`.
+- PR final HEAD validado: `ded5a449b452fdf56048ff547279fe3b06ddda23`.
+- Merge commit: `43adb778b8e03d85c1766f5f1bc68ca15ecea027`.
+- CI no HEAD final: Linux e Windows concluídos com sucesso. O runner Windows publicou e exercitou o CNG host, validou persistência/isolamento, runtime de identidade e bundle portátil end-to-end.
+- Regressão visual no mesmo HEAD: concluída com sucesso.
+- `OfficeConnectionSupervisor` está integrado no entrypoint genérico. Só regista perda após sessão previamente confirmada como live; não confunde falha de arranque com outage. Incidentes são deduplicados e só recuperam após probes saudáveis e snapshot live fresco/autoritativo.
+- Segurança: diagnóstico read-only; sem sockets/timers próprios; nenhuma escrita ou reinício remoto do backend. Códigos opacos/secret-shaped são rejeitados e o histórico diagnóstico é limitado.
+- Limites mantidos: integração do supervisor no ciclo de vida do host instalado, adaptadores reais DGM-MAT/VST e validação física no PC continuam pendentes. O merge não torna o instalador comercial/produção pronto.
+- Main avançou depois do merge para `2b2e0e33fbbe74e880be16330293e552a8ffa76b`; esta atualização documental parte desse HEAD.
