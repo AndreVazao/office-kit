@@ -468,3 +468,16 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - [x] One incident per outage; recovery requires passing probes and a fresh authoritative live snapshot.
 - [ ] Integrate supervisor into the installed host lifecycle and validate against real DGM-MAT/VST adapters.
 - [ ] Physical PC validation remains outstanding. CI and browser rendering do not replace installation tests.
+
+
+## Host-managed connection supervision — PR em desenvolvimento (2026-11-10)
+- [x] Adicionar composição host-managed de AdapterGateway + OfficeConnectionSupervisor + SQLite persistente.
+- [x] Exigir adapter explicitamente selecionado e probes read-only explícitos.
+- [x] Supervisionar eventos intermédios de sessão, não apenas o estado final de connect.
+- [x] Encerrar gateways geridos antes de fechar SQLite.
+- [ ] Validar Linux/Windows CI e regressão visual no HEAD final.
+- [ ] Exercitar adapters reais DGM-MAT/VST; GenericDemoAdapter é apenas teste de contrato.
+- [ ] Validar instalação física e comportamento de recuperação no PC do utilizador.
+
+- [x] Corrigir a allowlist do bundle Windows para incluir as dependências transitivas do AdapterGateway (`adapter-gateway`, `runtime-session`, `runtime-state`, `adapter-contract`) e validar a lista no teste independente.
+- [ ] Reexecutar Linux, Windows e regressão visual no mesmo HEAD final; a execução anterior falhou no E2E Windows por módulo ausente no bundle, embora os testes de identidade/CNG tenham passado.

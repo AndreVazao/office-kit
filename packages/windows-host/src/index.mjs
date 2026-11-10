@@ -18,7 +18,8 @@ import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows
 import { detectHostHardwareCapabilities } from "./hardware-capabilities.mjs";
 import { resolveAdaptiveResourcePolicy } from "../../scene-engine/src/resource-policy.mjs";
 import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-incident-store.mjs";
-import { OfficeHealthRecoveryEngine } from "../../scene-engine/src/office-health.mjs";
+import { AdapterGateway } from "../../scene-engine/src/adapter-gateway.mjs";
+import { OfficeConnectionSupervisor, OfficeHealthRecoveryEngine } from "../../scene-engine/src/office-health.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
 
@@ -231,6 +232,7 @@ export function createWindowsHost({
   let profileOverride = requestedProfile;
   let rendererOverride = requestedRenderer;
   let closed = false;
+  const managedGateways = new Set();
 
   try {
     ensureRealDirectory(root);
@@ -363,6 +365,7 @@ export function createWindowsHost({
   async function close() {
     if (closed) return;
     closed = true;
+    await Promise.allSettled([...managedGateways].map(gateway => gateway.close()));
     try { await ready; } catch { /* Initialization failure must not leak the database or lock. */ }
     try { database.close(); }
     finally {
@@ -380,6 +383,104 @@ export function createWindowsHost({
     });
   }
 
+  /**
+   * Creates an explicitly selected, read-only adapter gateway whose authoritative
+   * RuntimeSession transitions are supervised and persisted by this host.
+   * Authentication/authorization remains the caller's responsibility.
+   */
+  function createManagedAdapterGateway({
+    probes,
+    recoveryActions = [],
+    clock,
+    ttlMs = 30_000,
+    maxEventAgeMs = ttlMs,
+    maxBufferedEvents = 256,
+    edition = "universal",
+    officeKitVersion = "0.1.0"
+  } = {}) {
+    if (closed) throw new Error("windows_host_stopped");
+    if (!Array.isArray(probes) || probes.length === 0) {
+      throw new TypeError("managed_gateway_requires_read_only_diagnostic_probes");
+    }
+    const healthEngine = createDiagnostics({ probes, recoveryActions, clock });
+    const supervisor = new OfficeConnectionSupervisor({ healthEngine });
+    const gateway = new AdapterGateway({ ttlMs, maxEventAgeMs, maxBufferedEvents });
+    let adapterId = "unselected";
+    let pending = Promise.resolve();
+    let lastSupervisionFailure = false;
+    let disposed = false;
+    const context = () => ({ edition, officeKitVersion, adapterId });
+
+    const enqueueObservation = state => {
+      if (disposed || !state) return;
+      pending = pending.then(
+        () => supervisor.observe(state, context()),
+        () => supervisor.observe(state, context())
+      ).catch(() => { lastSupervisionFailure = true; });
+    };
+    gateway.onEvent(event => enqueueObservation(event.state));
+
+    async function synchronize() {
+      const state = gateway.getState();
+      enqueueObservation(state);
+      await pending;
+      return state;
+    }
+
+    const managed = Object.freeze({
+      connect: async adapter => {
+        if (disposed) throw new Error("managed_gateway_closed");
+        if (!adapter?.metadata?.id || typeof adapter.metadata.id !== "string") {
+          throw new TypeError("managed_gateway_adapter_identity_required");
+        }
+        adapterId = adapter.metadata.id;
+        const result = await gateway.connect(adapter);
+        await synchronize();
+        return Object.freeze({
+          ...result,
+          supervision: supervisor.getState(),
+          supervisionDegraded: lastSupervisionFailure
+        });
+      },
+      receiveEvent: async event => {
+        if (disposed) throw new Error("managed_gateway_closed");
+        const result = gateway.receiveEvent(event);
+        await synchronize();
+        return result;
+      },
+      checkHealth: async () => {
+        if (disposed) throw new Error("managed_gateway_closed");
+        const state = gateway.checkHealth();
+        enqueueObservation(state);
+        await pending;
+        return state;
+      },
+      disconnect: async () => {
+        if (disposed) return { state: gateway.getState(), error: null };
+        const result = await gateway.disconnect();
+        await synchronize();
+        return result;
+      },
+      getState: () => {
+        if (disposed || closed) throw new Error("managed_gateway_closed");
+        return gateway.getState();
+      },
+      getSupervisorState: () => Object.freeze({
+        ...supervisor.getState(),
+        supervisionDegraded: lastSupervisionFailure
+      }),
+      close: async () => {
+        if (disposed) return;
+        await gateway.disconnect();
+        await synchronize();
+        disposed = true;
+        managedGateways.delete(managed);
+      }
+    });
+    managedGateways.add(managed);
+    return managed;
+  }
+
   return Object.freeze({
     installationId,
     incidentStore,
@@ -392,6 +493,7 @@ export function createWindowsHost({
     ready,
     manager,
     health,
+    createManagedAdapterGateway,
     close
   });
 }
