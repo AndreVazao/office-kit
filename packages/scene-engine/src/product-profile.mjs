@@ -62,5 +62,5 @@ export function assertProfileIsolation(profiles) {
 export const productEditionCatalog = Object.freeze({
   universal: Object.freeze({ edition: "universal", channel: "public", backendIndependent: true }),
   dgmat: Object.freeze({ edition: "dgmat", channel: "personal", backendIndependent: true, adapterId: "dgm-mat" }),
-  vst: Object.freeze({ edition: "vst", channel: "personal", backendIndependent: true, adapterId: "vazao-sovereign-trader" })
+  vst: Object.freeze({ edition: "vst", channel: "personal", backendIndependent: true, adapterStatus: "not_implemented" })
 });
