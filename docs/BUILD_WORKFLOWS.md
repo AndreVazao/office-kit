@@ -43,3 +43,16 @@ Os workflows gerais existentes de CI e regressão visual continuam separados e m
 ## Limite de distribuição atual
 
 O artifact é um **pacote de código-fonte perfilado**, não um instalador Windows/Android, executável autónomo nem integração funcional com o backend. Os adaptadores DGM-MAT e VST, keystore de produção, launcher e instaladores continuam etapas próprias. Não considerar um build verde como prova de ligação real ao DGM-MAT/VST.
+
+## Physical artifact isolation — PR #56 implementation
+The edition build now creates a temporary staging directory and copies only an explicit allowlist before running npm pack. It no longer packs the repository root.
+
+- Universal: generic core, generic scene-engine and Windows host only; no DGM-MAT or VST adapter/session files.
+- DGM-MAT: same generic core plus DGM-MAT adapter/session files and the ./scene-engine/dgmat entrypoint.
+- VST: generic core only for now. The package declares adapterStatus: not_implemented and does not claim or ship a VST adapter until that adapter exists and is verified.
+
+The generic scene-engine entrypoint is backend-neutral. DGM-MAT-specific exports are available only through the DGM-MAT entrypoint.
+
+All edition tarballs declare Node.js >=22.5.0, matching the host's node:sqlite requirement. node:sqlite is still experimental on Node 22; this limitation is recorded in each edition manifest. The three manual workflows use Node 22 rather than Node 20.
+
+Automated tests inspect the actual .tgz file lists for all three editions, not just their generated manifests. These artifacts remain source packages, not OS installers.
