@@ -414,4 +414,9 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 
 ### Windows certificate trust API correction — 2026-11-10
 - The rerun on HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba` completed Linux CI and visual regression successfully; Windows failed immediately because this runner's `certutil -addstore` does not accept `-Silent` (exit 1). This disproves the previous silent-flag attempt; no host lifecycle commands ran.
-- Replaced certutil trust/removal calls with bounded child PowerShell processes using .NET `X509Store` in `CurrentUser` for Root, TrustedPublisher and My. The operations have explicit deadlines and captured output. CI must confirm whether the .NET store API avoids the prior hang; not yet validated.
+- A second attempt using the .NET `X509Store` API also timed out after 20 seconds while opening/adding to CurrentUser Root. No signing or host lifecycle commands ran. The CI design is now changed: do not mutate Root/TrustedPublisher stores; leave the ephemeral code-signing cert untrusted, assert the production launcher rejects it, and use a test-only verifier that requires Authenticode `NotTrusted` plus the exact ephemeral signer thumbprint to exercise the portable runtime. This validates signature integrity/pinning and real CNG/SQLite lifecycle, not trusted-chain acceptance. New CI is pending.
+
+### Portable bundle trust boundary — revised CI strategy — 2026-11-10
+- GitHub-hosted Windows runner timed out on both `certutil -addstore Root` and .NET `X509Store` CurrentUser Root mutation. The test no longer writes Root or TrustedPublisher stores.
+- The production launcher is now expected to reject the untrusted ephemeral test signer. A separate test-only runner accepts only a cryptographically intact Authenticode signature with the exact ephemeral thumbprint and `NotTrusted` chain status, then exercises the bundled Node runtime, SQLite, Windows CNG create/reopen/rotate/revoke across fresh processes.
+- This is not a positive trusted-publisher integration test. Acceptance of a real trusted release signer remains a physical Windows/release validation gate. CI on the updated HEAD is pending.
