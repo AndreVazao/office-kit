@@ -70,6 +70,7 @@ export class OfficeHealthRecoveryEngine {
   #sequence = 0;
   #lastIncidentId = null;
   #recoveryHistory = [];
+  #diagnosticHistory = [];
   #recoveryActions;
   #maxRecoveryActions;
   #probeTimeoutMs;
@@ -142,17 +143,49 @@ export class OfficeHealthRecoveryEngine {
       checkedAt: iso(this.#clock()),
       results
     };
-    if (report.status !== "healthy") await this.#recordIncident(report, context);
+    if (report.status !== "healthy") {
+      const incident = await this.#recordIncident(report, context);
+      report.incidentId = incident.id;
+    } else if (this.#lastIncidentId && context.authoritativeStateVerified === true &&
+      context.snapshotFresh === true && context.connectionState === "live") {
+      const resolvedAt = iso(this.#clock());
+      await this.#store.update(this.#lastIncidentId, {
+        status: "healthy",
+        outcome: "recovered",
+        resolvedAt,
+        resolution: "fresh_authoritative_snapshot_and_all_diagnostic_probes_passed",
+        finalDiagnostics: report.results
+      });
+      report.incidentId = this.#lastIncidentId;
+      this.#lastIncidentId = null;
+      this.#recoveryHistory = [];
+      this.#diagnosticHistory = [];
+    } else if (this.#lastIncidentId) {
+      report.incidentId = this.#lastIncidentId;
+    }
     return report;
   }
 
   async #recordIncident(report, context) {
+    const observedAt = iso(this.#clock());
+    this.#diagnosticHistory.push({ observedAt, status: report.status, origin: report.origin,
+      confidence: report.confidence, diagnostics: report.results });
+    if (this.#lastIncidentId) {
+      await this.#store.update(this.#lastIncidentId, {
+        lastObservedAt: observedAt,
+        status: report.status,
+        origin: report.origin,
+        confidence: report.confidence,
+        diagnostics: report.results,
+        diagnosticHistory: this.#diagnosticHistory
+      });
+      return { id: this.#lastIncidentId };
+    }
     this.#sequence += 1;
-    const occurredAt = this.#clock();
     const incident = {
       schemaVersion: 1,
-      id: `office-incident-${occurredAt}-${this.#sequence}`,
-      occurredAt: iso(occurredAt),
+      id: `office-incident-${this.#clock()}-${this.#sequence}`,
+      occurredAt: observedAt,
       edition: safeText(context.edition ?? ""),
       officeKitVersion: safeText(context.officeKitVersion ?? ""),
       adapterId: safeText(context.adapterId ?? ""),
@@ -162,6 +195,7 @@ export class OfficeHealthRecoveryEngine {
       origin: report.origin,
       confidence: report.confidence,
       diagnostics: report.results,
+      diagnosticHistory: this.#diagnosticHistory,
       recoveryAttempts: [],
       outcome: "unresolved"
     };
@@ -224,6 +258,83 @@ export class OfficeHealthRecoveryEngine {
       });
     }
     return outcome;
+  }
+}
+
+/**
+ * Event-driven connection supervisor. The host feeds authoritative session
+ * transitions; this class does not create timers, sockets, or backend traffic.
+ * It diagnoses only a confirmed live-to-unhealthy transition and verifies
+ * recovery with a fresh authoritative snapshot before closing the incident.
+ */
+export class OfficeConnectionSupervisor {
+  #health;
+  #wasLive = false;
+  #lastConfirmedAt = null;
+  #outageOpen = false;
+
+  constructor(options = {}) {
+    if (!options.healthEngine || typeof options.healthEngine.diagnose !== "function") {
+      throw new TypeError("healthEngine.diagnose is required.");
+    }
+    this.#health = options.healthEngine;
+  }
+
+  async observe(sessionState, context = {}) {
+    if (!isRecord(sessionState) || typeof sessionState.connectionState !== "string") {
+      throw new TypeError("sessionState.connectionState is required.");
+    }
+    const verifiedLive = sessionState.connectionState === "live" &&
+      sessionState.authoritativeStateVerified === true;
+    if (verifiedLive) {
+      this.#wasLive = true;
+      this.#lastConfirmedAt = sessionState.lastHeartbeatAt ?? context.lastConfirmedAt ?? iso(Date.now());
+      if (!this.#outageOpen) {
+        return { transition: "healthy", diagnostics: null, lastConfirmedAt: this.#lastConfirmedAt };
+      }
+      const diagnostics = await this.#health.diagnose({
+        ...context,
+        connectionState: "live",
+        authoritativeStateVerified: true,
+        snapshotFresh: true,
+        lastConfirmedAt: this.#lastConfirmedAt
+      });
+      if (diagnostics.status === "healthy") this.#outageOpen = false;
+      return {
+        transition: diagnostics.status === "healthy" ? "recovered" : "recovery_unverified",
+        diagnostics,
+        lastConfirmedAt: this.#lastConfirmedAt
+      };
+    }
+
+    if (!this.#wasLive || !["disconnected", "stale", "error", "connecting", "synchronizing"].includes(sessionState.connectionState)) {
+      return { transition: "not_yet_established", diagnostics: null, lastConfirmedAt: this.#lastConfirmedAt };
+    }
+    if (this.#outageOpen) {
+      return { transition: "outage_ongoing", diagnostics: null, lastConfirmedAt: this.#lastConfirmedAt };
+    }
+    this.#outageOpen = true;
+    const diagnostics = await this.#health.diagnose({
+      ...context,
+      connectionState: sessionState.connectionState,
+      authoritativeStateVerified: false,
+      snapshotFresh: false,
+      lastConfirmedAt: this.#lastConfirmedAt,
+      sessionReason: safeCode(sessionState.reason, "connection_lost")
+    });
+    return {
+      transition: "connection_lost",
+      diagnostics,
+      lastConfirmedAt: this.#lastConfirmedAt
+    };
+  }
+
+  getState() {
+    return {
+      wasLive: this.#wasLive,
+      outageOpen: this.#outageOpen,
+      lastConfirmedAt: this.#lastConfirmedAt
+    };
   }
 }
 
