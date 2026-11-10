@@ -38,6 +38,8 @@ function Invoke-BoundedNative {
   $info.WorkingDirectory = $bundleRoot
   $info.UseShellExecute = $false
   $info.CreateNoWindow = $true
+  $info.RedirectStandardOutput = $true
+  $info.RedirectStandardError = $true
   foreach ($argument in $NativeArguments) {
     $null = $info.ArgumentList.Add($argument)
   }
@@ -46,15 +48,21 @@ function Invoke-BoundedNative {
   try {
     Write-Host ("Running bounded native command: " + $Description)
     if (-not $native.Start()) { throw ("Could not start native command: " + $Description) }
+    $stdoutTask = $native.StandardOutput.ReadToEndAsync()
+    $stderrTask = $native.StandardError.ReadToEndAsync()
     if (-not $native.WaitForExit($TimeoutMilliseconds)) {
       try { $native.Kill() } catch { }
       if (-not $native.WaitForExit(5000)) {
         throw ("Native command could not be stopped after timeout: " + $Description)
       }
-      throw ("Native command timed out: " + $Description)
+      $stdout = if ($stdoutTask.IsCompleted) { $stdoutTask.GetAwaiter().GetResult() } else { "" }
+      $stderr = if ($stderrTask.IsCompleted) { $stderrTask.GetAwaiter().GetResult() } else { "" }
+      throw ("Native command timed out: " + $Description + ". stdout: " + $stdout + " stderr: " + $stderr)
     }
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
     if ($native.ExitCode -ne 0) {
-      throw ("Native command failed (" + $Description + ", exit " + $native.ExitCode + ").")
+      throw ("Native command failed (" + $Description + ", exit " + $native.ExitCode + "). stdout: " + $stdout + " stderr: " + $stderr)
     }
   } finally {
     $native.Dispose()
@@ -131,9 +139,9 @@ try {
   Write-Host "Exporting ephemeral publisher certificate."
   Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
   Write-Host "Adding ephemeral certificate to CurrentUser Root store."
-  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-f", "-user", "-addstore", "Root", $certificateFile) -Description "trust ephemeral CurrentUser Root certificate"
+  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-addstore", "Root", $certificateFile) -Description "trust ephemeral CurrentUser Root certificate"
   Write-Host "Adding ephemeral certificate to CurrentUser TrustedPublisher store."
-  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-f", "-user", "-addstore", "TrustedPublisher", $certificateFile) -Description "trust ephemeral CurrentUser TrustedPublisher certificate"
+  Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-addstore", "TrustedPublisher", $certificateFile) -Description "trust ephemeral CurrentUser TrustedPublisher certificate"
   Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
 
   Write-Host "Signing the bundled CNG helper."
@@ -195,7 +203,7 @@ finally {
 
   if ($null -ne $certificate) {
     foreach ($store in @("My", "Root", "TrustedPublisher")) {
-      try { Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-f", "-user", "-delstore", $store, $certificate.Thumbprint) -Description ("remove ephemeral certificate from " + $store) } catch { }
+      try { Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-delstore", $store, $certificate.Thumbprint) -Description ("remove ephemeral certificate from " + $store) } catch { }
     }
   }
 
