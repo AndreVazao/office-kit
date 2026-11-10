@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OfficeHealthRecoveryEngine, InMemoryIncidentStore, officeHealthContract } from "../src/office-health.mjs";
+import { OfficeHealthRecoveryEngine, OfficeConnectionSupervisor, InMemoryIncidentStore, officeHealthContract } from "../src/office-health.mjs";
 
 function fixture(overrides = {}) {
   const store = new InMemoryIncidentStore();
@@ -148,4 +148,60 @@ test("rejects unsafe diagnostic and recovery timeout configuration", () => {
   const probes = [{ id: "runtime", layer: "office_runtime", run: async () => ({ ok: true }) }];
   assert.throws(() => new OfficeHealthRecoveryEngine({ incidentStore: store, probes, probeTimeoutMs: 0 }), /probe_timeout_out_of_range/);
   assert.throws(() => new OfficeHealthRecoveryEngine({ incidentStore: store, probes, recoveryTimeoutMs: 90_000 }), /recovery_timeout_out_of_range/);
+});
+
+
+test("connection supervisor records one outage from a previously live session and closes only after verified recovery", async () => {
+  const { engine, store } = fixture();
+  const supervisor = new OfficeConnectionSupervisor({ healthEngine: engine });
+  const live = {
+    connectionState: "live",
+    authoritativeStateVerified: true,
+    lastHeartbeatAt: "2026-11-10T10:00:00.000Z"
+  };
+  const initial = await supervisor.observe(live, { edition: "Universal", adapterId: "demo" });
+  assert.equal(initial.transition, "healthy");
+  assert.equal((await store.list()).length, 0);
+
+  const lost = await supervisor.observe({
+    connectionState: "stale",
+    authoritativeStateVerified: false,
+    reason: "heartbeat_timeout"
+  }, { edition: "Universal", adapterId: "demo" });
+  assert.equal(lost.transition, "connection_lost");
+  assert.equal(lost.diagnostics.origin, "transport");
+  assert.equal(lost.diagnostics.confidence, "probable");
+  assert.ok(lost.diagnostics.incidentId);
+
+  const repeated = await supervisor.observe({
+    connectionState: "error",
+    authoritativeStateVerified: false,
+    reason: "transport_error"
+  });
+  assert.equal(repeated.transition, "outage_ongoing");
+  assert.equal((await store.list()).length, 1);
+
+  const recovered = await supervisor.observe({
+    connectionState: "live",
+    authoritativeStateVerified: true,
+    lastHeartbeatAt: "2026-11-10T10:01:00.000Z"
+  }, { edition: "Universal", adapterId: "demo" });
+  assert.equal(recovered.transition, "recovered");
+  const [incident] = await store.list();
+  assert.equal(incident.outcome, "recovered");
+  assert.equal(incident.resolution, "fresh_authoritative_snapshot_and_all_diagnostic_probes_passed");
+  assert.ok(incident.resolvedAt);
+  assert.equal(supervisor.getState().outageOpen, false);
+});
+
+test("connection supervisor does not attribute initial startup failures to a backend outage", async () => {
+  const { engine, store } = fixture();
+  const supervisor = new OfficeConnectionSupervisor({ healthEngine: engine });
+  const result = await supervisor.observe({
+    connectionState: "connecting",
+    authoritativeStateVerified: false,
+    reason: "connection_attempt"
+  });
+  assert.equal(result.transition, "not_yet_established");
+  assert.equal((await store.list()).length, 0);
 });
