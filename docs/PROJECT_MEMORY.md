@@ -366,3 +366,8 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - The GitHub-hosted Windows runner timed out while adding a self-signed test CA to CurrentUser Root through both certutil and .NET `X509Store`. The E2E no longer attempts to modify trust stores.
 - New harness signs the bundled helper with an ephemeral code-signing cert left untrusted; it asserts that the production launcher rejects it, then uses a test-only pinned-signature verifier (Authenticode `NotTrusted` + exact thumbprint) to exercise the bundled Node host, SQLite persistence and real Windows CNG create/reopen/rotate/revoke across separate processes.
 - This does not prove positive trust-chain acceptance. A signed release publisher must still be validated on a physical Windows installation. Await CI on the new HEAD.
+
+## Universal Windows bundle isolation — 2026-11-10
+- `build-host-bundle.ps1` now copies only nine explicit backend-neutral scene-engine modules plus three Windows-host modules. It excludes the generic `scene-engine/src/index.mjs` (currently leaking DGM exports), DGM-MAT adapter/session files and VST files; the manifest records this allowlist and exclusions.
+- The E2E script verifies the staged module set and manifest before running the host. This isolates the portable Universal Windows bundle, but does not yet fix the generic source entrypoint or the root `npm pack` edition artifacts; see issue #56.
+- The latest signing attempt replaces Cert: provider access with read-only .NET CurrentUser/My lookup and explicit Microsoft.PowerShell.Security import. Await CI on the new HEAD; positive trusted-publisher acceptance remains a physical release test.
