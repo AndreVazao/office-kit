@@ -16,7 +16,7 @@ test("creates isolated personal DGM-MAT and VST editions", () => {
   const dgmat = createProductProfile({ edition: "dgmat", installationId: "andre-dgmat-pc", displayName: "DGM-MAT" });
   const vst = createProductProfile({ edition: "vst", installationId: "andre-vst-pc", displayName: "VST" });
   assert.deepEqual(dgmat.adapterAllowlist, ["dgm-mat"]);
-  assert.deepEqual(vst.adapterAllowlist, ["vazao-sovereign-trader"]);
+  assert.deepEqual(vst.adapterAllowlist, []);
   assert.notEqual(dgmat.storageNamespace, vst.storageNamespace);
   assert.equal(assertProfileIsolation([dgmat, vst]), true);
 });
@@ -33,6 +33,8 @@ test("rejects duplicate storage namespaces", () => {
   assert.throws(() => assertProfileIsolation([a, b]), /duplicate_installation_storage_namespace/);
 });
 
-test("publishes three distinct edition descriptors", () => {
+test("publishes three distinct edition descriptors without claiming an absent VST adapter", () => {
   assert.deepEqual(Object.keys(productEditionCatalog), ["universal", "dgmat", "vst"]);
+  assert.equal(productEditionCatalog.vst.adapterStatus, "not_implemented");
+  assert.equal(Object.hasOwn(productEditionCatalog.vst, "adapterId"), false);
 });

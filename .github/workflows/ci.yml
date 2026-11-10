@@ -24,6 +24,8 @@ jobs:
         run: npm run check
       - name: Validate example configuration JSON
         run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
+      - name: Build all isolated edition source packages
+        run: npm run build:all-editions
       - name: Validate Windows PowerShell scripts
         if: runner.os == 'Windows'
         shell: pwsh
