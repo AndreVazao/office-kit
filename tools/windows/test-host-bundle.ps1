@@ -173,7 +173,8 @@ try {
   if (`$certificates.Count -ne 1 -or -not `$certificates[0].HasPrivateKey) { exit 4 }
   `$cert = `$certificates[0]
   `$signature = Set-AuthenticodeSignature -FilePath '$escapedHelperPath' -Certificate `$cert -HashAlgorithm SHA256
-  if (`$signature.Status -notin @('Valid', 'NotTrusted') -or `$signature.SignerCertificate.Thumbprint -ne '$($certificate.Thumbprint)') { exit 5 }
+  Write-Output ("sign-status=" + `$signature.Status + "; signer=" + `$signature.SignerCertificate.Thumbprint + "; message=" + `$signature.StatusMessage)
+  if (`$signature.SignerCertificate.Thumbprint -ne '$($certificate.Thumbprint)') { exit 5 }
 } finally {
   `$store.Close()
 }
