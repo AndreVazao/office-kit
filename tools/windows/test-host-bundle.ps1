@@ -176,7 +176,7 @@ function Invoke-OfficeKitHost {
     $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
     if ($process.ExitCode -ne 0) {
       if ($ExpectFailure) {
-        try { return ($stdout | ConvertFrom-Json -ErrorAction Stop) }
+        try { return ($stderr | ConvertFrom-Json -ErrorAction Stop) }
         catch { throw ("Expected launcher rejection returned invalid JSON. stdout: " + $stdout + " stderr: " + $stderr) }
       }
       throw (
@@ -242,7 +242,7 @@ try {
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
 
   $launcherRejection = Invoke-OfficeKitHost -Arguments @("health") -ExpectFailure
-  if ($launcherRejection.status -ne "error" -or $launcherRejection.code -ne "windows_host_command_failed_powershell") {
+  if ($launcherRejection.status -ne "error" -or $launcherRejection.code -ne "windows_host_command_failed_powershell.exe") {
     throw "Production launcher did not reject the untrusted ephemeral CI certificate."
   }
 
