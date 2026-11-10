@@ -52,8 +52,8 @@ $expectedSceneModules = @(
   "office-health.mjs"
 )
 $expectedHostModules = @("cli.mjs", "hardware-capabilities.mjs", "index.mjs")
-$actualSceneModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\scene-engine") -File | Select-Object -ExpandProperty Name)
-$actualHostModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\windows-host") -File | Select-Object -ExpandProperty Name)
+$actualSceneModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\scene-engine\src") -File | Select-Object -ExpandProperty Name)
+$actualHostModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\windows-host\src") -File | Select-Object -ExpandProperty Name)
 if (Compare-Object -ReferenceObject ($expectedSceneModules | Sort-Object) -DifferenceObject ($actualSceneModules | Sort-Object)) {
   throw ("Universal bundle scene module allowlist mismatch: " + ($actualSceneModules -join ", "))
 }
