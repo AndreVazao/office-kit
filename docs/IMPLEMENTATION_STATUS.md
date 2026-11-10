@@ -428,3 +428,4 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 ### Windows portable bundle — correção do parser PowerShell
 - A execução Windows mais recente tinha passado os 214 testes da suite (211 pass, 0 fail, 3 skips), CNG nativo, runtime de identidade e build do bundle, mas o E2E parou antes da assinatura/execução do host devido a um parêntese em falta na validação do manifesto.
 - Corrigida a expressão no script E2E. No HEAD `60eb648fd7fcaf381039e7805c193ac6474c87f7`, Linux CI está verde; Windows E2E e regressão visual continuam pendentes. Isto ainda não é evidência de bundle E2E aprovado.
+- O workflow Windows valida agora a sintaxe dos scripts PowerShell de build e E2E antes dos passos nativos mais demorados. Isto antecipa erros de parser; não substitui o teste do bundle.

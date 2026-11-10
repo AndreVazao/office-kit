@@ -484,3 +484,4 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Corrigir sintaxe PowerShell na validação da allowlist Universal do manifesto.
 - [ ] Confirmar que o runner Windows ultrapassa a validação do manifesto e conclui assinatura pinada + ciclo health/create/reopen/rotate/revoke/health.
 - [ ] Confirmar CI Linux, CI Windows e regressão visual no mesmo HEAD antes de merge.
+- [x] Antecipar validação de sintaxe PowerShell do build e E2E no CI Windows, antes da publicação CNG.
