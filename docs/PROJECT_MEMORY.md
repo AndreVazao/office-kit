@@ -376,3 +376,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Corrigido em `tools/windows/test-host-bundle.ps1`: a expressão foi dividida numa variável `$manifestMismatch` e agora fecha corretamente todos os parênteses.
 - HEAD com correção: `60eb648fd7fcaf381039e7805c193ac6474c87f7`. Linux CI passou; Windows E2E e regressão visual deste HEAD ainda estão em execução. Não declarar o bundle aprovado até health/create/reopen/rotate/revoke/health e validação visual concluírem no mesmo SHA.
 - Para evitar desperdiçar runners em falhas de sintaxe PowerShell, o CI Windows passou a executar o parser nativo dos scripts build-host-bundle.ps1 e test-host-bundle.ps1 antes de instalar/publicar o helper .NET e executar os testes CNG. A validação E2E continua obrigatória.
+
+## Edições isoladas — implementação inicial em PR #56 (2026-11-10)
+- PR #55 foi merged em cfc16a7ec16e9b0ddf7c7ce812b3f4aa74897816 após CI Linux, Windows portable E2E e regressão visual verdes no HEAD af562d33541eedab90759c866a3062a35a1ea91b. O CI pós-merge em main também passou em Linux, Windows e regressão visual.
+- Nova branch fix/edition-artifact-isolation-node-runtime trata issue #56: scene-engine/src/index.mjs deixou de reexportar DGM-MAT; novo dgmat.mjs é o entrypoint específico para DGM-MAT.
+- build-edition.mjs foi refeito para staging temporário e allowlists explícitas de ficheiros por edição antes de npm pack. Universal não inclui DGM-MAT/VST; DGM-MAT inclui somente adapter/session DGM; VST não inclui código específico até existir adapter real.
+- product-profile já não declara um adapter VST inexistente: adapterStatus=not_implemented e allowlist vazia. Não afirmar ligação VST funcional até implementar/testar o adapter.
+- Todos os tarballs declaram Node >=22.5.0 porque o Windows host usa node:sqlite. Os workflows manuais Universal/DGM-MAT/VST foram alinhados com Node 22. A API node:sqlite continua experimental no Node 22 e essa limitação fica explícita no manifesto.
+- Foram adicionados testes que descompactam/inspecionam os tarballs das três edições e verificam ausência/presença de módulos por allowlist, manifesto e runtime mínimo. CI ainda pendente neste branch.
+- Limites: são source packages isolados, não instaladores OS; adapter VST, instalador, assinatura comercial e validação física continuam pendentes.
