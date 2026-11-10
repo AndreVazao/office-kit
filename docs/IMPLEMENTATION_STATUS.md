@@ -411,3 +411,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 ### Windows certificate-store CI follow-up — 2026-11-10
 - The exact failing job on PR #55 HEAD `0e9dd8e46c9ddf3404eb9fc16b942b1e855a315b` completed the full 214-test suite (211 pass, 0 fail, 3 skip), native CNG integration (1/1), persistent identity integration (2/2), and bundle build. The portable E2E then timed out after 20 seconds at `certutil -f -user -addstore Root`; signing and the portable host lifecycle were not reached.
 - Updated `test-host-bundle.ps1` to pass certutil's documented `-silent` flag for ephemeral CurrentUser trust operations and cleanup, and to capture bounded native stdout/stderr. This is a diagnostic/fix attempt, not a validated resolution; rerun on the new HEAD is required.
+
+### Windows certificate trust API correction — 2026-11-10
+- The rerun on HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba` completed Linux CI and visual regression successfully; Windows failed immediately because this runner's `certutil -addstore` does not accept `-Silent` (exit 1). This disproves the previous silent-flag attempt; no host lifecycle commands ran.
+- Replaced certutil trust/removal calls with bounded child PowerShell processes using .NET `X509Store` in `CurrentUser` for Root, TrustedPublisher and My. The operations have explicit deadlines and captured output. CI must confirm whether the .NET store API avoids the prior hang; not yet validated.
