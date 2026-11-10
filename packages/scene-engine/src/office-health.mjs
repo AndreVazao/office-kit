@@ -7,7 +7,17 @@ const SECRET_PATTERNS = [
 
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
-const safeCode = (value, fallback) => typeof value === "string" && /^[a-z0-9_.:-]{1,120}$/i.test(value) ? value : fallback;
+const CODE_PATTERN = /^[a-z][a-z0-9]{0,31}(?:[._:-][a-z0-9]{1,32}){0,5}$/i;
+const SECRET_CODE_PATTERNS = [
+  /^(?:sk|pk|rk|ghp|gho|ghu|ghs|github_pat|xox[baprs])[_-]/i,
+  /(?:token|password|secret|api[_-]?key|authorization|cookie|private[_-]?key)/i,
+  /^[a-f0-9]{32,}$/i,
+  /^[A-Za-z0-9_-]{16,}\\.[A-Za-z0-9_-]{16,}\\.[A-Za-z0-9_-]{16,}$/
+];
+const safeCode = (value, fallback) => {
+  if (typeof value !== "string" || value.length > 80 || !CODE_PATTERN.test(value)) return fallback;
+  return SECRET_CODE_PATTERNS.some(pattern => pattern.test(value)) ? fallback : value;
+};
 const safeText = value => {
   if (typeof value !== "string") return "";
   return SECRET_PATTERNS.reduce((text, pattern) => text.replace(pattern, "[REDACTED]"), value).slice(0, 2_000);
@@ -178,9 +188,16 @@ export class OfficeHealthRecoveryEngine {
 
   async #recordIncident(report, context) {
     const observedAt = iso(this.#clock());
-    this.#diagnosticHistory.push({ observedAt, status: report.status, origin: report.origin,
-      confidence: report.confidence, diagnostics: report.results });
-    if (this.#diagnosticHistory.length > 100) this.#diagnosticHistory.shift();
+    const diagnosticHistory = [
+      ...this.#diagnosticHistory,
+      {
+        observedAt,
+        status: report.status,
+        origin: report.origin,
+        confidence: report.confidence,
+        diagnostics: report.results
+      }
+    ].slice(-100);
     if (this.#lastIncidentId) {
       await this.#store.update(this.#lastIncidentId, {
         lastObservedAt: observedAt,
@@ -188,8 +205,9 @@ export class OfficeHealthRecoveryEngine {
         origin: report.origin,
         confidence: report.confidence,
         diagnostics: report.results,
-        diagnosticHistory: this.#diagnosticHistory
+        diagnosticHistory
       });
+      this.#diagnosticHistory = diagnosticHistory;
       return { id: this.#lastIncidentId };
     }
     this.#sequence += 1;
@@ -206,13 +224,14 @@ export class OfficeHealthRecoveryEngine {
       origin: report.origin,
       confidence: report.confidence,
       diagnostics: report.results,
-      diagnosticHistory: this.#diagnosticHistory,
+      diagnosticHistory,
       recoveryAttempts: [],
       outcome: "unresolved"
     };
-    this.#lastIncidentId = incident.id;
-    this.#recoveryHistory = [];
     await this.#store.append(incident);
+    this.#lastIncidentId = incident.id;
+    this.#diagnosticHistory = diagnosticHistory;
+    this.#recoveryHistory = [];
     return incident;
   }
 
@@ -283,6 +302,7 @@ export class OfficeConnectionSupervisor {
   #wasLive = false;
   #lastConfirmedAt = null;
   #outageOpen = false;
+  #pending = Promise.resolve();
 
   constructor(options = {}) {
     if (!options.healthEngine || typeof options.healthEngine.diagnose !== "function") {
@@ -291,7 +311,16 @@ export class OfficeConnectionSupervisor {
     this.#health = options.healthEngine;
   }
 
-  async observe(sessionState, context = {}) {
+  observe(sessionState, context = {}) {
+    const operation = this.#pending.then(
+      () => this.#observe(sessionState, context),
+      () => this.#observe(sessionState, context)
+    );
+    this.#pending = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
+
+  async #observe(sessionState, context = {}) {
     if (!isRecord(sessionState) || typeof sessionState.connectionState !== "string") {
       throw new TypeError("sessionState.connectionState is required.");
     }
