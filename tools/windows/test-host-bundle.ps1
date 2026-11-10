@@ -156,17 +156,21 @@ try {
   $certificate = New-SelfSignedCertificate -Subject "CN=Office Kit CI Ephemeral Publisher" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
   Write-Host "Created an ephemeral CI code-signing certificate."
 
-  Write-Host "Exporting ephemeral publisher certificate."
-  Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
   Write-Host "Leaving the ephemeral certificate untrusted; production launcher must reject this CI-only signer."
 
   Write-Host "Signing the bundled CNG helper."
   $escapedHelperPath = $helperPath.Replace("'", "''")
-  $signingCommand = '$cert = Get-Item -LiteralPath ''Cert:\CurrentUser\My\' + $certificate.Thumbprint +
-    '''; $signature = Set-AuthenticodeSignature -FilePath ''' + $escapedHelperPath +
-    ''' -Certificate $cert -HashAlgorithm SHA256; if ($signature.Status -ne ''Valid'') { exit 5 }'
+  $signingScript = @"
+`$moduleRoot = Join-Path `$env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules'
+`$env:PSModulePath = `$moduleRoot + ';' + `$env:PSModulePath
+Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
+`$cert = Get-Item -LiteralPath 'Cert:\CurrentUser\My\`$($certificate.Thumbprint)'
+`$signature = Set-AuthenticodeSignature -FilePath '$escapedHelperPath' -Certificate `$cert -HashAlgorithm SHA256
+if (`$signature.Status -ne 'Valid') { exit 5 }
+"@
+  $signingCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($signingScript))
   Invoke-BoundedNative -FileName "powershell.exe" -NativeArguments @(
-    "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", $signingCommand
+    "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $signingCommand
   ) -Description "sign bundled CNG helper" -TimeoutMilliseconds 20000
   Write-Host "Signed the bundled CNG helper with the ephemeral CI certificate."
 
