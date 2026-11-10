@@ -360,4 +360,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 ## Certificate store CI correction — 2026-11-10
 - PR #55 HEAD `b33425c9ef617942b120954c8c8375880f4fe9ba`: visual regression passed; Linux tests passed; Windows core, CNG and persistent identity tests passed, but the portable E2E failed before signing because `certutil -addstore` rejected the unsupported `-Silent` switch. The previous timeout diagnosis was therefore superseded for this run; no portable host operations executed.
-- Replaced certutil store mutations with bounded child PowerShell/.NET `X509Store` operations scoped to CurrentUser. Await the new Windows E2E before treating trust/signing or bundle lifecycle as validated.
+- The .NET `X509Store` attempt also timed out at CurrentUser Root. The revised test avoids Root/TrustedPublisher mutation: production launcher must reject the untrusted ephemeral signer; a separate test-only verifier accepts only Authenticode `NotTrusted` plus exact signer thumbprint to exercise real CNG/SQLite lifecycle. Positive trusted-chain acceptance remains unvalidated until a physical Windows release test.
+
+## Portable bundle trust boundary — revised test strategy — 2026-11-10
+- The GitHub-hosted Windows runner timed out while adding a self-signed test CA to CurrentUser Root through both certutil and .NET `X509Store`. The E2E no longer attempts to modify trust stores.
+- New harness signs the bundled helper with an ephemeral code-signing cert left untrusted; it asserts that the production launcher rejects it, then uses a test-only pinned-signature verifier (Authenticode `NotTrusted` + exact thumbprint) to exercise the bundled Node host, SQLite persistence and real Windows CNG create/reopen/rotate/revoke across separate processes.
+- This does not prove positive trust-chain acceptance. A signed release publisher must still be validated on a physical Windows installation. Await CI on the new HEAD.
