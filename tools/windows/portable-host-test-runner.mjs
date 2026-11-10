@@ -47,7 +47,12 @@ async function main() {
 
   let host;
   try {
-    host = createWindowsHost({ verifyHelper: verifyTestOnlyAuthenticode });
+    host = createWindowsHost({
+      verifyHelper: helperPath => {
+        verifyTestOnlyAuthenticode(helperPath);
+        return true;
+      }
+    });
     await host.ready;
     if (command === "health") {
       process.stdout.write(JSON.stringify(await host.health()) + "\n");
