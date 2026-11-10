@@ -485,3 +485,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Confirmar que o runner Windows ultrapassa a validação do manifesto e conclui assinatura pinada + ciclo health/create/reopen/rotate/revoke/health.
 - [ ] Confirmar CI Linux, CI Windows e regressão visual no mesmo HEAD antes de merge.
 - [x] Antecipar validação de sintaxe PowerShell do build e E2E no CI Windows, antes da publicação CNG.
+
+### Edition source/package isolation — PR #56 branch (2026-11-10)
+- [x] Remove DGM-MAT exports from the generic scene-engine entrypoint.
+- [x] Add a DGM-MAT-only entrypoint.
+- [x] Replace root-repository npm pack with temporary staging and explicit per-edition allowlists.
+- [x] Keep VST package free of unimplemented VST-specific code and label the adapter as not implemented.
+- [x] Align package engines and manual workflows with Node 22 / minimum 22.5 for node:sqlite.
+- [x] Add tarball-content assertions for Universal, DGM-MAT and VST.
+- [ ] Pass Linux/Windows CI and all three manual edition build workflows on the final PR HEAD.
