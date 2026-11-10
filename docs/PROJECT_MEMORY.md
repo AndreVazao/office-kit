@@ -428,3 +428,5 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - O host exige adapter explicitamente fornecido e probes read-only explícitos; não inicia descoberta, autenticação, rede ou comandos remotos.
 - Transições emitidas pelo gateway são serializadas para o supervisor. Incidentes persistem no SQLite da instalação e a recuperação exige novo snapshot autoritativo live mais probes saudáveis.
 - O host fecha gateways geridos antes de fechar SQLite. Testes usam GenericDemoAdapter apenas como integração de contrato; não provam DGM-MAT/VST real nem instalação física.
+
+- Correção CI Windows identificada no bundle: a nova composição importava `adapter-gateway.mjs`, que transitivamente depende de `runtime-session.mjs`, `runtime-state.mjs` e `adapter-contract.mjs`; a allowlist portátil ainda não os incluía. Os quatro módulos foram adicionados à allowlist de build e à allowlist independente do teste. CI reexecutado no HEAD mais recente; integração bloqueada até Linux/Windows/visual passarem no mesmo SHA.
