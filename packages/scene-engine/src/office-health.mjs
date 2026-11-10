@@ -180,6 +180,7 @@ export class OfficeHealthRecoveryEngine {
     const observedAt = iso(this.#clock());
     this.#diagnosticHistory.push({ observedAt, status: report.status, origin: report.origin,
       confidence: report.confidence, diagnostics: report.results });
+    if (this.#diagnosticHistory.length > 100) this.#diagnosticHistory.shift();
     if (this.#lastIncidentId) {
       await this.#store.update(this.#lastIncidentId, {
         lastObservedAt: observedAt,
