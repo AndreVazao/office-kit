@@ -480,3 +480,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Isolar stdout/stderr do E2E Windows em ficheiros temporários para evitar bloqueios por pipes herdados.
 - [x] Aplicar allowlist explícita ao bundle Universal Windows e testar ausência de módulos DGM-MAT/VST no artefacto.
 - [ ] Validar o ciclo portátil completo no runner Windows com assinatura pinada de teste; validar publisher confiável numa instalação física.
+### Correção E2E Windows — 2026-11-10
+- [x] Corrigir sintaxe PowerShell na validação da allowlist Universal do manifesto.
+- [ ] Confirmar que o runner Windows ultrapassa a validação do manifesto e conclui assinatura pinada + ciclo health/create/reopen/rotate/revoke/health.
+- [ ] Confirmar CI Linux, CI Windows e regressão visual no mesmo HEAD antes de merge.
