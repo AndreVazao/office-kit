@@ -535,3 +535,12 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Implement and validate real DGM-MAT and VST adapters in their isolated editions; VST adapter remains unimplemented.
 - [ ] Complete physical-PC install/lifecycle tests; do not treat CI bundle tests as physical validation.
 - [ ] Complete production signing and MSI/MSIX installer, upgrade/rollback and explicit uninstall/data-retention behavior.
+
+
+## Host-managed adapter supervision — próximo incremento
+- [x] Compor o supervisor de incidentes com o AdapterGateway no host Windows.
+- [x] Persistir incidentes por instalação e encerrar gateways no shutdown.
+- [x] Cobrir perda de transporte e recuperação confirmada com adapter de demonstração.
+- [ ] Validar Linux/Windows CI e regressão visual no mesmo HEAD.
+- [ ] Ligar adapters DGM-MAT e VST reais, mantendo seleção/autorização explícitas e modo read-only.
+- [ ] Validar no PC físico; não confundir testes automatizados com instalação real.
