@@ -380,7 +380,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Windows host now composes the SQLite incident store over its existing host-owned database and exposes `createDiagnostics({ probes, recoveryActions, clock })`; the caller supplies explicitly authorized probes and local recovery actions.
 - Added a Windows host integration test proving an incident survives host close/reopen.
 - This establishes durable local incident history but does not yet ship real OS/renderer/adapter/transport/backend probes. Cause attribution remains evidence-based and may be indeterminate; no automatic backend restart/write is permitted.
-- Windows CI certificate trust now uses explicit `certutil` CurrentUser store operations with progress output instead of certificate-provider import cmdlets. This addresses a runner hang observed after ephemeral certificate creation; new Windows E2E result is pending.
+- Windows CI certificate trust uses explicit `certutil` CurrentUser store operations rather than certificate-provider import cmdlets. The first run after this change still timed out on the initial Root-store add, before signing or host execution; therefore the earlier change did not resolve the runner hang. The follow-up adds certutil silent mode and bounded stdout/stderr capture; its CI result is pending.
 ### Hardware detection and host resource policy — initial host integration
 - Added packages/windows-host/src/hardware-capabilities.mjs to detect OS/release, architecture, CPU model/core count, total/available RAM and free storage.
 - GPU name/dedicated VRAM/graphics API and display dimensions are optional platform providers. Unknown values remain null; adapter-reported memory is not mislabeled as dedicated VRAM.
@@ -407,3 +407,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - The portable bundle test now redirects each launcher invocation to isolated output files instead of inherited stdout/stderr pipes. This avoids a child process keeping redirected pipe handles open and blocking PowerShell's asynchronous output drain.
 - Per-command timeout is 45 seconds; timeout cleanup terminates the process tree and includes captured stdout/stderr in the failure.
 - The final Windows E2E run with this process/output isolation is pending.
+
+### Windows certificate-store CI follow-up — 2026-11-10
+- The exact failing job on PR #55 HEAD `0e9dd8e46c9ddf3404eb9fc16b942b1e855a315b` completed the full 214-test suite (211 pass, 0 fail, 3 skip), native CNG integration (1/1), persistent identity integration (2/2), and bundle build. The portable E2E then timed out after 20 seconds at `certutil -f -user -addstore Root`; signing and the portable host lifecycle were not reached.
+- Updated `test-host-bundle.ps1` to pass certutil's documented `-silent` flag for ephemeral CurrentUser trust operations and cleanup, and to capture bounded native stdout/stderr. This is a diagnostic/fix attempt, not a validated resolution; rerun on the new HEAD is required.
