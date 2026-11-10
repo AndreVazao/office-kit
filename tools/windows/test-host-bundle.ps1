@@ -23,7 +23,6 @@ $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
 $tempRoot = Join-Path $env:TEMP ("OfficeKitPortableHost-" + [guid]::NewGuid().ToString("N"))
 $testLocalAppData = Join-Path $tempRoot "LocalAppData"
 $certificate = $null
-$certificateFile = Join-Path $tempRoot "office-kit-ci-publisher.cer"
 
 function Invoke-BoundedNative {
   param(
