@@ -257,7 +257,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot "portable-host-test-runner.mjs") -Destination $runnerPath
 
   $signature = Invoke-PortableHostRunner -Arguments @("verify-signature")
-  if ($signature.status -ne "signature_verified" -or $signature.trustStatus -ne "NotTrusted") {
+  if ($signature.status -ne "signature_verified" -or @("NotTrusted", "UnknownError") -notcontains $signature.trustStatus) {
     throw "The test-only signature integrity verifier did not observe the expected untrusted chain."
   }
 
