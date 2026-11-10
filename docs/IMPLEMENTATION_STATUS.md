@@ -429,3 +429,10 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - A execução Windows mais recente tinha passado os 214 testes da suite (211 pass, 0 fail, 3 skips), CNG nativo, runtime de identidade e build do bundle, mas o E2E parou antes da assinatura/execução do host devido a um parêntese em falta na validação do manifesto.
 - Corrigida a expressão no script E2E. No HEAD `60eb648fd7fcaf381039e7805c193ac6474c87f7`, Linux CI está verde; Windows E2E e regressão visual continuam pendentes. Isto ainda não é evidência de bundle E2E aprovado.
 - O workflow Windows valida agora a sintaxe dos scripts PowerShell de build e E2E antes dos passos nativos mais demorados. Isto antecipa erros de parser; não substitui o teste do bundle.
+
+### Edition artifact isolation — PR #56 branch, awaiting CI
+- The generic packages/scene-engine/src/index.mjs no longer re-exports DGM-MAT modules. DGM-MAT exports live in the dedicated packages/scene-engine/src/dgmat.mjs entrypoint.
+- scripts/build-edition.mjs now stages explicit per-edition source allowlists in a temporary directory and packs only that staged package. Universal excludes DGM-MAT/VST modules; DGM-MAT includes only its own adapter/session modules; VST includes no backend-specific adapter until a real VST adapter is implemented.
+- VST product metadata no longer claims a vazao-sovereign-trader adapter exists. Its adapter allowlist is empty and status is not_implemented.
+- Root package engine floor and all three manual edition workflows now use Node.js 22.5+ / Node 22, matching the host's node:sqlite requirement. The manifest documents that node:sqlite remains experimental on Node 22.
+- New artifact tests inspect the actual .tgz contents for all three editions, checking both required and forbidden modules. CI on the branch is pending; this is not yet a merged/released package.
