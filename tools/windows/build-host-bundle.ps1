@@ -57,13 +57,25 @@ Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination (Join-Path $
 
 $package = Get-Content -LiteralPath (Join-Path $repoRoot "package.json") -Raw | ConvertFrom-Json
 $nodeVersion = (& $nodePath --version).Trim()
+if ($nodeVersion -notmatch '^v?(\d+)\.(\d+)\.(\d+)') {
+  throw ("Could not parse bundled Node.js version: " + $nodeVersion)
+}
+$parsedNodeVersion = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+if ($parsedNodeVersion -lt [version]"22.5.0") {
+  throw ("Universal Windows bundle requires Node.js >=22.5.0; found " + $nodeVersion)
+}
+$nodeArchitecture = (& $nodePath -p "process.arch").Trim()
+if ($nodeArchitecture -ne "x64") {
+  throw ("Universal Windows bundle requires x64 Node.js; found " + $nodeArchitecture)
+}
 $manifest = [ordered]@{
   product = "Office Kit Digital"
   edition = "Universal"
   version = [string]$package.version
   architecture = "win-x64"
   nodeVersion = $nodeVersion
-  minimumNodeVersion = "22.5"
+  nodeArchitecture = $nodeArchitecture
+  minimumNodeVersion = "22.5.0"
   entrypoint = "packages/windows-host/src/cli.mjs"
   cngHelper = "OfficeKit.CngHost.exe"
   sceneEngineModules = $sceneModules
