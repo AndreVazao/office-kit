@@ -64,59 +64,25 @@ function Invoke-BoundedNative {
     if ($native.ExitCode -ne 0) {
       throw ("Native command failed (" + $Description + ", exit " + $native.ExitCode + "). stdout: " + $stdout + " stderr: " + $stderr)
     }
+    return $stdout
   } finally {
     $native.Dispose()
   }
 }
 
-
-function Invoke-CertificateStoreMutation {
-  param(
-    [ValidateSet("My", "Root", "TrustedPublisher")]
-    [string]$StoreName,
-    [ValidateSet("Add", "Remove")]
-    [string]$Action,
-    [string]$CertificatePath,
-    [string]$Thumbprint
-  )
-
-  $escapedCertificatePath = $CertificatePath.Replace("'", "''")
-  if ($Action -eq "Add") {
-    $operation = @"
-`$certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('$escapedCertificatePath')
-try { `$store.Add(`$certificate) } finally { `$certificate.Dispose() }
-"@
-  } else {
-    $operation = @"
-`$certificates = `$store.Certificates.Find([System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint, '$Thumbprint', `$false)
-foreach (`$certificate in `$certificates) {
-  `$store.Remove(`$certificate)
-  `$certificate.Dispose()
-}
-"@
-  }
-
-  $script = @"
-`$ErrorActionPreference = 'Stop'
-`$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-  [System.Security.Cryptography.X509Certificates.StoreName]::$StoreName,
-  [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-)
-`$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-try {
-$operation
-} finally {
-  `$store.Close()
-}
-"@
-  $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-  Invoke-BoundedNative -FileName "powershell.exe" -NativeArguments @(
-    "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encodedCommand
-  ) -Description (($Action.ToLowerInvariant()) + " ephemeral CurrentUser " + $StoreName + " certificate")
+function Invoke-PortableHostRunner {
+  param([string[]]$Arguments)
+  $runnerPath = Join-Path $bundleRoot "portable-host-test-runner.mjs"
+  $stdout = Invoke-BoundedNative -FileName $nodePath -NativeArguments (@($runnerPath) + $Arguments) -Description ("portable host test " + ($Arguments -join " ")) -TimeoutMilliseconds 45000
+  try { return ($stdout | ConvertFrom-Json -ErrorAction Stop) }
+  catch { throw ("Portable host test runner returned invalid JSON. stdout: " + $stdout) }
 }
 
 function Invoke-OfficeKitHost {
-  param([string[]]$Arguments)
+  param(
+    [string[]]$Arguments,
+    [switch]$ExpectFailure
+  )
 
   $description = $Arguments -join " "
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -159,10 +125,17 @@ function Invoke-OfficeKitHost {
     $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { "" }
     $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
     if ($process.ExitCode -ne 0) {
+      if ($ExpectFailure) {
+        try { return ($stdout | ConvertFrom-Json -ErrorAction Stop) }
+        catch { throw ("Expected launcher rejection returned invalid JSON. stdout: " + $stdout + " stderr: " + $stderr) }
+      }
       throw (
         "Office Kit host command failed (" + $description + ", exit " +
         $process.ExitCode + "). stdout: " + $stdout + " stderr: " + $stderr
       )
+    }
+    if ($ExpectFailure) {
+      throw "Portable host launcher unexpectedly accepted an untrusted CI certificate."
     }
     try {
       return ($stdout | ConvertFrom-Json -ErrorAction Stop)
@@ -174,6 +147,7 @@ function Invoke-OfficeKitHost {
   }
 }
 
+
 try {
   New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $testLocalAppData -Force | Out-Null
@@ -184,11 +158,7 @@ try {
 
   Write-Host "Exporting ephemeral publisher certificate."
   Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
-  Write-Host "Adding ephemeral certificate to CurrentUser Root store."
-  Invoke-CertificateStoreMutation -StoreName "Root" -Action "Add" -CertificatePath $certificateFile -Thumbprint $certificate.Thumbprint
-  Write-Host "Adding ephemeral certificate to CurrentUser TrustedPublisher store."
-  Invoke-CertificateStoreMutation -StoreName "TrustedPublisher" -Action "Add" -CertificatePath $certificateFile -Thumbprint $certificate.Thumbprint
-  Write-Host "Trusted the ephemeral certificate only in CurrentUser stores."
+  Write-Host "Leaving the ephemeral certificate untrusted; production launcher must reject this CI-only signer."
 
   Write-Host "Signing the bundled CNG helper."
   $escapedHelperPath = $helperPath.Replace("'", "''")
@@ -205,12 +175,26 @@ try {
   Remove-Item Env:OFFICE_KIT_CNG_HOST_PATH -ErrorAction SilentlyContinue
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
 
-  $initial = Invoke-OfficeKitHost -Arguments @("health")
+  $launcherRejection = Invoke-PortableHostRunner -Arguments @("health") -ExpectFailure
+  if ($launcherRejection.status -ne "error" -or $launcherRejection.code -ne "windows_host_command_failed_powershell") {
+    throw "Production launcher did not reject the untrusted ephemeral CI certificate."
+  }
+
+  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
+  $runnerPath = Join-Path $bundleRoot "portable-host-test-runner.mjs"
+  Copy-Item -LiteralPath (Join-Path $PSScriptRoot "portable-host-test-runner.mjs") -Destination $runnerPath
+
+  $signature = Invoke-PortableHostRunner -Arguments @("verify-signature")
+  if ($signature.status -ne "signature_verified" -or $signature.trustStatus -ne "NotTrusted") {
+    throw "The test-only signature integrity verifier did not observe the expected untrusted chain."
+  }
+
+  $initial = Invoke-PortableHostRunner -Arguments @("health")
   if ($initial.status -ne "ready" -or $initial.identityStatus -ne "empty") {
     throw "First portable host start did not report a clean empty identity state."
   }
 
-  $created = Invoke-OfficeKitHost -Arguments @(
+  $created = Invoke-PortableHostRunner -Arguments @(
     "create-identity",
     "--organization-id=office-kit-ci",
     "--node-id=windows-portable-host-ci"
@@ -224,12 +208,12 @@ try {
     throw "Portable host did not recover the identity in a fresh process."
   }
 
-  $rotated = Invoke-OfficeKitHost -Arguments @("rotate-identity")
+  $rotated = Invoke-PortableHostRunner -Arguments @("rotate-identity")
   if ($rotated.status -ne "rotated" -or $rotated.generation -ne 2) {
     throw "Portable host identity rotation failed."
   }
 
-  $revoked = Invoke-OfficeKitHost -Arguments @("revoke-identity")
+  $revoked = Invoke-PortableHostRunner -Arguments @("revoke-identity")
   if ($revoked.status -ne "revoked") {
     throw "Portable host identity revocation failed."
   }
@@ -239,7 +223,7 @@ try {
     throw "Portable host did not report the revoked identity state after process restart."
   }
 
-  Write-Output "Portable Windows host bundle passed: signed helper trust, local SQLite, CNG identity create/reopen/rotate/revoke."
+  Write-Output "Portable Windows host bundle passed: launcher rejected untrusted signer; test-only pinned signature integrity, real local SQLite and Windows CNG identity create/reopen/rotate/revoke passed. Trusted-publisher acceptance remains a physical-release validation."
 }
 finally {
   $officeKitData = Join-Path $testLocalAppData "OfficeKit"
@@ -248,9 +232,7 @@ finally {
   }
 
   if ($null -ne $certificate) {
-    foreach ($store in @("My", "Root", "TrustedPublisher")) {
-      try { Invoke-CertificateStoreMutation -StoreName $store -Action "Remove" -CertificatePath $certificateFile -Thumbprint $certificate.Thumbprint } catch { }
-    }
+    try { Invoke-BoundedNative -FileName "certutil.exe" -NativeArguments @("-silent", "-f", "-user", "-delstore", "My", $certificate.Thumbprint) -Description "remove ephemeral CurrentUser My certificate" } catch { }
   }
 
   $env:LOCALAPPDATA = $oldLocalAppData
