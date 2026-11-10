@@ -63,4 +63,6 @@ Isto valida o empacotamento e o fluxo local com um trust publisher de teste. Nã
 
 
 ## Managed adapter supervision (incremento em desenvolvimento)
+O bundle portátil inclui também as dependências transitivas necessárias ao `AdapterGateway` (`adapter-gateway.mjs`, `runtime-session.mjs`, `runtime-state.mjs` e `adapter-contract.mjs`). A allowlist do script de build e a allowlist independente do teste têm de coincidir; o teste falha se faltar ou sobrar qualquer módulo. Esta inclusão corrige a composição gerida sem incluir adaptadores específicos de DGM-MAT/VST.
+
 O host expõe `createManagedAdapterGateway({ probes, ... })`. O chamador tem de selecionar e autorizar explicitamente o adapter e fornecer probes read-only não vazios. O gateway encaminha estados autoritativos de RuntimeSession para OfficeConnectionSupervisor; os incidentes são persistidos no SQLite associado à instalação. A perda só é registada depois de uma sessão live confirmada e a recuperação exige probes saudáveis e novo snapshot live sincronizado. O host fecha gateways geridos antes de encerrar a base de dados. Esta composição ainda não fornece descoberta, autenticação, credenciais, transporte de rede nem adaptadores VST; os testes com GenericDemoAdapter são integração de contrato, não validação de backend real ou PC físico.
