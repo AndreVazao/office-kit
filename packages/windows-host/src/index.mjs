@@ -100,7 +100,7 @@ export function verifyAuthenticodeHelper(helperPath, {
   }
   const escaped = helperPath.replace(/'/g, "''");
   const thumbprint = expectedThumbprint.toUpperCase();
-  const script = `$s = Get-AuthenticodeSignature -LiteralPath '${escaped}'; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Thumbprint -ne '${thumbprint}') { exit 3 }`;
+  const script = `$moduleRoot = Join-Path $env:WINDIR 'System32\\WindowsPowerShell\\v1.0\\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $s = Get-AuthenticodeSignature -LiteralPath '${escaped}'; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Thumbprint -ne '${thumbprint}') { exit 3 }`;
   runChecked("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
