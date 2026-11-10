@@ -30,6 +30,16 @@ const createAdapter = overrides => new DgmMatReadOnlyAdapter({
   ...overrides
 });
 
+function waitFor(promise, timeoutMs = 4_000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("test_wait_timeout")), timeoutMs);
+    Promise.resolve(promise).then(
+      value => { clearTimeout(timer); resolve(value); },
+      error => { clearTimeout(timer); reject(error); }
+    );
+  });
+}
+
 test("requires a loopback endpoint and injected secure session provider", () => {
   const tokenProvider = async () => "abcdefghijklmnop";
   for (const baseUrl of [
@@ -216,7 +226,7 @@ test("provider and fetch errors never enter connection events verbatim", async (
       }
     });
   });
-  const providerEvent = await providerEventPromise;
+  const providerEvent = await waitFor(providerEventPromise);
   assert.equal(providerEvent.payload.reason, "dgm_mat_session_provider_failed");
   assert.equal(JSON.stringify(providerEvent).includes("private-token-value"), false);
   await providerFailure.disconnect();
@@ -239,7 +249,7 @@ test("provider and fetch errors never enter connection events verbatim", async (
       }
     });
   });
-  const fetchEvent = await fetchEventPromise;
+  const fetchEvent = await waitFor(fetchEventPromise);
   assert.equal(fetchEvent.payload.reason, "dgm_mat_transport_error");
   assert.equal(JSON.stringify(fetchEvent).includes("private-fetch-token"), false);
   await fetchFailure.disconnect();
@@ -268,7 +278,7 @@ test("each reconnect gets a new UUID and a late prior-generation poll cannot emi
   const first = await adapter.connect();
   assert.equal(first.sessionId, firstSessionId);
   const firstPoll = oldPollStarted;
-  await firstPoll;
+  await waitFor(firstPoll);
   await adapter.disconnect();
 
   const second = await adapter.connect();
@@ -277,14 +287,14 @@ test("each reconnect gets a new UUID and a late prior-generation poll cannot emi
   const events = [];
   const unsubscribe = adapter.subscribe(event => events.push(event));
 
-  const newEvent = await new Promise(resolve => {
+  const newEvent = await waitFor(new Promise(resolve => {
     const off = adapter.subscribe(event => {
       if (event.type === "snapshot") {
         off();
         resolve(event);
       }
     });
-  });
+  }));
   assert.equal(newEvent.sessionId, secondSessionId);
 
   releaseOldPoll(response(state()));
