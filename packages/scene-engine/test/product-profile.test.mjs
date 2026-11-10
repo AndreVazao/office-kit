@@ -33,6 +33,8 @@ test("rejects duplicate storage namespaces", () => {
   assert.throws(() => assertProfileIsolation([a, b]), /duplicate_installation_storage_namespace/);
 });
 
-test("publishes three distinct edition descriptors", () => {
+test("publishes three distinct edition descriptors without claiming an absent VST adapter", () => {
   assert.deepEqual(Object.keys(productEditionCatalog), ["universal", "dgmat", "vst"]);
+  assert.equal(productEditionCatalog.vst.adapterStatus, "not_implemented");
+  assert.equal(Object.hasOwn(productEditionCatalog.vst, "adapterId"), false);
 });
