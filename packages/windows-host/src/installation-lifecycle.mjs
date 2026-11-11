@@ -16,7 +16,8 @@ function clone(value) {
 
 function validateRecord(record) {
   if (!record || !STATES.has(record.state) || typeof record.installationId !== "string" ||
-      !record.installationId || typeof record.version !== "string" || !record.version) {
+      !record.installationId ||
+      (record.state === "absent" ? record.version !== null : (typeof record.version !== "string" || !record.version))) {
     throw new Error("installation_lifecycle_record_invalid");
   }
   return record;
