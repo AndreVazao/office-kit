@@ -80,3 +80,10 @@ O módulo `packages/windows-host/src/installation-lifecycle.mjs` acrescenta um c
 - Operações concorrentes são serializadas e o estado é persistido pelo store fornecido.
 
 Este incremento é um coordenador testável, não um instalador MSI/MSIX nem um Windows Service. Drivers de plataforma, store durável com escrita atómica, assinatura de release, migração/backup real e testes físicos continuam por implementar. Os testes do coordenador usam driver/store de teste e não provam operações no Windows do utilizador.
+
+
+## Durable installation lifecycle state
+
+`SqliteInstallationLifecycleStore` persists lifecycle records in the host's existing SQLite database, scoped by the host installation ID. Each save uses a single `BEGIN IMMEDIATE` / `COMMIT` transaction and JSON payload validation on read. The Windows host exposes this store as `installationLifecycleStore`; it shares the host database connection and is closed with the host, not independently.
+
+The host configures SQLite WAL and `synchronous=FULL` before constructing the store. This gives transactional state persistence, not a full backup of installed binaries or package payloads. Crash recovery orchestration and platform drivers remain separate work. The store deliberately refuses to silently replace corrupt persisted state.
