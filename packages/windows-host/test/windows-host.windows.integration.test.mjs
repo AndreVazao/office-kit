@@ -4,6 +4,16 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+const testSecrets = new Map();
+function fakeSecretVault({ installationId, namespace }) {
+  const scoped = name => [installationId, namespace, name].join("\\0");
+  return Object.freeze({
+    async getSecret(name) { return testSecrets.get(scoped(name)) ?? null; },
+    async setSecret(name, value) { testSecrets.set(scoped(name), value); return { stored: true, name }; },
+    getCapabilities() { return Object.freeze({ providerId: "windows-integration-test-vault", protectionLevel: "test-only", hardwareBacked: false }); }
+  });
+}
 import {
   createWindowsHost,
   resolveWindowsUserSid,
@@ -55,7 +65,8 @@ test("Windows host applies real user and SYSTEM ACLs to installation data", {
       appDataPath,
       helperPath,
       verifyHelper: () => true,
-      runtimeFactory: fakeRuntime
+      runtimeFactory: fakeRuntime,
+      secretVaultFactory: fakeSecretVault
     });
     assert.equal((await host.health()).identityStatus, "empty");
 
