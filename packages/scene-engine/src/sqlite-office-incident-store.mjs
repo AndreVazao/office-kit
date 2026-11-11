@@ -251,7 +251,7 @@ export class SqliteOfficeIncidentStore {
   }
 
   #macMessage(sequence, eventHash, previousMac) {
-    return [MAC_DOMAIN, this.#installationId, String(sequence), eventHash, previousMac].join("\\0");
+    return [MAC_DOMAIN, this.#installationId, String(sequence), eventHash, previousMac].join("\0");
   }
 
   hasMacRecords() {
