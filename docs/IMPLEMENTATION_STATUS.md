@@ -490,3 +490,11 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Uninstall retém dados por omissão; apagar dados exige `retainData: false` explícito e só ocorre depois de remover runtime.
 - Testes adicionados para transições, persistência/reabertura, concorrência, falha de health, rollback e retenção de dados. CI ainda não executado no HEAD final.
 - Limite: não há driver Windows real, serviço Windows, MSI/MSIX, assinatura de distribuição ou validação física. Não declarar instalador pronto.
+
+
+## SQLite lifecycle state store — PR em desenvolvimento (2026-11-11)
+- Implementado `SqliteInstallationLifecycleStore` com isolamento por installation ID, JSON validado e escrita transacional `BEGIN IMMEDIATE/COMMIT`.
+- Integrado na composição Windows host e exposto como `installationLifecycleStore`, partilhando a base de dados com o host.
+- Testes cobrem round-trip/reabertura, isolamento entre instalações, argumentos inválidos, JSON corrompido e commit.
+- O host usa WAL e `synchronous=FULL`; isto protege transações SQLite, mas não substitui backup de binários/pacotes nem recovery do driver de plataforma.
+- CI ainda pendente; sem driver de serviço Windows/Linux ou instalador MSI/MSIX nesta etapa.
