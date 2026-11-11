@@ -22,6 +22,7 @@ import { resolveAdaptiveResourcePolicy } from "../../scene-engine/src/resource-p
 import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-incident-store.mjs";
 import { AdapterGateway } from "../../scene-engine/src/adapter-gateway.mjs";
 import { OfficeConnectionSupervisor, OfficeHealthRecoveryEngine } from "../../scene-engine/src/office-health.mjs";
+import { WindowsCngSecretVault } from "./secret-vault.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
 
@@ -266,7 +267,8 @@ export function createWindowsHost({
     runtime = runtimeFactory({
       database: sqliteAdapter(database),
       installationId,
-      hostExecutable: helperPath
+      hostExecutable: helperPath,
+      platform
     });
     var incidentStore = new SqliteOfficeIncidentStore({
       database: sqliteAdapter(database),
@@ -403,6 +405,16 @@ export function createWindowsHost({
     });
   }
 
+  function createSecretStore(namespace) {
+    if (closed) throw new Error("windows_host_stopped");
+    return new WindowsCngSecretVault({
+      database: sqliteAdapter(database),
+      installationId,
+      namespace,
+      hostExecutable: helperPath
+    });
+  }
+
   function createDiagnostics({ probes, recoveryActions = [], clock } = {}) {
     return new OfficeHealthRecoveryEngine({
       probes,
@@ -516,6 +528,7 @@ export function createWindowsHost({
     installationLifecycleStore,
     createInstallationLifecycleRuntime,
     createDiagnostics,
+    createSecretStore,
     getResourcePolicy,
     refreshResourcePolicy,
     setResourceOverrides,

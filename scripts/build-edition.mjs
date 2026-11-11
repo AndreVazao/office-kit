@@ -40,6 +40,7 @@ export const EDITION_FILE_ALLOWLISTS = Object.freeze({
     "packages/windows-host/src/cli.mjs",
     "packages/windows-host/src/hardware-capabilities.mjs",
     "packages/windows-host/src/index.mjs",
+    "packages/windows-host/src/secret-vault.mjs",
     "LICENSE"
   ]),
   dgmat: Object.freeze([
@@ -53,6 +54,7 @@ export const EDITION_FILE_ALLOWLISTS = Object.freeze({
     "packages/scene-engine/src/dgmat-local-session-provider.mjs",
     "packages/scene-engine/src/dgmat-readonly-adapter.mjs",
     "packages/scene-engine/src/dgmat.mjs",
+    "packages/scene-engine/src/dgmat-windows-host.mjs",
     "packages/scene-engine/src/diorama.mjs",
     "packages/scene-engine/src/federation-contract.mjs",
     "packages/scene-engine/src/generic-demo-adapter.mjs",
@@ -76,6 +78,7 @@ export const EDITION_FILE_ALLOWLISTS = Object.freeze({
     "packages/windows-host/src/cli.mjs",
     "packages/windows-host/src/hardware-capabilities.mjs",
     "packages/windows-host/src/index.mjs",
+    "packages/windows-host/src/secret-vault.mjs",
     "LICENSE"
   ]),
   vst: Object.freeze([
@@ -109,6 +112,7 @@ export const EDITION_FILE_ALLOWLISTS = Object.freeze({
     "packages/windows-host/src/cli.mjs",
     "packages/windows-host/src/hardware-capabilities.mjs",
     "packages/windows-host/src/index.mjs",
+    "packages/windows-host/src/secret-vault.mjs",
     "LICENSE"
   ])
 });
@@ -131,7 +135,10 @@ function packageExports(edition) {
     "./scene-engine": "./packages/scene-engine/src/index.mjs",
     "./windows-host": "./packages/windows-host/src/index.mjs"
   };
-  if (edition === "dgmat") exports["./scene-engine/dgmat"] = "./packages/scene-engine/src/dgmat.mjs";
+  if (edition === "dgmat") {
+    exports["./scene-engine/dgmat"] = "./packages/scene-engine/src/dgmat.mjs";
+    exports["./windows-host/dgmat"] = "./packages/scene-engine/src/dgmat-windows-host.mjs";
+  }
   return exports;
 }
 

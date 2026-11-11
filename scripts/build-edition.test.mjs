@@ -41,6 +41,8 @@ test("Universal tarball contains generic modules and excludes DGM-MAT/VST source
   const { entries, manifest } = await build("universal");
   const names = entries.join("\n");
   assert.ok(names.includes("package/packages/scene-engine/src/index.mjs"));
+  assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
+  assert.ok(!names.includes("dgmat-windows-host.mjs"));
   assert.ok(!names.includes("dgmat-readonly-adapter.mjs"));
   assert.ok(!names.includes("dgmat-local-session-provider.mjs"));
   assert.ok(!names.includes("dgmat.mjs"));
@@ -50,12 +52,14 @@ test("Universal tarball contains generic modules and excludes DGM-MAT/VST source
   assert.equal(manifest.packageContents.vstAdapter, false);
 });
 
-test("DGM-MAT tarball includes its adapter/session entrypoint and no VST source", async () => {
+test("DGM-MAT tarball includes its adapter/session/Windows host entrypoints and no VST source", async () => {
   const { entries, manifest } = await build("dgmat");
   const names = entries.join("\n");
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat-readonly-adapter.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat-local-session-provider.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat.mjs"));
+  assert.ok(names.includes("package/packages/scene-engine/src/dgmat-windows-host.mjs"));
+  assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
   assert.ok(!names.toLowerCase().includes("/vst/"));
   assert.deepEqual(manifest.adapterAllowlist, ["dgm-mat"]);
   assert.equal(manifest.packageContents.dgmMatAdapter, true);
@@ -65,6 +69,8 @@ test("DGM-MAT tarball includes its adapter/session entrypoint and no VST source"
 test("VST tarball remains isolated and does not claim an unimplemented adapter", async () => {
   const { entries, manifest } = await build("vst");
   const names = entries.join("\n");
+  assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
+  assert.ok(!names.includes("dgmat-windows-host.mjs"));
   assert.ok(!names.includes("dgmat-readonly-adapter.mjs"));
   assert.ok(!names.includes("dgmat-local-session-provider.mjs"));
   assert.ok(!names.includes("dgmat.mjs"));

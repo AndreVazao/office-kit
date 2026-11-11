@@ -55,7 +55,7 @@ $expectedSceneModules = @(
   "runtime-state.mjs",
   "adapter-contract.mjs"
 )
-$expectedHostModules = @("cli.mjs", "hardware-capabilities.mjs", "installation-lifecycle.mjs", "sqlite-installation-lifecycle-store.mjs", "index.mjs")
+$expectedHostModules = @("cli.mjs", "hardware-capabilities.mjs", "installation-lifecycle.mjs", "sqlite-installation-lifecycle-store.mjs", "secret-vault.mjs", "index.mjs")
 $actualSceneModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\scene-engine\src") -File | Select-Object -ExpandProperty Name)
 $actualHostModules = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot "packages\windows-host\src") -File | Select-Object -ExpandProperty Name)
 if (Compare-Object -ReferenceObject ($expectedSceneModules | Sort-Object) -DifferenceObject ($actualSceneModules | Sort-Object)) {

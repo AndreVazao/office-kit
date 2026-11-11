@@ -59,6 +59,11 @@ jobs:
         env:
           OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
         run: node --test packages/scene-engine/test/windows-cng-p256-keystore.integration.test.mjs
+      - name: Exercise Windows CNG DGM bootstrap secret vault
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+        run: node --test packages/windows-host/test/secret-vault.integration.test.mjs
       - name: Exercise persistent Windows node identity runtime
         if: runner.os == 'Windows'
         env:

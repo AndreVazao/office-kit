@@ -528,3 +528,14 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - O facade do Windows host valida o `installationId` recebido em `install()` antes de qualquer checkpoint ou chamada ao driver; instalações cruzadas são recusadas sem efeitos laterais.
 - O teste de composição confirma que uma identidade diferente é rejeitada antes de `stage/install` e fecha sempre o host reaberto no bloco `finally`.
 - A alteração protege a fronteira do host, mas não substitui autenticação/autorização do utilizador nem um driver de sistema operativo.
+
+
+### DGM-MAT Windows bootstrap vault and edition-isolated composition — work branch (2026-11-11)
+
+- Added a generic Windows-host secret vault that stores only AES-256-GCM ciphertext envelopes in installation-scoped SQLite and wraps per-secret data keys using a separate non-exportable RSA key in the Windows CNG Software KSP.
+- The CNG key namespace is derived from installation ID and secret namespace and is distinct from the node-identity ECDSA key. The provider reports OS-protected software storage and `hardwareBacked=false`; it does not claim TPM backing.
+- Added generic `createSecretStore(namespace)` to the Windows host and a DGM-MAT-only `createWindowsDgmMatHost` composition/export. Universal and VST exclude the DGM-specific composition. The portable Windows bundle allowlist is updated for the generic vault dependency.
+- Credential provisioning/removal require explicit owner consent; connect is explicit; bootstrap retrieval is cancellable; the adapter remains read-only and health labels backend operational state unverified.
+- Fake/unit tests cover envelope encryption, namespace/installation isolation, cancellation and host composition. A native Windows CNG integration test is wired into the Windows CI workflow but is not yet reported as passed for this work branch. Live DGM-MAT and physical-PC tests remain pending.
+
+- Known limitation: CNG secret recovery depends on the original Windows user profile/key container. SQLite-only backup is insufficient; cross-profile/machine restore and key-loss recovery are not implemented. The vault reports this capability explicitly and requires re-enrolment rather than exporting private key material.

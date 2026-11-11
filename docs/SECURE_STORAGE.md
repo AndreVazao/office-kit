@@ -73,10 +73,10 @@ This document remains a specification, not a platform-provider implementation. `
 
 ## DGM-MAT bootstrap and access-session handling
 - The DGM-MAT bootstrap credential is a host secret and MUST be supplied by a native/platform keystore provider through an injected `getBootstrapCredential()` function.
-- The Office Kit session provider must never read DGM-MAT files directly, persist the bootstrap secret, log it, or send it to a non-loopback endpoint.
+- The Office Kit session provider must never read DGM-MAT files directly, persist/cache the plaintext bootstrap secret, log it, or send it to a non-loopback endpoint. A host-owned keystore may persist only an encrypted envelope.
 - The current implementation exchanges it only with `POST http://127.0.0.1:8181/auth/session`, with redirects disabled and cache disabled.
 - The short-lived bearer access token is held in process memory only, refreshed before expiry, and invalidated on 401/403. It is not written to profile, localStorage, IndexedDB, logs or backups.
-- A native Windows keystore bridge that can safely retrieve the existing DGM-MAT bootstrap credential is not implemented yet. Until that exists and is tested on the target PC, the provider remains an injectable contract, not a turnkey authenticated connection.
+- A DGM-MAT-only Windows composition and generic CNG secret-vault bridge are now implemented on branch `feat/dgmat-cng-bootstrap-host`, pending CI and native Windows integration results. The code path is not yet validated on a live DGM-MAT instance or the target physical PC; it must not be described as a turnkey production connection until those checks pass.
 
 
 ## Lifecycle integration validation
@@ -90,3 +90,17 @@ This document remains a specification, not a platform-provider implementation. `
 - A persistent keystore requires a challenge store declaring `persistent: true`; the manager rejects an in-memory replay store in that configuration.
 - This protects local signing against replay at the signer. A remote verifier must independently enforce challenge issuance, audience binding, expiry and one-time acceptance; local nonce storage does not replace verifier-side replay protection.
 - SQLite durability still depends on host-owned file access controls and storage policy. Power-loss guarantees are not claimed.
+
+
+## Generic Windows secret vault and DGM-MAT bootstrap credential — 2026-11-11
+
+`WindowsCngSecretVault` is a generic Windows-host primitive, not a DGM-MAT adapter. It scopes each secret by installation ID, namespace and name. SQLite stores only a versioned authenticated envelope: AES-256-GCM ciphertext, nonce, tag and an RSA-OAEP-SHA256-wrapped random data key. The AES-GCM associated data binds the value to its installation, namespace and secret name, preventing ciphertext substitution across scopes.
+
+The wrapping RSA private key is persisted in the user-scoped Microsoft Software Key Storage Provider with `ExportPolicy.None`; its deterministic CNG key name is derived from a hash of installation ID and namespace. It is separate from the ECDSA node-identity key namespace. The helper validates the RSA algorithm and non-exportability before returning its public key or unwrapping a data key. Capabilities explicitly report OS-protected software storage and `hardwareBacked=false`; no TPM claim is made.
+
+The DGM-MAT-only `createWindowsDgmMatHost` composition uses the namespace `dgmat.bootstrap`. It requires `ownerConsent: true` for provisioning and removal, connects only when explicitly requested, and clears the in-memory access session on disconnect/close. Bootstrap retrieval accepts an AbortSignal; cancellation kills the bounded native-helper process so the session-exchange deadline also covers the keystore read. The adapter remains authenticated loopback GET-only/read-only, and host health keeps backend operational state `unverified`.
+
+Unit tests use a fake CNG process and are not native-keystore evidence. The Windows CI integration test uses the published helper to verify persistence across helper processes, encrypted SQLite contents, non-exportability and installation/namespace isolation. A live DGM-MAT instance and physical-PC validation remain pending. The portable bundle allowlist includes the generic vault module; DGM-MAT-specific composition is excluded from Universal and VST.
+
+
+Backup/restore limitation: the RSA wrapping key is user-scoped and non-exportable. A copy of the SQLite database alone is not sufficient to restore these secrets on another Windows user profile or machine. Recovery currently requires continuity of the original Windows user profile and CNG key container, or explicit credential re-enrolment after loss. A durable, tested backup/recovery workflow for this key dependency is still a production blocker.

@@ -62,6 +62,27 @@ test("Windows host starts local-only, persists installation identity and reports
   }
 });
 
+test("Windows host exposes an installation-scoped generic CNG secret vault", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-secret-vault-"));
+  let host;
+  try {
+    host = setup(directory);
+    await host.ready;
+    const vault = host.createSecretStore("dgmat.bootstrap");
+    assert.equal(vault.getCapabilities().providerId, "windows-cng-software-ksp-secret-vault");
+    assert.equal(vault.getCapabilities().protectionLevel, "os-protected");
+    assert.equal(vault.getCapabilities().hardwareBacked, false);
+    assert.throws(() => host.createSecretStore("../dgmat"), /namespace_invalid/);
+    const closedHost = host;
+    await host.close();
+    host = null;
+    assert.throws(() => closedHost.createSecretStore("dgmat.bootstrap"), /windows_host_stopped/);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Windows host rejects an untrusted helper before opening its database", () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-trust-"));
   try {

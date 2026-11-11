@@ -473,3 +473,15 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - O host agora rejeita `install()` quando o `installationId` fornecido não coincide com o ID persistido do host, antes de chamar o driver ou iniciar o staging. O estado SQLite já era installation-scoped; esta verificação fecha também a fronteira de execução.
 - O teste de integração cobre a rejeição sem side effects e a libertação do host reaberto em `finally`.
 - Continua pendente o driver Windows real e a autorização explícita para operações de sistema.
+
+
+## DGM-MAT Windows bootstrap secret — implementation increment (2026-11-11)
+
+- PR #71 was squash-merged as `8a6eb307ab164f11916377c60a326cbef1d7adec`. Its append-only incident journal, revision/sequence/hash-chain verification and explicit owner-consent export passed Linux, Windows and visual checks on PR HEAD `d4a1e1e3a1e0c18e9edb4ae2b2844c529e0ea1e4`; the post-merge main CI and visual run also passed.
+- The next production blocker is issue #57: the DGM-MAT bootstrap secret must be kept separately from node identity and wired only into the DGM-MAT host.
+- Work branch `feat/dgmat-cng-bootstrap-host` adds a generic `WindowsCngSecretVault`: SQLite stores an AES-256-GCM envelope; a separate installation/namespace-scoped RSA private key in Microsoft Software KSP wraps the data key and is configured non-exportable. The vault binds ciphertext with AAD and propagates cancellation to its helper process.
+- The generic Windows host exposes `createSecretStore(namespace)`; DGM-specific composition is isolated in `dgmat-windows-host.mjs` and the DGM-only package export `./windows-host/dgmat`. Universal/VST receive only the generic vault primitive, not DGM routes or credentials.
+- Provisioning/removal require explicit owner consent; connection is explicit; the DGM adapter remains read-only and health keeps backend operational state unverified. The key is OS-protected/software-backed, not TPM-backed.
+- This branch still requires CI, native Windows CNG integration and bundle E2E confirmation. Live DGM-MAT and physical-PC validation remain outstanding; no production readiness claim is made.
+
+- Recovery limitation: the new CNG wrapping key is current-user-profile scoped and non-exportable. A database-only backup cannot restore the DGM bootstrap secret on another profile or machine; re-enrolment is required if the key is lost. Backup/recovery continuity remains an explicit production blocker.
