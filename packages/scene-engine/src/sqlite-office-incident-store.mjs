@@ -1,5 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
-
 const ZERO_HASH = "0".repeat(64);
 const MAC_DOMAIN = "office-kit-incident-event-mac-v1";
 const EVENT_TYPES = new Set(["incident.imported_snapshot", "incident.created", "incident.updated"]);
@@ -64,7 +62,11 @@ function stableJson(value) {
 function constantTimeHexEqual(left, right) {
   if (typeof left !== "string" || typeof right !== "string"
     || !/^[a-f0-9]{64}$/.test(left) || !/^[a-f0-9]{64}$/.test(right)) return false;
-  return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
 }
 
 function parseStoredIncident(row, installationId) {
