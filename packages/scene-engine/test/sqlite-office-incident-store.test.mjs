@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,6 +7,11 @@ import { join } from "node:path";
 let DatabaseSync;
 try { ({ DatabaseSync } = await import("node:sqlite")); } catch {}
 const sqliteTest = (name, fn) => test(name, { skip: !DatabaseSync }, fn);
+
+const cryptoProvider = Object.freeze({
+  sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
+  randomUUID
+});
 import { SqliteOfficeIncidentStore } from "../src/sqlite-office-incident-store.mjs";
 
 function adapter(database) {
@@ -35,7 +41,7 @@ sqliteTest("persists incidents and recovery updates across database reopen", asy
   let db;
   try {
     db = new DatabaseSync(filename);
-    const store = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-office-01" });
     await store.append(incident("incident-001"));
     assert.equal((await store.get("incident-001")).revision, 1);
     await store.update("incident-001", { outcome: "recovered", recoveryAttempts: [{ actionId: "reconnect", ok: true }] });
@@ -43,7 +49,7 @@ sqliteTest("persists incidents and recovery updates across database reopen", asy
     assert.equal((await store.get("incident-001")).revision, 2);
     db.close();
     db = new DatabaseSync(filename);
-    const reopened = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
+    const reopened = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-office-01" });
     assert.equal((await reopened.list())[0].recoveryAttempts[0].actionId, "reconnect");
     assert.equal((await reopened.get("incident-001")).revision, 2);
   } finally {
@@ -55,8 +61,8 @@ sqliteTest("persists incidents and recovery updates across database reopen", asy
 sqliteTest("isolates incident history by installation and rejects cross-installation writes", async () => {
   const db = new DatabaseSync(":memory:");
   try {
-    const one = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-one" });
-    const two = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-two" });
+    const one = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-one" });
+    const two = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-two" });
     await one.append(incident("incident-002"));
     assert.equal(await two.get("incident-002"), null);
     await assert.rejects(one.append(incident("incident-003", { installationId: "install-two" })), /incident_installation_scope_mismatch/);
@@ -66,7 +72,7 @@ sqliteTest("isolates incident history by installation and rejects cross-installa
 sqliteTest("redacts secret-shaped fields and token values before persistence/export", async () => {
   const db = new DatabaseSync(":memory:");
   try {
-    const store = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-office-01" });
     await store.append(incident("incident-004", {
       diagnostics: [{ evidence: "Bearer abc.def.ghi api_key=shhh" }],
       context: { accessToken: "sensitive-value", note: "password=hunter2" }
@@ -81,7 +87,7 @@ sqliteTest("redacts secret-shaped fields and token values before persistence/exp
 sqliteTest("rejects duplicate IDs, corrupt rows and invalid list limits", async () => {
   const db = new DatabaseSync(":memory:");
   try {
-    const store = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-office-01" });
     await store.append(incident("incident-005"));
     await assert.rejects(store.append(incident("incident-005")), /duplicate_incident_id/);
     await assert.rejects(store.list({ limit: 0 }), /incident_list_limit_out_of_range/);
@@ -130,7 +136,7 @@ sqliteTest("migrates legacy incident rows to monotonic revision metadata", async
       legacy.origin,
       JSON.stringify(legacy)
     );
-    const store = new SqliteOfficeIncidentStore({ database: adapter(db), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(db), cryptoProvider, installationId: "install-office-01" });
     assert.equal((await store.get("incident-legacy")).revision, 1);
     await store.update("incident-legacy", { outcome: "recovered" });
     assert.equal((await store.get("incident-legacy")).revision, 2);
