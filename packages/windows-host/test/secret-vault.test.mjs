@@ -186,6 +186,38 @@ sqliteTest("isolates protected secrets by installation and namespace and deletes
   }
 });
 
+sqliteTest("rejects oversized persisted envelopes before invoking the native keystore", async () => {
+  const database = new DatabaseSync(":memory:");
+  let nativeCalls = 0;
+  try {
+    makeVault(
+      database,
+      "officekit-test-envelope-limit",
+      "dgmat.bootstrap",
+      () => { nativeCalls += 1; throw new Error("native_helper_must_not_run"); }
+    );
+    database.prepare(
+      "INSERT INTO office_kit_protected_secrets (installation_id, namespace, secret_name, envelope_json, updated_at) VALUES (?, ?, ?, ?, ?)"
+    ).run(
+      "officekit-test-envelope-limit",
+      "dgmat.bootstrap",
+      "bootstrap",
+      "x".repeat(16 * 1024 + 1),
+      new Date().toISOString()
+    );
+    const vault = makeVault(
+      database,
+      "officekit-test-envelope-limit",
+      "dgmat.bootstrap",
+      () => { nativeCalls += 1; throw new Error("native_helper_must_not_run"); }
+    );
+    await assert.rejects(vault.getSecret("bootstrap"), /decryption_failed/);
+    assert.equal(nativeCalls, 0);
+  } finally {
+    database.close();
+  }
+});
+
 sqliteTest("aborts a pending CNG unwrap when the session deadline cancels the keystore read", async () => {
   const database = new DatabaseSync(":memory:");
   const initialSpawn = fakeCngSpawn();
