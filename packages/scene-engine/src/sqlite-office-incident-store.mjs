@@ -1,5 +1,3 @@
-import { createHash, randomUUID } from "node:crypto";
-
 const ZERO_HASH = "0".repeat(64);
 const EVENT_TYPES = new Set(["incident.imported_snapshot", "incident.created", "incident.updated"]);
 const EVENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -87,13 +85,18 @@ function parseStoredIncident(row, installationId) {
 export class SqliteOfficeIncidentStore {
   #database;
   #installationId;
+  #cryptoProvider;
   persistent = true;
 
-  constructor({ database, installationId }) {
+  constructor({ database, installationId, cryptoProvider }) {
     if (!database || typeof database.exec !== "function"
       || typeof database.prepare !== "function"
       || typeof database.transaction !== "function") {
       throw new TypeError("sqlite_incident_database_required");
+    }
+    if (!cryptoProvider || typeof cryptoProvider.sha256Hex !== "function"
+      || typeof cryptoProvider.randomUUID !== "function") {
+      throw new TypeError("incident_crypto_provider_required");
     }
     validateInstallationId(installationId);
     const transaction = database.transaction(() => {});
@@ -102,6 +105,7 @@ export class SqliteOfficeIncidentStore {
     }
     this.#database = database;
     this.#installationId = installationId;
+    this.#cryptoProvider = cryptoProvider;
     this.#database.exec([
       "CREATE TABLE IF NOT EXISTS office_kit_incidents (",
       "  installation_id TEXT NOT NULL,",
@@ -166,7 +170,7 @@ export class SqliteOfficeIncidentStore {
       schemaVersion: 1,
       installationId: this.#installationId,
       sequence,
-      eventId: randomUUID(),
+      eventId: this.#cryptoProvider.randomUUID(),
       incidentId: snapshot.id,
       eventType,
       revision: snapshot.revision,
@@ -175,7 +179,10 @@ export class SqliteOfficeIncidentStore {
       payload: snapshot
     };
     const eventJson = stableJson(event);
-    const eventHash = createHash("sha256").update(eventJson, "utf8").digest("hex");
+    const eventHash = this.#cryptoProvider.sha256Hex(eventJson);
+    if (typeof eventHash !== "string" || !/^[a-f0-9]{64}$/.test(eventHash)) {
+      throw new Error("incident_crypto_provider_invalid_hash");
+    }
     this.#database.prepare([
       "INSERT INTO office_kit_incident_events",
       "(installation_id, sequence, event_id, incident_id, event_type, revision, previous_hash, event_json, event_hash)",
@@ -246,8 +253,11 @@ export class SqliteOfficeIncidentStore {
         throw new Error("incident_event_revision_chain_corrupt");
       }
 
-      const expectedHash = createHash("sha256").update(row.event_json, "utf8").digest("hex");
-      if (expectedHash !== row.event_hash) throw new Error("incident_event_chain_corrupt");
+      const expectedHash = this.#cryptoProvider.sha256Hex(row.event_json);
+      if (typeof expectedHash !== "string" || !/^[a-f0-9]{64}$/.test(expectedHash)
+        || expectedHash !== row.event_hash) {
+        throw new Error("incident_event_chain_corrupt");
+      }
       previousHash = expectedHash;
       latestByIncident.set(event.incidentId, event);
       expectedSequence += 1;
