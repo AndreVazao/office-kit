@@ -577,3 +577,14 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 ### Nota de validação — PR #66 (2026-11-11)
 - [x] Corrigir allowlist do bundle Windows para copiar `sqlite-installation-lifecycle-store.mjs` e exigir o módulo no teste E2E.
 - [ ] Revalidar Linux CI, Windows portable-host E2E e visual regression no mesmo HEAD antes de integrar.
+
+
+### Fase 9C — checkpoints e recuperação conservadora (PR em desenvolvimento)
+- [x] Persistir checkpoints de operação/fase antes e depois dos passos externos críticos.
+- [x] Detetar operação pendente na inicialização sem executar mutações automáticas.
+- [x] Recuperar instalação interrompida preservando dados.
+- [x] Reverter upgrade interrompido quando backup concluído e validar health.
+- [x] Bloquear fases ambíguas, rollback/uninstall e transições de serviço interrompidas para intervenção explícita.
+- [ ] Validar CI Linux, Windows e visual regression no mesmo HEAD.
+- [ ] Ligar recuperação a driver Windows real com inspeção autoritativa do serviço e testar falhas reais em VM/PC.
+- [ ] Implementar driver Linux e pacotes assinados.

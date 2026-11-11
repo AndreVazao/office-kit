@@ -450,3 +450,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Corrigidas em conjunto a allowlist de build e a allowlist independente do teste E2E. O teste verifica o conteúdo real do bundle e agora exige o store SQLite.
 - A falha anterior terminou em `ERR_MODULE_NOT_FOUND` durante o teste de rejeição do launcher; os testes core, CNG e identidade nativa tinham passado. A correção aguarda novo CI completo no mesmo HEAD.
 - A PR permanece sem merge até Linux, Windows E2E e visual regression passarem no mesmo SHA.
+
+
+## PR — checkpoints e recuperação conservadora do ciclo de vida (2026-11-11)
+- A branch `feat/installation-lifecycle-crash-recovery` parte do merge #66. O coordenador passa a guardar journal de operação/fase no registo SQLite antes e depois dos passos externos críticos.
+- `initialize()` apenas deteta operações pendentes e sinaliza `recoveryRequired`; não reinicia nem remove componentes automaticamente.
+- `recover()` limpa instalação incompleta preservando dados e reverte upgrade interrompido quando o backup está confirmado; exige health ready antes de declarar recuperação concluída.
+- Fases ambíguas (backup em curso), rollback interrompido, uninstall interrompido e transições start/stop/restart interrompidas ficam degradadas e exigem operador. Nenhuma remoção de dados é repetida automaticamente.
+- Os testes usam driver/store simulados; a integração com serviço Windows/Linux e validação no PC continuam pendentes.
+
+- O primeiro CI do novo journal detetou um fixture inválido (instalação em `absent` com versão não nula); implementação e fixture foram alinhados com `version: null` e `targetVersion` separado. A validação deve ser confirmada no HEAD atual da PR #67.
