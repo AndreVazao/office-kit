@@ -120,7 +120,7 @@ sqliteTest("detects event-row tampering after database-level triggers are delibe
     const row = database.prepare(
       "SELECT event_json FROM office_kit_incident_events WHERE installation_id = ? AND sequence = 1"
     ).get("install-office-01");
-    const tampered = row.event_json.replace("incident.created", "incident.updated");
+    const tampered = row.event_json.replace('"status":"degraded"', '"status":"healthy"');
     database.prepare(
       "UPDATE office_kit_incident_events SET event_json = ? WHERE installation_id = ? AND sequence = 1"
     ).run(tampered, "install-office-01");
