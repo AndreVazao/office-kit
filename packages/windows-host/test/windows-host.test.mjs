@@ -6,6 +6,17 @@ import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
+const testSecrets = new Map();
+function fakeSecretVault({ installationId, namespace }) {
+  const scoped = name => [installationId, namespace, name].join("\\0");
+  return Object.freeze({
+    async getSecret(name) { return testSecrets.get(scoped(name)) ?? null; },
+    async setSecret(name, value) { testSecrets.set(scoped(name), value); return { stored: true, name }; },
+    hasSecret(name) { return testSecrets.has(scoped(name)); },
+    getCapabilities() { return Object.freeze({ providerId: "test-secret-vault", protectionLevel: "test-only", hardwareBacked: false }); }
+  });
+}
+
 function runtimeFactory() {
   let identity = null;
   return {
@@ -34,6 +45,7 @@ function setup(directory, overrides = {}) {
     applyAcl: () => {},
     verifyHelper: () => true,
     runtimeFactory,
+    secretVaultFactory: fakeSecretVault,
     ...overrides
   });
 }
@@ -262,6 +274,7 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
   let reopened;
   try {
     host = setup(directory);
+    await host.ready;
     const diagnostics = host.createDiagnostics({
       probes: [{
         id: "office-runtime-check",
@@ -345,6 +358,7 @@ test("managed adapter gateway persists outage and verified recovery through the 
   let managed;
   try {
     host = setup(directory);
+    await host.ready;
     const probes = ["office_runtime", "adapter", "transport", "backend"].map(layer => ({
       id: "probe-" + layer,
       layer,
