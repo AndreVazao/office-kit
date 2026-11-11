@@ -302,6 +302,36 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
   }
 });
 
+test("Windows host refuses to replace a missing journal key when authenticated history exists", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-journal-key-loss-"));
+  let host;
+  let reopened;
+  let installationId;
+  const secretName = ["officekit-placeholder", "incident.journal", "journal-mac-v1"].join("\\0");
+  try {
+    host = setup(directory);
+    await host.ready;
+    installationId = host.installationId;
+    await host.incidentStore.append({
+      id: "incident-key-loss-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    await host.close();
+    host = null;
+    testSecrets.delete([installationId, "incident.journal", "journal-mac-v1"].join("\\0"));
+
+    reopened = setup(directory);
+    await assert.rejects(reopened.ready, /incident_integrity_key_missing_recovery_required/);
+    assert.equal(testSecrets.has([installationId, "incident.journal", "journal-mac-v1"].join("\\0")), false);
+  } finally {
+    await reopened?.close();
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Windows host detects hardware and exposes adaptive policy with safe manual overrides", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-hardware-"));
   const weakFacts = {
