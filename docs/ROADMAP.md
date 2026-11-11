@@ -601,3 +601,14 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Definir driver de controlo com allowlist explícita, validação de caminho/binário, privilégios mínimos e autorização do proprietário.
 - [ ] Cobrir falhas e recuperação em Windows CI; só depois ligar operações destrutivas de lifecycle.
 - [ ] Não declarar instalador até existir um executável/serviço host apropriado, pacote assinado e testes de instalação/upgrade/uninstall.
+
+
+### Fase 9E — credencial DGM-MAT protegida e composição isolada (2026-11-11)
+- [ ] Validar no mesmo HEAD o CNG secret vault: SQLite contém apenas envelope AES-256-GCM; chave RSA de wrapping não exportável no Windows Software KSP.
+- [ ] Validar persistência entre processos helper, cancelamento/deadline, isolamento por installation ID/namespace e destruição explícita da chave.
+- [ ] Confirmar que o bundle Windows portátil inclui o módulo genérico de secret vault e continua a excluir adaptadores/composição DGM-MAT.
+- [ ] Confirmar que apenas o tarball DGM-MAT exporta `./windows-host/dgmat`; Universal e VST mantêm apenas a primitiva genérica.
+- [ ] Validar provisioning/removal com consentimento explícito, conexão manual e modo read-only; nunca auto-conectar backend.
+- [ ] Executar teste live contra DGM-MAT e validação em PC físico; ambos continuam pendentes até haver evidência.
+
+- [ ] Implement and physically validate a backup/recovery procedure for user-scoped CNG secret keys; SQLite-only backup must not be advertised as sufficient, and private keys must remain non-exportable.

@@ -48,7 +48,7 @@ foreach ($module in $sceneModules) {
   Copy-Item -LiteralPath $source -Destination $sceneTarget
 }
 
-$hostModules = @("cli.mjs", "hardware-capabilities.mjs", "installation-lifecycle.mjs", "sqlite-installation-lifecycle-store.mjs", "index.mjs")
+$hostModules = @("cli.mjs", "hardware-capabilities.mjs", "installation-lifecycle.mjs", "sqlite-installation-lifecycle-store.mjs", "secret-vault.mjs", "index.mjs")
 foreach ($module in $hostModules) {
   $source = Join-Path $repoRoot ("packages\windows-host\src\" + $module)
   if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {

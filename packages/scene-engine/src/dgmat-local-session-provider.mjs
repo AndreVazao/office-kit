@@ -15,10 +15,10 @@ function isExactLoopbackBase(value) {
   }
 }
 
-async function runWithDeadline(run, timeoutMs, timeoutCode, parentSignal) {
+async function runWithDeadline(run, timeoutMs, timeoutCode, parentSignal, lifecycleSignal) {
   const controller = new AbortController();
   let timer;
-  let removeParentAbort = () => {};
+  const abortListeners = [];
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => {
       controller.abort();
@@ -26,17 +26,19 @@ async function runWithDeadline(run, timeoutMs, timeoutCode, parentSignal) {
     }, timeoutMs);
   });
   const parentAbort = new Promise((_, reject) => {
-    if (!parentSignal) return;
+    const signals = [parentSignal, lifecycleSignal].filter(Boolean);
     const onAbort = () => {
       controller.abort();
       reject(new Error(timeoutCode));
     };
-    if (parentSignal.aborted) {
-      onAbort();
-      return;
+    for (const signal of signals) {
+      if (signal.aborted) {
+        onAbort();
+        break;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+      abortListeners.push(() => signal.removeEventListener("abort", onAbort));
     }
-    parentSignal.addEventListener("abort", onAbort, { once: true });
-    removeParentAbort = () => parentSignal.removeEventListener("abort", onAbort);
   });
 
   try {
@@ -52,7 +54,7 @@ async function runWithDeadline(run, timeoutMs, timeoutCode, parentSignal) {
     throw error;
   } finally {
     clearTimeout(timer);
-    removeParentAbort();
+    for (const remove of abortListeners) remove();
   }
 }
 
@@ -72,6 +74,8 @@ export class DgmMatLocalSessionProvider {
   #accessToken = null;
   #expiresAt = 0;
   #inFlight = null;
+  #generation = 0;
+  #lifecycleController = new AbortController();
 
   constructor({
     getBootstrapCredential,
@@ -107,15 +111,19 @@ export class DgmMatLocalSessionProvider {
     if (this.#accessToken && now + 15_000 < this.#expiresAt) return this.#accessToken;
     if (this.#inFlight) return this.#inFlight;
 
-    this.#inFlight = this.#issueSession(signal);
+    const generation = this.#generation;
+    const pending = this.#issueSession(signal, this.#lifecycleController.signal, generation);
+    this.#inFlight = pending;
     try {
-      return await this.#inFlight;
+      const token = await pending;
+      if (generation !== this.#generation) throw new Error("dgm_mat_session_exchange_timeout");
+      return token;
     } finally {
-      this.#inFlight = null;
+      if (this.#inFlight === pending) this.#inFlight = null;
     }
   }
 
-  async #issueSession(parentSignal) {
+  async #issueSession(parentSignal, lifecycleSignal, generation) {
     return runWithDeadline(async signal => {
       let bootstrapCredential;
       try {
@@ -193,16 +201,23 @@ export class DgmMatLocalSessionProvider {
           throw new Error("dgm_mat_session_response_invalid");
         }
 
+        if (generation !== this.#generation) {
+          throw new Error("dgm_mat_session_exchange_timeout");
+        }
         this.#accessToken = payload.access_token;
         this.#expiresAt = this.#clock() + payload.expires_in * 1000;
         return this.#accessToken;
       } finally {
         bootstrapCredential = null;
       }
-    }, this.#timeoutMs, "dgm_mat_session_exchange_timeout", parentSignal);
+    }, this.#timeoutMs, "dgm_mat_session_exchange_timeout", parentSignal, lifecycleSignal);
   }
 
   invalidate() {
+    this.#generation += 1;
+    this.#lifecycleController.abort();
+    this.#lifecycleController = new AbortController();
+    this.#inFlight = null;
     this.#accessToken = null;
     this.#expiresAt = 0;
     return { invalidated: true };

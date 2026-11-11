@@ -94,3 +94,14 @@ The host configures SQLite WAL and `synchronous=FULL` before constructing the st
 `createInstallationLifecycleRuntime({ driver, clock })` cria o coordenador de ciclo de vida usando o `SqliteInstallationLifecycleStore` pertencente à mesma instalação do host. Assim, o estado e o journal de recuperação sobrevivem ao fecho/reabertura do host e ficam isolados pelo `installationId`.
 
 O driver continua a ser injetado pelo anfitrião e não existe driver de produção nesta alteração. A API não instala serviços, não inicia processos, não altera o backend e não concede privilégios. A prova adicionada usa um driver simulado e confirma install/start, persistência SQLite e reabertura. O próximo incremento tem de fornecer inspeção autoritativa e operações Windows reais, com limites de privilégio e consentimento explícito.
+
+
+## Generic CNG secret vault and DGM-MAT-only host composition — 2026-11-11
+
+The Windows host now exposes `createSecretStore(namespace)`, backed by the same installation-scoped SQLite connection and the Authenticode-verified CNG helper. The generic vault stores an AES-256-GCM envelope in SQLite and wraps the random data key with a separate RSA CNG key whose name is derived from the installation ID and namespace. The RSA private key is non-exportable under Microsoft Software KSP; the vault does not reuse the node-identity key and does not claim TPM backing.
+
+The DGM-MAT package adds `createWindowsDgmMatHost` through the DGM-only `./windows-host/dgmat` export. It provisions the bootstrap credential only after explicit owner consent, retrieves it on demand from `dgmat.bootstrap`, passes cancellation through the CNG helper read, and performs no backend connection until `connect()` is explicitly called. Disconnect/close clears the memory-only access token. Removal requires owner consent and returns both the ciphertext row count and whether the CNG key was deleted.
+
+The host's health result deliberately labels backend operational state `unverified`; a successful local session/transport handshake does not establish fresh authoritative operational state. Fake composition tests are distinct from the Windows native CNG integration test. Live DGM-MAT protocol validation and a physical-PC installation test remain pending.
+
+The secret-vault capability also declares `backupRestoreRequiresSameUserProfile=true`: a SQLite-only backup cannot restore the encrypted bootstrap credential without the matching user-scoped CNG key. Cross-profile/machine recovery is not implemented; the safe recovery path is explicit re-enrolment, not exporting the private key.

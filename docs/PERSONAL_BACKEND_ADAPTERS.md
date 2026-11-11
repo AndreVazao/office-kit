@@ -1,6 +1,6 @@
 # Personal backend adapter integration map
 
-Reviewed against the public default-branch source on 2026-11-04. This is an integration map, not a claim that either adapter is implemented or that remote exposure is safe.
+Reviewed against the public default-branch source on 2026-11-11. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
 
 ## Universal edition
 
@@ -71,15 +71,19 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 - One request deadline covers token acquisition, fetch and response-body parsing. Provider/fetch errors are reduced to safe bounded codes; 401/403 awaits bounded local token invalidation.
 - Each successful adapter connection receives a fresh UUID session identity. A connection-generation fence prevents a late poll from an earlier connection from emitting into a newer session.
 - `DgmMatLocalSessionProvider` now applies one deadline to bootstrap-keystore retrieval, the loopback session exchange and response-body parsing. Caller cancellation is propagated; the bootstrap credential is not retained and the short-lived access token remains memory-only.
-- These are code-level and fake/unit-test increments until CI passes. The actual Windows host still lacks a dedicated OS-keystore bridge and composition for the protected DGM-MAT bootstrap credential. Live tests against a running DGM-MAT instance and physical-PC validation remain pending.
+- These are code-level and fake/unit-test increments until CI passes. The Windows CNG secret vault and DGM-MAT-only host composition are being added in branch `feat/dgmat-cng-bootstrap-host`; this work still requires CI/native integration success. Live tests against a running DGM-MAT instance and physical-PC validation remain pending.
 - The VST adapter remains unimplemented. Do not claim either personal backend is connected or operational.
 
-## DGM-MAT local session provider — host wiring pending
+## DGM-MAT Windows host composition — implementation in work branch (2026-11-11)
 
-- `DgmMatLocalSessionProvider` exchanges the protected bootstrap credential for a short-lived local-client session using `POST /auth/session` on `127.0.0.1:8181` only.
-- The bootstrap credential is fetched on demand from an injected host keystore provider and is not persisted or cached by Office Kit. The returned access token is held in process memory only, bounded to the server's 30-minute maximum, and refreshed before expiry.
-- The full exchange deadline includes the keystore provider, network request and JSON body. The adapter passes cancellation to the provider; a hanging provider cannot block a connection indefinitely.
-- Session responses must be HTTP 201 JSON, Bearer, include `local-client`, and provide a bounded expiry/session identifier. Invalid credentials, malformed responses and transport errors fail closed.
-- The adapter awaits bounded invalidation on 401/403. Raw provider/fetch error text is never copied into connection events.
-- Still missing: a dedicated Windows OS-keystore entry for the DGM-MAT bootstrap secret, host composition wiring, live DGM-MAT contract tests, and physical-PC validation. Do not reuse the Windows node-identity private key as a backend credential.
-- This flow is desktop-local only. It does not support mobile pairing, remote bootstrap, LAN exposure, or Tailscale access.
+- `DgmMatLocalSessionProvider` exchanges the bootstrap credential for a short-lived local-client session using `POST /auth/session` on the exact configured loopback endpoint (default `127.0.0.1:8181`) only.
+- The generic Windows host exposes `createSecretStore(namespace)`. The DGM-MAT-only `createWindowsDgmMatHost` uses namespace `dgmat.bootstrap`; Universal and VST do not include this composition or its bootstrap credential flow.
+- The bootstrap secret is encrypted before persistence: AES-256-GCM ciphertext and metadata are stored in SQLite; the random data key is wrapped by a separate installation/namespace-scoped RSA key in the Windows CNG Software KSP. The private key has `ExportPolicy.None`; the node-identity ECDSA key is not reused.
+- The vault reports OS-protected software storage and `hardwareBacked=false`. This is not a TPM claim. The native helper remains protected by the host's Authenticode publisher pin.
+- Provisioning and removal require `ownerConsent: true`. The host does not auto-connect; `connect()` is explicit. The adapter remains authenticated loopback GET-only/read-only. Disconnect/close clears the in-memory access token.
+- Keystore retrieval receives the session exchange AbortSignal and terminates the helper process on cancellation. The complete session deadline includes the keystore read, loopback POST and response-body parsing.
+- Host health explicitly reports backend operational state as `unverified`. The source timestamp is last-mutation time, not a heartbeat; no agent/task activity is fabricated.
+- Fake/unit tests validate envelope handling and composition contracts. A dedicated Windows CI integration test is added for CNG key persistence across helper processes, non-exportability, encrypted SQLite contents and installation/namespace isolation. These tests do not replace a live DGM-MAT instance test or physical-PC validation; both remain pending.
+- The VST adapter remains unimplemented. Do not claim either personal backend is fully production-connected.
+
+- Backup constraint: the CNG wrapping key is user-profile scoped and non-exportable. A SQLite-only backup cannot restore the bootstrap credential on another profile/machine; loss of the key requires explicit re-enrolment. A durable recovery workflow remains pending.
