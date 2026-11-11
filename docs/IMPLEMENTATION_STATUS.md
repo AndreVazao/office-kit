@@ -513,3 +513,5 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - `recover()` permite limpar uma instalação interrompida preservando dados e reverter uma atualização quando existe checkpoint de backup concluído. A recuperação valida health antes de confirmar o estado.
 - Se o backup foi interrompido durante a chamada, ou se uma desinstalação/rollback/transição de serviço foi interrompida, o coordenador falha fechado e exige intervenção do operador. Não repete remoção de dados nem presume o estado do serviço.
 - A recuperação usa driver injetado e testes simulados; não prova um driver Windows/Linux real, MSI/MSIX, serviço do sistema ou PC físico.
+
+- Correção pré-CI: checkpoints de instalação mantêm `state: absent` com `version: null`; a versão-alvo fica no campo `targetVersion` do journal, preservando a validação do estado ausente.
