@@ -77,8 +77,12 @@ export function createWindowsDgmMatHost({
   }
 
   async function provisionBootstrapCredential({ secret, ownerConsent } = {}) {
-    await ensureOpen();
     if (ownerConsent !== true) throw new Error("dgmat_bootstrap_owner_consent_required");
+    if (typeof secret !== "string" || secret.length < 60 || secret.length > 8_192
+      || secret.trim() !== secret || /\\s/.test(secret)) {
+      throw new Error("dgm_mat_bootstrap_credential_invalid");
+    }
+    await ensureOpen();
     await bootstrapVault.setSecret("bootstrap", secret);
     return Object.freeze({
       stored: true,
@@ -91,10 +95,9 @@ export function createWindowsDgmMatHost({
   }
 
   async function removeBootstrapCredential({ ownerConsent } = {}) {
-    await ensureOpen();
     if (ownerConsent !== true) throw new Error("dgmat_bootstrap_owner_consent_required");
-    await adapter.disconnect();
-    await sessionProvider.disconnect();
+    await ensureOpen();
+    await disconnect();
     return bootstrapVault.destroy();
   }
 
@@ -115,8 +118,11 @@ export function createWindowsDgmMatHost({
 
   async function disconnect() {
     if (closed) return { disconnected: true };
-    await adapter.disconnect();
-    await sessionProvider.disconnect();
+    try {
+      await adapter.disconnect();
+    } finally {
+      await sessionProvider.disconnect();
+    }
     return { disconnected: true };
   }
 
@@ -135,9 +141,15 @@ export function createWindowsDgmMatHost({
   async function close() {
     if (closed) return;
     closed = true;
-    await adapter.disconnect();
-    await sessionProvider.disconnect();
-    await host.close();
+    try {
+      await adapter.disconnect();
+    } finally {
+      try {
+        await sessionProvider.disconnect();
+      } finally {
+        await host.close();
+      }
+    }
   }
 
   return Object.freeze({

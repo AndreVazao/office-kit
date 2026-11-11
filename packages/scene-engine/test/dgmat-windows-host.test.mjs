@@ -75,6 +75,11 @@ test("DGM-MAT Windows host requires explicit credential consent and explicit con
       composed.provisionBootstrapCredential({ secret: bootstrapSecret }),
       /owner_consent_required/
     );
+    await assert.rejects(
+      composed.provisionBootstrapCredential({ secret: "short", ownerConsent: true }),
+      /bootstrap_credential_invalid/
+    );
+    assert.equal(host.secret, null);
     const provisioned = await composed.provisionBootstrapCredential({
       secret: bootstrapSecret,
       ownerConsent: true
