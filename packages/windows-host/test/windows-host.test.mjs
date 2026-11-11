@@ -85,7 +85,7 @@ test("Windows host exposes an installation-scoped generic CNG secret vault", asy
     await host.ready;
     const vault = host.createSecretStore("dgmat.bootstrap");
     assert.equal(vault.getCapabilities().providerId, "test-secret-vault");
-    assert.equal(vault.getCapabilities().protectionLevel, "os-protected");
+    assert.equal(vault.getCapabilities().protectionLevel, "test-only");
     assert.equal(vault.getCapabilities().hardwareBacked, false);
     assert.throws(() => host.createSecretStore("../dgmat"), /namespace_invalid/);
     const closedHost = host;
