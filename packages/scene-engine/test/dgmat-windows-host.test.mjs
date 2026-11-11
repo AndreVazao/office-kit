@@ -60,6 +60,7 @@ function makeHost() {
 test("DGM-MAT Windows host requires explicit credential consent and explicit connect", async () => {
   const host = makeHost();
   const { fetchImpl, calls } = makeFetch();
+  const bootstrapSecret = "bootstrap-credential-" + "0123456789".repeat(5);
   const composed = createWindowsDgmMatHost({
     hostFactory: () => host,
     sessionProviderOptions: { fetchImpl, timeoutMs: 1_000 },
@@ -71,15 +72,15 @@ test("DGM-MAT Windows host requires explicit credential consent and explicit con
     assert.equal(calls.length, 0);
     assert.equal(composed.edition, "dgmat");
     await assert.rejects(
-      composed.provisionBootstrapCredential({ secret: "bootstrap-credential-0123456789" }),
+      composed.provisionBootstrapCredential({ secret: bootstrapSecret }),
       /owner_consent_required/
     );
     const provisioned = await composed.provisionBootstrapCredential({
-      secret: "bootstrap-credential-0123456789",
+      secret: bootstrapSecret,
       ownerConsent: true
     });
     assert.equal(provisioned.stored, true);
-    assert.equal(host.secret, "bootstrap-credential-0123456789");
+    assert.equal(host.secret, bootstrapSecret);
     assert.equal(calls.length, 0);
 
     const connected = await composed.connect();
