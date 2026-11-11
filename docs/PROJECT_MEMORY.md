@@ -458,3 +458,5 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - `recover()` limpa instalação incompleta preservando dados e reverte upgrade interrompido quando o backup está confirmado; exige health ready antes de declarar recuperação concluída.
 - Fases ambíguas (backup em curso), rollback interrompido, uninstall interrompido e transições start/stop/restart interrompidas ficam degradadas e exigem operador. Nenhuma remoção de dados é repetida automaticamente.
 - Os testes usam driver/store simulados; a integração com serviço Windows/Linux e validação no PC continuam pendentes.
+
+- O primeiro CI do novo journal detetou um fixture inválido (instalação em `absent` com versão não nula); implementação e fixture foram alinhados com `version: null` e `targetVersion` separado. A validação deve ser confirmada no HEAD atual da PR #67.
