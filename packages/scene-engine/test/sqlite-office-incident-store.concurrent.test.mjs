@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -13,6 +14,11 @@ try { ({ DatabaseSync } = await import("node:sqlite")); } catch {}
 import { SqliteOfficeIncidentStore } from "../src/sqlite-office-incident-store.mjs";
 
 const sqliteTest = (name, fn) => test(name, { skip: !DatabaseSync, timeout: 20_000 }, fn);
+
+const cryptoProvider = Object.freeze({
+  sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
+  randomUUID
+});
 
 function adapter(database) {
   const transaction = callback => {
@@ -54,17 +60,19 @@ const incident = id => ({
 const moduleUrl = new URL("../src/sqlite-office-incident-store.mjs", import.meta.url).href;
 const childSource = [
   'import { DatabaseSync } from "node:sqlite";',
+  'import { createHash, randomUUID } from "node:crypto";',
   'import { existsSync, writeFileSync } from "node:fs";',
   'import { setTimeout as delay } from "node:timers/promises";',
   'import { SqliteOfficeIncidentStore } from ' + JSON.stringify(moduleUrl) + ';',
   'const [filename, installationId, incidentId, readyPath, startPath, marker] = process.argv.slice(1);',
+  'const cryptoProvider = { sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"), randomUUID };',
   'const database = new DatabaseSync(filename);',
   'database.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;");',
   'const transaction = callback => {',
   '  const run = mode => { database.exec("BEGIN " + mode); try { const result = callback(); database.exec("COMMIT"); return result; } catch (error) { try { database.exec("ROLLBACK"); } catch {} throw error; } };',
   '  const wrapped = () => run(""); wrapped.immediate = () => run("IMMEDIATE"); return wrapped;',
   '};',
-  'const store = new SqliteOfficeIncidentStore({ database: { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction }, installationId });',
+  'const store = new SqliteOfficeIncidentStore({ database: { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction }, installationId, cryptoProvider });',
   'writeFileSync(readyPath, "ready");',
   'while (!existsSync(startPath)) await delay(10);',
   'await store.update(incidentId, { [marker]: true });',
@@ -101,7 +109,7 @@ sqliteTest("serializes concurrent journal updates across independent SQLite proc
   try {
     database = new DatabaseSync(filename);
     database.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;");
-    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId, cryptoProvider });
     await store.append(incident(incidentId));
 
     const args = (readyPath, marker) => [
