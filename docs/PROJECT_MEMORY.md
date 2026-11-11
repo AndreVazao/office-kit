@@ -464,6 +464,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 ## Estado Git — integração do lifecycle no Windows host (2026-11-11)
 - PR #67 foi squash-merged no commit `0d8b07d141b2e0fd0a60e902bb0f7369f50f0f35` após Linux, Windows e visual regression passarem no mesmo HEAD `96527e1b3d2bcf9d837fcc5db2cf2611f6e0f736`.
-- Nova branch `feat/windows-host-lifecycle-composition` parte do merge #67. O host passa a expor `createInstallationLifecycleRuntime({ driver, clock })`, ligando o coordenador ao store SQLite já isolado pelo installation ID.
+- PR #68 foi squash-merged em `864ec87c613b57837d7ac2766181678a5faf5893`. O host expõe `createInstallationLifecycleRuntime({ driver, clock })`, ligando o coordenador ao store SQLite já isolado pelo installation ID.
 - Teste novo verifica install/start com driver simulado, persistência do estado e reabertura do host/base SQLite.
 - Não há driver Windows real nesta alteração. O próximo passo é desenhar e testar a fronteira de inspeção/controlo de serviços e processos Windows sem inventar um serviço instalável que ainda não existe. Nenhum backend DGM-MAT/VST é alterado.
+
+
+## Proteção de instalação no facade do lifecycle (2026-11-11)
+- O host agora rejeita `install()` quando o `installationId` fornecido não coincide com o ID persistido do host, antes de chamar o driver ou iniciar o staging. O estado SQLite já era installation-scoped; esta verificação fecha também a fronteira de execução.
+- O teste de integração cobre a rejeição sem side effects e a libertação do host reaberto em `finally`.
+- Continua pendente o driver Windows real e a autorização explícita para operações de sistema.

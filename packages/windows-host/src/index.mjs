@@ -383,10 +383,19 @@ export function createWindowsHost({
 
   function createInstallationLifecycleRuntime({ driver, clock = now } = {}) {
     if (closed) throw new Error("windows_host_stopped");
-    return createInstallationLifecycleController({
+    const lifecycle = createInstallationLifecycleController({
       driver,
       store: installationLifecycleStore,
       clock
+    });
+    return Object.freeze({
+      ...lifecycle,
+      install: ({ installationId: requestedInstallationId, ...input } = {}) => {
+        if (requestedInstallationId !== installationId) {
+          throw new Error("windows_host_installation_id_mismatch");
+        }
+        return lifecycle.install({ ...input, installationId });
+      }
     });
   }
 

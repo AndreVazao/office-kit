@@ -395,6 +395,15 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
     host = setup(directory);
     const lifecycle = host.createInstallationLifecycleRuntime({ driver });
     assert.equal((await lifecycle.initialize()).state, "absent");
+    assert.throws(
+      () => lifecycle.install({
+        installationId: "officekit-another-installation",
+        version: "0.1.0",
+        packagePath: join(directory, "package")
+      }),
+      /windows_host_installation_id_mismatch/
+    );
+    assert.equal(events.length, 0);
     const installed = await lifecycle.install({
       installationId: host.installationId,
       version: "0.1.0",
@@ -414,7 +423,9 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
     assert.equal(restored.version, "0.1.0");
     assert.equal(restored.recoveryRequired, false);
     await reopened.close();
+    reopened = null;
   } finally {
+    await reopened?.close();
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
