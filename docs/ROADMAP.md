@@ -561,3 +561,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Validar upgrade/rollback/uninstall em runners e PC físico sem tocar nos backends VST/DGM-MAT existentes.
 
 O coordenador atual é uma camada de orquestração com driver/store injetados; não equivale a instalador operacional. A próxima implementação deve construir o store durável e um driver de plataforma testável, começando por Windows.
+
+
+## Fase 9B — estado durável do ciclo de vida
+- [x] Implementar store SQLite isolado por installation ID.
+- [x] Persistir cada atualização de registo numa transação atómica SQLite.
+- [x] Integrar o store na base de dados privada do Windows host.
+- [x] Testar isolamento, reabertura, corrupção e commit.
+- [ ] Adicionar checkpoints explícitos para operações interrompidas (staging/backup/activation/rollback/uninstall).
+- [ ] Recuperar operações incompletas com decisão fail-closed e health validation.
+- [ ] Construir driver real Windows e Linux e validar em runners.
+- [ ] Empacotar e assinar instaladores; validar no PC físico sem tocar nos backends já instalados.
