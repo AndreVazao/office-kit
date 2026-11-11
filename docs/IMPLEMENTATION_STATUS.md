@@ -515,3 +515,4 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - A recuperação usa driver injetado e testes simulados; não prova um driver Windows/Linux real, MSI/MSIX, serviço do sistema ou PC físico.
 
 - Correção pré-CI: checkpoints de instalação mantêm `state: absent` com `version: null`; a versão-alvo fica no campo `targetVersion` do journal, preservando a validação do estado ausente.
+- Correção do teste de recuperação: o fixture de instalação interrompida representa corretamente `state: absent` com `version: null` e guarda a versão pretendida em `targetVersion`, em linha com o contrato do registo.
