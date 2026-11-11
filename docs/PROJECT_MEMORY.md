@@ -1,6 +1,6 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-07
+Última atualização: 2026-11-11
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
@@ -430,3 +430,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - O host fecha gateways geridos antes de fechar SQLite. Testes usam GenericDemoAdapter apenas como integração de contrato; não provam DGM-MAT/VST real nem instalação física.
 
 - Correção CI Windows identificada no bundle: a nova composição importava `adapter-gateway.mjs`, que transitivamente depende de `runtime-session.mjs`, `runtime-state.mjs` e `adapter-contract.mjs`; a allowlist portátil ainda não os incluía. Os quatro módulos foram adicionados à allowlist de build e à allowlist independente do teste. CI reexecutado no HEAD mais recente; integração bloqueada até Linux/Windows/visual passarem no mesmo SHA.
+
+
+## Estado Git — 2026-11-11
+- PR #64 foi integrada em `main` no merge commit `3ce48e9d9ae453e2d0c4cd59c429f91caef58f5a`. CI e regressão visual pós-merge foram consultados diretamente: ambos concluíram com sucesso nesse SHA.
+- Nova branch `feat/host-installation-lifecycle` criada a partir desse commit.
+- Incremento em curso: coordenador serializado de ciclo de vida da instalação. O contrato separa orquestração de operações específicas do SO; não afirma ainda existir MSI/MSIX, serviço Windows, assinatura de release ou driver real.
+- Dados são preservados por omissão na desinstalação; remoção é opt-in explícito.

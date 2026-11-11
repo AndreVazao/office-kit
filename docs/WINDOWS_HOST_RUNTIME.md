@@ -66,3 +66,17 @@ Isto valida o empacotamento e o fluxo local com um trust publisher de teste. Nã
 O bundle portátil inclui também as dependências transitivas necessárias ao `AdapterGateway` (`adapter-gateway.mjs`, `runtime-session.mjs`, `runtime-state.mjs` e `adapter-contract.mjs`). A allowlist do script de build e a allowlist independente do teste têm de coincidir; o teste falha se faltar ou sobrar qualquer módulo. Esta inclusão corrige a composição gerida sem incluir adaptadores específicos de DGM-MAT/VST.
 
 O host expõe `createManagedAdapterGateway({ probes, ... })`. O chamador tem de selecionar e autorizar explicitamente o adapter e fornecer probes read-only não vazios. O gateway encaminha estados autoritativos de RuntimeSession para OfficeConnectionSupervisor; os incidentes são persistidos no SQLite associado à instalação. A perda só é registada depois de uma sessão live confirmada e a recuperação exige probes saudáveis e novo snapshot live sincronizado. O host fecha gateways geridos antes de encerrar a base de dados. Esta composição ainda não fornece descoberta, autenticação, credenciais, transporte de rede nem adaptadores VST; os testes com GenericDemoAdapter são integração de contrato, não validação de backend real ou PC físico.
+
+
+## Installation lifecycle controller — PR em desenvolvimento
+
+O módulo `packages/windows-host/src/installation-lifecycle.mjs` acrescenta um coordenador serializado para instalação, arranque, paragem, reinício, atualização, rollback e desinstalação. O coordenador recebe um driver de plataforma e um store persistente por injeção; não executa shell, não regista serviços do sistema e não remove dados diretamente.
+
+- Instalação só é marcada como concluída após health `ready`.
+- Start/restart só ficam `running` depois de health confirmado; falhas ficam `degraded`.
+- Upgrade prepara pacote, pára o runtime quando necessário, cria backup, ativa a versão e valida health. Em falha tenta restaurar a versão anterior e voltar a arrancar.
+- Rollback manual só existe quando há versão anterior registada e exige health confirmado.
+- Uninstall preserva dados por omissão. A remoção de dados exige `retainData: false` explícito e ocorre depois da remoção do runtime.
+- Operações concorrentes são serializadas e o estado é persistido pelo store fornecido.
+
+Este incremento é um coordenador testável, não um instalador MSI/MSIX nem um Windows Service. Drivers de plataforma, store durável com escrita atómica, assinatura de release, migração/backup real e testes físicos continuam por implementar. Os testes do coordenador usam driver/store de teste e não provam operações no Windows do utilizador.
