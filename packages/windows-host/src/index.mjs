@@ -296,6 +296,9 @@ export function createWindowsHost({
     const journalVault = createSecretStore("incident.journal");
     let encodedKey = await journalVault.getSecret("journal-mac-v1");
     if (encodedKey === null) {
+      if (incidentStore.hasMacRecords()) {
+        throw new Error("incident_integrity_key_missing_recovery_required");
+      }
       const generated = randomBytes(32);
       try { encodedKey = generated.toString("base64url"); }
       finally { generated.fill(0); }
