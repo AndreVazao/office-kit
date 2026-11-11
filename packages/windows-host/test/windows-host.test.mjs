@@ -307,7 +307,6 @@ test("Windows host refuses to replace a missing journal key when authenticated h
   let host;
   let reopened;
   let installationId;
-  const secretName = ["officekit-placeholder", "incident.journal", "journal-mac-v1"].join("\\0");
   try {
     host = setup(directory);
     await host.ready;
