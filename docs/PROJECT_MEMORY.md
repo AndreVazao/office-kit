@@ -460,3 +460,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Os testes usam driver/store simulados; a integração com serviço Windows/Linux e validação no PC continuam pendentes.
 
 - O primeiro CI do novo journal detetou um fixture inválido (instalação em `absent` com versão não nula); implementação e fixture foram alinhados com `version: null` e `targetVersion` separado. A validação deve ser confirmada no HEAD atual da PR #67.
+
+
+## Estado Git — integração do lifecycle no Windows host (2026-11-11)
+- PR #67 foi squash-merged no commit `0d8b07d141b2e0fd0a60e902bb0f7369f50f0f35` após Linux, Windows e visual regression passarem no mesmo HEAD `96527e1b3d2bcf9d837fcc5db2cf2611f6e0f736`.
+- Nova branch `feat/windows-host-lifecycle-composition` parte do merge #67. O host passa a expor `createInstallationLifecycleRuntime({ driver, clock })`, ligando o coordenador ao store SQLite já isolado pelo installation ID.
+- Teste novo verifica install/start com driver simulado, persistência do estado e reabertura do host/base SQLite.
+- Não há driver Windows real nesta alteração. O próximo passo é desenhar e testar a fronteira de inspeção/controlo de serviços e processos Windows sem inventar um serviço instalável que ainda não existe. Nenhum backend DGM-MAT/VST é alterado.
