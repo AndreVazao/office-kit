@@ -74,7 +74,7 @@ sqliteTest("redacts secret-shaped fields and token values before persistence/exp
     const saved = await store.get("incident-004");
     assert.equal(saved.context.accessToken, "[REDACTED]");
     assert.doesNotMatch(JSON.stringify(saved), /abc\.def\.ghi|shhh|sensitive-value|hunter2/);
-    assert.doesNotMatch(await store.export(), /sensitive-value/);
+    assert.doesNotMatch(await store.export({ ownerConsent: true }), /sensitive-value/);
   } finally { db.close(); }
 });
 
