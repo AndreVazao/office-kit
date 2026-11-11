@@ -13,6 +13,7 @@ const INSTALLATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
 const NAMESPACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/;
 const SECRET_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 const MAX_SECRET_BYTES = 8_192;
+const MAX_ENVELOPE_BYTES = 16 * 1024;
 const MAX_HOST_OUTPUT_BYTES = 64 * 1024;
 const ENVELOPE_ALGORITHM = "AES-256-GCM+RSA-OAEP-SHA256";
 
@@ -209,6 +210,10 @@ export class WindowsCngSecretVault {
     let dataKey;
     let plaintext;
     try {
+      if (typeof row.envelope_json !== "string"
+        || Buffer.byteLength(row.envelope_json, "utf8") > MAX_ENVELOPE_BYTES) {
+        throw new Error("invalid_envelope");
+      }
       const envelope = JSON.parse(row.envelope_json);
       if (!envelope || envelope.schemaVersion !== 1 || envelope.algorithm !== ENVELOPE_ALGORITHM) {
         throw new Error("invalid_envelope");
