@@ -547,3 +547,17 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 
 - [x] Corrigir o empacotamento Windows para incluir as dependências transitivas do AdapterGateway e manter build/test allowlists sincronizadas.
 - [ ] Confirmar Linux, Windows E2E e visual regression no mesmo HEAD após a correção.
+
+
+## Fase 9A — ciclo de vida da instalação (em desenvolvimento)
+- [x] Definir coordenador serializado para install/start/stop/restart/upgrade/rollback/uninstall.
+- [x] Exigir health confirmado antes de declarar instalação/arranque saudáveis.
+- [x] Preservar dados por omissão e exigir opt-in explícito para remoção.
+- [x] Testar falha de upgrade, restauração da versão anterior e serialização de operações.
+- [ ] Implementar store persistente com escrita atómica e recuperação de operações interrompidas.
+- [ ] Implementar driver Windows real com serviço/Task Scheduler e permissões mínimas.
+- [ ] Definir driver Linux (systemd/user service) sem assumir privilégios root.
+- [ ] Empacotar MSI/MSIX e pacote Linux; assinar releases com publisher confiável.
+- [ ] Validar upgrade/rollback/uninstall em runners e PC físico sem tocar nos backends VST/DGM-MAT existentes.
+
+O coordenador atual é uma camada de orquestração com driver/store injetados; não equivale a instalador operacional. A próxima implementação deve construir o store durável e um driver de plataforma testável, começando por Windows.
