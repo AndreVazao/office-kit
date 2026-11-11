@@ -14,6 +14,6 @@
 
 ## Validation and limitations
 
-Automated tests inject the process runner and verify command construction, no shell, bounded timeout, identity/path mismatch rejection, malformed data rejection and fail-closed process errors. These tests do not execute CIM on a Windows host.
+Injected-runner tests verify command construction, no shell, bounded timeout, identity/path mismatch rejection, malformed data rejection and fail-closed process errors. A Windows-only integration test inspects the built-in `RpcSs` service through real CIM and checks its executable identity/state without changing it; it is skipped on non-Windows runners.
 
-This is not yet a lifecycle driver and is not connected to `createInstallationLifecycleRuntime`. No Office Kit Windows service is registered by this change; the module only provides a safe inspection primitive for a future explicitly installed service. No DGM-MAT or VST backend is inspected or modified. Native Windows runner validation remains required before integration.
+This is not yet a lifecycle driver and is not connected to `createInstallationLifecycleRuntime`. No Office Kit Windows service is registered by this change; the module only provides a safe inspection primitive for a future explicitly installed service. No DGM-MAT or VST backend is inspected or modified. The native Windows test still needs to pass in CI before this boundary can be considered validated.
