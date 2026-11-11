@@ -238,6 +238,7 @@ test("host blocks mutations and hides identity while reconciliation remains pend
 test("Windows host exposes installation-scoped persistent incident diagnostics across restarts", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-incidents-"));
   let host;
+  let reopened;
   try {
     host = setup(directory);
     const diagnostics = host.createDiagnostics({
@@ -255,11 +256,13 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     await host.close();
     host = null;
 
-    const reopened = setup(directory);
+    reopened = setup(directory);
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
     await reopened.close();
+    reopened = null;
   } finally {
+    await reopened?.close();
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
@@ -371,6 +374,46 @@ test("managed adapter gateway requires explicit diagnostic probes and closes wit
     const managed = host.createManagedAdapterGateway({ probes });
     await host.close();
     assert.throws(() => managed.getState(), /windows_host_stopped|managed_gateway_closed/);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("host-bound lifecycle controller persists operation state in the host SQLite database", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-lifecycle-"));
+  const events = [];
+  const driver = Object.fromEntries([
+    "stage", "install", "start", "stop", "activate", "backupCurrent",
+    "restorePrevious", "removeRuntime", "removeData"
+  ].map(name => [name, async input => { events.push([name, input]); }]));
+  driver.health = async () => ({ status: "ready" });
+  let host;
+  let reopened;
+  try {
+    host = setup(directory);
+    const lifecycle = host.createInstallationLifecycleRuntime({ driver });
+    assert.equal((await lifecycle.initialize()).state, "absent");
+    const installed = await lifecycle.install({
+      installationId: host.installationId,
+      version: "0.1.0",
+      packagePath: join(directory, "package")
+    });
+    assert.equal(installed.state, "installed");
+    await lifecycle.start();
+    assert.equal(lifecycle.status().state, "running");
+    assert.ok(events.some(([name]) => name === "install"));
+    await host.close();
+    host = null;
+
+    reopened = setup(directory);
+    const restoredLifecycle = reopened.createInstallationLifecycleRuntime({ driver });
+    const restored = await restoredLifecycle.initialize();
+    assert.equal(restored.state, "running");
+    assert.equal(restored.version, "0.1.0");
+    assert.equal(restored.recoveryRequired, false);
+    await reopened.close();
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });

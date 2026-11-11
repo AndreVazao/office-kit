@@ -87,3 +87,10 @@ Este incremento é um coordenador testável, não um instalador MSI/MSIX nem um 
 `SqliteInstallationLifecycleStore` persists lifecycle records in the host's existing SQLite database, scoped by the host installation ID. Each save uses a single `BEGIN IMMEDIATE` / `COMMIT` transaction and JSON payload validation on read. The Windows host exposes this store as `installationLifecycleStore`; it shares the host database connection and is closed with the host, not independently.
 
 The host configures SQLite WAL and `synchronous=FULL` before constructing the store. This gives transactional state persistence, not a full backup of installed binaries or package payloads. Crash recovery orchestration and platform drivers remain separate work. The store deliberately refuses to silently replace corrupt persisted state.
+
+
+## Host composition for lifecycle orchestration — PR em desenvolvimento
+
+`createInstallationLifecycleRuntime({ driver, clock })` cria o coordenador de ciclo de vida usando o `SqliteInstallationLifecycleStore` pertencente à mesma instalação do host. Assim, o estado e o journal de recuperação sobrevivem ao fecho/reabertura do host e ficam isolados pelo `installationId`.
+
+O driver continua a ser injetado pelo anfitrião e não existe driver de produção nesta alteração. A API não instala serviços, não inicia processos, não altera o backend e não concede privilégios. A prova adicionada usa um driver simulado e confirma install/start, persistência SQLite e reabertura. O próximo incremento tem de fornecer inspeção autoritativa e operações Windows reais, com limites de privilégio e consentimento explícito.
