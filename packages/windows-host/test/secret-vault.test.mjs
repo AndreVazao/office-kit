@@ -190,7 +190,7 @@ sqliteTest("rejects oversized persisted envelopes before invoking the native key
   const database = new DatabaseSync(":memory:");
   let nativeCalls = 0;
   try {
-    makeVault(
+    const vault = makeVault(
       database,
       "officekit-test-envelope-limit",
       "dgmat.bootstrap",
@@ -204,12 +204,6 @@ sqliteTest("rejects oversized persisted envelopes before invoking the native key
       "bootstrap",
       "x".repeat(16 * 1024 + 1),
       new Date().toISOString()
-    );
-    const vault = makeVault(
-      database,
-      "officekit-test-envelope-limit",
-      "dgmat.bootstrap",
-      () => { nativeCalls += 1; throw new Error("native_helper_must_not_run"); }
     );
     await assert.rejects(vault.getSecret("bootstrap"), /decryption_failed/);
     assert.equal(nativeCalls, 0);
