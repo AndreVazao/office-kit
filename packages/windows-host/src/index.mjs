@@ -17,6 +17,7 @@ import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
 import { detectHostHardwareCapabilities } from "./hardware-capabilities.mjs";
 import { SqliteInstallationLifecycleStore } from "./sqlite-installation-lifecycle-store.mjs";
+import { createInstallationLifecycle as createInstallationLifecycleController } from "./installation-lifecycle.mjs";
 import { resolveAdaptiveResourcePolicy } from "../../scene-engine/src/resource-policy.mjs";
 import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-incident-store.mjs";
 import { AdapterGateway } from "../../scene-engine/src/adapter-gateway.mjs";
@@ -380,6 +381,15 @@ export function createWindowsHost({
     }
   }
 
+  function createInstallationLifecycleRuntime({ driver, clock = now } = {}) {
+    if (closed) throw new Error("windows_host_stopped");
+    return createInstallationLifecycleController({
+      driver,
+      store: installationLifecycleStore,
+      clock
+    });
+  }
+
   function createDiagnostics({ probes, recoveryActions = [], clock } = {}) {
     return new OfficeHealthRecoveryEngine({
       probes,
@@ -491,6 +501,7 @@ export function createWindowsHost({
     installationId,
     incidentStore,
     installationLifecycleStore,
+    createInstallationLifecycleRuntime,
     createDiagnostics,
     getResourcePolicy,
     refreshResourcePolicy,
