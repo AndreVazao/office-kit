@@ -437,3 +437,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Nova branch `feat/host-installation-lifecycle` criada a partir desse commit.
 - Incremento em curso: coordenador serializado de ciclo de vida da instalação. O contrato separa orquestração de operações específicas do SO; não afirma ainda existir MSI/MSIX, serviço Windows, assinatura de release ou driver real.
 - Dados são preservados por omissão na desinstalação; remoção é opt-in explícito.
+
+
+## Estado Git — 2026-11-11 (continuação)
+- PR #65 integrada por squash no commit `3cba1434c9fb348de0f209f3888a53cc36c10435`; o HEAD final `95c67963d2b4c894938b2273b612dcca51e9a8a7` passou Linux, Windows e visual regression. A falha anterior foi corrigida no validador de estado `absent`.
+- Nova branch `feat/sqlite-installation-lifecycle-store` parte desse merge.
+- Próximo incremento: store SQLite transacional de estado de instalação, integrado na base de dados privada do host e isolado por installation ID. Não é ainda recuperação completa de instalações interrompidas nem instalador de sistema.
