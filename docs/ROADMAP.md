@@ -612,3 +612,13 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Executar teste live contra DGM-MAT e validação em PC físico; ambos continuam pendentes até haver evidência.
 
 - [ ] Implement and physically validate a backup/recovery procedure for user-scoped CNG secret keys; SQLite-only backup must not be advertised as sufficient, and private keys must remain non-exportable.
+
+### Segurança do journal — incremento HMAC (PR em desenvolvimento)
+- [x] MAC HMAC-SHA-256 por evento com encadeamento, domínio e instalação.
+- [x] Chave aleatória de 256 bits protegida pelo Windows CNG Software KSP.
+- [x] Falha fechada se a chave autenticadora desaparecer depois de existirem eventos autenticados.
+- [x] Verificação antes de leitura/exportação e migração controlada de histórico SHA-256 legado.
+- [ ] Validar Linux, Windows CNG nativo, bundle e regressão visual no mesmo HEAD.
+- [ ] Rotação/versionamento de chaves e recuperação explícita sem perder validação histórica.
+- [ ] Âncora externa/anti-rollback e procedimento de backup/recuperação do perfil Windows.
+- [ ] Providers equivalentes para Linux, macOS e Android; até lá, não prometer a mesma proteção fora do host Windows.
