@@ -105,3 +105,10 @@ The DGM-MAT package adds `createWindowsDgmMatHost` through the DGM-only `./windo
 The host's health result deliberately labels backend operational state `unverified`; a successful local session/transport handshake does not establish fresh authoritative operational state. Fake composition tests are distinct from the Windows native CNG integration test. Live DGM-MAT protocol validation and a physical-PC installation test remain pending.
 
 The secret-vault capability also declares `backupRestoreRequiresSameUserProfile=true`: a SQLite-only backup cannot restore the encrypted bootstrap credential without the matching user-scoped CNG key. Cross-profile/machine recovery is not implemented; the safe recovery path is explicit re-enrolment, not exporting the private key.
+
+### Integridade autenticada do journal de incidentes
+O Windows host só fica ready depois de obter a chave HMAC do journal através do WindowsCngSecretVault na namespace incident.journal. No primeiro arranque sem histórico autenticado, cria uma chave aleatória de 256 bits e guarda-a como segredo CNG journal-mac-v1. A chave não é escrita em texto simples no SQLite e o buffer de memória é limpo no fecho do host.
+
+O SqliteOfficeIncidentStore verifica SHA-256 + HMAC-SHA-256 antes de operações de leitura/exportação. Se existirem MACs e a chave protegida estiver ausente, o host falha fechado e não gera uma chave substituta. A migração de eventos antigos valida a cadeia SHA-256 e cria o baseline HMAC na primeira ativação.
+
+Limites: chave associada ao perfil Windows atual; backup apenas do SQLite não é suficiente. Sem âncora externa monotónica, rollback/truncagem para um prefixo antigo válido não é detetado. Rotação de chave e recuperação entre perfis ainda não estão implementadas. A integração CI Windows com helper CNG real não substitui teste no PC físico.
