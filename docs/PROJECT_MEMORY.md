@@ -443,3 +443,10 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #65 integrada por squash no commit `3cba1434c9fb348de0f209f3888a53cc36c10435`; o HEAD final `95c67963d2b4c894938b2273b612dcca51e9a8a7` passou Linux, Windows e visual regression. A falha anterior foi corrigida no validador de estado `absent`.
 - Nova branch `feat/sqlite-installation-lifecycle-store` parte desse merge.
 - Próximo incremento: store SQLite transacional de estado de instalação, integrado na base de dados privada do host e isolado por installation ID. Não é ainda recuperação completa de instalações interrompidas nem instalador de sistema.
+
+
+## PR #66 — correção do bundle portátil Windows (2026-11-11)
+- O E2E do runner Windows identificou que o host importava `sqlite-installation-lifecycle-store.mjs`, ausente da allowlist de módulos copiados para o bundle.
+- Corrigidas em conjunto a allowlist de build e a allowlist independente do teste E2E. O teste verifica o conteúdo real do bundle e agora exige o store SQLite.
+- A falha anterior terminou em `ERR_MODULE_NOT_FOUND` durante o teste de rejeição do launcher; os testes core, CNG e identidade nativa tinham passado. A correção aguarda novo CI completo no mesmo HEAD.
+- A PR permanece sem merge até Linux, Windows E2E e visual regression passarem no mesmo SHA.
