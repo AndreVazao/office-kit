@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import {
   closeSync,
   fsyncSync,
@@ -208,7 +208,8 @@ export function createWindowsHost({
   requestedProfile = "auto",
   requestedRenderer = "auto",
   now = Date.now,
-  makeId = randomUUID
+  makeId = randomUUID,
+  secretVaultFactory = options => new WindowsCngSecretVault(options)
 } = {}) {
   assertWindows(platform);
   if (typeof appDataPath !== "string" || !isAbsolute(appDataPath)) {
@@ -217,7 +218,8 @@ export function createWindowsHost({
   if (typeof helperPath !== "string" || !isAbsolute(helperPath)) {
     throw new TypeError("windows_host_cng_helper_path_must_be_absolute");
   }
-  if (typeof runtimeFactory !== "function" || typeof databaseFactory !== "function" || typeof hardwareProbe !== "function") {
+  if (typeof runtimeFactory !== "function" || typeof databaseFactory !== "function"
+    || typeof hardwareProbe !== "function" || typeof secretVaultFactory !== "function") {
     throw new TypeError("windows_host_factories_required");
   }
 
@@ -272,6 +274,7 @@ export function createWindowsHost({
     var incidentStore = new SqliteOfficeIncidentStore({
       database: sqliteAdapter(database),
       installationId,
+      requireMac: true,
       cryptoProvider: {
         sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
         randomUUID
@@ -288,7 +291,31 @@ export function createWindowsHost({
     throw error;
   }
 
-  const ready = Promise.resolve().then(() => runtime.manager.reconcile());
+  let incidentMacKey = null;
+  const ready = Promise.resolve().then(async () => {
+    const journalVault = createSecretStore("incident.journal");
+    let encodedKey = await journalVault.getSecret("journal-mac-v1");
+    if (encodedKey === null) {
+      const generated = randomBytes(32);
+      try { encodedKey = generated.toString("base64url"); }
+      finally { generated.fill(0); }
+      await journalVault.setSecret("journal-mac-v1", encodedKey);
+    }
+    if (typeof encodedKey !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(encodedKey)) {
+      throw new Error("incident_integrity_key_invalid");
+    }
+    incidentMacKey = Buffer.from(encodedKey, "base64url");
+    if (incidentMacKey.length !== 32 || incidentMacKey.toString("base64url") !== encodedKey) {
+      incidentMacKey.fill(0);
+      incidentMacKey = null;
+      throw new Error("incident_integrity_key_invalid");
+    }
+    incidentStore.configureMacProvider({
+      keyId: "windows-cng:incident-journal-mac-v1",
+      hmacSha256Hex: value => createHmac("sha256", incidentMacKey).update(value, "utf8").digest("hex")
+    });
+    return runtime.manager.reconcile();
+  });
   async function ensureReady() {
     const result = await ready;
     if (!["empty", "active", "revoked"].includes(result?.status)) {
@@ -379,6 +406,8 @@ export function createWindowsHost({
     closed = true;
     await Promise.allSettled([...managedGateways].map(gateway => gateway.close()));
     try { await ready; } catch { /* Initialization failure must not leak the database or lock. */ }
+    incidentMacKey?.fill(0);
+    incidentMacKey = null;
     try { database.close(); }
     finally {
       releaseLock?.();
@@ -406,7 +435,7 @@ export function createWindowsHost({
 
   function createSecretStore(namespace) {
     if (closed) throw new Error("windows_host_stopped");
-    return new WindowsCngSecretVault({
+    return secretVaultFactory({
       database: sqliteAdapter(database),
       installationId,
       namespace,
