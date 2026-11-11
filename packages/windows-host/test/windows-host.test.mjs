@@ -238,6 +238,7 @@ test("host blocks mutations and hides identity while reconciliation remains pend
 test("Windows host exposes installation-scoped persistent incident diagnostics across restarts", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-incidents-"));
   let host;
+  let reopened;
   try {
     host = setup(directory);
     const diagnostics = host.createDiagnostics({
@@ -255,7 +256,7 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     await host.close();
     host = null;
 
-    const reopened = setup(directory);
+    reopened = setup(directory);
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
     await reopened.close();
