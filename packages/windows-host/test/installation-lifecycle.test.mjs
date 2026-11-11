@@ -134,3 +134,80 @@ test("concurrent lifecycle requests execute in order", async () => {
   const results = await Promise.all([f.lifecycle.start(), f.lifecycle.stop(), f.lifecycle.start()]);
   assert.deepEqual(results.map(value => value.state), ["running", "stopped", "running"]);
 });
+
+
+test("recovery cleans an interrupted install without deleting user data", async () => {
+  const f = fixture();
+  await f.lifecycle.initialize();
+  await f.store.save({
+    installationId: "office-1", version: "1.0.0", previousVersion: null,
+    state: "absent", dataRetained: true, updatedAt: 101, lastError: null,
+    operation: { type: "install", phase: "install_started", startedAt: 100, updatedAt: 101 }
+  });
+  const restarted = createInstallationLifecycle({ driver: f.driver, store: f.store });
+  const interrupted = await restarted.initialize();
+  assert.equal(interrupted.recoveryRequired, true);
+  const recovered = await restarted.recover();
+  assert.equal(recovered.state, "absent");
+  assert.equal(recovered.recoveryRequired, false);
+  assert.ok(f.events.some(([name, args]) => name === "removeRuntime" && args.preserveData === true));
+});
+
+test("recovery restores the previous version after an interrupted activation", async () => {
+  const f = fixture();
+  await f.lifecycle.initialize();
+  await f.lifecycle.install({ installationId: "office-1", version: "1.0.0", packagePath: "/v1" });
+  await f.lifecycle.start();
+  await f.store.save({
+    ...f.lifecycle.status(),
+    version: "1.0.0",
+    state: "running",
+    operation: {
+      type: "upgrade", phase: "activation_started", priorState: "running",
+      oldVersion: "1.0.0", targetVersion: "2.0.0", startedAt: 120, updatedAt: 121
+    }
+  });
+  const restarted = createInstallationLifecycle({ driver: f.driver, store: f.store });
+  assert.equal((await restarted.initialize()).recoveryRequired, true);
+  const recovered = await restarted.recover();
+  assert.equal(recovered.version, "1.0.0");
+  assert.equal(recovered.state, "running");
+  assert.equal(recovered.recoveryRequired, false);
+  assert.ok(f.events.some(([name, args]) => name === "restorePrevious" && args.version === "1.0.0"));
+});
+
+test("recovery refuses ambiguous backup and interrupted uninstall without destructive actions", async () => {
+  const f = fixture();
+  await f.lifecycle.initialize();
+  await f.lifecycle.install({ installationId: "office-1", version: "1.0.0", packagePath: "/v1" });
+  await f.store.save({
+    ...f.lifecycle.status(),
+    operation: {
+      type: "uninstall", phase: "remove_data_started", priorState: "stopped",
+      retainData: false, startedAt: 130, updatedAt: 131
+    }
+  });
+  const restarted = createInstallationLifecycle({ driver: f.driver, store: f.store });
+  await restarted.initialize();
+  await assert.rejects(restarted.recover(), /uninstall_recovery_requires_operator/);
+  assert.equal(f.events.some(([name]) => name === "removeData"), false);
+  assert.equal(restarted.status().recoveryRequired, true);
+});
+
+test("ambiguous interrupted backup remains degraded and requires operator recovery", async () => {
+  const f = fixture();
+  await f.lifecycle.initialize();
+  await f.lifecycle.install({ installationId: "office-1", version: "1.0.0", packagePath: "/v1" });
+  await f.store.save({
+    ...f.lifecycle.status(),
+    operation: {
+      type: "upgrade", phase: "backup_started", priorState: "stopped",
+      oldVersion: "1.0.0", targetVersion: "2.0.0", startedAt: 140, updatedAt: 141
+    }
+  });
+  const restarted = createInstallationLifecycle({ driver: f.driver, store: f.store });
+  await restarted.initialize();
+  await assert.rejects(restarted.recover(), /upgrade_backup_ambiguous/);
+  assert.equal(restarted.status().state, "degraded");
+  assert.equal(restarted.status().recoveryRequired, true);
+});
