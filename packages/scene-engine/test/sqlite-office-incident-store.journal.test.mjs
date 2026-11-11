@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -10,6 +11,11 @@ try { ({ DatabaseSync } = await import("node:sqlite")); } catch {}
 import { SqliteOfficeIncidentStore } from "../src/sqlite-office-incident-store.mjs";
 
 const sqliteTest = (name, fn) => test(name, { skip: !DatabaseSync, timeout: 20_000 }, fn);
+
+const cryptoProvider = Object.freeze({
+  sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
+  randomUUID
+});
 
 function adapter(database) {
   const transaction = callback => {
@@ -48,7 +54,7 @@ const incident = (id, overrides = {}) => ({
 sqliteTest("records immutable incident events and reports the unkeyed integrity boundary", async () => {
   const database = new DatabaseSync(":memory:");
   try {
-    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
     await store.append(incident("incident-journal-01", {
       context: { apiKey: "do-not-store", note: "Bearer abc.def.ghi" }
     }));
@@ -92,7 +98,7 @@ sqliteTest("records immutable incident events and reports the unkeyed integrity 
 sqliteTest("fails closed when a validly encoded current snapshot diverges from its event history", async () => {
   const database = new DatabaseSync(":memory:");
   try {
-    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
     await store.append(incident("incident-journal-02"));
     const row = database.prepare(
       "SELECT incident_json FROM office_kit_incidents WHERE installation_id = ? AND incident_id = ?"
@@ -114,7 +120,7 @@ sqliteTest("fails closed when a validly encoded current snapshot diverges from i
 sqliteTest("detects event-row tampering after database-level triggers are deliberately removed", async () => {
   const database = new DatabaseSync(":memory:");
   try {
-    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
     await store.append(incident("incident-journal-03"));
     database.exec("DROP TRIGGER office_kit_incident_events_immutable_update");
     const row = database.prepare(
@@ -154,10 +160,10 @@ sqliteTest("migrates legacy snapshots into the event journal exactly once", asyn
       "install-office-01", legacy.id, legacy.occurredAt, legacy.status, legacy.origin, JSON.stringify(legacy)
     );
 
-    const first = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+    const first = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
     assert.equal(first.verifyIntegrity().eventCount, 1);
     assert.equal(first.listEvents()[0].eventType, "incident.imported_snapshot");
-    const second = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+    const second = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
     assert.equal(second.verifyIntegrity().eventCount, 1);
     assert.equal((await second.get(legacy.id)).revision, 1);
   } finally {
@@ -168,7 +174,7 @@ sqliteTest("migrates legacy snapshots into the event journal exactly once", asyn
 sqliteTest("rolls back a snapshot when its matching event cannot be appended", async () => {
   const database = new DatabaseSync(":memory:");
   try {
-    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
     database.exec("CREATE TRIGGER reject_incident_event BEFORE INSERT ON office_kit_incident_events BEGIN SELECT RAISE(ABORT, 'test_event_insert_abort'); END;");
     await assert.rejects(store.append(incident("incident-journal-atomic")), /test_event_insert_abort/);
     database.exec("DROP TRIGGER reject_incident_event");
@@ -182,15 +188,17 @@ sqliteTest("rolls back a snapshot when its matching event cannot be appended", a
 const moduleUrl = new URL("../src/sqlite-office-incident-store.mjs", import.meta.url).href;
 const crashChildSource = [
   'import { DatabaseSync } from "node:sqlite";',
+  'import { createHash, randomUUID } from "node:crypto";',
   'import { SqliteOfficeIncidentStore } from ' + JSON.stringify(moduleUrl) + ';',
   'const [filename, installationId, mode] = process.argv.slice(1);',
+  'const cryptoProvider = { sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"), randomUUID };',
   'const database = new DatabaseSync(filename);',
   'database.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;");',
   'const transaction = callback => {',
   '  const run = kind => { database.exec("BEGIN " + kind); try { const value = callback(); database.exec("COMMIT"); return value; } catch (error) { try { database.exec("ROLLBACK"); } catch {} throw error; } };',
   '  const wrapped = () => run(""); wrapped.immediate = () => run("IMMEDIATE"); return wrapped;',
   '};',
-  'const store = new SqliteOfficeIncidentStore({ database: { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction }, installationId });',
+  'const store = new SqliteOfficeIncidentStore({ database: { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction }, installationId, cryptoProvider });',
   'const value = { schemaVersion: 1, id: "incident-child-commit", occurredAt: "2026-11-11T12:00:00.000Z", edition: "universal", status: "degraded", origin: "transport", confidence: "probable", diagnostics: [], recoveryAttempts: [], outcome: "unresolved" };',
   'if (mode === "commit") { await store.append(value); database.close(); process.exit(0); }',
   'database.exec("BEGIN IMMEDIATE");',
@@ -219,7 +227,7 @@ sqliteTest("reopens committed journal events after process exit and rolls back a
     await runChild(committedFile, "commit", 0);
     let database = new DatabaseSync(committedFile);
     try {
-      const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+      const store = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
       assert.equal((await store.get("incident-child-commit")).revision, 1);
       assert.equal(store.verifyIntegrity().eventCount, 1);
     } finally { database.close(); }
@@ -227,7 +235,7 @@ sqliteTest("reopens committed journal events after process exit and rolls back a
     await runChild(interruptedFile, "rollback", 17);
     database = new DatabaseSync(interruptedFile);
     try {
-      const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId: "install-office-01" });
+      const store = new SqliteOfficeIncidentStore({ database: adapter(database), cryptoProvider, installationId: "install-office-01" });
       assert.equal(await store.get("incident-uncommitted"), null);
       assert.equal(store.verifyIntegrity().eventCount, 0);
     } finally { database.close(); }
