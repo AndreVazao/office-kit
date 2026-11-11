@@ -81,7 +81,7 @@ test("Windows host exposes an installation-scoped generic CNG secret vault", asy
     host = setup(directory);
     await host.ready;
     const vault = host.createSecretStore("dgmat.bootstrap");
-    assert.equal(vault.getCapabilities().providerId, "windows-cng-software-ksp-secret-vault");
+    assert.equal(vault.getCapabilities().providerId, "test-secret-vault");
     assert.equal(vault.getCapabilities().protectionLevel, "os-protected");
     assert.equal(vault.getCapabilities().hardwareBacked, false);
     assert.throws(() => host.createSecretStore("../dgmat"), /namespace_invalid/);
@@ -291,6 +291,7 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     host = null;
 
     reopened = setup(directory);
+    await reopened.ready;
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
     await reopened.close();
