@@ -111,7 +111,7 @@ export function createInstallationLifecycle({ driver, store, clock = Date.now } 
           typeof packagePath !== "string" || !packagePath.trim()) {
         throw new TypeError("installation_lifecycle_install_arguments_invalid");
       }
-      await checkpoint("install", "stage_started", { installationId, version, previousVersion: null, state: "absent" });
+      await checkpoint("install", "stage_started", { installationId, version: null, targetVersion: version, previousVersion: null, state: "absent" });
       await driver.stage({ version, packagePath });
       await checkpoint("install", "stage_complete");
       await checkpoint("install", "install_started");
