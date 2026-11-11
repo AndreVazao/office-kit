@@ -467,3 +467,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #68 foi squash-merged em `864ec87c613b57837d7ac2766181678a5faf5893`. O host expõe `createInstallationLifecycleRuntime({ driver, clock })`, ligando o coordenador ao store SQLite já isolado pelo installation ID.
 - Teste novo verifica install/start com driver simulado, persistência do estado e reabertura do host/base SQLite.
 - Não há driver Windows real nesta alteração. O próximo passo é desenhar e testar a fronteira de inspeção/controlo de serviços e processos Windows sem inventar um serviço instalável que ainda não existe. Nenhum backend DGM-MAT/VST é alterado.
+
+
+## Proteção de instalação no facade do lifecycle (2026-11-11)
+- O host agora rejeita `install()` quando o `installationId` fornecido não coincide com o ID persistido do host, antes de chamar o driver ou iniciar o staging. O estado SQLite já era installation-scoped; esta verificação fecha também a fronteira de execução.
+- O teste de integração cobre a rejeição sem side effects e a libertação do host reaberto em `finally`.
+- Continua pendente o driver Windows real e a autorização explícita para operações de sistema.
