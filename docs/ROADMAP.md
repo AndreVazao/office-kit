@@ -588,3 +588,16 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Validar CI Linux, Windows e visual regression no mesmo HEAD.
 - [ ] Ligar recuperação a driver Windows real com inspeção autoritativa do serviço e testar falhas reais em VM/PC.
 - [ ] Implementar driver Linux e pacotes assinados.
+
+
+### Fase 9C — validação concluída e integração no host
+- [x] Validar CI Linux, Windows e visual regression no mesmo HEAD da PR #67.
+- [x] Integrar a recuperação conservadora em `main` (merge #67).
+
+### Fase 9D — composição e driver Windows real
+- [x] Expor o coordenador de ciclo de vida no Windows host usando o store SQLite da instalação.
+- [x] Testar persistência de estado através do fecho e reabertura do host com driver simulado.
+- [ ] Implementar inspeção autoritativa read-only de serviço/processo Windows, sem iniciar/parar nada durante descoberta.
+- [ ] Definir driver de controlo com allowlist explícita, validação de caminho/binário, privilégios mínimos e autorização do proprietário.
+- [ ] Cobrir falhas e recuperação em Windows CI; só depois ligar operações destrutivas de lifecycle.
+- [ ] Não declarar instalador até existir um executável/serviço host apropriado, pacote assinado e testes de instalação/upgrade/uninstall.
