@@ -539,3 +539,16 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Fake/unit tests cover envelope encryption, namespace/installation isolation, cancellation and host composition. A native Windows CNG integration test is wired into the Windows CI workflow but is not yet reported as passed for this work branch. Live DGM-MAT and physical-PC tests remain pending.
 
 - Known limitation: CNG secret recovery depends on the original Windows user profile/key container. SQLite-only backup is insufficient; cross-profile/machine restore and key-loss recovery are not implemented. The vault reports this capability explicitly and requires re-enrolment rather than exporting private key material.
+
+### Keystore-backed incident journal MAC — PR em desenvolvimento (2026-11-11)
+- [x] Adicionar cadeia HMAC-SHA-256 por evento, separada do hash chain SHA-256 e vinculada ao installation ID, sequência, hash do evento e MAC anterior.
+- [x] Guardar os MACs numa tabela append-only com triggers de imutabilidade; verificar correspondência um-para-um, sequência, key ID e cadeia antes de leitura/exportação.
+- [x] Exigir chave disponível no Windows host antes de expor operações do journal; criar a chave aleatória de 256 bits no primeiro arranque e protegê-la através do WindowsCngSecretVault na namespace incident.journal.
+- [x] Não substituir silenciosamente uma chave ausente quando já existem MACs; falhar fechado e exigir recuperação explícita.
+- [x] Validar migração de journals SHA-256 existentes, MAC incorreto, chave errada, MAC em falta e isolamento por instalação.
+- [x] Adicionar teste Windows nativo de persistência CNG entre processos/aberturas do host e ligar o teste ao CI Windows.
+- [ ] Obter CI Linux + Windows e regressão visual verdes no mesmo HEAD final.
+- [ ] Implementar rotação de chaves com validação histórica e recuperação controlada.
+- [ ] Avaliar âncora externa/anti-rollback; o MAC em SQLite não prova que um prefixo antigo não foi restaurado.
+
+**Limite de segurança:** HMAC deteta alterações no conteúdo/ordem dos eventos quando a chave CNG original está disponível. A chave permanece associada ao perfil Windows do utilizador. Não existe âncora externa monotónica, pelo que truncagem/rollback integral para um estado anterior válido não está coberta. Não declarar resistência absoluta a administrador local ou adulteração do sistema operativo.
