@@ -164,6 +164,46 @@ test("one exchange deadline includes fetch and response-body parsing", async () 
   assert.equal(hangingBody.getState().authenticated, false);
 });
 
+test("disconnect aborts in-flight bootstrap work and prevents late session resurrection", async () => {
+  let credentialReads = 0;
+  let fetchCalls = 0;
+  let firstSignal;
+  let signalReady;
+  const started = new Promise(resolve => { signalReady = resolve; });
+  let releaseFirstCredential;
+  const firstCredential = new Promise(resolve => { releaseFirstCredential = resolve; });
+  const provider = new DgmMatLocalSessionProvider({
+    timeoutMs: 5_000,
+    getBootstrapCredential: async ({ signal }) => {
+      credentialReads += 1;
+      if (credentialReads === 1) {
+        firstSignal = signal;
+        signalReady();
+        return firstCredential;
+      }
+      return bootstrap;
+    },
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return jsonResponse(validSession({ access_token: "fresh-session-token-123456" }));
+    }
+  });
+
+  const pending = provider.getAccessToken();
+  await started;
+  await provider.disconnect();
+  await assert.rejects(pending, /dgm_mat_session_exchange_timeout/);
+  assert.equal(firstSignal.aborted, true);
+  releaseFirstCredential(bootstrap);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(fetchCalls, 0);
+  assert.equal(provider.getState().authenticated, false);
+
+  const freshToken = await provider.getAccessToken();
+  assert.equal(freshToken, "fresh-session-token-123456");
+  assert.equal(fetchCalls, 1);
+});
+
 test("caller cancellation aborts the bootstrap exchange and provider errors are normalized", async () => {
   const controller = new AbortController();
   let providerStarted;
