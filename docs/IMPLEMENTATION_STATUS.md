@@ -518,7 +518,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Correção do teste de recuperação: o fixture de instalação interrompida representa corretamente `state: absent` com `version: null` e guarda a versão pretendida em `targetVersion`, em linha com o contrato do registo.
 
 
-### Composição do ciclo de vida no Windows host — PR em desenvolvimento (2026-11-11)
+### Composição do ciclo de vida no Windows host — integrado em main (2026-11-11)
 - O host expõe `createInstallationLifecycleRuntime({ driver, clock })`, ligando o coordenador ao store SQLite da própria instalação.
 - Teste de integração de composição cobre initialize/install/start, fecho do host e recuperação do estado após reabertura da base SQLite.
 - O driver continua simulado/injetado; ainda não existe gestão real de serviços/processos Windows, instalador MSI/MSIX, assinatura de release ou validação física.
