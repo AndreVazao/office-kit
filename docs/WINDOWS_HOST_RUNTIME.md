@@ -89,7 +89,7 @@ Este incremento é um coordenador testável, não um instalador MSI/MSIX nem um 
 The host configures SQLite WAL and `synchronous=FULL` before constructing the store. This gives transactional state persistence, not a full backup of installed binaries or package payloads. Crash recovery orchestration and platform drivers remain separate work. The store deliberately refuses to silently replace corrupt persisted state.
 
 
-## Host composition for lifecycle orchestration — PR em desenvolvimento
+## Host composition for lifecycle orchestration — integrado em main
 
 `createInstallationLifecycleRuntime({ driver, clock })` cria o coordenador de ciclo de vida usando o `SqliteInstallationLifecycleStore` pertencente à mesma instalação do host. Assim, o estado e o journal de recuperação sobrevivem ao fecho/reabertura do host e ficam isolados pelo `installationId`.
 
