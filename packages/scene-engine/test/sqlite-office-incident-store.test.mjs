@@ -106,6 +106,11 @@ test("requires an immediate SQLite transaction provider", () => {
   assert.throws(() => new SqliteOfficeIncidentStore({
     database,
     installationId: "install-office-01"
+  }), /incident_crypto_provider_required/);
+  assert.throws(() => new SqliteOfficeIncidentStore({
+    database,
+    installationId: "install-office-01",
+    cryptoProvider
   }), /sqlite_immediate_transaction_required/);
 });
 
