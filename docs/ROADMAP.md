@@ -572,3 +572,8 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Recuperar operações incompletas com decisão fail-closed e health validation.
 - [ ] Construir driver real Windows e Linux e validar em runners.
 - [ ] Empacotar e assinar instaladores; validar no PC físico sem tocar nos backends já instalados.
+
+
+### Nota de validação — PR #66 (2026-11-11)
+- [x] Corrigir allowlist do bundle Windows para copiar `sqlite-installation-lifecycle-store.mjs` e exigir o módulo no teste E2E.
+- [ ] Revalidar Linux CI, Windows portable-host E2E e visual regression no mesmo HEAD antes de integrar.
