@@ -414,7 +414,9 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
     assert.equal(restored.version, "0.1.0");
     assert.equal(restored.recoveryRequired, false);
     await reopened.close();
+    reopened = null;
   } finally {
+    await reopened?.close();
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
