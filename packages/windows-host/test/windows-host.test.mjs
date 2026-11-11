@@ -8,6 +8,9 @@ import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.
 
 const testSecrets = new Map();
 function fakeSecretVault({ installationId, namespace }) {
+  if (typeof namespace !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/.test(namespace)) {
+    throw new TypeError("windows_cng_secret_namespace_invalid");
+  }
   const scoped = name => [installationId, namespace, name].join("\\0");
   return Object.freeze({
     async getSecret(name) { return testSecrets.get(scoped(name)) ?? null; },
