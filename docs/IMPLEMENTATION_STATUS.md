@@ -481,3 +481,12 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 
 - [x] Corrigir a allowlist do bundle Windows para incluir as dependências transitivas do AdapterGateway (`adapter-gateway`, `runtime-session`, `runtime-state`, `adapter-contract`) e validar a lista no teste independente.
 - [ ] Reexecutar Linux, Windows e regressão visual no mesmo HEAD final; a execução anterior falhou no E2E Windows por módulo ausente no bundle, embora os testes de identidade/CNG tenham passado.
+
+
+## Installation lifecycle controller — PR em desenvolvimento (2026-11-11)
+- Implementado coordenador serializado para install/start/stop/restart/upgrade/rollback/uninstall com driver de plataforma e store injetados.
+- Instalação e arranque só são confirmados após health `ready`; falhas ficam `degraded`.
+- Upgrade cria backup antes de ativar; falha tenta restaurar versão anterior e retomar o runtime.
+- Uninstall retém dados por omissão; apagar dados exige `retainData: false` explícito e só ocorre depois de remover runtime.
+- Testes adicionados para transições, persistência/reabertura, concorrência, falha de health, rollback e retenção de dados. CI ainda não executado no HEAD final.
+- Limite: não há driver Windows real, serviço Windows, MSI/MSIX, assinatura de distribuição ou validação física. Não declarar instalador pronto.
