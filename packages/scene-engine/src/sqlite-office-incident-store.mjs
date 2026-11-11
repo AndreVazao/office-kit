@@ -183,34 +183,6 @@ export class SqliteOfficeIncidentStore {
       || typeof snapshot.id !== "string" || !Number.isSafeInteger(snapshot.revision) || snapshot.revision < 1) {
       throw new Error("incident_event_snapshot_invalid");
     }
-    if (this.#macProvider) {
-      const macRows = this.#database.prepare([
-        "SELECT sequence, key_id, previous_mac, event_mac FROM office_kit_incident_event_macs",
-        "WHERE installation_id = ? ORDER BY sequence ASC"
-      ].join(" ")).all(this.#installationId);
-      if (macRows.length !== rows.length) throw new Error("incident_mac_chain_incomplete");
-      let previousMac = ZERO_HASH;
-      for (let index = 0; index < macRows.length; index += 1) {
-        const macRow = macRows[index];
-        const eventRow = rows[index];
-        const expectedMac = this.#macProvider.hmacSha256Hex(
-          this.#macMessage(Number(eventRow.sequence), eventRow.event_hash, previousMac)
-        );
-        if (Number(macRow.sequence) !== Number(eventRow.sequence)
-          || macRow.key_id !== this.#macProvider.keyId
-          || macRow.previous_mac !== previousMac
-          || typeof expectedMac !== "string" || expectedMac !== macRow.event_mac) {
-          throw new Error("incident_mac_chain_corrupt");
-        }
-        previousMac = expectedMac;
-      }
-    } else {
-      const macCount = this.#database.prepare(
-        "SELECT COUNT(*) AS count FROM office_kit_incident_event_macs WHERE installation_id = ?"
-      ).get(this.#installationId);
-      if (Number(macCount.count) !== 0 && !allowUnkeyed) throw new Error("incident_integrity_key_unavailable");
-    }
-
     const head = this.#database.prepare([
       "SELECT sequence, head_hash FROM office_kit_incident_chain_heads",
       "WHERE installation_id = ?"
@@ -378,6 +350,34 @@ export class SqliteOfficeIncidentStore {
       previousHash = expectedHash;
       latestByIncident.set(event.incidentId, event);
       expectedSequence += 1;
+    }
+
+    if (this.#macProvider) {
+      const macRows = this.#database.prepare([
+        "SELECT sequence, key_id, previous_mac, event_mac FROM office_kit_incident_event_macs",
+        "WHERE installation_id = ? ORDER BY sequence ASC"
+      ].join(" ")).all(this.#installationId);
+      if (macRows.length !== rows.length) throw new Error("incident_mac_chain_incomplete");
+      let previousMac = ZERO_HASH;
+      for (let index = 0; index < macRows.length; index += 1) {
+        const macRow = macRows[index];
+        const eventRow = rows[index];
+        const expectedMac = this.#macProvider.hmacSha256Hex(
+          this.#macMessage(Number(eventRow.sequence), eventRow.event_hash, previousMac)
+        );
+        if (Number(macRow.sequence) !== Number(eventRow.sequence)
+          || macRow.key_id !== this.#macProvider.keyId
+          || macRow.previous_mac !== previousMac
+          || typeof expectedMac !== "string" || expectedMac !== macRow.event_mac) {
+          throw new Error("incident_mac_chain_corrupt");
+        }
+        previousMac = expectedMac;
+      }
+    } else {
+      const macCount = this.#database.prepare(
+        "SELECT COUNT(*) AS count FROM office_kit_incident_event_macs WHERE installation_id = ?"
+      ).get(this.#installationId);
+      if (Number(macCount.count) !== 0 && !allowUnkeyed) throw new Error("incident_integrity_key_unavailable");
     }
 
     const head = this.#database.prepare([
