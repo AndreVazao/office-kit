@@ -267,8 +267,7 @@ export function createWindowsHost({
     runtime = runtimeFactory({
       database: sqliteAdapter(database),
       installationId,
-      hostExecutable: helperPath,
-      platform
+      hostExecutable: helperPath
     });
     var incidentStore = new SqliteOfficeIncidentStore({
       database: sqliteAdapter(database),
@@ -411,7 +410,8 @@ export function createWindowsHost({
       database: sqliteAdapter(database),
       installationId,
       namespace,
-      hostExecutable: helperPath
+      hostExecutable: helperPath,
+      platform
     });
   }
 
