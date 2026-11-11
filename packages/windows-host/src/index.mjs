@@ -500,6 +500,7 @@ export function createWindowsHost({
     const managed = Object.freeze({
       connect: async adapter => {
         if (disposed) throw new Error("managed_gateway_closed");
+        await ensureReady();
         if (!adapter?.metadata?.id || typeof adapter.metadata.id !== "string") {
           throw new TypeError("managed_gateway_adapter_identity_required");
         }
@@ -514,12 +515,14 @@ export function createWindowsHost({
       },
       receiveEvent: async event => {
         if (disposed) throw new Error("managed_gateway_closed");
+        await ensureReady();
         const result = gateway.receiveEvent(event);
         await synchronize();
         return result;
       },
       checkHealth: async () => {
         if (disposed) throw new Error("managed_gateway_closed");
+        await ensureReady();
         const state = gateway.checkHealth();
         enqueueObservation(state);
         await pending;
@@ -527,6 +530,7 @@ export function createWindowsHost({
       },
       disconnect: async () => {
         if (disposed) return { state: gateway.getState(), error: null };
+        await ensureReady();
         const result = await gateway.disconnect();
         await synchronize();
         return result;
@@ -541,6 +545,7 @@ export function createWindowsHost({
       }),
       close: async () => {
         if (disposed) return;
+        await ensureReady();
         await gateway.disconnect();
         await synchronize();
         disposed = true;
