@@ -22,7 +22,7 @@ function runPowerShell(serviceName, spawnImpl, timeoutMs) {
   const script = [
     "$ErrorActionPreference = 'Stop'",
     "$filter = \"Name = '$env:OFFICE_KIT_SERVICE_NAME'\"",
-    "$items = @(Get-CimInstance -ClassName Win32_Service -Filter $filter)",
+    "$items = @(Get-CimInstance -ClassName Win32_Service -Filter $filter -OperationTimeoutSec 10)",
     "if ($items.Count -ne 1) { [Console]::Error.WriteLine('service_identity_not_unique'); exit 21 }",
     "$s = $items[0]",
     "[pscustomobject]@{ Name=$s.Name; State=$s.State; StartMode=$s.StartMode; PathName=$s.PathName; ProcessId=$s.ProcessId; StartName=$s.StartName } | ConvertTo-Json -Compress"
