@@ -376,3 +376,42 @@ test("managed adapter gateway requires explicit diagnostic probes and closes wit
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+
+test("host-bound lifecycle controller persists operation state in the host SQLite database", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-lifecycle-"));
+  const events = [];
+  const driver = Object.fromEntries([
+    "stage", "install", "start", "stop", "activate", "backupCurrent",
+    "restorePrevious", "removeRuntime", "removeData"
+  ].map(name => [name, async input => { events.push([name, input]); }]));
+  driver.health = async () => ({ status: "ready" });
+  let host;
+  try {
+    host = setup(directory);
+    const lifecycle = host.createInstallationLifecycleRuntime({ driver });
+    assert.equal((await lifecycle.initialize()).state, "absent");
+    const installed = await lifecycle.install({
+      installationId: host.installationId,
+      version: "0.1.0",
+      packagePath: join(directory, "package")
+    });
+    assert.equal(installed.state, "installed");
+    await lifecycle.start();
+    assert.equal(lifecycle.status().state, "running");
+    assert.ok(events.some(([name]) => name === "install"));
+    await host.close();
+    host = null;
+
+    const reopened = setup(directory);
+    const restoredLifecycle = reopened.createInstallationLifecycleRuntime({ driver });
+    const restored = await restoredLifecycle.initialize();
+    assert.equal(restored.state, "running");
+    assert.equal(restored.version, "0.1.0");
+    assert.equal(restored.recoveryRequired, false);
+    await reopened.close();
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
