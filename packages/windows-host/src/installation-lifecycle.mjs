@@ -244,7 +244,7 @@ export function createInstallationLifecycle({ driver, store, clock = Date.now } 
       requireRecord("installed", "running", "stopped", "degraded");
       if (typeof retainData !== "boolean") throw new TypeError("installation_lifecycle_retain_data_boolean_required");
       const prior = record.state;
-      await checkpoint("uninstall", "uninstall_started", { priorState: prior, retainData });
+      await checkpoint("uninstall", "uninstall_started", { priorState: prior, retainData, state: "uninstalling" });
       if (prior === "running" || prior === "degraded") {
         await checkpoint("uninstall", "stop_started", { priorState: prior, retainData });
         await driver.stop({ installationId: record.installationId });
