@@ -259,7 +259,9 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
     await reopened.close();
+    reopened = null;
   } finally {
+    await reopened?.close();
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
@@ -387,6 +389,7 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
   ].map(name => [name, async input => { events.push([name, input]); }]));
   driver.health = async () => ({ status: "ready" });
   let host;
+  let reopened;
   try {
     host = setup(directory);
     const lifecycle = host.createInstallationLifecycleRuntime({ driver });
@@ -403,7 +406,7 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
     await host.close();
     host = null;
 
-    const reopened = setup(directory);
+    reopened = setup(directory);
     const restoredLifecycle = reopened.createInstallationLifecycleRuntime({ driver });
     const restored = await restoredLifecycle.initialize();
     assert.equal(restored.state, "running");
