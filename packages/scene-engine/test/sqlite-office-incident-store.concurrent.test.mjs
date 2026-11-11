@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHash, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -13,6 +14,11 @@ try { ({ DatabaseSync } = await import("node:sqlite")); } catch {}
 import { SqliteOfficeIncidentStore } from "../src/sqlite-office-incident-store.mjs";
 
 const sqliteTest = (name, fn) => test(name, { skip: !DatabaseSync, timeout: 20_000 }, fn);
+
+const cryptoProvider = Object.freeze({
+  sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
+  randomUUID
+});
 
 function adapter(database) {
   const transaction = callback => {
@@ -41,7 +47,7 @@ function adapter(database) {
 const incident = id => ({
   schemaVersion: 1,
   id,
-  occurredAt: "2026-11-10T12:00:00.000Z",
+  occurredAt: "2026-11-11T12:00:00.000Z",
   edition: "universal",
   status: "degraded",
   origin: "transport",
@@ -54,20 +60,22 @@ const incident = id => ({
 const moduleUrl = new URL("../src/sqlite-office-incident-store.mjs", import.meta.url).href;
 const childSource = [
   'import { DatabaseSync } from "node:sqlite";',
+  'import { createHash, randomUUID } from "node:crypto";',
   'import { existsSync, writeFileSync } from "node:fs";',
   'import { setTimeout as delay } from "node:timers/promises";',
   'import { SqliteOfficeIncidentStore } from ' + JSON.stringify(moduleUrl) + ';',
-  'const [filename, installationId, incidentId, readyPath, startPath] = process.argv.slice(1);',
+  'const [filename, installationId, incidentId, readyPath, startPath, marker] = process.argv.slice(1);',
+  'const cryptoProvider = { sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"), randomUUID };',
   'const database = new DatabaseSync(filename);',
   'database.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;");',
   'const transaction = callback => {',
   '  const run = mode => { database.exec("BEGIN " + mode); try { const result = callback(); database.exec("COMMIT"); return result; } catch (error) { try { database.exec("ROLLBACK"); } catch {} throw error; } };',
   '  const wrapped = () => run(""); wrapped.immediate = () => run("IMMEDIATE"); return wrapped;',
   '};',
-  'const store = new SqliteOfficeIncidentStore({ database: { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction }, installationId });',
+  'const store = new SqliteOfficeIncidentStore({ database: { exec: sql => database.exec(sql), prepare: sql => database.prepare(sql), transaction }, installationId, cryptoProvider });',
   'writeFileSync(readyPath, "ready");',
   'while (!existsSync(startPath)) await delay(10);',
-  'await store.update(incidentId, { childMarker: true });',
+  'await store.update(incidentId, { [marker]: true });',
   'database.close();'
 ].join("\n");
 
@@ -83,65 +91,69 @@ async function waitForFile(path, child, timeoutMs = 10_000) {
   throw new Error("incident update child did not become ready");
 }
 
-sqliteTest("serializes concurrent incident updates across independent SQLite processes", async () => {
+sqliteTest("serializes concurrent journal updates across independent SQLite processes", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-incident-concurrency-"));
   const filename = join(directory, "incidents.sqlite");
-  const readyPath = join(directory, "child.ready");
-  const startPath = join(directory, "child.start");
+  const startPath = join(directory, "children.start");
   const installationId = "install-office-01";
   const incidentId = "incident-concurrent-01";
+  const readyA = join(directory, "child-a.ready");
+  const readyB = join(directory, "child-b.ready");
   let database;
-  let child;
+  let childA;
+  let childB;
   let lockHeld = false;
-  let stderr = "";
+  let stderrA = "";
+  let stderrB = "";
 
   try {
     database = new DatabaseSync(filename);
     database.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;");
-    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId });
+    const store = new SqliteOfficeIncidentStore({ database: adapter(database), installationId, cryptoProvider });
     await store.append(incident(incidentId));
 
-    child = spawn(process.execPath, [
+    const args = (readyPath, marker) => [
       "--input-type=module", "-e", childSource,
-      filename, installationId, incidentId, readyPath, startPath
-    ], { stdio: ["ignore", "ignore", "pipe"] });
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", chunk => { stderr += chunk; });
-    const childExit = once(child, "exit");
-    await waitForFile(readyPath, child);
+      filename, installationId, incidentId, readyPath, startPath, marker
+    ];
+    childA = spawn(process.execPath, args(readyA, "childMarkerA"), { stdio: ["ignore", "ignore", "pipe"] });
+    childB = spawn(process.execPath, args(readyB, "childMarkerB"), { stdio: ["ignore", "ignore", "pipe"] });
+    childA.stderr.setEncoding("utf8");
+    childB.stderr.setEncoding("utf8");
+    childA.stderr.on("data", chunk => { stderrA += chunk; });
+    childB.stderr.on("data", chunk => { stderrB += chunk; });
+    const exitA = once(childA, "exit");
+    const exitB = once(childB, "exit");
+    await waitForFile(readyA, childA);
+    await waitForFile(readyB, childB);
 
     database.exec("BEGIN IMMEDIATE");
     lockHeld = true;
-    const row = database.prepare(
-      "SELECT incident_json, revision FROM office_kit_incidents WHERE installation_id = ? AND incident_id = ?"
-    ).get(installationId, incidentId);
-    const current = JSON.parse(row.incident_json);
-    const parentRevision = Number(row.revision) + 1;
-    const parentState = { ...current, parentMarker: true, revision: parentRevision };
-    database.prepare(
-      "UPDATE office_kit_incidents SET revision = ?, incident_json = ? WHERE installation_id = ? AND incident_id = ? AND revision = ?"
-    ).run(parentRevision, JSON.stringify(parentState), installationId, incidentId, row.revision);
-
     writeFileSync(startPath, "go");
-    await delay(200);
+    await delay(250);
     database.exec("COMMIT");
     lockHeld = false;
 
-    const [code, signal] = await childExit;
-    assert.equal(code, 0, stderr || "child incident update failed");
-    assert.equal(signal, null);
+    const [[codeA, signalA], [codeB, signalB]] = await Promise.all([exitA, exitB]);
+    assert.equal(codeA, 0, stderrA || "child A incident update failed");
+    assert.equal(codeB, 0, stderrB || "child B incident update failed");
+    assert.equal(signalA, null);
+    assert.equal(signalB, null);
 
     const final = await store.get(incidentId);
-    assert.equal(final.parentMarker, true);
-    assert.equal(final.childMarker, true);
+    assert.equal(final.childMarkerA, true);
+    assert.equal(final.childMarkerB, true);
     assert.equal(final.revision, 3);
+    assert.equal(store.verifyIntegrity().eventCount, 3);
   } finally {
     if (lockHeld) {
       try { database?.exec("ROLLBACK"); } catch {}
     }
-    if (child && child.exitCode === null && child.signalCode === null) {
-      child.kill();
-      await once(child, "exit");
+    for (const child of [childA, childB]) {
+      if (child && child.exitCode === null && child.signalCode === null) {
+        child.kill();
+        await once(child, "exit");
+      }
     }
     database?.close();
     rmSync(directory, { recursive: true, force: true });

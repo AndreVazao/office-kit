@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
   fsyncSync,
@@ -270,7 +270,11 @@ export function createWindowsHost({
     });
     var incidentStore = new SqliteOfficeIncidentStore({
       database: sqliteAdapter(database),
-      installationId
+      installationId,
+      cryptoProvider: {
+        sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
+        randomUUID
+      }
     });
     var installationLifecycleStore = new SqliteInstallationLifecycleStore({
       database: sqliteAdapter(database),
