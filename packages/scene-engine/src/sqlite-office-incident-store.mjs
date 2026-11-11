@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 const ZERO_HASH = "0".repeat(64);
 const MAC_DOMAIN = "office-kit-incident-event-mac-v1";
 const EVENT_TYPES = new Set(["incident.imported_snapshot", "incident.created", "incident.updated"]);
@@ -57,6 +59,12 @@ function stableJson(value) {
     return "{" + Object.keys(value).sort().map(key => JSON.stringify(key) + ":" + stableJson(value[key])).join(",") + "}";
   }
   return JSON.stringify(value);
+}
+
+function constantTimeHexEqual(left, right) {
+  if (typeof left !== "string" || typeof right !== "string"
+    || !/^[a-f0-9]{64}$/.test(left) || !/^[a-f0-9]{64}$/.test(right)) return false;
+  return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 
 function parseStoredIncident(row, installationId) {
@@ -246,6 +254,13 @@ export class SqliteOfficeIncidentStore {
     return [MAC_DOMAIN, this.#installationId, String(sequence), eventHash, previousMac].join("\\0");
   }
 
+  hasMacRecords() {
+    const row = this.#database.prepare(
+      "SELECT COUNT(*) AS count FROM office_kit_incident_event_macs WHERE installation_id = ?"
+    ).get(this.#installationId);
+    return Number(row.count) > 0;
+  }
+
   configureMacProvider(provider) {
     if (!provider || typeof provider.keyId !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(provider.keyId)
       || typeof provider.hmacSha256Hex !== "function") {
@@ -368,7 +383,8 @@ export class SqliteOfficeIncidentStore {
         if (Number(macRow.sequence) !== Number(eventRow.sequence)
           || macRow.key_id !== this.#macProvider.keyId
           || macRow.previous_mac !== previousMac
-          || typeof expectedMac !== "string" || expectedMac !== macRow.event_mac) {
+          || typeof expectedMac !== "string"
+          || !constantTimeHexEqual(expectedMac, macRow.event_mac)) {
           throw new Error("incident_mac_chain_corrupt");
         }
         previousMac = expectedMac;
@@ -410,7 +426,9 @@ export class SqliteOfficeIncidentStore {
       eventCount: rows.length,
       headHash: rows.length ? previousHash : null,
       externalAnchor: false,
-      tamperEvidence: false,
+      macAlgorithm: this.#macProvider ? "HMAC-SHA-256" : null,
+      keyId: this.#macProvider?.keyId ?? null,
+      tamperEvidence: Boolean(this.#macProvider),
       tamperResistance: false
     });
   }
