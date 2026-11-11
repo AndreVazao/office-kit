@@ -498,3 +498,10 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Testes cobrem round-trip/reabertura, isolamento entre instalações, argumentos inválidos, JSON corrompido e commit.
 - O host usa WAL e `synchronous=FULL`; isto protege transações SQLite, mas não substitui backup de binários/pacotes nem recovery do driver de plataforma.
 - CI ainda pendente; sem driver de serviço Windows/Linux ou instalador MSI/MSIX nesta etapa.
+
+
+### Correção do bundle Windows — PR #66 (2026-11-11)
+- O E2E Windows no HEAD anterior falhou porque `index.mjs` passou a importar `sqlite-installation-lifecycle-store.mjs`, mas o builder do bundle portátil não incluía esse módulo.
+- A allowlist explícita do builder e a allowlist independente do teste foram atualizadas para incluir o store; o manifesto deriva a lista do builder e o E2E compara os ficheiros efetivamente copiados.
+- O erro anterior impediu a validação do host portátil; não foi uma falha de SQLite/CNG. A correção ainda exige nova execução Linux, Windows E2E e visual regression no mesmo HEAD.
+- Sem alteração dos backends DGM-MAT/VST; nenhum teste físico foi executado.
