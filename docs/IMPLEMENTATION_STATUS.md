@@ -522,3 +522,9 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - O host expõe `createInstallationLifecycleRuntime({ driver, clock })`, ligando o coordenador ao store SQLite da própria instalação.
 - Teste de integração de composição cobre initialize/install/start, fecho do host e recuperação do estado após reabertura da base SQLite.
 - O driver continua simulado/injetado; ainda não existe gestão real de serviços/processos Windows, instalador MSI/MSIX, assinatura de release ou validação física.
+
+
+### Isolamento do lifecycle por instalação e higiene de testes — PR em desenvolvimento (2026-11-11)
+- O facade do Windows host valida o `installationId` recebido em `install()` antes de qualquer checkpoint ou chamada ao driver; instalações cruzadas são recusadas sem efeitos laterais.
+- O teste de composição confirma que uma identidade diferente é rejeitada antes de `stage/install` e fecha sempre o host reaberto no bloco `finally`.
+- A alteração protege a fronteira do host, mas não substitui autenticação/autorização do utilizador nem um driver de sistema operativo.
