@@ -140,7 +140,7 @@ test("recovery cleans an interrupted install without deleting user data", async 
   const f = fixture();
   await f.lifecycle.initialize();
   await f.store.save({
-    installationId: "office-1", version: "1.0.0", previousVersion: null,
+    installationId: "office-1", version: null, targetVersion: "1.0.0", previousVersion: null,
     state: "absent", dataRetained: true, updatedAt: 101, lastError: null,
     operation: { type: "install", phase: "install_started", startedAt: 100, updatedAt: 101 }
   });
