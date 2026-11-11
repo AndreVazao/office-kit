@@ -311,22 +311,11 @@ export function createInstallationLifecycle({ driver, store, clock = Date.now } 
       }
 
       if (type === "start" || type === "restart" || type === "stop") {
-        const priorState = operation.priorState;
-        const health = await driver.health();
-        if (priorState === "running" && health?.status !== "ready") {
-          await driver.start({ installationId });
-        } else if (priorState !== "running" && health?.status === "ready" && type === "stop") {
-          await driver.stop({ installationId });
-        }
-        const finalHealth = await driver.health();
-        const recoveredState = priorState === "running" && finalHealth?.status === "ready"
-          ? "running"
-          : priorState === "stopped" || type === "stop" ? "stopped" : "degraded";
-        if (recoveredState === "degraded") {
-          await persist({ ...record, state: "degraded", updatedAt: clock(), lastError: "lifecycle_recovery_health_indeterminate" });
-          throw new Error("installation_lifecycle_recovery_health_indeterminate");
-        }
-        return persist({ ...record, state: recoveredState, operation: null, updatedAt: clock(), lastError: "interrupted_operation_reconciled" });
+        await persist({
+          ...record, state: "degraded", updatedAt: clock(),
+          lastError: "service_transition_interrupted_manual_recovery_required"
+        });
+        throw new Error("installation_lifecycle_service_transition_recovery_requires_operator");
       }
 
       if (type === "rollback") {
