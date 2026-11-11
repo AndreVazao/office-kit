@@ -505,3 +505,11 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - A allowlist explícita do builder e a allowlist independente do teste foram atualizadas para incluir o store; o manifesto deriva a lista do builder e o E2E compara os ficheiros efetivamente copiados.
 - O erro anterior impediu a validação do host portátil; não foi uma falha de SQLite/CNG. A correção ainda exige nova execução Linux, Windows E2E e visual regression no mesmo HEAD.
 - Sem alteração dos backends DGM-MAT/VST; nenhum teste físico foi executado.
+
+
+### Recuperação de ciclo de vida interrompido — PR em desenvolvimento (2026-11-11)
+- O coordenador persiste checkpoints antes/depois de staging, instalação, paragem, backup, ativação, arranque e desinstalação; o registo SQLite conserva o journal dentro do JSON da instalação.
+- `initialize()` deteta uma operação pendente e expõe `recoveryRequired: true`; não executa operações de plataforma automaticamente no arranque.
+- `recover()` permite limpar uma instalação interrompida preservando dados e reverter uma atualização quando existe checkpoint de backup concluído. A recuperação valida health antes de confirmar o estado.
+- Se o backup foi interrompido durante a chamada, ou se uma desinstalação/rollback/transição de serviço foi interrompida, o coordenador falha fechado e exige intervenção do operador. Não repete remoção de dados nem presume o estado do serviço.
+- A recuperação usa driver injetado e testes simulados; não prova um driver Windows/Linux real, MSI/MSIX, serviço do sistema ou PC físico.
