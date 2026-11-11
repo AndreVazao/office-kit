@@ -16,6 +16,7 @@ import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
 import { detectHostHardwareCapabilities } from "./hardware-capabilities.mjs";
+import { SqliteInstallationLifecycleStore } from "./sqlite-installation-lifecycle-store.mjs";
 import { resolveAdaptiveResourcePolicy } from "../../scene-engine/src/resource-policy.mjs";
 import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-incident-store.mjs";
 import { AdapterGateway } from "../../scene-engine/src/adapter-gateway.mjs";
@@ -270,6 +271,11 @@ export function createWindowsHost({
       database: sqliteAdapter(database),
       installationId
     });
+    var installationLifecycleStore = new SqliteInstallationLifecycleStore({
+      database: sqliteAdapter(database),
+      installationId,
+      clock: now
+    });
   } catch (error) {
     try { database?.close(); } catch { /* Preserve initialization error. */ }
     try { releaseLock?.(); } catch { /* Preserve initialization error. */ }
@@ -484,6 +490,7 @@ export function createWindowsHost({
   return Object.freeze({
     installationId,
     incidentStore,
+    installationLifecycleStore,
     createDiagnostics,
     getResourcePolicy,
     refreshResourcePolicy,
