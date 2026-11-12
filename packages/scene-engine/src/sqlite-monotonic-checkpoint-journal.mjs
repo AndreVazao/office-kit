@@ -222,7 +222,6 @@ export class SqliteMonotonicCheckpointJournal {
       if (!sameCheckpoint(persistedExpected, expected) || !sameCheckpoint(persistedNext, target)) {
         throw new Error("sqlite_monotonic_prepare_mismatch");
       }
-      const current = this.#readCheckpointSync();
       if (sameCheckpoint(current, target)) {
         this.#database.prepare("DELETE FROM office_kit_monotonic_prepares WHERE installation_id = ? AND prepare_id = ?")
           .run(this.#installationId, record.id);
