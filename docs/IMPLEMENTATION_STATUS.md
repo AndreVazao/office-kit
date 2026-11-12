@@ -193,7 +193,7 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - Polling serializado com intervalo configurável e timeout limitado; 401/403, redirects e respostas inesperadas falham fechados.
 - A resposta atual `/runtime/status` não tem watermark de frescura de origem. O adaptador mantém o snapshot como `synchronizing` e não publica agentes/tarefas como confirmados.
 - Testes unitários cobrem loopback, sessão injetada, GET-only, allowlist, sanitização, estado não verificado e rejeição de sessão.
-- Pendente: provider real de sessão ligado ao keystore seguro, watermark autoritativo, testes E2E no PC com DGM-MAT ativo e validação CI/visual no HEAD final. Não declarar integração operacional antes disso.
+- O provider de sessão e a composição CNG DGM-MAT-only foram posteriormente ligados no host Windows e integrados na PR #72. Continua pendente um watermark autoritativo que prove sincronização atual; o estado fica unverified até live E2E contra DGM-MAT e validação no PC físico.
 
 
 ## DGM-MAT endpoint security hardening — 2026-11-04
