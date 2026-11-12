@@ -621,7 +621,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Verificação antes de leitura/exportação, baseline autenticada para journals SHA-256 legados e testes de persistência CNG entre processos/aberturas do host.
 - [x] Keyring limitado com IDs únicos e active key explícita; verificação histórica por `key_id`; novos eventos usam a chave ativa; MACs antigos não são reescritos.
 - [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
-- [ ] Concluir a PR #79: provisioning/rotação Windows CNG pelo host com consentimento explícito, active-key pointer persistente, recuperação após interrupção e retenção das chaves históricas; aguarda CI Linux/Windows Node 22/26.13.1, CNG nativo e regressão visual no mesmo HEAD.
+- [x] PR #79 integrada em `4d9181f2e93a9596bf268fa521a8860d14355d1b`: rotação Windows CNG pelo host com consentimento explícito, active-key pointer persistente, recuperação após interrupção e retenção de chaves históricas; CI Linux/Windows Node 22/26.13.1 e regressão visual pós-merge passaram no mesmo SHA.
 - [ ] Implementar âncora monotónica fora do SQLite e protocolo anti-rollback/crash-recovery.
 - [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar providers equivalentes para Linux, macOS e Android.
@@ -655,8 +655,8 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 
 ### Restantes gates globais
 
-- [ ] Implementar rotação CNG gerida pelo host com consentimento, validação de toda a cadeia e retenção segura de chaves antigas.
-- [ ] Adicionar âncora monotónica externa para detectar rollback/truncagem para prefixos antigos válidos.
+- [x] Implementar rotação CNG gerida pelo host com consentimento, validação histórica por key ID e retenção segura de chaves antigas (PR #79; pós-merge CI e visual verdes em `4d9181f...`).
+- [ ] Especificar e implementar âncora monotónica externa ao SQLite para detetar rollback/truncagem para prefixos antigos válidos; ver `docs/security/ANTI_ROLLBACK_PROTOCOL.md`.
 - [ ] Testar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar keystores/hosts nativos equivalentes para Linux, macOS e Android.
 - [ ] Construir instaladores nativos assinados, atualização/rollback e desinstalação com retenção de dados explícita.
