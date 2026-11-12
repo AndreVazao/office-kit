@@ -142,7 +142,7 @@ test("coordinates a real SQLite checkpoint journal with a fake anchor and recove
   }
 });
 
-test("retains an ambiguous prepare and refuses a mismatched local checkpoint", async () => {
+test("retains a prepared checkpoint and rejects duplicate prepares or unrelated discard", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-monotonic-mismatch-"));
   const filename = join(directory, "journal.sqlite");
   const lock = lockProvider();
