@@ -626,10 +626,36 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar providers equivalentes para Linux, macOS e Android.
 
-### Gate de runtime SQLite
+### Gate de runtime SQLite — CI concluído em 2026-11-12
 
-- [ ] Validar a matriz Node 22 + Node 26.13.1 em Linux/Windows na PR #77; manter o engine floor sem aumento até os resultados e a compatibilidade serem confirmados.
-- [ ] Tratar explicitamente a maturidade de `node:sqlite`: nos docs Node 26 está em Stability 1.2 — Release Candidate; Node 22 continua LTS mas a API é Experimental nessa linha.
-- [ ] Confirmar CI e regressão visual no mesmo HEAD da PR #77 após mover o workflow visual e os três builds manuais de edição para Node 26.13.1.
-- [ ] Alinhar `engines`, CI Linux/Windows, builds das três edições e bundle portátil.
-- [ ] Validar migração, locking, concorrência e recuperação no runtime final; testes atuais não demonstram power-loss físico.
+- [x] PR #77 squash-merged em `d0bcd59055202e7a845bb2b103cf91c72597a1b2`; HEAD final `fe811f4d8b44ae81b4294bd2e108065212176bde`.
+- [x] CI #43226023576 passou Node 22 e Node 26.13.1 em Linux/Windows; Windows executou CNG nativo, identidade persistente, journal autenticado e bundle portátil E2E em ambos os runtimes.
+- [x] Regressão visual #43226023574 passou com Chromium em Node 26.13.1; workflows visuais e builds manuais das três edições foram movidos para Node 26.13.1.
+- [x] Builds dos três source packages passaram na matriz Linux Node 22/26.13.1.
+- [ ] Manter o engine floor `>=22.5.0` até a maturidade de `node:sqlite` justificar uma decisão diferente: Experimental no Node 22 e Stability 1.2 — Release Candidate no Node 26.
+- [ ] Validar migração, locking, concorrência e recuperação no runtime final; os testes atuais não demonstram power-loss físico.
+
+
+## Estado consolidado de produção — 2026-11-12
+
+### VST — adaptador read-only preview
+
+- [x] Implementar entrypoint VST separado e manter o entrypoint genérico independente.
+- [x] Limitar o adapter a loopback autenticado `GET /observer/summary` com `X-Token`, sem redirects, rede remota ou rotas de escrita.
+- [x] Compor host Windows VST com namespace CNG `vst.local-api`; provisioning/removal exigem consentimento explícito e ligação é manual.
+- [x] Não inventar agentes/tarefas; manter `executionAuthorized=false`, `allowRiskBearingActions=false` e readiness `unverified`.
+- [x] Adicionar testes de contrato/frescor, segredo, sessão, cancelamento, reconnect e isolamento dos tarballs das três edições.
+- [ ] Passar Linux/Windows CI e regressão visual no HEAD final da PR de implementação.
+- [ ] Executar live E2E read-only contra uma instância VST real; verificar o contrato de rota, autenticação, campos e semântica do timestamp.
+- [ ] Validar provisioning, reconnect, disconnect e restart com CNG nativo através da composição VST no Windows.
+- [ ] Validar o fluxo no PC físico; os testes fake e runners GitHub não substituem esta etapa.
+
+### Restantes gates globais
+
+- [ ] Implementar rotação CNG gerida pelo host com consentimento, validação de toda a cadeia e retenção segura de chaves antigas.
+- [ ] Adicionar âncora monotónica externa para detectar rollback/truncagem para prefixos antigos válidos.
+- [ ] Testar power-loss/filesystem durability e backup/restore em hardware físico.
+- [ ] Implementar keystores/hosts nativos equivalentes para Linux, macOS e Android.
+- [ ] Construir instaladores nativos assinados, atualização/rollback e desinstalação com retenção de dados explícita.
+- [ ] Completar live E2E DGM-MAT e VST, licenciamento/ativação de produção e isolamento multi-organização.
+- [ ] Integrar onboarding, UX adaptativa, acessibilidade, observabilidade e recuperação no host instalado.
