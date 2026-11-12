@@ -14,6 +14,8 @@ const SAFE_ERROR_CODES = new Set([
   "vst_request_timeout",
   "vst_token_provider_failed",
   "vst_local_token_unavailable",
+  "vst_local_token_vault_unavailable",
+  "vst_local_token_invalid",
   "vst_auth_rejected",
   "vst_transport_error",
   "vst_invalid_content_type",
@@ -162,9 +164,9 @@ export class VstReadOnlyAdapter {
       let token;
       try {
         token = await this.getAccessToken({ signal });
-      } catch {
+      } catch (error) {
         if (signal.aborted) throw new Error("vst_request_timeout");
-        throw new Error("vst_token_provider_failed");
+        throw new Error(safeErrorCode(error, "vst_token_provider_failed"));
       }
       if (signal.aborted) throw new Error("vst_request_timeout");
       if (typeof token !== "string" || token.length < 16 || token.length > 8_192
@@ -271,6 +273,7 @@ export class VstReadOnlyAdapter {
   }
 
   async connect() {
+    if (this.connected && this.authenticationRejected) throw new Error("vst_auth_rejected");
     if (this.connected) return { connected: true, sourceId: SOURCE_ID, sessionId: this.sessionId };
     const generation = ++this.connectionGeneration;
     await this.#get("/observer/summary");
@@ -297,6 +300,7 @@ export class VstReadOnlyAdapter {
 
   async getSnapshot() {
     if (!this.connected) throw new Error("vst_adapter_not_connected");
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
     return this.#toSnapshot(await this.#get("/observer/summary"));
   }
 
