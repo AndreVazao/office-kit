@@ -252,7 +252,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Exigir provider de sessão local injetado; nunca ler bootstrap token, criar sessão ou armazenar credenciais no adaptador.
 - [x] Expor apenas capacidade `read_state`; timeout limitado, `no-store`, redirects bloqueados e polling serializado.
 - [x] Falhas 401/403 e erros de transporte falham fechados.
-- [ ] Ligar o host à sessão local DGM-MAT através de keystore persistente e bootstrap protegido.
+- [x] Ligar o host Windows à sessão local DGM-MAT através de keystore CNG dedicado e bootstrap protegido (PR #72); live E2E e validação física continuam pendentes.
 - [ ] Obter do DGM-MAT uma marca temporal/freshness watermark autoritativa para validar estado sincronizado.
 - [ ] Executar testes E2E contra o DGM-MAT ativo no PC e confirmar leitura sem efeitos laterais.
 - [ ] Integrar o resumo verificado no Office UI sem confundir telemetria com agentes ativos.
@@ -272,7 +272,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - New branch `feat/dgmat-local-session-provider` implements `DgmMatLocalSessionProvider` for the documented `POST /auth/session` contract.
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
-- Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
+- Historical note superseded by PR #72: Windows CNG bootstrap vault and DGM-MAT-only host composition are integrated and CI-validated. Live DGM-MAT and physical-PC validation remain pending.
 
 
 ## Licenciamento comercial e distribuição assinada
@@ -520,7 +520,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Normalize provider/fetch errors; await bounded async invalidation on 401/403; prevent secret-shaped status/error values from entering Office Kit state/events.
 - [x] Generate a fresh UUID session identity per successful connection and reject late poll completions from earlier connection generations.
 - [x] Bound the full DGM-MAT local session exchange (bootstrap provider, POST and JSON body) and propagate caller cancellation.
-- [ ] Implement a dedicated Windows OS-keystore record/provider for the protected DGM-MAT bootstrap credential; do not reuse node-identity keys.
+- [x] Implement a dedicated Windows OS-keystore record/provider for the protected DGM-MAT bootstrap credential; do not reuse node-identity keys (PR #72).
 - [ ] Wire the DGM-MAT session provider into a DGM-MAT-only Windows host composition root.
 - [ ] Verify the live `/runtime/state` and `/auth/session` contracts against the running local DGM-MAT instance without enabling writes.
 - [ ] Run the full DGM-MAT edition workflow and validate on a physical PC. Unit/fake tests are not live integration.
@@ -603,22 +603,33 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Não declarar instalador até existir um executável/serviço host apropriado, pacote assinado e testes de instalação/upgrade/uninstall.
 
 
-### Fase 9E — credencial DGM-MAT protegida e composição isolada (2026-11-11)
-- [ ] Validar no mesmo HEAD o CNG secret vault: SQLite contém apenas envelope AES-256-GCM; chave RSA de wrapping não exportável no Windows Software KSP.
-- [ ] Validar persistência entre processos helper, cancelamento/deadline, isolamento por installation ID/namespace e destruição explícita da chave.
-- [ ] Confirmar que o bundle Windows portátil inclui o módulo genérico de secret vault e continua a excluir adaptadores/composição DGM-MAT.
-- [ ] Confirmar que apenas o tarball DGM-MAT exporta `./windows-host/dgmat`; Universal e VST mantêm apenas a primitiva genérica.
-- [ ] Validar provisioning/removal com consentimento explícito, conexão manual e modo read-only; nunca auto-conectar backend.
-- [ ] Executar teste live contra DGM-MAT e validação em PC físico; ambos continuam pendentes até haver evidência.
+### Fase 9E — credencial DGM-MAT protegida e composição isolada (PR #72 integrada, 2026-11-11)
 
-- [ ] Implement and physically validate a backup/recovery procedure for user-scoped CNG secret keys; SQLite-only backup must not be advertised as sufficient, and private keys must remain non-exportable.
+- [x] Validar no mesmo HEAD o CNG secret vault: SQLite contém apenas envelope AES-256-GCM; chave RSA de wrapping não exportável no Windows Software KSP.
+- [x] Validar persistência entre processos helper, cancelamento/deadline, isolamento por installation ID/namespace e bundle Windows portátil.
+- [x] Confirmar que apenas a edição DGM-MAT exporta `./windows-host/dgmat`; Universal e VST excluem a composição/credenciais DGM e mantêm a primitiva genérica.
+- [x] Validar provisioning/removal com consentimento explícito, conexão manual e modo read-only.
+- [ ] Executar teste live contra DGM-MAT e validação em PC físico.
+- [ ] Implementar e validar backup/restore do perfil CNG; SQLite-only backup não é suficiente e chaves privadas permanecem não exportáveis.
 
-### Segurança do journal — incremento HMAC (PR #73 integrado, 2026-11-12)
-- [x] MAC HMAC-SHA-256 por evento com encadeamento, domínio e instalação.
-- [x] Chave aleatória de 256 bits protegida pelo Windows CNG Software KSP.
-- [x] Falha fechada se a chave autenticadora desaparecer depois de existirem eventos autenticados.
-- [x] Verificação antes de leitura/exportação e migração controlada de histórico SHA-256 legado.
-- [x] Validar Linux, Windows CNG nativo, bundle portátil E2E e regressão visual no mesmo HEAD `7b390080645f910cf394ba9c10e83a2f81c8078c`; merge `e8bc303096f26b437d13b7fa820443427c72596e`.
-- [ ] Rotação/versionamento de chaves e recuperação explícita sem perder validação histórica.
-- [ ] Âncora monotónica fora do SQLite, protocolo de crash-recovery e procedimento de backup/recuperação do perfil Windows.
-- [ ] Providers equivalentes para Linux, macOS e Android; até lá, não prometer a mesma proteção fora do host Windows.
+**Evidência:** PR #72 squash-merged como `2395a8a841d8a0a29cc3d67a0e76eb352921f40f`; CI #493 e visual #413 passaram no HEAD `a616e902f8cf7fdbecbb1f5cd0a3e7a60cafc708`. O runner Windows validou integração nativa CNG; não é prova de execução no PC físico nem contra backend DGM-MAT ativo.
+
+### Segurança do journal — MAC e keyring versionado (PRs #73 e #75 integradas, 2026-11-12)
+
+- [x] MAC HMAC-SHA-256 por evento, encadeado com domínio, installation ID, sequência, hash do evento e MAC anterior.
+- [x] Chave aleatória de 256 bits protegida pelo Windows CNG Software KSP; fail-closed se a chave autenticadora desaparecer.
+- [x] Verificação antes de leitura/exportação, baseline autenticada para journals SHA-256 legados e testes de persistência CNG entre processos/aberturas do host.
+- [x] Keyring limitado com IDs únicos e active key explícita; verificação histórica por `key_id`; novos eventos usam a chave ativa; MACs antigos não são reescritos.
+- [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
+- [ ] Implementar provisioning/rotação de chaves pelo host com consentimento do proprietário, validação antes/depois e política segura de retenção/retirada de chaves antigas.
+- [ ] Implementar âncora monotónica fora do SQLite e protocolo anti-rollback/crash-recovery.
+- [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
+- [ ] Implementar providers equivalentes para Linux, macOS e Android.
+
+### Gate de runtime SQLite
+
+- [ ] Validar Node 26.13.1 LTS como candidato de runtime e fixar a versão após CI Linux/Windows; a release de 2026-11-11 é uma security release.
+- [ ] Tratar explicitamente a maturidade de `node:sqlite`: nos docs Node 26 está em Stability 1.2 — Release Candidate; Node 22 continua LTS mas a API é Experimental nessa linha.
+- [ ] Substituir Node 20 no workflow visual (EOL em 2026-03-24) por uma linha LTS suportada.
+- [ ] Alinhar `engines`, CI Linux/Windows, builds das três edições e bundle portátil.
+- [ ] Validar migração, locking, concorrência e recuperação no runtime final; testes atuais não demonstram power-loss físico.
