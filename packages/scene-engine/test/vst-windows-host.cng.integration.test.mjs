@@ -184,6 +184,22 @@ test("VST Windows composition persists its owner token through the real CNG vaul
     }
     try { firstCapture.database?.close(); } catch {}
     try { secondCapture.database?.close(); } catch {}
+    if (!tokenRemoved && DatabaseSync) {
+      try {
+        const cleanupDatabase = new DatabaseSync(filename);
+        try {
+          const cleanupVault = new WindowsCngSecretVault({
+            database: sqliteAdapter(cleanupDatabase),
+            installationId,
+            namespace: "vst.local-api",
+            hostExecutable
+          });
+          await cleanupVault.destroy();
+        } finally {
+          cleanupDatabase.close();
+        }
+      } catch {}
+    }
     rmSync(directory, { recursive: true, force: true });
   }
 });
