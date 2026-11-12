@@ -8,7 +8,7 @@ import {
 } from "../src/monotonic-anchor.mjs";
 
 const installationId = "officekit-anchor-test-001";
-const hash = value => value.repeat(64);
+const hash = value => value.toLowerCase().repeat(64);
 
 function checkpoint(generation, sequence, marker) {
   return {
@@ -16,7 +16,7 @@ function checkpoint(generation, sequence, marker) {
     generation,
     sequence,
     eventHash: sequence === 0 ? null : hash(marker),
-    eventMac: sequence === 0 ? null : hash(marker.toUpperCase()),
+    eventMac: sequence === 0 ? null : hash(marker),
     protocolVersion: 1
   };
 }
@@ -50,7 +50,7 @@ function providerFixture({ capabilities, initial = checkpoint(0, 0, "a") } = {})
 }
 
 test("declares the explicit anchor state machine and required guarantees", () => {
-  assert.deepEqual(monotonicAnchorContract.statuses.sort(), [
+  assert.deepEqual([...monotonicAnchorContract.statuses].sort(), [
     "mismatch", "protected", "recovery_required", "unavailable",
     "unprovisioned", "unsupported"
   ]);
@@ -116,13 +116,14 @@ test("rejects generation skips and sequence rollback", async () => {
     }),
     /generation_must_advance_once/
   );
+  const later = providerFixture({ initial: checkpoint(3, 7, "d") });
   await assert.rejects(
-    advanceMonotonicAnchor(fixture.provider, {
+    advanceMonotonicAnchor(later.provider, {
       installationId,
-      expected: checkpoint(0, 0, "a"),
-      next: checkpoint(1, 0, "a")
+      expected: checkpoint(3, 7, "d"),
+      next: checkpoint(4, 6, "c")
     }),
-    /checkpoint_invalid/
+    /sequence_rollback/
   );
 });
 
