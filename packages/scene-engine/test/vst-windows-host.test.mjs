@@ -164,3 +164,16 @@ test("VST Windows host rejects a host without the secure secret-store contract",
     hostFactory: () => ({ ready: Promise.resolve(), close: async () => {} })
   }), /secret_store_unavailable/);
 });
+
+
+test("VST Windows host rejects an incomplete secret-vault implementation", () => {
+  let closed = false;
+  assert.throws(() => createWindowsVstHost({
+    hostFactory: () => ({
+      ready: Promise.resolve(),
+      createSecretStore: () => ({ getSecret: async () => null }),
+      async close() { closed = true; }
+    })
+  }), /secret_store_unavailable/);
+  assert.equal(closed, false, "host close is asynchronous and is requested by the failure path");
+});
