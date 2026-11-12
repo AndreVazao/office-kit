@@ -84,7 +84,7 @@ export function createWindowsVstHost({
       protectionLevel: "os-protected",
       hardwareBacked: false,
       backupRestoreRequiresSameUserProfile: true,
-      tokenRetainedInMemory: false
+      tokenCachedInMemory: false
     });
   }
 
@@ -122,7 +122,7 @@ export function createWindowsVstHost({
       provider: "windows-cng-software-ksp-secret-vault",
       namespace: NAMESPACE,
       secretName: SECRET_NAME,
-      tokenReadable: false
+      tokenExposed: false
     });
   }
 
