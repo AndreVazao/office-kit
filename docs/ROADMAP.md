@@ -622,7 +622,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Keyring limitado com IDs únicos e active key explícita; verificação histórica por `key_id`; novos eventos usam a chave ativa; MACs antigos não são reescritos.
 - [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
 - [ ] Concluir a PR #79: provisioning/rotação Windows CNG pelo host com consentimento explícito, active-key pointer persistente, recuperação após interrupção e retenção das chaves históricas; aguarda CI Linux/Windows Node 22/26.13.1, CNG nativo e regressão visual no mesmo HEAD.
-- [ ] Implementar âncora monotónica fora do SQLite e protocolo anti-rollback/crash-recovery.
+- [x] Definir contrato neutro `MonotonicAnchorProvider`, estados explícitos, validação estrita de capacidades e compare-and-advance de uma geração; testes com provider fake (não é proteção física).\n- [ ] Integrar checkpoints preparados/confirmados no SQLite, recuperação crash-consistent e provider TPM 2.0 nativo; validar rollback real.
 - [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar providers equivalentes para Linux, macOS e Android.
 
@@ -656,7 +656,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 ### Restantes gates globais
 
 - [ ] Implementar rotação CNG gerida pelo host com consentimento, validação de toda a cadeia e retenção segura de chaves antigas.
-- [ ] Adicionar âncora monotónica externa para detectar rollback/truncagem para prefixos antigos válidos.
+- [x] Adicionar contrato de provider monotónico e testes de conformidade; sem hardware, não declara proteção.\n- [ ] Ligar provider TPM 2.0 e protocolo crash-consistent para detetar rollback/truncagem de prefixos HMAC válidos.
 - [ ] Testar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar keystores/hosts nativos equivalentes para Linux, macOS e Android.
 - [ ] Construir instaladores nativos assinados, atualização/rollback e desinstalação com retenção de dados explícita.
