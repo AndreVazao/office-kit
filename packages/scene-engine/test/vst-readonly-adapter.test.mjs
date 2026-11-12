@@ -424,6 +424,8 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
   assert.deepEqual(vstAdapterContract.allowedMethods, ["GET"]);
   assert.deepEqual(vstAdapterContract.allowedPaths, ["/observer/summary"]);
   assert.equal(vstAdapterContract.authenticationHeader, "X-Token");
+  assert.equal(vstAdapterContract.responseSuccessField, "ok");
+  assert.equal(vstAdapterContract.requiresSuccessfulObserverEnvelope, true);
   assert.equal(vstAdapterContract.requiredScope, "read_private_state");
   assert.equal(vstAdapterContract.sourceTimestampField, "updated_at_ms");
   assert.equal(vstAdapterContract.sourceTimestampSemantics, "last_observer_publish_time_not_engine_readiness");
