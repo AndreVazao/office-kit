@@ -1,6 +1,6 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-11
+Última atualização: 2026-11-12
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
@@ -508,3 +508,23 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Completar live E2E DGM-MAT e VST, instaladores nativos, assinatura comercial, atualização/desinstalação e licenciamento/ativação duráveis.
 - Manter Universal backend-independent; DGM-MAT e VST continuam instalações isoladas, com adaptadores e credenciais apenas nas respetivas edições.
 
+
+
+## VST read-only adapter preview — 2026-11-12
+
+- A branch `feat/vst-readonly-adapter-2026-11-12` adds a VST-only adapter and Windows host composition. The generic `scene-engine/src/index.mjs` remains backend-neutral.
+- The only VST route is authenticated loopback `GET /observer/summary` on port 8765 with `X-Token`; redirects are rejected and remote connection is disabled. Capability is limited to `read_state`.
+- `createWindowsVstHost` uses the generic Windows CNG secret vault with the VST-only namespace `vst.local-api`. Provisioning/removal require `ownerConsent: true`; connection is manual and credential provisioning never auto-connects.
+- The adapter maps bounded observer fields only. It never copies observer-supplied agent/task arrays; both remain empty. `REAL` is informational, not authorization: `executionAuthorized=false`, `allowRiskBearingActions=false`, and `runtimeReadiness=unverified`.
+- `updated_at_ms` is treated as last observer publication time, not proof of engine readiness. Missing, stale and future timestamps do not produce authoritative state.
+- Each connection has a fresh UUID and generation. A bounded deadline covers token retrieval, fetch and JSON parsing. Disconnect and a newer connection attempt abort the old provider/fetch signal; late generation events are discarded.
+- Unit/fake tests cover the adapter and fake-host composition; tarball tests inspect actual edition contents. They do not prove live VST compatibility, native CNG through this exact VST composition, or physical-PC installation.
+- Universal excludes both personal adapter compositions; DGM-MAT excludes VST; VST includes only its own adapter/host files plus generic core and generic Windows vault. The VST package manifest marks the adapter `read-only-preview`, not production.
+- Next VST gates: run Linux/Windows CI and visual regression on the final PR HEAD; perform live read-only E2E against an actual VST instance; exercise VST namespace provisioning/reconnect/disconnect/restart with native CNG on Windows; validate on the physical PC. Do not enable trading/write routes.
+
+## Node runtime validation — PR #77 merged (2026-11-12)
+
+- PR #77 merged as `d0bcd59055202e7a845bb2b103cf91c72597a1b2`; final PR HEAD `fe811f4d8b44ae81b4294bd2e108065212176bde`.
+- CI run #43226023576 passed Linux and Windows on Node 22 and Node 26.13.1. The Windows jobs ran native CNG secret vault, identity, journal and portable bundle E2E checks on both Node versions; the Linux jobs ran the core suite and all three edition source-package builds.
+- Visual regression #43226023574 passed after installing Chromium and rendering the responsive viewports on Node 26.13.1.
+- The visual and manual edition workflows now use Node 26.13.1. The package engine floor remains `>=22.5.0`; `node:sqlite` is still Experimental on Node 22 and Stability 1.2 — Release Candidate on Node 26. Runtime compatibility checks passed, but the API maturity decision remains open.
