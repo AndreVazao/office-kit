@@ -44,6 +44,10 @@ test("Windows host protects incident journal MAC key with CNG across host restar
     assert.equal(initial.verification, "sha256_plus_keystore_hmac");
     assert.equal(initial.eventCount, 0);
 
+    await assert.rejects(
+      host.rotateIncidentJournalMacKey(),
+      /incident_key_rotation_owner_consent_required/
+    );
     await host.incidentStore.append({
       id: "incident-cng-persistence-01",
       occurredAt: new Date().toISOString(),
@@ -52,6 +56,30 @@ test("Windows host protects incident journal MAC key with CNG across host restar
       evidence: { code: "transport_timeout", detail: "read-only test observation" }
     });
     assert.equal(host.incidentStore.verifyIntegrity().eventCount, 1);
+
+    const rotation = await host.rotateIncidentJournalMacKey({ ownerConsent: true });
+    assert.equal(rotation.rotated, true);
+    assert.equal(rotation.previousKeyId, "windows-cng:incident-journal-mac-v1");
+    assert.equal(rotation.activeKeyId, "windows-cng:incident-journal-mac-v2");
+    assert.equal(rotation.historicalKeysRetained, true);
+    assert.deepEqual(host.getIncidentJournalKeyState().retainedKeyIds, [
+      "windows-cng:incident-journal-mac-v1",
+      "windows-cng:incident-journal-mac-v2"
+    ]);
+
+    await host.incidentStore.append({
+      id: "incident-cng-persistence-02",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "adapter",
+      evidence: { code: "adapter_auth_rejected", detail: "post-rotation read-only test observation" }
+    });
+    const rotatedIntegrity = host.incidentStore.verifyIntegrity();
+    assert.equal(rotatedIntegrity.eventCount, 2);
+    assert.deepEqual(rotatedIntegrity.keyIds, [
+      "windows-cng:incident-journal-mac-v1",
+      "windows-cng:incident-journal-mac-v2"
+    ]);
     await host.close();
     host = null;
 
@@ -59,8 +87,15 @@ test("Windows host protects incident journal MAC key with CNG across host restar
     await reopened.ready;
     const restored = reopened.incidentStore.verifyIntegrity();
     assert.equal(restored.status, "keyed_hmac_chain");
-    assert.equal(restored.eventCount, 1);
-    assert.equal((await reopened.incidentStore.list())[0].id, "incident-cng-persistence-01");
+    assert.equal(restored.eventCount, 2);
+    assert.deepEqual(restored.keyIds, [
+      "windows-cng:incident-journal-mac-v1",
+      "windows-cng:incident-journal-mac-v2"
+    ]);
+    assert.equal(reopened.getIncidentJournalKeyState().activeKeyId, "windows-cng:incident-journal-mac-v2");
+    const restoredEvents = await reopened.incidentStore.list();
+    assert.equal(restoredEvents[0].id, "incident-cng-persistence-01");
+    assert.equal(restoredEvents[1].id, "incident-cng-persistence-02");
   } finally {
     await reopened?.close();
     await host?.close();
