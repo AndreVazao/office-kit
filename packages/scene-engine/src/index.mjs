@@ -70,3 +70,4 @@ export { SqliteOfficeIncidentStore } from "./sqlite-office-incident-store.mjs";
 
 export { advanceMonotonicAnchor, inspectMonotonicAnchor, monotonicAnchorContract, validateMonotonicAnchorProvider } from "./monotonic-anchor.mjs";
 export { SqliteMonotonicCheckpointCoordinator } from "./sqlite-monotonic-checkpoint.mjs";
+export { SqliteMonotonicCheckpointJournal } from "./sqlite-monotonic-checkpoint-journal.mjs";
