@@ -207,6 +207,11 @@ export class SqliteMonotonicCheckpointJournal {
     const target = validateCheckpoint(record.next, this.#installationId);
     const expected = validateCheckpoint(record.expected, this.#installationId);
     return immediate(this.#database, () => {
+      const current = this.#readCheckpointSync();
+      if (sameCheckpoint(current, target)
+        && !this.#database.prepare(
+          "SELECT 1 AS present FROM office_kit_monotonic_prepares WHERE installation_id = ?"
+        ).get(this.#installationId)) return;
       const pending = this.#database.prepare([
         "SELECT prepare_id, expected_json, next_json FROM office_kit_monotonic_prepares",
         "WHERE installation_id = ?"
