@@ -621,7 +621,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Verificação antes de leitura/exportação, baseline autenticada para journals SHA-256 legados e testes de persistência CNG entre processos/aberturas do host.
 - [x] Keyring limitado com IDs únicos e active key explícita; verificação histórica por `key_id`; novos eventos usam a chave ativa; MACs antigos não são reescritos.
 - [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
-- [ ] Implementar provisioning/rotação de chaves pelo host com consentimento do proprietário, validação antes/depois e política segura de retenção/retirada de chaves antigas.
+- [ ] Concluir a PR #79: provisioning/rotação Windows CNG pelo host com consentimento explícito, active-key pointer persistente, recuperação após interrupção e retenção das chaves históricas; aguarda CI Linux/Windows Node 22/26.13.1, CNG nativo e regressão visual no mesmo HEAD.
 - [ ] Implementar âncora monotónica fora do SQLite e protocolo anti-rollback/crash-recovery.
 - [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar providers equivalentes para Linux, macOS e Android.
@@ -648,7 +648,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Checkpoint de implementação `3aff126095e4af10d16ea65fccaeb58be983eb43`: CI #43230962819 e regressão visual #43230962934 passaram no mesmo HEAD; Linux/Windows Node 22 e Node 26.13.1 aprovados.
 - [x] Teste VST CNG/SQLite passou em Windows Node 22 e Node 26.13.1, incluindo persistência cifrada, não exportabilidade, close/reopen, GET autenticado e remoção explícita; o teste usa host factory injetada e resposta observer simulada.
 - [x] Bundle Windows portátil E2E passou nos dois runtimes Windows; launcher rejeitou publisher CI não confiável e os testes locais SQLite/CNG de identidade passaram.
-- [ ] Reexecutar CI e regressão visual no HEAD final após a sincronização documental antes do merge.
+- [x] PR #78 squash-merged em `28e52d500490501a2a9a6d08cd3ca6ddad8ce8d5`; HEAD final `df35a02098cce866deada73bd5c42ec4e3361811` passou Linux/Windows Node 22/26.13.1 (CI #43231720295) e Chromium visual ( #43231720515).
 - [ ] Executar live E2E read-only contra uma instância VST real; verificar o contrato de rota, autenticação, campos e semântica do timestamp.
 - [ ] Validar o host Windows completo assinado, trusted-publisher acceptance e recuperação no perfil real.
 - [ ] Validar o fluxo no PC físico; os testes fake e runners GitHub não substituem esta etapa.
