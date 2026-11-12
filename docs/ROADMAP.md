@@ -628,6 +628,8 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 
 ### Gate de runtime SQLite
 
-- [ ] Decidir e fixar uma versão Node LTS suportada, com a maturidade real de `node:sqlite` explicitamente aceite ou migrar para driver estável.
+- [ ] Validar Node 26.13.1 LTS como candidato de runtime e fixar a versão após CI Linux/Windows; a release de 2026-11-11 é uma security release.
+- [ ] Tratar explicitamente a maturidade de `node:sqlite`: nos docs Node 26 está em Stability 1.2 — Release Candidate; Node 22 continua LTS mas a API é Experimental nessa linha.
+- [ ] Substituir Node 20 no workflow visual (EOL em 2026-03-24) por uma linha LTS suportada.
 - [ ] Alinhar `engines`, CI Linux/Windows, builds das três edições e bundle portátil.
 - [ ] Validar migração, locking, concorrência e recuperação no runtime final; testes atuais não demonstram power-loss físico.
