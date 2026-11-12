@@ -94,8 +94,9 @@ test("Windows host protects incident journal MAC key with CNG across host restar
     ]);
     assert.equal(reopened.getIncidentJournalKeyState().activeKeyId, "windows-cng:incident-journal-mac-v2");
     const restoredEvents = await reopened.incidentStore.list();
-    assert.equal(restoredEvents[0].id, "incident-cng-persistence-01");
-    assert.equal(restoredEvents[1].id, "incident-cng-persistence-02");
+    // The incident store lists newest events first; verify both key generations survive restart.
+    assert.equal(restoredEvents[0].id, "incident-cng-persistence-02");
+    assert.equal(restoredEvents[1].id, "incident-cng-persistence-01");
   } finally {
     await reopened?.close();
     await host?.close();
