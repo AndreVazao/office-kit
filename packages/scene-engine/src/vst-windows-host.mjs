@@ -56,6 +56,13 @@ export function createWindowsVstHost({
   }
   try {
     tokenVault = host.createSecretStore(NAMESPACE);
+    if (!tokenVault
+      || typeof tokenVault.setSecret !== "function"
+      || typeof tokenVault.getSecret !== "function"
+      || typeof tokenVault.hasSecret !== "function"
+      || typeof tokenVault.destroy !== "function") {
+      throw new TypeError("vst_windows_host_secret_store_unavailable");
+    }
   } catch (error) {
     try { void Promise.resolve(host.close()).catch(() => {}); } catch {}
     throw error;
