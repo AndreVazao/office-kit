@@ -645,9 +645,12 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Compor host Windows VST com namespace CNG `vst.local-api`; provisioning/removal exigem consentimento explícito e ligação é manual.
 - [x] Não inventar agentes/tarefas; manter `executionAuthorized=false`, `allowRiskBearingActions=false` e readiness `unverified`.
 - [x] Adicionar testes de contrato/frescor, segredo, sessão, cancelamento, reconnect e isolamento dos tarballs das três edições.
-- [ ] Passar Linux/Windows CI e regressão visual no HEAD final da PR de implementação.
+- [x] Checkpoint de implementação `3aff126095e4af10d16ea65fccaeb58be983eb43`: CI #43230962819 e regressão visual #43230962934 passaram no mesmo HEAD; Linux/Windows Node 22 e Node 26.13.1 aprovados.
+- [x] Teste VST CNG/SQLite passou em Windows Node 22 e Node 26.13.1, incluindo persistência cifrada, não exportabilidade, close/reopen, GET autenticado e remoção explícita; o teste usa host factory injetada e resposta observer simulada.
+- [x] Bundle Windows portátil E2E passou nos dois runtimes Windows; launcher rejeitou publisher CI não confiável e os testes locais SQLite/CNG de identidade passaram.
+- [ ] Reexecutar CI e regressão visual no HEAD final após a sincronização documental antes do merge.
 - [ ] Executar live E2E read-only contra uma instância VST real; verificar o contrato de rota, autenticação, campos e semântica do timestamp.
-- [ ] Validar provisioning, reconnect, disconnect e restart com CNG nativo através da composição VST no Windows.
+- [ ] Validar o host Windows completo assinado, trusted-publisher acceptance e recuperação no perfil real.
 - [ ] Validar o fluxo no PC físico; os testes fake e runners GitHub não substituem esta etapa.
 
 ### Restantes gates globais
