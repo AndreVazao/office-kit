@@ -98,6 +98,7 @@ export class SqliteOfficeIncidentStore {
   #installationId;
   #cryptoProvider;
   #macProvider = null;
+  #macProviders = new Map();
   #integrityRequired;
   #integrityReady = false;
   persistent = true;
@@ -264,49 +265,86 @@ export class SqliteOfficeIncidentStore {
   }
 
   configureMacProvider(provider) {
-    if (!provider || typeof provider.keyId !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(provider.keyId)
-      || typeof provider.hmacSha256Hex !== "function") {
+    if (!provider || typeof provider.keyId !== "string") {
       throw new TypeError("incident_mac_provider_invalid");
     }
-    if (this.#macProvider) {
-      if (this.#macProvider.keyId !== provider.keyId) throw new Error("incident_mac_provider_already_configured");
-      return this.#verifyEventChain();
+    return this.configureMacKeyring({
+      providers: [provider],
+      activeKeyId: provider.keyId
+    });
+  }
+
+  configureMacKeyring({ providers, activeKeyId } = {}) {
+    if (!Array.isArray(providers) || providers.length < 1 || providers.length > 32
+      || typeof activeKeyId !== "string") {
+      throw new TypeError("incident_mac_keyring_invalid");
     }
-    this.#verifyEventChain({ allowUnkeyed: true });
-    this.#macProvider = provider;
-    const rows = this.#database.prepare(
-      "SELECT sequence, event_hash FROM office_kit_incident_events WHERE installation_id = ? ORDER BY sequence ASC"
-    ).all(this.#installationId);
-    const macRows = this.#database.prepare(
-      "SELECT COUNT(*) AS count FROM office_kit_incident_event_macs WHERE installation_id = ?"
-    ).get(this.#installationId);
-    if (Number(macRows.count) !== 0 && Number(macRows.count) !== rows.length) {
-      this.#macProvider = null;
-      throw new Error("incident_mac_chain_incomplete");
+    const nextProviders = new Map();
+    for (const provider of providers) {
+      if (!provider || typeof provider.keyId !== "string"
+        || !/^[A-Za-z0-9._:-]{1,128}$/.test(provider.keyId)
+        || typeof provider.hmacSha256Hex !== "function"
+        || nextProviders.has(provider.keyId)) {
+        throw new TypeError("incident_mac_provider_invalid");
+      }
+      nextProviders.set(provider.keyId, provider);
     }
-    if (Number(macRows.count) === 0 && rows.length > 0) {
-      try {
+    const activeProvider = nextProviders.get(activeKeyId);
+    if (!activeProvider) throw new Error("incident_mac_active_key_unavailable");
+
+    if (!this.#integrityReady) this.#verifyEventChain({ allowUnkeyed: true });
+
+    const previousProviders = this.#macProviders;
+    const previousActive = this.#macProvider;
+    const previousReady = this.#integrityReady;
+    this.#macProviders = nextProviders;
+    this.#macProvider = activeProvider;
+
+    try {
+      const rows = this.#database.prepare(
+        "SELECT sequence, event_hash FROM office_kit_incident_events WHERE installation_id = ? ORDER BY sequence ASC"
+      ).all(this.#installationId);
+      const macRows = this.#database.prepare(
+        "SELECT COUNT(*) AS count FROM office_kit_incident_event_macs WHERE installation_id = ?"
+      ).get(this.#installationId);
+      if (Number(macRows.count) !== 0 && Number(macRows.count) !== rows.length) {
+        throw new Error("incident_mac_chain_incomplete");
+      }
+      if (Number(macRows.count) === 0 && rows.length > 0) {
         runImmediate(this.#database, () => {
           let previousMac = ZERO_HASH;
           for (const row of rows) {
-            const eventMac = provider.hmacSha256Hex(this.#macMessage(Number(row.sequence), row.event_hash, previousMac));
+            const eventMac = activeProvider.hmacSha256Hex(
+              this.#macMessage(Number(row.sequence), row.event_hash, previousMac)
+            );
             if (typeof eventMac !== "string" || !/^[a-f0-9]{64}$/.test(eventMac)) {
               throw new Error("incident_mac_provider_invalid_result");
             }
             this.#database.prepare([
               "INSERT INTO office_kit_incident_event_macs (installation_id, sequence, key_id, previous_mac, event_mac)",
               "VALUES (?, ?, ?, ?, ?)"
-            ].join(" ")).run(this.#installationId, Number(row.sequence), provider.keyId, previousMac, eventMac);
+            ].join(" ")).run(
+              this.#installationId, Number(row.sequence), activeProvider.keyId, previousMac, eventMac
+            );
             previousMac = eventMac;
           }
         });
-      } catch (error) {
-        this.#macProvider = null;
-        throw error;
       }
+      this.#integrityReady = true;
+      return this.#verifyEventChain();
+    } catch (error) {
+      this.#macProviders = previousProviders;
+      this.#macProvider = previousActive;
+      this.#integrityReady = previousReady;
+      throw error;
     }
-    this.#integrityReady = true;
-    return this.#verifyEventChain();
+  }
+
+  getMacKeyIds() {
+    return this.#database.prepare([
+      "SELECT DISTINCT key_id FROM office_kit_incident_event_macs",
+      "WHERE installation_id = ? ORDER BY key_id ASC"
+    ].join(" ")).all(this.#installationId).map(row => row.key_id);
   }
 
   #verifyEventChain({ allowUnkeyed = false } = {}) {
@@ -379,11 +417,12 @@ export class SqliteOfficeIncidentStore {
       for (let index = 0; index < macRows.length; index += 1) {
         const macRow = macRows[index];
         const eventRow = rows[index];
-        const expectedMac = this.#macProvider.hmacSha256Hex(
+        const keyProvider = this.#macProviders.get(macRow.key_id);
+        const expectedMac = keyProvider?.hmacSha256Hex(
           this.#macMessage(Number(eventRow.sequence), eventRow.event_hash, previousMac)
         );
         if (Number(macRow.sequence) !== Number(eventRow.sequence)
-          || macRow.key_id !== this.#macProvider.keyId
+          || !keyProvider
           || macRow.previous_mac !== previousMac
           || typeof expectedMac !== "string"
           || !constantTimeHexEqual(expectedMac, macRow.event_mac)) {
@@ -430,6 +469,7 @@ export class SqliteOfficeIncidentStore {
       externalAnchor: false,
       macAlgorithm: this.#macProvider ? "HMAC-SHA-256" : null,
       keyId: this.#macProvider?.keyId ?? null,
+      keyIds: this.#macProviders.size ? [...this.#macProviders.keys()].sort() : [],
       tamperEvidence: Boolean(this.#macProvider),
       tamperResistance: false
     });
