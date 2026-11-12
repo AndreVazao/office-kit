@@ -323,8 +323,12 @@ export function createWindowsHost({
   const ready = Promise.resolve().then(async () => {
     incidentJournalVault = createSecretStore("incident.journal");
     const storedActiveId = await incidentJournalVault.getSecret("journal-mac-active");
+    const historicalIds = incidentStore.getMacKeyIds();
+    if (storedActiveId === null && historicalIds.some(keyId => keyId !== "windows-cng:incident-journal-mac-v1")) {
+      throw new Error("incident_active_key_pointer_missing_recovery_required");
+    }
     const activeId = storedActiveId ?? "windows-cng:incident-journal-mac-v1";
-    const requiredIds = new Set([...incidentStore.getMacKeyIds(), activeId]);
+    const requiredIds = new Set([...historicalIds, activeId]);
 
     for (const keyId of requiredIds) {
       const secretName = incidentMacSecretName(keyId);
