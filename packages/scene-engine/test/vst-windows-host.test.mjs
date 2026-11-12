@@ -175,5 +175,5 @@ test("VST Windows host rejects an incomplete secret-vault implementation", () =>
       async close() { closed = true; }
     })
   }), /secret_store_unavailable/);
-  assert.equal(closed, false, "host close is asynchronous and is requested by the failure path");
+  assert.equal(closed, true, "invalid vault contract closes the injected host");
 });
