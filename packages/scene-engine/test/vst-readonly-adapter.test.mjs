@@ -246,6 +246,51 @@ test("bounds the complete token-provider and HTTP operation with one deadline", 
   await assert.rejects(adapter.connect(), /vst_request_timeout/);
 });
 
+test("disconnect aborts an in-flight token-provider request and supersedes connect", async () => {
+  let signalStarted;
+  const started = new Promise(resolve => { signalStarted = resolve; });
+  const adapter = createAdapter({
+    getAccessToken: ({ signal }) => new Promise((_, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("provider_cancelled")), { once: true });
+      signalStarted(signal);
+    })
+  });
+
+  const connecting = adapter.connect();
+  const signal = await waitFor(started);
+  await adapter.disconnect();
+  assert.equal(signal.aborted, true);
+  await assert.rejects(connecting, /vst_connection_superseded/);
+});
+
+test("disconnect aborts an in-flight polling fetch and suppresses its late result", async () => {
+  let calls = 0;
+  let signalStarted;
+  const started = new Promise(resolve => { signalStarted = resolve; });
+  const adapter = createAdapter({
+    pollIntervalMs: 1_000,
+    fetchImpl: async (_url, init) => {
+      calls += 1;
+      if (calls === 1) return response(state());
+      signalStarted(init.signal);
+      return new Promise((_, reject) => {
+        init.signal.addEventListener("abort", () => {
+          const error = new Error("fetch_aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      });
+    }
+  });
+
+  await adapter.connect();
+  const signal = await waitFor(started);
+  await adapter.disconnect();
+  assert.equal(signal.aborted, true);
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(calls, 2);
+});
+
 test("authentication rejection during polling stops further requests until explicit disconnect", async () => {
   let calls = 0;
   const adapter = createAdapter({
