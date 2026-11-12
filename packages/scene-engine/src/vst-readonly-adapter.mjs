@@ -49,27 +49,39 @@ function safeErrorCode(error, fallback = "vst_transport_error") {
   return fallback;
 }
 
-async function runWithDeadline(run, timeoutMs, timeoutCode) {
+async function runWithDeadline(run, timeoutMs, timeoutCode, { signal: parentSignal, abortCode = "vst_connection_superseded" } = {}) {
+  if (parentSignal?.aborted) throw new Error(abortCode);
   const controller = new AbortController();
   let timer;
+  let parentAbortHandler;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => {
       controller.abort();
       reject(new Error(timeoutCode));
     }, timeoutMs);
   });
+  const operations = [Promise.resolve().then(() => run(controller.signal)), timeout];
+  if (parentSignal) {
+    operations.push(new Promise((_, reject) => {
+      parentAbortHandler = () => {
+        controller.abort();
+        reject(new Error(abortCode));
+      };
+      parentSignal.addEventListener("abort", parentAbortHandler, { once: true });
+      if (parentSignal.aborted) parentAbortHandler();
+    }));
+  }
   try {
-    return await Promise.race([
-      Promise.resolve().then(() => run(controller.signal)),
-      timeout
-    ]);
+    return await Promise.race(operations);
   } catch (error) {
-    if (controller.signal.aborted || error?.name === "AbortError") {
-      throw new Error(timeoutCode);
-    }
+    if (parentSignal?.aborted) throw new Error(abortCode);
+    if (controller.signal.aborted || error?.name === "AbortError") throw new Error(timeoutCode);
     throw error;
   } finally {
     clearTimeout(timer);
+    if (parentSignal && parentAbortHandler) {
+      parentSignal.removeEventListener("abort", parentAbortHandler);
+    }
   }
 }
 
@@ -152,13 +164,14 @@ export class VstReadOnlyAdapter {
     this.pollTimer = null;
     this.inFlightGeneration = null;
     this.connectionGeneration = 0;
+    this.connectionAbortController = null;
     this.sequence = 0;
     this.snapshotSequence = 0;
     this.sessionId = null;
     this.authenticationRejected = false;
   }
 
-  async #get(path) {
+  async #get(path, { signal } = {}) {
     if (!ALLOWED_PATHS.has(path)) throw new Error("vst_route_not_allowlisted");
     return runWithDeadline(async signal => {
       let token;
@@ -218,7 +231,7 @@ export class VstReadOnlyAdapter {
         throw new Error("vst_invalid_response");
       }
       return data;
-    }, this.timeoutMs, "vst_request_timeout");
+    }, this.timeoutMs, "vst_request_timeout", { signal });
   }
 
   #toSnapshot(source) {
@@ -276,32 +289,49 @@ export class VstReadOnlyAdapter {
     if (this.connected && this.authenticationRejected) throw new Error("vst_auth_rejected");
     if (this.connected) return { connected: true, sourceId: SOURCE_ID, sessionId: this.sessionId };
     const generation = ++this.connectionGeneration;
-    await this.#get("/observer/summary");
-    if (generation !== this.connectionGeneration) throw new Error("vst_connection_superseded");
-
-    let sessionId;
+    const controller = new AbortController();
+    this.connectionAbortController = controller;
     try {
-      sessionId = this.createSessionId();
-    } catch {
-      throw new Error("vst_session_identity_unavailable");
-    }
-    if (typeof sessionId !== "string" || !UUID_PATTERN.test(sessionId)) {
-      throw new Error("vst_session_identity_unavailable");
-    }
+      await this.#get("/observer/summary", { signal: controller.signal });
+      if (generation !== this.connectionGeneration) throw new Error("vst_connection_superseded");
 
-    this.sessionId = sessionId;
-    this.connected = true;
-    this.authenticationRejected = false;
-    this.sequence = 0;
-    this.snapshotSequence = 0;
-    this.#startPolling(generation);
-    return { connected: true, sourceId: SOURCE_ID, mode: "read-only", sessionId };
+      let sessionId;
+      try {
+        sessionId = this.createSessionId();
+      } catch {
+        throw new Error("vst_session_identity_unavailable");
+      }
+      if (typeof sessionId !== "string" || !UUID_PATTERN.test(sessionId)) {
+        throw new Error("vst_session_identity_unavailable");
+      }
+
+      this.sessionId = sessionId;
+      this.connected = true;
+      this.authenticationRejected = false;
+      this.sequence = 0;
+      this.snapshotSequence = 0;
+      this.#startPolling(generation);
+      return { connected: true, sourceId: SOURCE_ID, mode: "read-only", sessionId };
+    } catch (error) {
+      const superseded = generation !== this.connectionGeneration || controller.signal.aborted;
+      if (this.connectionAbortController === controller) {
+        this.connectionAbortController = null;
+        controller.abort();
+        this.connected = false;
+        this.sessionId = null;
+        this.#stopPolling();
+      }
+      if (superseded) throw new Error("vst_connection_superseded");
+      throw error;
+    }
   }
 
   async getSnapshot() {
     if (!this.connected) throw new Error("vst_adapter_not_connected");
     if (this.authenticationRejected) throw new Error("vst_auth_rejected");
-    return this.#toSnapshot(await this.#get("/observer/summary"));
+    const controller = this.connectionAbortController;
+    if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
+    return this.#toSnapshot(await this.#get("/observer/summary", { signal: controller.signal }));
   }
 
   subscribe(listener) {
@@ -357,6 +387,9 @@ export class VstReadOnlyAdapter {
   async disconnect() {
     this.connectionGeneration += 1;
     this.connected = false;
+    const controller = this.connectionAbortController;
+    this.connectionAbortController = null;
+    controller?.abort();
     this.#stopPolling();
     this.listeners.clear();
     this.sequence = 0;
