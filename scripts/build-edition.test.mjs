@@ -48,6 +48,7 @@ test("Universal tarball contains generic modules and excludes DGM-MAT/VST source
   assert.ok(!names.includes("dgmat.mjs"));
   assert.ok(!names.toLowerCase().includes("/vst/"));
   assert.ok(!names.includes("vst-readonly-adapter.mjs"));
+  assert.ok(!names.includes("vst.mjs"));
   assert.ok(!names.includes("vst-windows-host.mjs"));
   assert.deepEqual(manifest.adapterAllowlist, []);
   assert.equal(manifest.packageContents.dgmMatAdapter, false);
