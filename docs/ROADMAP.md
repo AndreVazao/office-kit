@@ -336,7 +336,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Validar a seleção explícita entre Ed25519 e ECDSA P-256/SHA-256 no mesmo HEAD em Linux e Windows (PR #42, HEAD `650e63a417dfca36483d20bdbde2d945542ee1b2`, CI 150/150 por runner e regressão visual verde; squash merge `5212c3044bf890cc924180c6030012d55647d5f9`).
 - [x] Implementar provider Windows CNG persistente com chave privada não exportável no Microsoft Software KSP; integração validada em runner Windows (PR #44).
 - [x] Testar persistência entre processos, sign/verify, export refusal, delete e isolamento de installation IDs no runner Windows.
-- [x] Testar create/prove/recriação do manager/replay/revoke com CNG + SQLite no runner Windows (PR #46).\n- [ ] Testar rotação, falhas de cleanup, restart do processo host/sistema e capacidades no desktop/PC físico.
+- [x] Testar create/prove/recriação do manager/replay/revoke com CNG + SQLite no runner Windows (PR #46).
+- [ ] Testar rotação, falhas de cleanup, restart do processo host/sistema e capacidades no desktop/PC físico.
 - [ ] Definir migração explícita de algoritmo para identidades já emitidas; nunca trocar algoritmo silenciosamente.
 
 
@@ -622,7 +623,8 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Keyring limitado com IDs únicos e active key explícita; verificação histórica por `key_id`; novos eventos usam a chave ativa; MACs antigos não são reescritos.
 - [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
 - [x] PR #79 integrada em `4d9181f2e93a9596bf268fa521a8860d14355d1b`: rotação Windows CNG pelo host com consentimento explícito, active-key pointer persistente, recuperação após interrupção e retenção de chaves históricas; CI Linux/Windows Node 22/26.13.1 e regressão visual pós-merge passaram no mesmo SHA.
-- [x] Definir contrato neutro `MonotonicAnchorProvider`, estados explícitos, validação estrita de capacidades e compare-and-advance de uma geração; testes com provider fake (não é proteção física).\n- [ ] Integrar checkpoints preparados/confirmados no SQLite, recuperação crash-consistent e provider TPM 2.0 nativo; validar rollback real.
+- [x] Definir contrato neutro `MonotonicAnchorProvider`, estados explícitos, validação estrita de capacidades e compare-and-advance de uma geração; testes com provider fake (não é proteção física).
+- [ ] Integrar checkpoints preparados/confirmados no SQLite, recuperação crash-consistent e provider TPM 2.0 nativo; validar rollback real.
 - [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar providers equivalentes para Linux, macOS e Android.
 
