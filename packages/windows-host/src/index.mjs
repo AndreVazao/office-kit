@@ -291,31 +291,63 @@ export function createWindowsHost({
     throw error;
   }
 
-  let incidentMacKey = null;
-  const ready = Promise.resolve().then(async () => {
-    const journalVault = createSecretStore("incident.journal");
-    let encodedKey = await journalVault.getSecret("journal-mac-v1");
-    if (encodedKey === null) {
-      if (incidentStore.hasMacRecords()) {
-        throw new Error("incident_integrity_key_missing_recovery_required");
-      }
-      const generated = randomBytes(32);
-      try { encodedKey = generated.toString("base64url"); }
-      finally { generated.fill(0); }
-      await journalVault.setSecret("journal-mac-v1", encodedKey);
-    }
+  const incidentMacKeys = new Map();
+  let activeIncidentMacKeyId = null;
+  let incidentJournalVault = null;
+
+  function incidentMacSecretName(keyId) {
+    const match = /^windows-cng:incident-journal-mac-v([1-9][0-9]{0,2})$/.exec(keyId);
+    if (!match) throw new Error("incident_integrity_key_id_invalid");
+    return "journal-mac-v" + match[1];
+  }
+
+  function createIncidentMacProvider(keyId, key) {
+    return Object.freeze({
+      keyId,
+      hmacSha256Hex: value => createHmac("sha256", key).update(value, "utf8").digest("hex")
+    });
+  }
+
+  function decodeIncidentMacKey(encodedKey) {
     if (typeof encodedKey !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(encodedKey)) {
       throw new Error("incident_integrity_key_invalid");
     }
-    incidentMacKey = Buffer.from(encodedKey, "base64url");
-    if (incidentMacKey.length !== 32 || incidentMacKey.toString("base64url") !== encodedKey) {
-      incidentMacKey.fill(0);
-      incidentMacKey = null;
+    const key = Buffer.from(encodedKey, "base64url");
+    if (key.length !== 32 || key.toString("base64url") !== encodedKey) {
+      key.fill(0);
       throw new Error("incident_integrity_key_invalid");
     }
-    incidentStore.configureMacProvider({
-      keyId: "windows-cng:incident-journal-mac-v1",
-      hmacSha256Hex: value => createHmac("sha256", incidentMacKey).update(value, "utf8").digest("hex")
+    return key;
+  }
+
+  const ready = Promise.resolve().then(async () => {
+    incidentJournalVault = createSecretStore("incident.journal");
+    const storedActiveId = await incidentJournalVault.getSecret("journal-mac-active");
+    const activeId = storedActiveId ?? "windows-cng:incident-journal-mac-v1";
+    const requiredIds = new Set([...incidentStore.getMacKeyIds(), activeId]);
+
+    for (const keyId of requiredIds) {
+      const secretName = incidentMacSecretName(keyId);
+      let encodedKey = await incidentJournalVault.getSecret(secretName);
+      if (encodedKey === null) {
+        if (incidentStore.hasMacRecords() || storedActiveId !== null) {
+          throw new Error("incident_integrity_key_missing_recovery_required");
+        }
+        const generated = randomBytes(32);
+        try { encodedKey = generated.toString("base64url"); }
+        finally { generated.fill(0); }
+        await incidentJournalVault.setSecret(secretName, encodedKey);
+      }
+      incidentMacKeys.set(keyId, decodeIncidentMacKey(encodedKey));
+    }
+
+    if (storedActiveId === null) {
+      await incidentJournalVault.setSecret("journal-mac-active", activeId);
+    }
+    activeIncidentMacKeyId = activeId;
+    incidentStore.configureMacKeyring({
+      providers: [...incidentMacKeys].map(([keyId, key]) => createIncidentMacProvider(keyId, key)),
+      activeKeyId: activeId
     });
     return runtime.manager.reconcile();
   });
@@ -348,6 +380,68 @@ export function createWindowsHost({
       return runtime.manager.reconcile();
     }
   });
+
+  async function rotateIncidentJournalMacKey({ ownerConsent = false } = {}) {
+    if (closed) throw new Error("windows_host_stopped");
+    if (ownerConsent !== true) throw new Error("incident_key_rotation_owner_consent_required");
+    await ready;
+    if (incidentMacKeys.size >= 32) throw new Error("incident_key_rotation_limit_reached");
+    const currentMatch = /^windows-cng:incident-journal-mac-v([1-9][0-9]{0,2})$/.exec(activeIncidentMacKeyId ?? "");
+    if (!currentMatch) throw new Error("incident_integrity_key_id_invalid");
+    const nextVersion = Number(currentMatch[1]) + 1;
+    if (nextVersion > 999) throw new Error("incident_key_rotation_limit_reached");
+    const nextKeyId = "windows-cng:incident-journal-mac-v" + nextVersion;
+    const nextSecretName = incidentMacSecretName(nextKeyId);
+    if (await incidentJournalVault.getSecret(nextSecretName) !== null) {
+      throw new Error("incident_key_rotation_version_already_exists");
+    }
+
+    const generated = randomBytes(32);
+    let encodedKey;
+    let nextKey;
+    const previousActiveId = activeIncidentMacKeyId;
+    try {
+      encodedKey = generated.toString("base64url");
+      nextKey = Buffer.from(generated);
+      await incidentJournalVault.setSecret(nextSecretName, encodedKey);
+      // Persist the intended active version before switching the in-memory signer.
+      // On restart, startup loads every historical key ID plus this active pointer.
+      await incidentJournalVault.setSecret("journal-mac-active", nextKeyId);
+      const nextKeys = new Map(incidentMacKeys);
+      nextKeys.set(nextKeyId, nextKey);
+      incidentStore.configureMacKeyring({
+        providers: [...nextKeys].map(([keyId, key]) => createIncidentMacProvider(keyId, key)),
+        activeKeyId: nextKeyId
+      });
+      incidentMacKeys.set(nextKeyId, nextKey);
+      nextKey = null;
+      activeIncidentMacKeyId = nextKeyId;
+      return Object.freeze({
+        rotated: true,
+        previousKeyId: previousActiveId,
+        activeKeyId: nextKeyId,
+        retainedKeyIds: Object.freeze([...incidentMacKeys.keys()].sort()),
+        historicalKeysRetained: true
+      });
+    } catch (error) {
+      try { await incidentJournalVault.setSecret("journal-mac-active", previousActiveId); }
+      catch { /* A persisted new pointer remains recoverable because its key was stored first. */ }
+      throw error;
+    } finally {
+      generated.fill(0);
+      nextKey?.fill(0);
+    }
+  }
+
+  function getIncidentJournalKeyState() {
+    if (closed) throw new Error("windows_host_stopped");
+    return Object.freeze({
+      activeKeyId: activeIncidentMacKeyId,
+      retainedKeyIds: Object.freeze([...incidentMacKeys.keys()].sort()),
+      rotationRequiresOwnerConsent: true,
+      automaticRetirement: false
+    });
+  }
 
   async function health() {
     if (closed) return Object.freeze({ status: "stopped", identityStatus: "unknown" });
@@ -409,8 +503,9 @@ export function createWindowsHost({
     closed = true;
     await Promise.allSettled([...managedGateways].map(gateway => gateway.close()));
     try { await ready; } catch { /* Initialization failure must not leak the database or lock. */ }
-    incidentMacKey?.fill(0);
-    incidentMacKey = null;
+    for (const key of incidentMacKeys.values()) key.fill(0);
+    incidentMacKeys.clear();
+    activeIncidentMacKeyId = null;
     try { database.close(); }
     finally {
       releaseLock?.();
@@ -566,6 +661,8 @@ export function createWindowsHost({
     createInstallationLifecycleRuntime,
     createDiagnostics,
     createSecretStore,
+    rotateIncidentJournalMacKey,
+    getIncidentJournalKeyState,
     getResourcePolicy,
     refreshResourcePolicy,
     setResourceOverrides,
