@@ -613,12 +613,12 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 
 - [ ] Implement and physically validate a backup/recovery procedure for user-scoped CNG secret keys; SQLite-only backup must not be advertised as sufficient, and private keys must remain non-exportable.
 
-### Segurança do journal — incremento HMAC (PR em desenvolvimento)
+### Segurança do journal — incremento HMAC (PR #73 integrado, 2026-11-12)
 - [x] MAC HMAC-SHA-256 por evento com encadeamento, domínio e instalação.
 - [x] Chave aleatória de 256 bits protegida pelo Windows CNG Software KSP.
 - [x] Falha fechada se a chave autenticadora desaparecer depois de existirem eventos autenticados.
 - [x] Verificação antes de leitura/exportação e migração controlada de histórico SHA-256 legado.
-- [ ] Validar Linux, Windows CNG nativo, bundle e regressão visual no mesmo HEAD.
+- [x] Validar Linux, Windows CNG nativo, bundle portátil E2E e regressão visual no mesmo HEAD `7b390080645f910cf394ba9c10e83a2f81c8078c`; merge `e8bc303096f26b437d13b7fa820443427c72596e`.
 - [ ] Rotação/versionamento de chaves e recuperação explícita sem perder validação histórica.
-- [ ] Âncora externa/anti-rollback e procedimento de backup/recuperação do perfil Windows.
+- [ ] Âncora monotónica fora do SQLite, protocolo de crash-recovery e procedimento de backup/recuperação do perfil Windows.
 - [ ] Providers equivalentes para Linux, macOS e Android; até lá, não prometer a mesma proteção fora do host Windows.
