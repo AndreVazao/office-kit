@@ -65,7 +65,7 @@ Isto valida o empacotamento e o fluxo local com um trust publisher de teste. Nã
 ## Managed adapter supervision (incremento em desenvolvimento)
 O bundle portátil inclui também as dependências transitivas necessárias ao `AdapterGateway` (`adapter-gateway.mjs`, `runtime-session.mjs`, `runtime-state.mjs` e `adapter-contract.mjs`). A allowlist do script de build e a allowlist independente do teste têm de coincidir; o teste falha se faltar ou sobrar qualquer módulo. Esta inclusão corrige a composição gerida sem incluir adaptadores específicos de DGM-MAT/VST.
 
-O host expõe `createManagedAdapterGateway({ probes, ... })`. O chamador tem de selecionar e autorizar explicitamente o adapter e fornecer probes read-only não vazios. O gateway encaminha estados autoritativos de RuntimeSession para OfficeConnectionSupervisor; os incidentes são persistidos no SQLite associado à instalação. A perda só é registada depois de uma sessão live confirmada e a recuperação exige probes saudáveis e novo snapshot live sincronizado. O host fecha gateways geridos antes de encerrar a base de dados. Esta composição ainda não fornece descoberta, autenticação, credenciais, transporte de rede nem adaptadores VST; os testes com GenericDemoAdapter são integração de contrato, não validação de backend real ou PC físico.
+O host expõe `createManagedAdapterGateway({ probes, ... })`. O chamador tem de selecionar e autorizar explicitamente o adapter e fornecer probes read-only não vazios. O gateway encaminha estados autoritativos de RuntimeSession para OfficeConnectionSupervisor; os incidentes são persistidos no SQLite associado à instalação. A perda só é registada depois de uma sessão live confirmada e a recuperação exige probes saudáveis e novo snapshot live sincronizado. O host fecha gateways geridos antes de encerrar a base de dados. Esta composição não fornece descoberta nem transporte de rede. O adaptador VST é uma composição separada, incluída apenas na edição VST; não pertence ao bundle Universal. Os testes com GenericDemoAdapter são integração de contrato, não validação de backend real ou PC físico.
 
 
 ## Installation lifecycle controller — PR em desenvolvimento
@@ -112,3 +112,12 @@ O Windows host só fica ready depois de obter a chave HMAC do journal através d
 O SqliteOfficeIncidentStore verifica SHA-256 + HMAC-SHA-256 antes de operações de leitura/exportação. Se existirem MACs e a chave protegida estiver ausente, o host falha fechado e não gera uma chave substituta. A migração de eventos antigos valida a cadeia SHA-256 e cria o baseline HMAC na primeira ativação.
 
 Limites: chave associada ao perfil Windows atual; backup apenas do SQLite não é suficiente. Sem âncora externa monotónica, rollback/truncagem para um prefixo antigo válido não é detetado. Rotação de chave e recuperação entre perfis ainda não estão implementadas. CI Windows com helper CNG real passou, mas não substitui teste no PC físico.
+
+
+## VST Windows host composition — preview isolado (2026-11-12)
+
+A edição VST expõe `createWindowsVstHost` apenas pelo entrypoint `./windows-host/vst`. O host usa o `WindowsCngSecretVault` genérico no namespace `vst.local-api`, separado de `dgmat.bootstrap` e da identidade do nó. Provisionar/remover o token exige consentimento explícito do proprietário; provisionar não liga o adapter automaticamente.
+
+A ligação é manual e read-only: somente `GET http://127.0.0.1:8765/observer/summary` com `X-Token`, sem redirects ou endpoints remotos. O envelope só é aceite quando `ok === true`. O adapter não expõe comandos, não infere atividade de agentes/tarefas e mantém o estado operacional `unverified`. O modo REAL não concede autorização de execução.
+
+O CI #43230962819 passou em Node 22 e Node 26.13.1 no HEAD de implementação `3aff126095e4af10d16ea65fccaeb58be983eb43`. O teste VST usa o helper CNG nativo e SQLite real através da composição VST, com host factory injetada e resposta HTTP simulada; valida o percurso do segredo/CNG, não o host Windows completo nem uma instância VST ativa. A regressão visual #43230962934 também passou. O commit subsequente de sincronização documental está a ser revalidado no seu próprio HEAD da PR antes do merge. A validação live e no PC físico continua pendente.

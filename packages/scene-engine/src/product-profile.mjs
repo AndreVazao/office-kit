@@ -2,7 +2,7 @@ const EDITIONS = new Set(["universal", "dgmat", "vst"]);
 const ADAPTER_IDS = Object.freeze({
   universal: Object.freeze([]),
   dgmat: Object.freeze(["dgm-mat"]),
-  vst: Object.freeze([])
+  vst: Object.freeze(["vazao-sovereign-trader"])
 });
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
@@ -62,5 +62,5 @@ export function assertProfileIsolation(profiles) {
 export const productEditionCatalog = Object.freeze({
   universal: Object.freeze({ edition: "universal", channel: "public", backendIndependent: true }),
   dgmat: Object.freeze({ edition: "dgmat", channel: "personal", backendIndependent: true, adapterId: "dgm-mat" }),
-  vst: Object.freeze({ edition: "vst", channel: "personal", backendIndependent: true, adapterStatus: "not_implemented" })
+  vst: Object.freeze({ edition: "vst", channel: "personal", backendIndependent: true, adapterId: "vazao-sovereign-trader", adapterStatus: "read_only_preview" })
 });

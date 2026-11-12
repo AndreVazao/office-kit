@@ -65,6 +65,11 @@ jobs:
         env:
           OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/secret-vault.integration.test.mjs
+      - name: Exercise VST CNG token vault through VST host composition
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+        run: node --test packages/scene-engine/test/vst-windows-host.cng.integration.test.mjs
       - name: Exercise CNG-protected incident journal across host restarts
         if: runner.os == 'Windows'
         env:

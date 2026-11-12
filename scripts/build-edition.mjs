@@ -104,6 +104,9 @@ export const EDITION_FILE_ALLOWLISTS = Object.freeze({
     "packages/scene-engine/src/runtime-simulator.mjs",
     "packages/scene-engine/src/runtime-state.mjs",
     "packages/scene-engine/src/social-simulation.mjs",
+    "packages/scene-engine/src/vst-readonly-adapter.mjs",
+    "packages/scene-engine/src/vst.mjs",
+    "packages/scene-engine/src/vst-windows-host.mjs",
     "packages/scene-engine/src/sqlite-node-identity-metadata-store.mjs",
     "packages/scene-engine/src/sqlite-office-incident-store.mjs",
     "packages/scene-engine/src/windows-cng-p256-keystore.mjs",
@@ -139,6 +142,10 @@ function packageExports(edition) {
     exports["./scene-engine/dgmat"] = "./packages/scene-engine/src/dgmat.mjs";
     exports["./windows-host/dgmat"] = "./packages/scene-engine/src/dgmat-windows-host.mjs";
   }
+  if (edition === "vst") {
+    exports["./scene-engine/vst"] = "./packages/scene-engine/src/vst.mjs";
+    exports["./windows-host/vst"] = "./packages/scene-engine/src/vst-windows-host.mjs";
+  }
   return exports;
 }
 
@@ -154,7 +161,8 @@ export async function buildEditionPackage(edition, { outputDirectory = resolve(R
   const staging = await mkdtemp(join(tmpdir(), "office-kit-edition-"));
   const packageRoot = join(staging, "package");
   const hasDgmat = edition === "dgmat";
-  const adapterStatus = hasDgmat ? "included" : edition === "vst" ? "not_implemented" : "none";
+  const hasVst = edition === "vst";
+  const adapterStatus = hasDgmat ? "included" : hasVst ? "read-only-preview" : "none";
 
   try {
     for (const relative of files) {
@@ -179,14 +187,14 @@ export async function buildEditionPackage(edition, { outputDirectory = resolve(R
       packageContents: {
         genericCore: true,
         dgmMatAdapter: hasDgmat,
-        vstAdapter: false,
+        vstAdapter: hasVst,
         sourceFiles: files.filter(file => file !== "LICENSE")
       },
       build: { artifactType: "isolated-source-package", generatedAt: new Date().toISOString(), commit: process.env.GITHUB_SHA ?? "local" },
       limitations: [
         "This is an edition-isolated source package, not an OS installer.",
         "Packages start disconnected and read-only; backend activation requires explicit owner authorization.",
-        ...(edition === "vst" ? ["The VST adapter is not implemented; no VST-specific source is included."] : []),
+        ...(hasVst ? ["The VST adapter is read-only preview; live backend and physical-PC validation remain pending."] : []),
         "The Windows host requires Node.js 22.5 or later because it uses node:sqlite."
       ]
     };
@@ -213,7 +221,7 @@ export async function buildEditionPackage(edition, { outputDirectory = resolve(R
       "- Backend auto-connect: disabled",
       "- Initial adapter mode: read-only",
       "- Adapter status: " + adapterStatus,
-      ...(edition === "vst" ? ["- VST adapter is not implemented and is not included."] : []),
+      ...(hasVst ? ["- VST adapter: read-only preview; live backend validation pending"] : []),
       "",
       "See edition-manifest.json for the exact package contents."
     ].join("\n") + "\n");

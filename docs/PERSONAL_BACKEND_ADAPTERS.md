@@ -1,6 +1,6 @@
 # Personal backend adapter integration map
 
-Reviewed against the public default-branch source on 2026-11-11. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
+Reviewed and updated on 2026-11-12. The VST adapter contract below is implemented as a read-only preview; live VST compatibility is not yet verified. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
 
 ## Universal edition
 
@@ -35,24 +35,24 @@ Repository: `AndreVazao/DGM-MAT`.
 
 Repository: `AndreVazao/VazaoSovereignTrader`.
 
-### Candidate read-only data
+### Current Office Kit read-only preview contract
 
-| Office Kit view | VST route |
-|---|---|
-| Engine status and trading overview | `GET /status` |
-| Liveness only | `GET /health` |
-| Engine and market diagnostics | `GET /diagnostics`, `GET /market-data-health` |
-| Venue health | `GET /venue-health` |
-| Evidence/readiness | `GET /evidence-scorecard`, `GET /execution-surfaces`, `GET /execution-surfaces/runtime` |
-| Pending operator interventions | `GET /human-interaction/pending` |
+| Office Kit view | VST route | Interpretation |
+|---|---|---|
+| Observer summary | `GET /observer/summary` | Current adapter route; bounded state fields only |
+| Liveness | `GET /health` | Candidate only; not consumed by the adapter |
+| Other diagnostics/readiness | `GET /status`, `GET /diagnostics`, `GET /market-data-health`, `GET /venue-health`, `GET /evidence-scorecard` | Candidate routes only; not consumed by the current adapter |
+
+The current adapter uses only `GET http://127.0.0.1:8765/observer/summary`. The implementation has not yet been verified against a running VST instance; confirm the exact route, port, response schema and timestamp semantics during live E2E before production.
 
 ### Authentication and safety
 
-- The documented local API uses `VST_LOCAL_TOKEN`; private status/diagnostic routes require `read_private_state`.
-- The existing virtual-office integration map specifies the `X-Token` header for the browser shell and forbids tokens in URLs, browser storage and logs. The adapter must follow the currently tested server contract rather than inventing a new one.
-- `GET /health` is liveness only and must never be interpreted as proof that the engine is ready or trading is authorized.
-- The first adapter must be GET-only. Do not expose order, REAL, mode, start/stop, pairing, file-upload or execution-surface mutation routes through the initial Office Kit integration.
-- Preserve PAPER-only/read-only truth labels and show source timestamps/staleness. A timeout after any future mutation must become outcome-unknown/reconcile, never automatic replay.
+- The local API token is supplied by the owner and sent only in the `X-Token` header. The current adapter requires a token provider; the Windows host stores it through the generic CNG vault in namespace `vst.local-api`.
+- The current adapter permits only HTTP loopback `GET /observer/summary` on port 8765, rejects redirects and remote endpoints, and declares only `read_state`.
+- The observer envelope must contain `ok === true` before state/count/health fields are accepted. `updated_at_ms` is treated as the last observer publication time, not proof of engine readiness. Missing, stale or future timestamps do not produce authoritative state.
+- The adapter does not copy observer-provided agents/tasks; both arrays remain empty. `REAL` is informational only; `executionAuthorized=false` and `allowRiskBearingActions=false`. No order, mode, start/stop, pairing, file-upload or execution-surface mutation route is exposed.
+- The Windows host requires `ownerConsent: true` for token provisioning/removal and does not auto-connect. Connection is explicit. The token is fetched per request, not cached between requests or exposed by status APIs; plaintext exists transiently in process memory during each request and JavaScript cannot guarantee zeroization. The CNG key is user-profile/installation/namespace scoped and software-backed, not TPM-backed.
+- A successful fake response or local transport handshake is not proof that VST is ready, authorized or trading. Live observer contract validation and physical-PC testing remain required.
 
 ## Shared implementation requirements
 
@@ -63,18 +63,18 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 - If authentication, authorization, endpoint identity or data freshness cannot be verified, show disconnected/unverified and suppress operational claims.
 - Do not create missions, send chat messages, approve actions, execute repairs, start/stop engines or submit trading commands in this read-only phase.
 
-## Implementation status — updated 2026-11-10
+## Implementation status — updated 2026-11-12
 
 - Product edition profiles and physical source-package isolation are merged. Universal remains backend-neutral; DGM-MAT and VST adapters/credentials remain edition-specific.
-- The DGM-MAT adapter hardening is being developed on `feat/dgmat-session-hardening`. It uses only authenticated loopback `GET /runtime/state` and exposes only `read_state`.
+- The DGM-MAT adapter/session hardening is integrated in main. Its Windows CNG bootstrap composition is DGM-MAT-only; live tests against a running DGM-MAT instance and physical-PC validation remain pending.
 - The documented `timestamp` is treated as the last state mutation in seconds, not a heartbeat or snapshot-generation timestamp. The adapter reports mutation age for diagnostics but always returns `synchronizing` / `synchronized: false`; agents and tasks remain empty. It does not infer live operational activity.
 - One request deadline covers token acquisition, fetch and response-body parsing. Provider/fetch errors are reduced to safe bounded codes; 401/403 awaits bounded local token invalidation.
 - Each successful adapter connection receives a fresh UUID session identity. A connection-generation fence prevents a late poll from an earlier connection from emitting into a newer session.
 - `DgmMatLocalSessionProvider` now applies one deadline to bootstrap-keystore retrieval, the loopback session exchange and response-body parsing. Caller cancellation is propagated; the bootstrap credential is not retained and the short-lived access token remains memory-only.
-- These are code-level and fake/unit-test increments until CI passes. The Windows CNG secret vault and DGM-MAT-only host composition are being added in branch `feat/dgmat-cng-bootstrap-host`; this work still requires CI/native integration success. Live tests against a running DGM-MAT instance and physical-PC validation remain pending.
-- The VST adapter remains unimplemented. Do not claim either personal backend is connected or operational.
+- PR #72 integrated the generic Windows CNG vault and DGM-MAT-only host composition. Windows native CNG CI passed; live DGM-MAT and physical-PC validation remain pending.
+- PR #78 adds the VST read-only preview adapter and VST-only Windows host composition. CI #43230962819 and visual regression #43230962934 passed on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; the VST CNG/SQLite integration test passed on Windows Node 22 and 26.13.1 using a fake observer response. Live VST contract verification, full signed host lifecycle, trusted-publisher acceptance and physical-PC validation remain separate gates. The subsequent documentation-only sync commit must also pass checks on its own PR HEAD before merge. Do not claim either personal backend is fully production-connected.
 
-## DGM-MAT Windows host composition — implementation in work branch (2026-11-11)
+## DGM-MAT Windows host composition — integrated in main (PR #72, 2026-11-11)
 
 - `DgmMatLocalSessionProvider` exchanges the bootstrap credential for a short-lived local-client session using `POST /auth/session` on the exact configured loopback endpoint (default `127.0.0.1:8181`) only.
 - The generic Windows host exposes `createSecretStore(namespace)`. The DGM-MAT-only `createWindowsDgmMatHost` uses namespace `dgmat.bootstrap`; Universal and VST do not include this composition or its bootstrap credential flow.
@@ -83,7 +83,15 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 - Provisioning and removal require `ownerConsent: true`. The host does not auto-connect; `connect()` is explicit. The adapter remains authenticated loopback GET-only/read-only. Disconnect/close clears the in-memory access token.
 - Keystore retrieval receives the session exchange AbortSignal and terminates the helper process on cancellation. The complete session deadline includes the keystore read, loopback POST and response-body parsing.
 - Host health explicitly reports backend operational state as `unverified`. The source timestamp is last-mutation time, not a heartbeat; no agent/task activity is fabricated.
-- Fake/unit tests validate envelope handling and composition contracts. A dedicated Windows CI integration test is added for CNG key persistence across helper processes, non-exportability, encrypted SQLite contents and installation/namespace isolation. These tests do not replace a live DGM-MAT instance test or physical-PC validation; both remain pending.
-- The VST adapter remains unimplemented. Do not claim either personal backend is fully production-connected.
+- Fake/unit tests validate envelope handling and composition contracts. The Windows CI integration test validates CNG key persistence across helper processes, non-exportability, encrypted SQLite contents and installation/namespace isolation. These tests do not replace a live DGM-MAT instance test or physical-PC validation; both remain pending.
 
 - Backup constraint: the CNG wrapping key is user-profile scoped and non-exportable. A SQLite-only backup cannot restore the bootstrap credential on another profile/machine; loss of the key requires explicit re-enrolment. A durable recovery workflow remains pending.
+
+
+## VST Windows host composition — PR #78 preview (2026-11-12)
+
+- `createWindowsVstHost` is exposed only through the VST edition's `./windows-host/vst` entrypoint. Universal and DGM-MAT do not include the VST composition or its token flow.
+- The host stores the owner token through the generic CNG vault in namespace `vst.local-api`; provisioning/removal require explicit owner consent. Provisioning never auto-connects.
+- The adapter uses only loopback `GET /observer/summary` with `X-Token`; it rejects redirects and remote endpoints. The response must have `ok === true`; failed envelopes suppress state values.
+- No command or trading route is exposed. Agent/task arrays remain empty, REAL is informational only and backend readiness stays unverified.
+- Unit tests use fake HTTP and a fake host. A dedicated Windows integration test uses the real CNG helper and SQLite vault through the VST host composition; it passed on Node 22 and Node 26.13.1 in CI #43230962819 on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`. It uses a fake observer response and does not prove live VST compatibility or physical-PC installation.

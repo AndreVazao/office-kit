@@ -2,6 +2,16 @@
 
 This page records implemented work separately from planned or independently verified behavior.
 
+## Current integration status — 2026-11-12
+
+- **Universal:** backend-independent core and source-package profile. It must not include DGM-MAT/VST adapter code or credentials.
+- **DGM-MAT:** isolated read-only adapter/session and Windows CNG bootstrap composition are integrated. Live E2E against a running DGM-MAT instance, physical-PC validation and CNG-profile backup/recovery remain pending.
+- **VST:** the isolated VST source package now contains a read-only preview adapter and Windows host composition. It uses authenticated loopback `GET /observer/summary` with `X-Token`; the token is stored through the generic Windows CNG vault in namespace `vst.local-api`. Provisioning/removal require explicit owner consent and connection is manual. No write/trading capability is exposed; `REAL` is informational only, `executionAuthorized=false`, and backend readiness remains `unverified`.
+- VST adapter unit tests use injected token providers and fake HTTP responses. A dedicated Windows integration test uses the real CNG helper and SQLite vault through an injected host factory with a fake observer response. It passed on Windows Node 22 and Node 26.13.1 in CI #43230962819 on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; it verifies encrypted persistence, key non-exportability, close/reopen, authenticated GET and explicit token/key removal. It does not validate the full signed Windows host lifecycle, a live VST instance or the user's physical PC.
+- All three edition source tarballs are checked for positive and negative module membership. They are not OS installers.
+- PR #77 was merged as `d0bcd59055202e7a845bb2b103cf91c72597a1b2`. On final PR HEAD `fe811f4d8b44ae81b4294bd2e108065212176bde`, CI #43226023576 passed Node 22 and Node 26.13.1 on Linux/Windows, including Windows native CNG/identity and portable bundle E2E; visual regression #43226023574 passed on Node 26.13.1. The package engine floor remains `>=22.5.0` because `node:sqlite` is still Experimental on Node 22 and Release Candidate on Node 26.
+
+
 ## Implemented in the current vertical slice
 - Dependency-free JavaScript core for configuration validation and defensive normalization.
 - Separation between local social simulation and backend-confirmed operational state.
@@ -28,7 +38,7 @@ This page records implemented work separately from planned or independently veri
 - Applying quality profiles to a real rendering pipeline; current profiles are policy data, not active GPU/texture controls.
 - Runtime performance measurement and automatic quality adjustment based on measured frame time.
 - Full renderer/GPU integration for graphics quality profiles; the current selector changes preview CSS effects only, not texture resolution, DPR, GPU workload or actual FPS target.
-- Real backend transport/adapters or authentication; therefore real orders/messages cannot yet be delivered or confirmed.
+- Production command transport and live backend validation are not complete. DGM-MAT and VST currently expose read-only adapter paths only; neither authorizes commands or trading operations, and neither has a live-backend E2E gate recorded here.
 - Backend discovery/search assistant; requirements only are documented in docs/BACKEND_DISCOVERY.md.
 - Visual editor and import/export UI.
 - Production infirmary scene; only state-routing policy exists in the core.
@@ -560,4 +570,17 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Adicionar âncora monotónica externa e testes de rollback/power-loss em hardware físico.
 - Implementar keystores/hosts Linux, macOS e Android.
 - Validar DGM-MAT live e VST live, instaladores reais, assinatura, backup/restore e ciclo completo de atualização/desinstalação.
+
+
+
+## VST read-only adapter preview — implementation increment (2026-11-12)
+
+- Added a VST-only adapter entrypoint and Windows host composition; the generic scene-engine entrypoint remains backend-neutral.
+- The adapter allowlist contains only authenticated loopback `GET /observer/summary` on port 8765 with `X-Token`; redirects are rejected and remote endpoints are disabled.
+- The host stores the local API token in the generic CNG vault under `vst.local-api`; owner consent is required for provisioning/removal and no connection is started automatically.
+- Snapshots accept observer data only when the response envelope has `ok === true`, then copy bounded fields. Failed envelopes suppress supplied status/count/health values and remain synchronizing. Agent/task arrays remain empty; observer publication time is not treated as engine readiness. Stale/future/missing timestamps do not become authoritative.
+- `REAL` mode is reported as configuration only. No command capability, risk-bearing action or execution authorization is exposed.
+- Disconnect and superseding connection attempts abort the active token-provider/fetch signal; each connection has a fresh session UUID and bounded request deadline.
+- Unit/fake tests cover route restrictions, authentication, normalization, freshness, deadlines, cancellation, reconnect generation and secret redaction. Edition artifact tests inspect actual tarball contents for isolation.
+- CI #43230962819 and visual regression #43230962934 passed on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; Linux/Windows Node 22/26 matrix, Windows CNG integration (including VST namespace) and portable bundle E2E passed. The subsequent documentation-only synchronization commit is being revalidated on its own PR HEAD before merge. Remaining gates: live E2E against the real VST observer, full signed host lifecycle, physical-PC provisioning/reconnect/restart, and production installer/signing.
 
