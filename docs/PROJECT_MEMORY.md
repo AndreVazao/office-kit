@@ -475,7 +475,39 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Continua pendente o driver Windows real e a autorização explícita para operações de sistema.
 
 
-## DGM-MAT Windows bootstrap secret — implementation increment (2026-11-11)
+## DGM-MAT Windows bootstrap secret — integrado em main (PR #72, 2026-11-11)
+
+- PR #72 foi integrada por squash no commit `2395a8a841d8a0a29cc3d67a0e76eb352921f40f`; HEAD final da PR: `a616e902f8cf7fdbecbb1f5cd0a3e7a60cafc708`. CI #493 e regressão visual #413 passaram nesse mesmo HEAD.
+- O job Windows validou o CNG Secret Vault nativo, persistência/isolation entre processos, segredo bootstrap DGM-MAT e bundle portátil E2E. Isto é evidência em runner Windows do GitHub, não validação no PC físico nem contra uma instância DGM-MAT ativa.
+- `WindowsCngSecretVault` é uma primitiva genérica do host. A composição `createWindowsDgmMatHost` e o fluxo de bootstrap são exclusivos da edição DGM-MAT; Universal e VST não incluem essa composição nem as credenciais DGM.
+- O segredo bootstrap usa namespace próprio e chave RSA não exportável no Windows Software KSP, distinta da identidade do nó. O envelope guardado em SQLite é cifrado; a capacidade reportada é OS-protected/software-backed, não TPM-backed.
+- Provisionamento/remoção exigem consentimento explícito; a ligação é manual; o adaptador continua loopback GET-only/read-only e o estado operacional fica `unverified`.
+- Permanecem pendentes: teste live contra DGM-MAT, validação no PC físico e recuperação/backup do perfil Windows original. Cópia SQLite isolada não recupera a chave CNG.
+
+## Integridade autenticada do journal — PR #73 integrada (2026-11-12)
+
+- PR #73 foi squash-merged em `e8bc303096f26b437d13b7fa820443427c72596e`; HEAD final validado: `7b390080645f910cf394ba9c10e83a2f81c8078c`. CI #502 e regressão visual #422 passaram no mesmo HEAD.
+- O journal SQLite mantém a cadeia SHA-256 e acrescenta uma cadeia HMAC-SHA-256 por evento, vinculada ao domínio, installation ID, sequência, hash do evento e MAC anterior.
+- No Windows, a chave aleatória de 256 bits fica no Windows CNG Software KSP, namespace `incident.journal`; o host falha fechado se a chave desaparecer depois de existirem MACs.
+- A integração nativa validou persistência CNG entre processos/aberturas do host. Não prova TPM, resistência absoluta contra administrador local, anti-rollback ou recuperação após perda do perfil Windows.
+- O primeiro keyed activation cria uma baseline autenticada para journals antigos; não prova que o histórico anterior nunca foi alterado.
+
+## Keyring versionado do journal — PR #75 integrada (2026-11-12)
+
+- PR #75 foi squash-merged em `99ecc7048ae235e89a6fa18fa62eb66f1f7a63ab`; HEAD final da PR: `2444e1f0af660cc46a12b43669a3b058c221b256`. CI #506 e regressão visual #426 passaram no mesmo HEAD.
+- `configureMacKeyring()` aceita um conjunto limitado de providers com IDs únicos e uma chave ativa explícita; novas entradas usam a chave ativa e a verificação histórica seleciona a chave pelo `key_id` persistido em cada MAC.
+- Os MACs históricos não são reescritos. Key IDs desconhecidos/ausentes, cadeias parciais e keyrings inválidos falham fechados. A API de provider único mantém compatibilidade.
+- Este incremento é a fundação da rotação na camada de armazenamento. Ainda não implementa provisioning CNG de novas versões, comando de rotação no host, aprovação/consentimento do proprietário, retirada segura de chaves antigas, recuperação entre perfis ou âncora anti-rollback.
+- A integridade autenticada protege contra alteração da base sem a chave original disponível; não representa resistência absoluta contra administrador local ou sistema operativo comprometido.
+
+## Bloqueios globais ainda abertos
+
+- Decidir e validar a estratégia de runtime SQLite: o projeto ainda usa `node:sqlite` e a versão Node suportada pelo pipeline deve ser fixada/documentada com a sua maturidade de API.
+- Validar perda de energia/falha de filesystem e backup/restore em hardware físico; os testes atuais de crash são de processo/SQLite, não power-loss.
+- Implementar hosts/keystores equivalentes para Linux, macOS e Android.
+- Completar live E2E DGM-MAT e VST, instaladores nativos, assinatura comercial, atualização/desinstalação e licenciamento/ativação duráveis.
+- Manter Universal backend-independent; DGM-MAT e VST continuam instalações isoladas, com adaptadores e credenciais apenas nas respetivas edições.
+
 
 - PR #71 was squash-merged as `8a6eb307ab164f11916377c60a326cbef1d7adec`. Its append-only incident journal, revision/sequence/hash-chain verification and explicit owner-consent export passed Linux, Windows and visual checks on PR HEAD `d4a1e1e3a1e0c18e9edb4ae2b2844c529e0ea1e4`; the post-merge main CI and visual run also passed.
 - The next production blocker is issue #57: the DGM-MAT bootstrap secret must be kept separately from node identity and wired only into the DGM-MAT host.
