@@ -502,7 +502,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 ## Bloqueios globais ainda abertos
 
-- Runtime SQLite: o CI principal usa Node 22 LTS, mas `node:sqlite` continua Experimental nessa linha; Node 26.13.1 é LTS e recebeu security release em 2026-11-11, porém a documentação Node 26 classifica `node:sqlite` como Stability 1.2 — Release Candidate. A migração deve ser testada antes de alterar engines. O workflow visual ainda usa Node 20, EOL desde 2026-03-24, e precisa de atualização.
+- Runtime SQLite — PR #77 em validação (2026-11-12): matriz CI proposta para Node 22 + Node 26.13.1 em Linux/Windows; regressão visual e três builds manuais de edição passam a Node 26.13.1. O package engine floor continua `>=22.5.0` até os resultados justificarem uma alteração. Node 26.13.1 é LTS e recebeu security release em 2026-11-11, mas `node:sqlite` continua Stability 1.2 — Release Candidate nos docs Node 26; Node 22 classifica-o como Experimental. A aprovação dos checks no mesmo HEAD ainda é obrigatória.
 - Validar perda de energia/falha de filesystem e backup/restore em hardware físico; os testes atuais de crash são de processo/SQLite, não power-loss.
 - Implementar hosts/keystores equivalentes para Linux, macOS e Android.
 - Completar live E2E DGM-MAT e VST, instaladores nativos, assinatura comercial, atualização/desinstalação e licenciamento/ativação duráveis.
