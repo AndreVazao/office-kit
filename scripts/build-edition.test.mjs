@@ -47,6 +47,8 @@ test("Universal tarball contains generic modules and excludes DGM-MAT/VST source
   assert.ok(!names.includes("dgmat-local-session-provider.mjs"));
   assert.ok(!names.includes("dgmat.mjs"));
   assert.ok(!names.toLowerCase().includes("/vst/"));
+  assert.ok(!names.includes("vst-readonly-adapter.mjs"));
+  assert.ok(!names.includes("vst-windows-host.mjs"));
   assert.deepEqual(manifest.adapterAllowlist, []);
   assert.equal(manifest.packageContents.dgmMatAdapter, false);
   assert.equal(manifest.packageContents.vstAdapter, false);
@@ -61,24 +63,29 @@ test("DGM-MAT tarball includes its adapter/session/Windows host entrypoints and 
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat-windows-host.mjs"));
   assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
   assert.ok(!names.toLowerCase().includes("/vst/"));
+  assert.ok(!names.includes("vst-readonly-adapter.mjs"));
+  assert.ok(!names.includes("vst-windows-host.mjs"));
   assert.deepEqual(manifest.adapterAllowlist, ["dgm-mat"]);
   assert.equal(manifest.packageContents.dgmMatAdapter, true);
   assert.equal(manifest.packageContents.vstAdapter, false);
 });
 
-test("VST tarball remains isolated and does not claim an unimplemented adapter", async () => {
+test("VST tarball includes only its read-only adapter and excludes DGM-MAT source", async () => {
   const { entries, manifest } = await build("vst");
   const names = entries.join("\n");
   assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
+  assert.ok(names.includes("package/packages/scene-engine/src/vst-readonly-adapter.mjs"));
+  assert.ok(names.includes("package/packages/scene-engine/src/vst.mjs"));
+  assert.ok(names.includes("package/packages/scene-engine/src/vst-windows-host.mjs"));
   assert.ok(!names.includes("dgmat-windows-host.mjs"));
   assert.ok(!names.includes("dgmat-readonly-adapter.mjs"));
   assert.ok(!names.includes("dgmat-local-session-provider.mjs"));
   assert.ok(!names.includes("dgmat.mjs"));
-  assert.ok(!names.toLowerCase().includes("/vst/"));
-  assert.deepEqual(manifest.adapterAllowlist, []);
-  assert.equal(manifest.adapterStatus, "not_implemented");
-  assert.equal(manifest.packageContents.vstAdapter, false);
-  assert.ok(manifest.limitations.some(value => value.includes("VST adapter is not implemented")));
+  assert.deepEqual(manifest.adapterAllowlist, ["vazao-sovereign-trader"]);
+  assert.equal(manifest.adapterStatus, "read-only-preview");
+  assert.equal(manifest.packageContents.dgmMatAdapter, false);
+  assert.equal(manifest.packageContents.vstAdapter, true);
+  assert.ok(manifest.limitations.some(value => value.includes("VST adapter is read-only preview")));
 });
 
 test("every edition tarball declares the Node 22.5 runtime floor", async () => {
