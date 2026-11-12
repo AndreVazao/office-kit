@@ -603,7 +603,35 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Não declarar instalador até existir um executável/serviço host apropriado, pacote assinado e testes de instalação/upgrade/uninstall.
 
 
-### Fase 9E — credencial DGM-MAT protegida e composição isolada (2026-11-11)
+### Fase 9E — credencial DGM-MAT protegida e composição isolada (PR #72 integrada, 2026-11-11)
+
+- [x] Validar no mesmo HEAD o CNG secret vault: SQLite contém apenas envelope AES-256-GCM; chave RSA de wrapping não exportável no Windows Software KSP.
+- [x] Validar persistência entre processos helper, cancelamento/deadline, isolamento por installation ID/namespace e bundle Windows portátil.
+- [x] Confirmar que apenas a edição DGM-MAT exporta `./windows-host/dgmat`; Universal e VST excluem a composição/credenciais DGM e mantêm a primitiva genérica.
+- [x] Validar provisioning/removal com consentimento explícito, conexão manual e modo read-only.
+- [ ] Executar teste live contra DGM-MAT e validação em PC físico.
+- [ ] Implementar e validar backup/restore do perfil CNG; SQLite-only backup não é suficiente e chaves privadas permanecem não exportáveis.
+
+**Evidência:** PR #72 squash-merged como `2395a8a841d8a0a29cc3d67a0e76eb352921f40f`; CI #493 e visual #413 passaram no HEAD `a616e902f8cf7fdbecbb1f5cd0a3e7a60cafc708`. O runner Windows validou integração nativa CNG; não é prova de execução no PC físico nem contra backend DGM-MAT ativo.
+
+### Segurança do journal — MAC e keyring versionado (PRs #73 e #75 integradas, 2026-11-12)
+
+- [x] MAC HMAC-SHA-256 por evento, encadeado com domínio, installation ID, sequência, hash do evento e MAC anterior.
+- [x] Chave aleatória de 256 bits protegida pelo Windows CNG Software KSP; fail-closed se a chave autenticadora desaparecer.
+- [x] Verificação antes de leitura/exportação, baseline autenticada para journals SHA-256 legados e testes de persistência CNG entre processos/aberturas do host.
+- [x] Keyring limitado com IDs únicos e active key explícita; verificação histórica por `key_id`; novos eventos usam a chave ativa; MACs antigos não são reescritos.
+- [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
+- [ ] Implementar provisioning/rotação de chaves pelo host com consentimento do proprietário, validação antes/depois e política segura de retenção/retirada de chaves antigas.
+- [ ] Implementar âncora monotónica fora do SQLite e protocolo anti-rollback/crash-recovery.
+- [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
+- [ ] Implementar providers equivalentes para Linux, macOS e Android.
+
+### Gate de runtime SQLite
+
+- [ ] Decidir e fixar uma versão Node LTS suportada, com a maturidade real de `node:sqlite` explicitamente aceite ou migrar para driver estável.
+- [ ] Alinhar `engines`, CI Linux/Windows, builds das três edições e bundle portátil.
+- [ ] Validar migração, locking, concorrência e recuperação no runtime final; testes atuais não demonstram power-loss físico.
+
 - [ ] Validar no mesmo HEAD o CNG secret vault: SQLite contém apenas envelope AES-256-GCM; chave RSA de wrapping não exportável no Windows Software KSP.
 - [ ] Validar persistência entre processos helper, cancelamento/deadline, isolamento por installation ID/namespace e destruição explícita da chave.
 - [ ] Confirmar que o bundle Windows portátil inclui o módulo genérico de secret vault e continua a excluir adaptadores/composição DGM-MAT.
