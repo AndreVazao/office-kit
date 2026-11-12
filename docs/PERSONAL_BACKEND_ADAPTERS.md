@@ -51,7 +51,7 @@ The current adapter uses only `GET http://127.0.0.1:8765/observer/summary`. The 
 - The current adapter permits only HTTP loopback `GET /observer/summary` on port 8765, rejects redirects and remote endpoints, and declares only `read_state`.
 - The observer envelope must contain `ok === true` before state/count/health fields are accepted. `updated_at_ms` is treated as the last observer publication time, not proof of engine readiness. Missing, stale or future timestamps do not produce authoritative state.
 - The adapter does not copy observer-provided agents/tasks; both arrays remain empty. `REAL` is informational only; `executionAuthorized=false` and `allowRiskBearingActions=false`. No order, mode, start/stop, pairing, file-upload or execution-surface mutation route is exposed.
-- The Windows host requires `ownerConsent: true` for token provisioning/removal and does not auto-connect. Connection is explicit. The CNG key is user-profile/installation/namespace scoped and software-backed, not TPM-backed.
+- The Windows host requires `ownerConsent: true` for token provisioning/removal and does not auto-connect. Connection is explicit. The token is fetched per request, not cached between requests or exposed by status APIs; plaintext exists transiently in process memory during each request and JavaScript cannot guarantee zeroization. The CNG key is user-profile/installation/namespace scoped and software-backed, not TPM-backed.
 - A successful fake response or local transport handshake is not proof that VST is ready, authorized or trading. Live observer contract validation and physical-PC testing remain required.
 
 ## Shared implementation requirements
