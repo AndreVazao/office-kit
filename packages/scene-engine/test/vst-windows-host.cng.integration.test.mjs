@@ -137,7 +137,9 @@ test("VST Windows composition persists its owner token through the real CNG vaul
     assert.equal(provisioned.stored, true);
     assert.equal(provisioned.namespace, "vst.local-api");
     assert.equal(provisioned.hardwareBacked, false);
+    assert.equal(provisioned.tokenCachedInMemory, false);
     assert.equal(firstHost.getCredentialState().configured, true);
+    assert.equal(firstHost.getCredentialState().tokenExposed, false);
     const nativeVault = firstCapture.vaults.get("vst.local-api");
     assert.equal(nativeVault.getCapabilities().privateKeyNonExportable, true);
     assert.equal(nativeVault.getCapabilities().hardwareBacked, false);
