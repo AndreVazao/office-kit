@@ -85,7 +85,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - A edição Universal não contém allowlist de adaptadores pessoais. A edição DGM-MAT permite `dgm-mat`; VST permite `vazao-sovereign-trader`.
 - Perfis nunca fazem auto-connect. O proprietário configura e autoriza a ligação; modo inicial read-only.
 - Branch ativa: `feat/product-editions-profiles`; implementação inicial em `packages/scene-engine/src/product-profile.mjs` e testes em `packages/scene-engine/test/product-profile.test.mjs`.
-- Limite atual: perfis/allowlists/namespaces são implementados como contrato. Persistência por namespace, keystores de produção, instalador e adaptadores reais DGM-MAT/VST ainda não estão implementados.
+- Limite na fase inicial de perfis (2026-11-04; parcialmente supersedido por PRs posteriores): os perfis/allowlists/namespaces eram apenas contratos. Desde então foram integrados o adaptador DGM-MAT read-only, a composição Windows DGM-MAT e o CNG Secret Vault. Instaladores comerciais, live E2E DGM-MAT/VST e keystores equivalentes fora de Windows continuam pendentes.
 
 - `docs/PERSONAL_BACKEND_ADAPTERS.md` mapeia rotas de leitura e autenticação reais encontradas nos repos DGM-MAT e VST. Regista que DGM-MAT usa sessões bearer curtas e bootstrap apenas loopback (pairing remoto separado), enquanto VST protege `/status` e diagnósticos com token local e o shell documenta `X-Token`. WebSockets DGM-MAT atualmente sem autenticação não serão usados. Nenhum dos dois adaptadores foi ainda implementado; primeira fase será GET-only/read-only.
 
@@ -107,7 +107,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - O adaptador não acede ao bootstrap token do DGM-MAT, não inicia sessões, não faz pairing e não persiste tokens. Host secure-session provider ainda por implementar.
 - A rota `/runtime/status` atual não oferece source timestamp/watermark de sincronização verificável. O snapshot é deliberadamente `synchronizing` e não confirma atividade de agentes/tarefas. Não contornar esta limitação com timestamps locais.
 - Testes em `packages/scene-engine/test/dgmat-readonly-adapter.test.mjs`. CI/visual PR ainda pendentes; live E2E aguarda PC/keystore/provider.
-- Próxima prioridade: concluir e verificar este PR, depois implementar provider de sessão seguro/keystore e obter freshness watermark; só então validar a integração no DGM-MAT ativo. VST adapter virá em incremento separado.
+- Próxima prioridade naquela fase: concluir o adaptador e integrar provider seguro. O hardening foi posteriormente integrado na PR #62 e a composição CNG/host DGM-MAT na PR #72. A freshness watermark continua sem valor operacional confirmado; o adaptador permanece synchronizing/unverified até validação live.
 
 
 ## DGM-MAT endpoint security hardening — 2026-11-04
@@ -120,7 +120,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - New branch `feat/dgmat-local-session-provider` implements `DgmMatLocalSessionProvider` for the documented `POST /auth/session` contract.
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
-- Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
+- Nota histórica supersedida pela PR #72: o Windows CNG Secret Vault e a composição DGM-MAT-only foram integrados e passaram CI nativo Windows. Live DGM-MAT E2E e validação no PC físico continuam pendentes; não declarar a ligação operacional.
 
 
 ## Comercialização e licenças — 2026-11-04
@@ -408,7 +408,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Each successful connection receives a fresh UUID session ID. A generation fence prevents late polls from an older connection being emitted after reconnect.
 - `DgmMatLocalSessionProvider` now applies one deadline to bootstrap keystore retrieval, loopback `POST /auth/session`, and response-body parsing; caller cancellation propagates. Bootstrap credentials are not retained and access tokens remain memory-only.
 - Added unit/fake tests for hanging providers, fetch/body deadlines, cancellation, secret-safe events, source mutation timestamps, reconnect identity and late-poll suppression. CI is pending on this branch.
-- Remaining production gate: dedicated Windows OS-keystore storage/retrieval for the DGM-MAT bootstrap secret, host composition wiring, live DGM-MAT contract tests, and physical-PC validation. Never reuse the node-identity private key as a backend credential.
+- Após a PR #72, o bootstrap DGM-MAT já tem armazenamento CNG dedicado e composição isolada no host Windows. Restam live contract tests contra DGM-MAT ativo, validação no PC físico e backup/recuperação do perfil CNG. Nunca reutilizar a chave privada de identidade do nó como credencial de backend.
 - VST adapter remains unimplemented. Universal must remain free of both personal adapters and credentials.
 
 ## Validação integrada — PR #61
