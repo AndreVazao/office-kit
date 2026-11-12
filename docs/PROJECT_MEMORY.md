@@ -486,7 +486,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 - Recovery limitation: the new CNG wrapping key is current-user-profile scoped and non-exportable. A database-only backup cannot restore the DGM bootstrap secret on another profile or machine; re-enrolment is required if the key is lost. Backup/recovery continuity remains an explicit production blocker.
 
-## PR — MAC do journal de incidentes protegido pelo CNG (2026-11-11)
+## Integrado — MAC do journal de incidentes protegido pelo CNG (PR #73, 2026-11-12)
 - Branch feat/keystore-backed-incident-journal-mac, criada a partir do merge #72 2395a8a841d8a0a29cc3d67a0e76eb352921f40f.
 - SqliteOfficeIncidentStore passa a suportar MAC HMAC-SHA-256 por evento, numa tabela separada office_kit_incident_event_macs, com sequência, key ID, MAC anterior e MAC atual. A verificação valida a cadeia hash e a cadeia MAC antes de leitura/exportação.
 - O Windows host exige MAC (requireMac: true). No arranque, obtém ou cria uma chave aleatória de 32 bytes na namespace CNG incident.journal, nome journal-mac-v1; o segredo é protegido pelo WindowsCngSecretVault, não armazenado em texto simples no SQLite. A chave é mantida em memória apenas durante a vida do host e o buffer é limpo no encerramento.
@@ -494,4 +494,4 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Journals antigos são verificados primeiro pela cadeia SHA-256 existente e depois recebem MACs como baseline de ativação. Isso não prova que o histórico não foi alterado antes dessa ativação.
 - O estado de integridade declara keyed_hmac_chain, tamperEvidence: true, tamperResistance: false e externalAnchor: false. Não existe anti-rollback/âncora externa nem rotação de chaves nesta PR.
 - Testes adicionados para chave obrigatória, adulteração de MAC, chave errada, migração de journal legado e MAC em falta; teste de integração Windows usa o helper CNG real e reabre o host para validar persistência.
-- Validação ainda pendente no CI da PR; não existe validação em PC físico.
+- CI Linux, Windows CNG nativo, bundle Windows E2E e Chromium passaram no mesmo HEAD `7b390080645f910cf394ba9c10e83a2f81c8078c`; squash integrado em `e8bc303096f26b437d13b7fa820443427c72596e`. Não existe validação em PC físico.
