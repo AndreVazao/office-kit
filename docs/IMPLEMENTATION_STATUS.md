@@ -578,7 +578,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Added a VST-only adapter entrypoint and Windows host composition; the generic scene-engine entrypoint remains backend-neutral.
 - The adapter allowlist contains only authenticated loopback `GET /observer/summary` on port 8765 with `X-Token`; redirects are rejected and remote endpoints are disabled.
 - The host stores the local API token in the generic CNG vault under `vst.local-api`; owner consent is required for provisioning/removal and no connection is started automatically.
-- Snapshots copy only bounded observer fields. Agent/task arrays remain empty; observer publication time is not treated as engine readiness. Stale/future/missing timestamps do not become authoritative.
+- Snapshots accept observer data only when the response envelope has `ok === true`, then copy bounded fields. Failed envelopes suppress supplied status/count/health values and remain synchronizing. Agent/task arrays remain empty; observer publication time is not treated as engine readiness. Stale/future/missing timestamps do not become authoritative.
 - `REAL` mode is reported as configuration only. No command capability, risk-bearing action or execution authorization is exposed.
 - Disconnect and superseding connection attempts abort the active token-provider/fetch signal; each connection has a fresh session UUID and bounded request deadline.
 - Unit/fake tests cover route restrictions, authentication, normalization, freshness, deadlines, cancellation, reconnect generation and secret redaction. Edition artifact tests inspect actual tarball contents for isolation.
