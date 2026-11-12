@@ -555,7 +555,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 
 ### Bloqueios de produção ainda abertos
 
-- Resolver a maturidade/versão suportada de `node:sqlite` e alinhar engines, CI e bundle.
+- Resolver a maturidade/versão suportada de `node:sqlite` e alinhar engines, CI e bundle. Node 26.13.1 LTS (security release 2026-11-11) é candidato a teste, mas `node:sqlite` continua Stability 1.2 — Release Candidate nos docs Node 26; Node 22 classifica-o como Experimental. O workflow visual usa Node 20 EOL e deve ser atualizado.
 - Implementar rotação CNG gerida pelo host, recuperação autorizada e política de retenção das chaves antigas.
 - Adicionar âncora monotónica externa e testes de rollback/power-loss em hardware físico.
 - Implementar keystores/hosts Linux, macOS e Android.
