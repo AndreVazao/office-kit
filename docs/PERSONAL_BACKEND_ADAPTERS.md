@@ -72,7 +72,7 @@ The current adapter uses only `GET http://127.0.0.1:8765/observer/summary`. The 
 - Each successful adapter connection receives a fresh UUID session identity. A connection-generation fence prevents a late poll from an earlier connection from emitting into a newer session.
 - `DgmMatLocalSessionProvider` now applies one deadline to bootstrap-keystore retrieval, the loopback session exchange and response-body parsing. Caller cancellation is propagated; the bootstrap credential is not retained and the short-lived access token remains memory-only.
 - PR #72 integrated the generic Windows CNG vault and DGM-MAT-only host composition. Windows native CNG CI passed; live DGM-MAT and physical-PC validation remain pending.
-- PR #78 adds the VST read-only preview adapter and VST-only Windows host composition. Its CI, visual regression and VST CNG integration test are pending; live VST and physical-PC validation remain separate gates. Do not claim either personal backend is fully production-connected.
+- PR #78 adds the VST read-only preview adapter and VST-only Windows host composition. CI #43230962819 and visual regression #43230962934 passed on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; the VST CNG/SQLite integration test passed on Windows Node 22 and 26.13.1 using a fake observer response. Live VST contract verification, full signed host lifecycle, trusted-publisher acceptance and physical-PC validation remain separate gates. Do not claim either personal backend is fully production-connected.
 
 ## DGM-MAT Windows host composition — integrated in main (PR #72, 2026-11-11)
 
