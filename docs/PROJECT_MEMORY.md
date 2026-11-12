@@ -502,7 +502,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 ## Bloqueios globais ainda abertos
 
-- Decidir e validar a estratégia de runtime SQLite: o projeto ainda usa `node:sqlite` e a versão Node suportada pelo pipeline deve ser fixada/documentada com a sua maturidade de API.
+- Runtime SQLite: o CI principal usa Node 22 LTS, mas `node:sqlite` continua Experimental nessa linha; Node 26.13.1 é LTS e recebeu security release em 2026-11-11, porém a documentação Node 26 classifica `node:sqlite` como Stability 1.2 — Release Candidate. A migração deve ser testada antes de alterar engines. O workflow visual ainda usa Node 20, EOL desde 2026-03-24, e precisa de atualização.
 - Validar perda de energia/falha de filesystem e backup/restore em hardware físico; os testes atuais de crash são de processo/SQLite, não power-loss.
 - Implementar hosts/keystores equivalentes para Linux, macOS e Android.
 - Completar live E2E DGM-MAT e VST, instaladores nativos, assinatura comercial, atualização/desinstalação e licenciamento/ativação duráveis.
