@@ -252,7 +252,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Exigir provider de sessão local injetado; nunca ler bootstrap token, criar sessão ou armazenar credenciais no adaptador.
 - [x] Expor apenas capacidade `read_state`; timeout limitado, `no-store`, redirects bloqueados e polling serializado.
 - [x] Falhas 401/403 e erros de transporte falham fechados.
-- [ ] Ligar o host à sessão local DGM-MAT através de keystore persistente e bootstrap protegido.
+- [x] Ligar o host Windows à sessão local DGM-MAT através de keystore CNG dedicado e bootstrap protegido (PR #72); live E2E e validação física continuam pendentes.
 - [ ] Obter do DGM-MAT uma marca temporal/freshness watermark autoritativa para validar estado sincronizado.
 - [ ] Executar testes E2E contra o DGM-MAT ativo no PC e confirmar leitura sem efeitos laterais.
 - [ ] Integrar o resumo verificado no Office UI sem confundir telemetria com agentes ativos.
@@ -272,7 +272,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - New branch `feat/dgmat-local-session-provider` implements `DgmMatLocalSessionProvider` for the documented `POST /auth/session` contract.
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
-- Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
+- Historical note superseded by PR #72: Windows CNG bootstrap vault and DGM-MAT-only host composition are integrated and CI-validated. Live DGM-MAT and physical-PC validation remain pending.
 
 
 ## Licenciamento comercial e distribuição assinada
@@ -520,7 +520,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Normalize provider/fetch errors; await bounded async invalidation on 401/403; prevent secret-shaped status/error values from entering Office Kit state/events.
 - [x] Generate a fresh UUID session identity per successful connection and reject late poll completions from earlier connection generations.
 - [x] Bound the full DGM-MAT local session exchange (bootstrap provider, POST and JSON body) and propagate caller cancellation.
-- [ ] Implement a dedicated Windows OS-keystore record/provider for the protected DGM-MAT bootstrap credential; do not reuse node-identity keys.
+- [x] Implement a dedicated Windows OS-keystore record/provider for the protected DGM-MAT bootstrap credential; do not reuse node-identity keys (PR #72).
 - [ ] Wire the DGM-MAT session provider into a DGM-MAT-only Windows host composition root.
 - [ ] Verify the live `/runtime/state` and `/auth/session` contracts against the running local DGM-MAT instance without enabling writes.
 - [ ] Run the full DGM-MAT edition workflow and validate on a physical PC. Unit/fake tests are not live integration.
