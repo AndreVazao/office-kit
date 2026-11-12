@@ -65,6 +65,7 @@ test("DGM-MAT tarball includes its adapter/session/Windows host entrypoints and 
   assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
   assert.ok(!names.toLowerCase().includes("/vst/"));
   assert.ok(!names.includes("vst-readonly-adapter.mjs"));
+  assert.ok(!names.includes("vst.mjs"));
   assert.ok(!names.includes("vst-windows-host.mjs"));
   assert.deepEqual(manifest.adapterAllowlist, ["dgm-mat"]);
   assert.equal(manifest.packageContents.dgmMatAdapter, true);
