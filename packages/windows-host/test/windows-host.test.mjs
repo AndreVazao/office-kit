@@ -6,6 +6,20 @@ import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
+const testSecrets = new Map();
+function fakeSecretVault({ installationId, namespace }) {
+  if (typeof namespace !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/.test(namespace)) {
+    throw new TypeError("windows_cng_secret_namespace_invalid");
+  }
+  const scoped = name => [installationId, namespace, name].join("\\0");
+  return Object.freeze({
+    async getSecret(name) { return testSecrets.get(scoped(name)) ?? null; },
+    async setSecret(name, value) { testSecrets.set(scoped(name), value); return { stored: true, name }; },
+    hasSecret(name) { return testSecrets.has(scoped(name)); },
+    getCapabilities() { return Object.freeze({ providerId: "test-secret-vault", protectionLevel: "test-only", hardwareBacked: false }); }
+  });
+}
+
 function runtimeFactory() {
   let identity = null;
   return {
@@ -34,6 +48,7 @@ function setup(directory, overrides = {}) {
     applyAcl: () => {},
     verifyHelper: () => true,
     runtimeFactory,
+    secretVaultFactory: fakeSecretVault,
     ...overrides
   });
 }
@@ -69,8 +84,8 @@ test("Windows host exposes an installation-scoped generic CNG secret vault", asy
     host = setup(directory);
     await host.ready;
     const vault = host.createSecretStore("dgmat.bootstrap");
-    assert.equal(vault.getCapabilities().providerId, "windows-cng-software-ksp-secret-vault");
-    assert.equal(vault.getCapabilities().protectionLevel, "os-protected");
+    assert.equal(vault.getCapabilities().providerId, "test-secret-vault");
+    assert.equal(vault.getCapabilities().protectionLevel, "test-only");
     assert.equal(vault.getCapabilities().hardwareBacked, false);
     assert.throws(() => host.createSecretStore("../dgmat"), /namespace_invalid/);
     const closedHost = host;
@@ -262,6 +277,7 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
   let reopened;
   try {
     host = setup(directory);
+    await host.ready;
     const diagnostics = host.createDiagnostics({
       probes: [{
         id: "office-runtime-check",
@@ -278,10 +294,40 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     host = null;
 
     reopened = setup(directory);
+    await reopened.ready;
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
     await reopened.close();
     reopened = null;
+  } finally {
+    await reopened?.close();
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows host refuses to replace a missing journal key when authenticated history exists", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-journal-key-loss-"));
+  let host;
+  let reopened;
+  let installationId;
+  try {
+    host = setup(directory);
+    await host.ready;
+    installationId = host.installationId;
+    await host.incidentStore.append({
+      id: "incident-key-loss-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    await host.close();
+    host = null;
+    testSecrets.delete([installationId, "incident.journal", "journal-mac-v1"].join("\\0"));
+
+    reopened = setup(directory);
+    await assert.rejects(reopened.ready, /incident_integrity_key_missing_recovery_required/);
+    assert.equal(testSecrets.has([installationId, "incident.journal", "journal-mac-v1"].join("\\0")), false);
   } finally {
     await reopened?.close();
     await host?.close();
@@ -345,6 +391,7 @@ test("managed adapter gateway persists outage and verified recovery through the 
   let managed;
   try {
     host = setup(directory);
+    await host.ready;
     const probes = ["office_runtime", "adapter", "transport", "backend"].map(layer => ({
       id: "probe-" + layer,
       layer,
