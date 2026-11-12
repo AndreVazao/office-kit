@@ -51,12 +51,15 @@ function makeHostFactory(filename, installationId, capture) {
       installationId,
       ready: Promise.resolve({ status: "empty" }),
       createSecretStore(namespace) {
-        return new WindowsCngSecretVault({
+        const vault = new WindowsCngSecretVault({
           database: sqliteAdapter(database),
           installationId,
           namespace,
           hostExecutable
         });
+        capture.vaults ??= new Map();
+        capture.vaults.set(namespace, vault);
+        return vault;
       },
       async health() { return { status: "ready", identityStatus: "empty" }; },
       async close() {
@@ -135,6 +138,10 @@ test("VST Windows composition persists its owner token through the real CNG vaul
     assert.equal(provisioned.namespace, "vst.local-api");
     assert.equal(provisioned.hardwareBacked, false);
     assert.equal(firstHost.getCredentialState().configured, true);
+    const nativeVault = firstCapture.vaults.get("vst.local-api");
+    assert.equal(nativeVault.getCapabilities().privateKeyNonExportable, true);
+    assert.equal(nativeVault.getCapabilities().hardwareBacked, false);
+    assert.equal(await nativeVault.checkNonExportable(), true);
     assert.equal(requests.length, 0, "credential provisioning must not auto-connect");
 
     const row = firstCapture.database.prepare(
