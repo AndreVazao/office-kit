@@ -183,3 +183,114 @@ sqliteTest("detects missing, extra and cross-installation MAC records", async ()
     database.close();
   }
 });
+
+
+sqliteTest("rotates the active MAC key without rewriting or losing historical event authentication", async () => {
+  const database = new DatabaseSync(":memory:");
+  try {
+    const installationId = "officekit-mac-rotation-001";
+    const firstKey = Buffer.alloc(32, 31);
+    const secondKey = Buffer.alloc(32, 47);
+    const v1 = provider(firstKey, "windows-cng:incident-journal-mac-v1");
+    const v2 = provider(secondKey, "windows-cng:incident-journal-mac-v2");
+    const store = new SqliteOfficeIncidentStore({
+      database: adapter(database),
+      installationId,
+      cryptoProvider: cryptoProvider(),
+      requireMac: true
+    });
+
+    store.configureMacProvider(v1);
+    await store.append(incident("incident-before-rotation"));
+    const before = database.prepare(
+      "SELECT key_id, event_mac FROM office_kit_incident_event_macs WHERE installation_id = ? AND sequence = 1"
+    ).get(installationId);
+
+    const rotated = store.configureMacKeyring({
+      providers: [v1, v2],
+      activeKeyId: v2.keyId
+    });
+    assert.equal(rotated.keyId, v2.keyId);
+    assert.deepEqual(rotated.keyIds, [v1.keyId, v2.keyId]);
+    await store.append(incident("incident-after-rotation"));
+
+    const rows = database.prepare(
+      "SELECT sequence, key_id, event_mac FROM office_kit_incident_event_macs WHERE installation_id = ? ORDER BY sequence"
+    ).all(installationId);
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].key_id, v1.keyId);
+    assert.equal(rows[0].event_mac, before.event_mac);
+    assert.equal(rows[1].key_id, v2.keyId);
+    assert.notEqual(rows[1].event_mac, before.event_mac);
+
+    const reopened = new SqliteOfficeIncidentStore({
+      database: adapter(database),
+      installationId,
+      cryptoProvider: cryptoProvider(),
+      requireMac: true
+    });
+    assert.throws(() => reopened.verifyIntegrity(), /incident_integrity_key_unavailable/);
+    const restored = reopened.configureMacKeyring({
+      providers: [v1, v2],
+      activeKeyId: v2.keyId
+    });
+    assert.equal(restored.status, "keyed_hmac_chain");
+    assert.equal(restored.eventCount, 2);
+    assert.deepEqual(restored.keyIds, [v1.keyId, v2.keyId]);
+  } finally {
+    database.close();
+  }
+});
+
+sqliteTest("fails closed when a historical MAC key is missing from the configured keyring", async () => {
+  const database = new DatabaseSync(":memory:");
+  try {
+    const installationId = "officekit-mac-rotation-missing-001";
+    const v1 = provider(Buffer.alloc(32, 53), "windows-cng:incident-journal-mac-v1");
+    const v2 = provider(Buffer.alloc(32, 59), "windows-cng:incident-journal-mac-v2");
+    const store = new SqliteOfficeIncidentStore({
+      database: adapter(database),
+      installationId,
+      cryptoProvider: cryptoProvider(),
+      requireMac: true
+    });
+    store.configureMacProvider(v1);
+    await store.append(incident("incident-historical-key"));
+    store.configureMacKeyring({ providers: [v1, v2], activeKeyId: v2.keyId });
+    await store.append(incident("incident-current-key"));
+
+    const reopened = new SqliteOfficeIncidentStore({
+      database: adapter(database),
+      installationId,
+      cryptoProvider: cryptoProvider(),
+      requireMac: true
+    });
+    assert.throws(() => reopened.configureMacKeyring({
+      providers: [v2],
+      activeKeyId: v2.keyId
+    }), /incident_mac_chain_corrupt/);
+    assert.throws(() => reopened.verifyIntegrity(), /incident_integrity_key_unavailable/);
+  } finally {
+    database.close();
+  }
+});
+
+sqliteTest("rejects malformed or ambiguous MAC keyrings", async () => {
+  const database = new DatabaseSync(":memory:");
+  try {
+    const store = new SqliteOfficeIncidentStore({
+      database: adapter(database),
+      installationId: "officekit-mac-keyring-validation-001",
+      cryptoProvider: cryptoProvider(),
+      requireMac: true
+    });
+    const v1 = provider(Buffer.alloc(32, 61), "key-v1");
+    const v2 = provider(Buffer.alloc(32, 67), "key-v2");
+    assert.throws(() => store.configureMacKeyring({ providers: [], activeKeyId: "key-v1" }), /keyring_invalid/);
+    assert.throws(() => store.configureMacKeyring({ providers: [v1, v1], activeKeyId: "key-v1" }), /provider_invalid/);
+    assert.throws(() => store.configureMacKeyring({ providers: [v1], activeKeyId: "key-v2" }), /active_key_unavailable/);
+    assert.equal(store.configureMacKeyring({ providers: [v1, v2], activeKeyId: "key-v1" }).keyId, "key-v1");
+  } finally {
+    database.close();
+  }
+});
