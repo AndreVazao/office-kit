@@ -246,6 +246,32 @@ test("bounds the complete token-provider and HTTP operation with one deadline", 
   await assert.rejects(adapter.connect(), /vst_request_timeout/);
 });
 
+test("a newer connect attempt aborts the previous pending connection", async () => {
+  let firstSignalStarted;
+  const firstStarted = new Promise(resolve => { firstSignalStarted = resolve; });
+  let calls = 0;
+  const adapter = createAdapter({
+    fetchImpl: async (_url, init) => {
+      calls += 1;
+      if (calls === 1) {
+        firstSignalStarted(init.signal);
+        return new Promise((_, reject) => {
+          init.signal.addEventListener("abort", () => reject(new Error("first_connection_aborted")), { once: true });
+        });
+      }
+      return response(state());
+    }
+  });
+
+  const first = adapter.connect();
+  const firstSignal = await waitFor(firstStarted);
+  const second = await adapter.connect();
+  assert.equal(firstSignal.aborted, true);
+  assert.equal(second.connected, true);
+  await assert.rejects(first, /vst_connection_superseded/);
+  await adapter.disconnect();
+});
+
 test("disconnect aborts an in-flight token-provider request and supersedes connect", async () => {
   let signalStarted;
   const started = new Promise(resolve => { signalStarted = resolve; });
