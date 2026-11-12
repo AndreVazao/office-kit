@@ -140,6 +140,35 @@ test("fresh observer publication becomes a verified read-only snapshot, not engi
   await adapter.disconnect();
 });
 
+test("an unsuccessful observer envelope cannot publish fresh-looking runtime state", async () => {
+  const adapter = createAdapter({
+    fetchImpl: async () => response(state({
+      ok: false,
+      status: "RUNNING",
+      mode: "REAL",
+      open_positions_count: 7,
+      opportunities_count: 9,
+      updated_at_ms: fixedNow,
+      health_state: "healthy",
+      allow_new_tasks: true,
+      health_checked_at_ms: fixedNow
+    }))
+  });
+  await adapter.connect();
+  const snapshot = await adapter.getSnapshot();
+  assert.equal(snapshot.connectionState, "synchronizing");
+  assert.equal(snapshot.synchronized, false);
+  assert.equal(snapshot.backend.observerResponseAccepted, false);
+  assert.equal(snapshot.backend.engineStatus, "UNKNOWN");
+  assert.equal(snapshot.backend.mode, "UNKNOWN");
+  assert.equal(snapshot.backend.openPositionsCount, null);
+  assert.equal(snapshot.backend.opportunitiesCount, null);
+  assert.equal(snapshot.backend.healthState, "unknown");
+  assert.equal(snapshot.backend.allowNewTasks, false);
+  assert.equal(snapshot.backend.executionAuthorized, false);
+  await adapter.disconnect();
+});
+
 test("stale observer publication is rejected by RuntimeSession freshness validation", async () => {
   const adapter = createAdapter({
     fetchImpl: async () => response(state({ updated_at_ms: fixedNow - 60_000 }))
