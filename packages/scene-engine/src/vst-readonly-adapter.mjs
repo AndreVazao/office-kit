@@ -240,13 +240,15 @@ export class VstReadOnlyAdapter {
       throw new Error("vst_clock_invalid");
     }
 
-    const updatedAtMs = safeTimestamp(source.updated_at_ms);
+    const observerAccepted = source.ok === true;
+    const updatedAtMs = observerAccepted ? safeTimestamp(source.updated_at_ms) : null;
     const freshness = freshnessFor(updatedAtMs, receivedAt, this.ttlMs);
-    const healthCheckedAtMs = safeTimestamp(source.health_checked_at_ms);
+    const healthCheckedAtMs = observerAccepted ? safeTimestamp(source.health_checked_at_ms) : null;
     const healthFreshness = freshnessFor(healthCheckedAtMs, receivedAt, this.ttlMs);
-    const engineStatus = safeEnum(source.status, ENGINE_STATUSES, "UNKNOWN");
-    const mode = safeEnum(source.mode, MODES, "UNKNOWN");
-    const synchronized = freshness.state === "fresh" && engineStatus !== "UNKNOWN" && mode !== "UNKNOWN";
+    const engineStatus = observerAccepted ? safeEnum(source.status, ENGINE_STATUSES, "UNKNOWN") : "UNKNOWN";
+    const mode = observerAccepted ? safeEnum(source.mode, MODES, "UNKNOWN") : "UNKNOWN";
+    const synchronized = observerAccepted && freshness.state === "fresh"
+      && engineStatus !== "UNKNOWN" && mode !== "UNKNOWN";
     const generatedAtMs = updatedAtMs !== null && freshness.ageMs >= 0 ? updatedAtMs : receivedAt;
     const sourceUpdatedAt = updatedAtMs !== null ? new Date(updatedAtMs).toISOString() : null;
     const healthCheckedAt = healthCheckedAtMs !== null ? new Date(healthCheckedAtMs).toISOString() : null;
@@ -256,7 +258,7 @@ export class VstReadOnlyAdapter {
       sourceId: SOURCE_ID,
       snapshotId: "vst-" + (updatedAtMs ?? "unavailable") + "-" + (++this.snapshotSequence),
       generatedAt: new Date(generatedAtMs).toISOString(),
-      connectionState: updatedAtMs !== null ? "connected" : "synchronizing",
+      connectionState: observerAccepted && updatedAtMs !== null ? "connected" : "synchronizing",
       synchronized,
       agents: [],
       tasks: [],
@@ -264,15 +266,16 @@ export class VstReadOnlyAdapter {
         transportReachable: true,
         engineStatus,
         engineRunning: engineStatus === "RUNNING",
+        observerResponseAccepted: observerAccepted,
         mode,
         paperOnly: mode === "PAPER",
-        openPositionsCount: safeCount(source.open_positions_count),
-        opportunitiesCount: safeCount(source.opportunities_count),
-        healthState: safeHealthState(source.health_state),
+        openPositionsCount: observerAccepted ? safeCount(source.open_positions_count) : null,
+        opportunitiesCount: observerAccepted ? safeCount(source.opportunities_count) : null,
+        healthState: observerAccepted ? safeHealthState(source.health_state) : "unknown",
         healthCheckedAt,
         healthAgeMs: healthFreshness.ageMs,
         healthFreshness: healthFreshness.state,
-        allowNewTasks: source.allow_new_tasks === true,
+        allowNewTasks: observerAccepted && source.allow_new_tasks === true,
         allowRiskBearingActions: false,
         executionAuthorized: false,
         runtimeReadiness: "unverified",
@@ -411,6 +414,8 @@ export const vstAdapterContract = Object.freeze({
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
   authenticationHeader: "X-Token",
   requiredScope: "read_private_state",
+  responseSuccessField: "ok",
+  requiresSuccessfulObserverEnvelope: true,
   sourceTimestampField: "updated_at_ms",
   sourceTimestampSemantics: "last_observer_publish_time_not_engine_readiness",
   snapshotFreshnessTtlMs: 30_000,
