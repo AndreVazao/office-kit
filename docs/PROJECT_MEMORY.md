@@ -520,7 +520,9 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Each connection has a fresh UUID and generation. A bounded deadline covers token retrieval, fetch and JSON parsing. Disconnect and a newer connection attempt abort the old provider/fetch signal; late generation events are discarded.
 - Unit/fake tests cover the adapter and fake-host composition; tarball tests inspect actual edition contents. They do not prove live VST compatibility, native CNG through this exact VST composition, or physical-PC installation.
 - Universal excludes both personal adapter compositions; DGM-MAT excludes VST; VST includes only its own adapter/host files plus generic core and generic Windows vault. The VST package manifest marks the adapter `read-only-preview`, not production.
-- Next VST gates: run Linux/Windows CI and visual regression on the final PR HEAD; perform live read-only E2E against an actual VST instance; exercise VST namespace provisioning/reconnect/disconnect/restart with native CNG on Windows; validate on the physical PC. Do not enable trading/write routes.
+- Implementation checkpoint HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43` passed CI #43230962819 and visual regression #43230962934. Linux and Windows passed on Node 22 and Node 26.13.1; the VST CNG/SQLite integration test and portable Windows bundle E2E passed on both Windows runtimes. The VST integration uses the real CNG helper and SQLite vault through an injected host factory, with a fake observer response.
+- The documentation-only synchronization commits after that implementation checkpoint are being revalidated on the current PR HEAD before merge.
+- Remaining VST gates: live read-only E2E against an actual VST instance, full signed Windows host lifecycle, trusted-publisher acceptance, and physical-PC provisioning/reconnect/disconnect/restart. Do not enable trading/write routes.
 
 ## Node runtime validation — PR #77 merged (2026-11-12)
 
