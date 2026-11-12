@@ -104,13 +104,13 @@ test("VST Windows host requires explicit consent and never auto-connects on cred
     assert.equal(provisioned.stored, true);
     assert.equal(provisioned.namespace, "vst.local-api");
     assert.equal(provisioned.hardwareBacked, false);
-    assert.equal(provisioned.tokenRetainedInMemory, false);
+    assert.equal(provisioned.tokenCachedInMemory, false);
     assert.equal(host.secret, ownerToken);
     assert.equal(calls.length, 0);
 
     const credentialState = composed.getCredentialState();
     assert.equal(credentialState.configured, true);
-    assert.equal(credentialState.tokenReadable, false);
+    assert.equal(credentialState.tokenExposed, false);
     assert.equal(JSON.stringify(credentialState).includes(ownerToken), false);
 
     const health = await composed.health();
