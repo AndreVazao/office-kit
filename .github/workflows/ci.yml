@@ -8,18 +8,19 @@ permissions:
   contents: read
 jobs:
   core-tests:
-    name: core-tests (${{ matrix.os }})
+    name: core-tests (${{ matrix.os }} / Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        node-version: [22, "26.13.1"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
       - name: Validate core syntax and run tests
         run: npm run check
       - name: Validate example configuration JSON
