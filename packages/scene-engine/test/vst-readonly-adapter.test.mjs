@@ -346,6 +346,25 @@ test("disconnect aborts an in-flight polling fetch and suppresses its late resul
   assert.equal(calls, 2);
 });
 
+test("initial authentication rejection blocks reconnect until explicit disconnect", async () => {
+  let calls = 0;
+  const adapter = createAdapter({
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return response({ error: "unauthorized" }, 401);
+      return response(state());
+    }
+  });
+
+  await assert.rejects(adapter.connect(), /vst_auth_rejected/);
+  await assert.rejects(adapter.connect(), /vst_auth_rejected/);
+  assert.equal(calls, 1);
+  await adapter.disconnect();
+  await adapter.connect();
+  assert.equal(calls, 2);
+  await adapter.disconnect();
+});
+
 test("authentication rejection during polling stops further requests until explicit disconnect", async () => {
   let calls = 0;
   const adapter = createAdapter({
