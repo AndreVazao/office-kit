@@ -1,6 +1,6 @@
 # Protocolo anti-rollback do diário de incidentes
 
-Estado: desenho técnico; ainda não implementado nem validado em TPM físico.
+Estado: contrato neutro e testes de conformidade implementados na branch de trabalho; protocolo crash-consistent, integração SQLite, provider TPM nativo e validação física continuam por implementar. Nenhuma proteção anti-rollback é declarada nesta fase.
 
 ## Objetivo e limite de segurança
 
