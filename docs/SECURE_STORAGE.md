@@ -111,3 +111,12 @@ Backup/restore limitation: the RSA wrapping key is user-scoped and non-exportabl
 The SQLite store now accepts a bounded keyring (1–32 providers), rejects duplicate/malformed key IDs and requires an explicitly selected active key. New events are authenticated with that active provider; historical MACs are verified with the provider identified by each immutable row's `key_id`. Existing MAC records and event hashes are not rewritten during key selection/rotation, and missing historical keys or partial chains fail closed.
 
 PR #75 was squash-merged as `99ecc7048ae235e89a6fa18fa62eb66f1f7a63ab`; final PR HEAD `2444e1f0af660cc46a12b43669a3b058c221b256`, CI run #506 and Chromium visual regression #426 both passed on that exact HEAD. This validates the storage-layer contract, not a complete host rotation workflow. CNG provisioning of a new version, explicit owner authorization, rollback/recovery, old-key retirement and cross-profile backup remain unimplemented.
+
+
+## VST local API token — isolated Windows CNG namespace (2026-11-12)
+
+The VST-only `createWindowsVstHost` composition stores the owner-supplied local API token through the generic `WindowsCngSecretVault` under namespace `vst.local-api`, secret name `owner-token`. It does not reuse the DGM-MAT `dgmat.bootstrap` namespace or node-identity key. The VST adapter receives the token on demand through an injected provider and sends it only in the `X-Token` request header to the exact loopback observer endpoint; it does not place the token in URLs, snapshots, logs or browser storage.
+
+Provisioning and removal require `ownerConsent: true`; provisioning does not connect automatically. Connection is an explicit owner action. Disconnect aborts the in-flight token retrieval/fetch signal, and the adapter does not retain the token as a session field. The current Windows vault is user-profile/installation/namespace scoped, uses the CNG Software KSP and reports `hardwareBacked=false`; it is not a TPM claim. Loss of the matching profile/key still requires explicit token re-enrolment.
+
+The VST-specific Windows integration test uses the real CNG helper and SQLite vault through the VST host composition to verify encrypted persistence, non-exportability, close/reopen, authenticated GET and explicit removal. The test injects a host factory and fake observer response; it is not a live VST contract test or full physical Windows host installation. CI must pass on the exact PR HEAD before this test is counted as evidence.
