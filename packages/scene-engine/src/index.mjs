@@ -67,3 +67,5 @@ export { resolveOfficeActivityState, officeActivityStateContract } from "./offic
 
 export { normalizeHardwareCapabilities, resolveAdaptiveResourcePolicy, adaptiveResourceContract } from "./resource-policy.mjs";
 export { SqliteOfficeIncidentStore } from "./sqlite-office-incident-store.mjs";
+
+export { advanceMonotonicAnchor, inspectMonotonicAnchor, monotonicAnchorContract, validateMonotonicAnchorProvider } from "./monotonic-anchor.mjs";
