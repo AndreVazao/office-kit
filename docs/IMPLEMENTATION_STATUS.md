@@ -206,7 +206,7 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - New branch `feat/dgmat-local-session-provider` implements `DgmMatLocalSessionProvider` for the documented `POST /auth/session` contract.
 - Bootstrap credential is supplied by an injected host keystore provider, used only for loopback exchange, and never cached by Office Kit; access token remains memory-only and is refreshed before expiry.
 - 401/403 from the read-only adapter invalidates the injected session cache. Added unit tests for endpoint restrictions, request contract, concurrent exchange, expiry, invalidation and fail-closed responses.
-- Still missing: concrete Windows CNG/DPAPI/credential-vault bridge to retrieve the protected DGM-MAT bootstrap credential, process-host wiring, and live PC E2E. Do not claim DGM-MAT connection is operational.
+- Historical note: the CNG bridge and DGM-MAT-only host composition were subsequently integrated in PR #72. Live DGM-MAT and physical-PC validation remain pending.
 
 
 ## Comercialização e assinatura — implementação em curso
@@ -457,7 +457,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Each successful connection gets a fresh UUID session ID. A generation fence rejects late polling results from a disconnected/replaced session.
 - Added unit/fake tests for deadline boundaries, cancellation, safe error events, timestamp semantics, session rotation and late-poll suppression. CI has not yet run on the final branch HEAD.
 - The local session provider now bounds the complete bootstrap credential -> loopback POST -> response-body exchange with one deadline and supports caller cancellation.
-- Still blocking production: dedicated Windows OS-keystore storage/retrieval for the DGM-MAT bootstrap secret, host composition wiring, live contract tests against a running DGM-MAT instance, and physical-PC validation. Do not reuse node-identity private keys for backend credentials.
+- PR #72 later integrated the dedicated Windows CNG bootstrap vault and DGM-MAT-only host composition. Live contract tests against a running DGM-MAT instance and physical-PC validation remain pending; node-identity keys remain separate.
 
 ## Connection supervisor — validation and merge (2026-11-10)
 - [x] PR #61 merged into main; merge commit `43adb778b8e03d85c1766f5f1bc68ca15ecea027`.
@@ -530,7 +530,37 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - A alteração protege a fronteira do host, mas não substitui autenticação/autorização do utilizador nem um driver de sistema operativo.
 
 
-### DGM-MAT Windows bootstrap vault and edition-isolated composition — work branch (2026-11-11)
+### DGM-MAT Windows bootstrap vault and edition-isolated composition — integrado (PR #72, 2026-11-11)
+
+- PR #72 squash-merged em `2395a8a841d8a0a29cc3d67a0e76eb352921f40f`; HEAD final `a616e902f8cf7fdbecbb1f5cd0a3e7a60cafc708`. CI #493 e visual #413 passaram nesse SHA.
+- `WindowsCngSecretVault` guarda envelopes AES-256-GCM em SQLite e protege chaves de dados com RSA não exportável no Windows CNG Software KSP; a chave é separada da identidade ECDSA do nó.
+- `createWindowsDgmMatHost` e o fluxo bootstrap são exclusivos da edição DGM-MAT. Universal/VST recebem apenas a primitiva genérica do vault, sem rotas nem semântica de credenciais DGM.
+- O job Windows executou integração CNG nativa, persistência/isolation, bootstrap secret vault e bundle portátil E2E. Os testes fake/unitários não são contados como evidência nativa.
+- Consentimento explícito para provisionar/remover; conexão manual; adapter GET-only/read-only; estado backend `unverified`.
+- Pendentes: DGM-MAT live E2E, PC físico, backup/restore e recuperação de perda do perfil CNG. SQLite isolada não é backup suficiente.
+
+### Keystore-backed incident journal MAC — integrado em main (PR #73, 2026-11-12)
+
+- PR #73 squash-merged em `e8bc303096f26b437d13b7fa820443427c72596e`; HEAD final `7b390080645f910cf394ba9c10e83a2f81c8078c`; CI #502 e visual #422 passaram nesse mesmo HEAD.
+- HMAC-SHA-256 por evento, com key ID, encadeamento e verificação fail-closed antes de leitura/exportação.
+- Windows host obtém a chave de 256 bits no CNG Software KSP, namespace `incident.journal`; o CI Windows validou persistência entre processos/aberturas do host e ausência de substituição silenciosa da chave.
+- Limite: chave user-profile-scoped; sem âncora externa anti-rollback, power-loss físico ou recuperação cross-profile. Não declarar resistência absoluta.
+
+### Versioned incident journal MAC keyring — integrado (PR #75, 2026-11-12)
+
+- PR #75 squash-merged em `99ecc7048ae235e89a6fa18fa62eb66f1f7a63ab`; HEAD final `2444e1f0af660cc46a12b43669a3b058c221b256`; CI #506 e visual #426 passaram nesse HEAD.
+- A store aceita keyring limitado com IDs únicos e active key explícita; verifica MACs históricos com o provider indicado em cada linha e assina novos eventos com a chave ativa.
+- Preserva MACs históricos e falha fechada para chave histórica ausente, cadeia parcial e configuração inválida.
+- Não inclui provisioning/rotação CNG pelo host, consentimento do proprietário, eliminação/retirada de chaves ou recuperação; trata-se da fundação de armazenamento, não do workflow completo de rotação.
+
+### Bloqueios de produção ainda abertos
+
+- Resolver a maturidade/versão suportada de `node:sqlite` e alinhar engines, CI e bundle.
+- Implementar rotação CNG gerida pelo host, recuperação autorizada e política de retenção das chaves antigas.
+- Adicionar âncora monotónica externa e testes de rollback/power-loss em hardware físico.
+- Implementar keystores/hosts Linux, macOS e Android.
+- Validar DGM-MAT live e VST live, instaladores reais, assinatura, backup/restore e ciclo completo de atualização/desinstalação.
+
 
 - Added a generic Windows-host secret vault that stores only AES-256-GCM ciphertext envelopes in installation-scoped SQLite and wraps per-secret data keys using a separate non-exportable RSA key in the Windows CNG Software KSP.
 - The CNG key namespace is derived from installation ID and secret namespace and is distinct from the node-identity ECDSA key. The provider reports OS-protected software storage and `hardwareBacked=false`; it does not claim TPM backing.
