@@ -76,7 +76,7 @@ This document remains a specification, not a platform-provider implementation. `
 - The Office Kit session provider must never read DGM-MAT files directly, persist/cache the plaintext bootstrap secret, log it, or send it to a non-loopback endpoint. A host-owned keystore may persist only an encrypted envelope.
 - The current implementation exchanges it only with `POST http://127.0.0.1:8181/auth/session`, with redirects disabled and cache disabled.
 - The short-lived bearer access token is held in process memory only, refreshed before expiry, and invalidated on 401/403. It is not written to profile, localStorage, IndexedDB, logs or backups.
-- A DGM-MAT-only Windows composition and generic CNG secret-vault bridge are now implemented on branch `feat/dgmat-cng-bootstrap-host`, pending CI and native Windows integration results. The code path is not yet validated on a live DGM-MAT instance or the target physical PC; it must not be described as a turnkey production connection until those checks pass.
+- The DGM-MAT-only Windows composition and generic CNG secret-vault bridge were integrated by PR #72 (merge `2395a8a841d8a0a29cc3d67a0e76eb352921f40f`; PR HEAD `a616e902f8cf7fdbecbb1f5cd0a3e7a60cafc708`). CI #493 and visual regression #413 passed on that same HEAD, including native Windows CNG vault integration. Live DGM-MAT and target physical-PC validation remain pending; this is not a turnkey production connection.
 
 
 ## Lifecycle integration validation
@@ -104,3 +104,10 @@ Unit tests use a fake CNG process and are not native-keystore evidence. The Wind
 
 
 Backup/restore limitation: the RSA wrapping key is user-scoped and non-exportable. A copy of the SQLite database alone is not sufficient to restore these secrets on another Windows user profile or machine. Recovery currently requires continuity of the original Windows user profile and CNG key container, or explicit credential re-enrolment after loss. A durable, tested backup/recovery workflow for this key dependency is still a production blocker.
+
+
+## Incident journal MAC keyring — storage boundary (PR #75, 2026-11-12)
+
+The SQLite store now accepts a bounded keyring (1–32 providers), rejects duplicate/malformed key IDs and requires an explicitly selected active key. New events are authenticated with that active provider; historical MACs are verified with the provider identified by each immutable row's `key_id`. Existing MAC records and event hashes are not rewritten during key selection/rotation, and missing historical keys or partial chains fail closed.
+
+PR #75 was squash-merged as `99ecc7048ae235e89a6fa18fa62eb66f1f7a63ab`; final PR HEAD `2444e1f0af660cc46a12b43669a3b058c221b256`, CI run #506 and Chromium visual regression #426 both passed on that exact HEAD. This validates the storage-layer contract, not a complete host rotation workflow. CNG provisioning of a new version, explicit owner authorization, rollback/recovery, old-key retirement and cross-profile backup remain unimplemented.
