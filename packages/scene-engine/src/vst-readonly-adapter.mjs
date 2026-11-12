@@ -289,7 +289,7 @@ export class VstReadOnlyAdapter {
   }
 
   async connect() {
-    if (this.connected && this.authenticationRejected) throw new Error("vst_auth_rejected");
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
     if (this.connected) return { connected: true, sourceId: SOURCE_ID, sessionId: this.sessionId };
     const previousController = this.connectionAbortController;
     this.connectionAbortController = null;
