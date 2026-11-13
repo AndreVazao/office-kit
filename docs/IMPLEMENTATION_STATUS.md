@@ -9,7 +9,7 @@ This page records implemented work separately from planned or independently veri
 - **VST:** the isolated VST source package now contains a read-only preview adapter and Windows host composition. It uses authenticated loopback `GET /observer/summary` with `X-Token`; the token is stored through the generic Windows CNG vault in namespace `vst.local-api`. Provisioning/removal require explicit owner consent and connection is manual. No write/trading capability is exposed; `REAL` is informational only, `executionAuthorized=false`, and backend readiness remains `unverified`.
 - VST adapter unit tests use injected token providers and fake HTTP responses. A dedicated Windows integration test uses the real CNG helper and SQLite vault through an injected host factory with a fake observer response. It passed on Windows Node 22 and Node 26.13.1 in CI #43230962819 on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; it verifies encrypted persistence, key non-exportability, close/reopen, authenticated GET and explicit token/key removal. It does not validate the full signed Windows host lifecycle, a live VST instance or the user's physical PC.
 - All three edition source tarballs are checked for positive and negative module membership. They are not OS installers.
-- PR #77 was merged as `d0bcd59055202e7a845bb2b103cf91c72597a1b2`. On final PR HEAD `fe811f4d8b44ae81b4294bd2e108065212176bde`, CI #43226023576 passed Node 22 and Node 26.13.1 on Linux/Windows, including Windows native CNG/identity and portable bundle E2E; visual regression #43226023574 passed on Node 26.13.1. The package engine floor remains `>=22.5.0` because `node:sqlite` is still Experimental on Node 22 and Release Candidate on Node 26.
+- PR #77 was merged as `d0bcd59055202e7a845bb2b103cf91c72597a1b2`. On final PR HEAD `fe811f4d8b44ae81b4294bd2e108065212176bde`, CI #43226023576 passed Node 22 and Node 26.13.1 on Linux/Windows, including Windows native CNG/identity and portable bundle E2E; visual regression #43226023574 passed on Node 26.13.1. The package engine floor is now `>=22.13.0`: Node 22.5–22.12 requires `--experimental-sqlite`, while 22.13.0 is the first 22.x release where the module is available without that flag. `node:sqlite` remains Experimental on Node 22 and Stability 1.2 — Release Candidate on Node 26.
 
 
 ## Implemented in the current vertical slice
@@ -340,7 +340,7 @@ GitHub Actions run #62, ID 41291442920, completed successfully for the preview q
 - CLI explícito: `health`, `create-identity`, `rotate-identity`, `revoke-identity`. O arranque nunca cria uma identidade automaticamente e não inicia listeners, descoberta, telemetria ou comandos remotos.
 - Testes de host usam runtime/ACL/verificação de assinatura injetados e SQLite real; não são validação de ACLs, certificados ou instalação física.
 - Limite de release: o helper CNG do CI ainda não tem assinatura de distribuição; o CLI rejeita corretamente helpers sem Authenticode válido. MSI/MSIX, assinatura de release, atualização/rollback, backup/restore e PC físico continuam pendentes.
-- Requisito do host: Windows + Node.js 22.5+ (`node:sqlite`). O pacote não é importado pelo core genérico nem pela preview.
+- Requisito do host: Windows + Node.js 22.13+ (`node:sqlite`). O pacote não é importado pelo core genérico nem pela preview.
 
 ### Windows host — integração nativa de ACL/trust em CI
 - Acrescentado teste Windows-only que executa `whoami`, `icacls` e icacls reais; verifica ACL efetiva do utilizador atual e SYSTEM na pasta de instalação, pasta de dados, installation metadata e SQLite.
@@ -444,7 +444,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - The generic packages/scene-engine/src/index.mjs no longer re-exports DGM-MAT modules. DGM-MAT exports live in the dedicated packages/scene-engine/src/dgmat.mjs entrypoint.
 - scripts/build-edition.mjs now stages explicit per-edition source allowlists in a temporary directory and packs only that staged package. Universal excludes DGM-MAT/VST modules; DGM-MAT includes only its own adapter/session modules; VST includes no backend-specific adapter until a real VST adapter is implemented.
 - VST product metadata no longer claims a vazao-sovereign-trader adapter exists. Its adapter allowlist is empty and status is not_implemented.
-- Root package engine floor and all three manual edition workflows now use Node.js 22.5+ / Node 22, matching the host's node:sqlite requirement. The manifest documents that node:sqlite remains experimental on Node 22.
+- Root package engine floor and all three manual edition workflows now use Node.js 22.13+ / Node 22, matching the host's node:sqlite requirement. The manifest documents that node:sqlite remains experimental on Node 22.
 - New artifact tests inspect the actual .tgz contents for all three editions, checking both required and forbidden modules. CI on the branch is pending; this is not yet a merged/released package.
 
 ### SQLite incident concurrency — PR #60
@@ -565,7 +565,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 
 ### Bloqueios de produção ainda abertos
 
-- Resolver a maturidade/versão suportada de `node:sqlite` e alinhar engines, CI e bundle. PR #77 em validação adiciona CI Node 22 + 26.13.1 em Linux/Windows e move regressão visual/builds manuais para Node 26.13.1; o engine floor permanece `>=22.5.0`. `node:sqlite` continua Stability 1.2 — Release Candidate nos docs Node 26 e Experimental no Node 22; não declarar o runtime final escolhido até os checks passarem no mesmo HEAD.
+- Resolver a maturidade/versão suportada de `node:sqlite` e alinhar engines, CI e bundle. PR #77 em validação adiciona CI Node 22 + 26.13.1 em Linux/Windows e move regressão visual/builds manuais para Node 26.13.1; o engine floor passa a `>=22.13.0`, porque Node 22.5–22.12 exigia `--experimental-sqlite`. A API continua Experimental no Node 22 e Stability 1.2 — Release Candidate no Node 26; isto corrige o requisito de arranque, não transforma a API em estável.
 - Implementar rotação CNG gerida pelo host, recuperação autorizada e política de retenção das chaves antigas.
 - Adicionar âncora monotónica externa e testes de rollback/power-loss em hardware físico.
 - Implementar keystores/hosts Linux, macOS e Android.
@@ -618,3 +618,9 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - With the Windows host's incident-payload applier configured, the journal rejects sequence advancement without the recognized incident append payload and fails closed if the persisted prepare payload is removed before finalization. A generic journal without that applier remains metadata-only and does not anchor incident events.
 - **Not yet implemented/validated:** a production TPM 2.0 provider; production host wiring that routes every incident mutation through an anchored coordinator; live Windows TPM integration; power-loss/filesystem durability; backup/restore; physical-PC testing. Ordinary `incidentStore.append()` and `update()` remain unanchored and must not be described as anti-rollback protected.
 - **PR #86 merged:** `edb7bd3c79051078141d54424bfcaccf249156c5`; final PR HEAD `8a98567d53e8f65ce351745047c46da18b691c11`. CI #571 and Chromium visual #491 passed on the same HEAD. Windows Node 22/26 jobs passed native CNG, DGM/VST vault integration, CNG incident journal restart and portable bundle E2E; Linux Node 22/26 passed. Initial CI #567 exposed an over-broad guard; the final code scopes it to journals configured with the incident applier and includes regressions.
+
+## Runtime compatibility correction — 2026-11-13
+
+- The minimum runtime for every edition and the Windows host is now Node.js `>=22.13.0`. Node 22.5.0 introduced `node:sqlite`, but the module remained behind `--experimental-sqlite` until Node 22.13.0. The host does not require users to pass an experimental startup flag.
+- Node 22 still labels `node:sqlite` Experimental; Node 26 labels it Stability 1.2 — Release Candidate. The raised floor fixes module availability without claiming stable API maturity.
+- Package engines, edition manifests, Windows bundle build/verification scripts and tarball assertions are synchronized. Linux/Windows Node 22 and Node 26 CI plus visual regression must pass on the final PR HEAD.
