@@ -124,7 +124,7 @@ The VST-specific Windows integration test passed on Windows Node 22 and Node 26.
 
 ## Atomic incident/checkpoint finalization — PR #86 (2026-11-13)
 
-The checkpoint journal can apply a recognized incident-append payload synchronously inside the same SQLite transaction that updates checkpoint metadata. The transaction covers the incident snapshot, append-only event, event HMAC, event-chain head, checkpoint row and prepare-row deletion. A sequence advance without the recognized payload is rejected both when preparing and when finalizing; the persisted payload is checked again so a removed or changed payload fails closed.
+The checkpoint journal can apply a recognized incident-append payload synchronously inside the same SQLite transaction that updates checkpoint metadata. The transaction covers the incident snapshot, append-only event, event HMAC, event-chain head, checkpoint row and prepare-row deletion. When the incident-payload applier is configured, a sequence advance without the recognized payload is rejected both when preparing and when finalizing; the persisted payload is checked again so a removed or changed payload fails closed. A generic checkpoint journal without an applier remains metadata-only and does not anchor incident events.
 
 Crash recovery uses the external anchor only as an ordering decision: successor state finalizes the durable prepare; predecessor state discards it; indeterminate/mismatched state retains the prepare and blocks recovery. Tests use a real SQLite file and reopen it across simulated process shutdown, but the anchor is a test-only fake. This does not validate TPM semantics.
 
