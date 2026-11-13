@@ -417,3 +417,57 @@ sqliteTest("binds an anchored update to the exact predecessor snapshot", async (
     macKey.fill(0);
   }
 });
+
+
+sqliteTest("recovers an anchored incident update after the external anchor advances", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-anchored-update-recovery-"));
+  const filename = join(directory, "journal.sqlite");
+  let opened = openDatabase(filename);
+  let lock = createInProcessExclusiveLockProvider();
+  try {
+    let store = createStore(opened.adapter, lock);
+    let journal = createJournal(opened.adapter, lock, store);
+    const anchor = anchorFixture();
+    let coordinator = new SqliteMonotonicCheckpointCoordinator({
+      provider: anchor.provider, journal, installationId
+    });
+    const writer = new MonotonicIncidentWriter({ incidentStore: store, coordinator });
+    const id = await writer.append(incident("incident-anchored-update-recovery"));
+
+    let staged;
+    await journal.withExclusiveLock(async () => {
+      const expected = await journal.readCheckpoint();
+      const payload = store.prepareMonotonicUpdate(id, { status: "resolved", outcome: "fixed" });
+      staged = { expected, ...transitionFromPayload(expected, payload) };
+      await journal.prepareCheckpoint(staged);
+    });
+    await anchor.provider.advance(staged.expected, staged.next);
+
+    await lock.close();
+    lock = null;
+    opened.database.close();
+    opened = null;
+
+    opened = openDatabase(filename);
+    lock = createInProcessExclusiveLockProvider();
+    store = createStore(opened.adapter, lock);
+    journal = createJournal(opened.adapter, lock, store);
+    coordinator = new SqliteMonotonicCheckpointCoordinator({
+      provider: anchor.provider, journal, installationId
+    });
+    const recovered = await coordinator.recover();
+
+    assert.equal(recovered.recovered, "finalized");
+    assert.equal((await store.get(id)).revision, 2);
+    assert.equal((await store.get(id)).status, "resolved");
+    assert.equal(store.verifyIntegrity().eventCount, 2);
+    assert.equal((await journal.readCheckpoint()).sequence, 2);
+    assert.equal(await journal.readPreparedCheckpoint(), null);
+    assert.deepEqual(anchor.read().checkpoint, await journal.readCheckpoint());
+  } finally {
+    try { await lock?.close(); } catch {}
+    try { opened?.database.close(); } catch {}
+    rmSync(directory, { recursive: true, force: true });
+    macKey.fill(0);
+  }
+});
