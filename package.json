@@ -10,7 +10,7 @@
     "build:all-editions": "node scripts/build-edition.mjs universal && node scripts/build-edition.mjs dgmat && node scripts/build-edition.mjs vst"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.13.0"
   },
   "license": "MIT"
 }
