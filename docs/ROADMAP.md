@@ -492,7 +492,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Add a DGM-MAT-only entrypoint.
 - [x] Replace root-repository npm pack with temporary staging and explicit per-edition allowlists.
 - [x] Keep VST package free of unimplemented VST-specific code and label the adapter as not implemented.
-- [x] Align package engines and manual workflows with Node 22 / minimum 22.5 for node:sqlite.
+- [x] Align package engines and manual workflows with Node 22 / minimum 22.13 for unflagged node:sqlite.
 - [x] Add tarball-content assertions for Universal, DGM-MAT and VST.
 - [ ] Pass Linux/Windows CI and all three manual edition build workflows on the final PR HEAD.
 
@@ -637,7 +637,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] CI #43226023576 passou Node 22 e Node 26.13.1 em Linux/Windows; Windows executou CNG nativo, identidade persistente, journal autenticado e bundle portátil E2E em ambos os runtimes.
 - [x] Regressão visual #43226023574 passou com Chromium em Node 26.13.1; workflows visuais e builds manuais das três edições foram movidos para Node 26.13.1.
 - [x] Builds dos três source packages passaram na matriz Linux Node 22/26.13.1.
-- [ ] Manter o engine floor `>=22.5.0` até a maturidade de `node:sqlite` justificar uma decisão diferente: Experimental no Node 22 e Stability 1.2 — Release Candidate no Node 26.
+- [x] Raise the engine floor to `>=22.13.0`: Node 22.5–22.12 requires `--experimental-sqlite`; Node 22.13.0 is the first 22.x release where `node:sqlite` works without that flag. API maturity remains Experimental on Node 22 and Release Candidate on Node 26.
 - [ ] Validar migração, locking, concorrência e recuperação no runtime final; os testes atuais não demonstram power-loss físico.
 
 
@@ -690,3 +690,8 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Provide equivalent platform-specific anchor/keystore providers for Linux, macOS and Android before enabling the feature on those hosts.
 
 PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT or VST edition allowlists or credentials. It is not production anti-rollback until the remaining provider, host-integration and physical validation gates are closed.
+
+## Runtime compatibility correction — 2026-11-13
+
+- [x] Raise the minimum runtime to Node 22.13.0 across package engines, edition manifests, Windows bundle scripts and compatibility tests; avoid requiring users to pass `--experimental-sqlite`.
+- [ ] Continue evaluating a stable SQLite driver/API for production. Node 22 still classifies `node:sqlite` as Experimental and Node 26 as Stability 1.2 — Release Candidate; CI success is not API stability or physical power-loss validation.
