@@ -539,3 +539,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - Testes novos usam `node:sqlite` com ficheiro temporário, WAL e `synchronous=FULL`, reabertura da base, commit coordenado com anchor fake e reconciliação após restart.
 - Limitação explícita: guarda apenas metadata de checkpoint e payload preparado. Ainda não acrescenta o evento real ao `SqliteOfficeIncidentStore`, não garante que eventHash/eventMac correspondem a um evento existente, não fornece TPM e não prova rollback/power-loss físico.
 - Não declarar anti-rollback protegido. Próximos gates: ligar ao append transacional de eventos/MACs, lock cross-process real no host, fault injection com processos separados e provider TPM 2.0 com provisioning consentido.
+
+
+## Monotonic checkpoint journal — PR #84 integrada e lock do host (2026-11-13)
+
+- PR #84 foi squash-merged em `0163babd2ad2524dc1d82fe3f45e1c016070d6ee`; PR HEAD `c2598283cbe99f0d96c694f5e2f07419ce9181bd`.
+- CI #554 (`43433248846`) passou nos quatro jobs Linux/Windows × Node 22/26.13.1; os jobs Windows executaram CNG nativo e bundle E2E. Regressão visual #474 (`43433249070`) passou no mesmo HEAD.
+- O adapter SQLite guarda apenas checkpoint metadata e prepare payload; ainda não insere/verifica o evento/MAC correspondente no incident journal. O anchor do teste é fake e o lock de teste é em memória. Não declarar anti-rollback protegido.
+- PR #85 em desenvolvimento: provider assíncrono de lock dentro do processo, partilhado pelo incident store e pelo checkpoint journal; Windows host singleton lock movido para módulo testável, com token de ownership; teste child-process para provar exclusão entre processos e teste de serialização entre writes e checkpoint.
+- Limite: o singleton Windows impede outra instância oficial do Office Kit no mesmo data directory. Não é um mecanismo contra processos arbitrários que ignorem o host e abram diretamente a SQLite.
+- Próximos passos: integrar append event/MAC e checkpoint prepare/finalize de forma crash-consistent, testar contention multi-process real no Windows host, implementar TPM 2.0 com provisioning consentido e validar power-loss/backup/restore em hardware físico.
