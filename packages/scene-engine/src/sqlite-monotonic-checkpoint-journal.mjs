@@ -1,6 +1,12 @@
 const INSTALLATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
 const HASH = /^[a-f0-9]{64}$/;
 const INCIDENT_APPEND_KIND = "office-kit.monotonic-incident-append.v1";
+const INCIDENT_UPDATE_KIND = "office-kit.monotonic-incident-update.v1";
+const INCIDENT_PAYLOAD_KINDS = new Set([INCIDENT_APPEND_KIND, INCIDENT_UPDATE_KIND]);
+
+function isIncidentPayload(payload) {
+  return Boolean(payload && INCIDENT_PAYLOAD_KINDS.has(payload.kind));
+}
 
 function validateCheckpoint(value, installationId) {
   if (!value || typeof value !== "object" || Array.isArray(value)
@@ -178,20 +184,26 @@ export class SqliteMonotonicCheckpointJournal {
     if (typeof payloadJson !== "string" || payloadJson.length > 1_048_576) {
       throw new Error("sqlite_monotonic_payload_invalid");
     }
-    if (this.#applyPreparedPayload && target.sequence > before.sequence && payload?.kind !== INCIDENT_APPEND_KIND) {
+    if (this.#applyPreparedPayload && target.sequence > before.sequence && !isIncidentPayload(payload)) {
       throw new Error("sqlite_monotonic_incident_payload_required");
     }
-    if (payload?.kind === INCIDENT_APPEND_KIND) {
+    if (isIncidentPayload(payload)) {
       if (!this.#applyPreparedPayload) throw new Error("sqlite_monotonic_payload_handler_required");
       if (payload.schemaVersion !== 1 || payload.installationId !== this.#installationId
         || !Number.isSafeInteger(payload.sequence) || payload.sequence < 1
         || target.sequence !== payload.sequence
+        || target.sequence !== before.sequence + 1
         || target.eventHash !== payload.eventHash
         || target.eventMac !== payload.eventMac
         || typeof payload.snapshot?.id !== "string"
         || typeof payload.eventJson !== "string"
         || typeof payload.keyId !== "string") {
         throw new Error("sqlite_monotonic_event_payload_mismatch");
+      }
+      if (payload.kind === INCIDENT_UPDATE_KIND
+        && (!Number.isSafeInteger(payload.previousRevision) || payload.previousRevision < 1
+          || !HASH.test(payload.previousSnapshotHash ?? ""))) {
+        throw new Error("sqlite_monotonic_update_payload_mismatch");
       }
     }
     const id = this.#makeId();
@@ -252,11 +264,16 @@ export class SqliteMonotonicCheckpointJournal {
         throw new Error("sqlite_monotonic_prepare_mismatch");
       }
       const payload = parseJson(pending.payload_json, "sqlite_monotonic_prepare_corrupt");
-      if (this.#applyPreparedPayload && target.sequence > expected.sequence && payload?.kind !== INCIDENT_APPEND_KIND) {
+      if (this.#applyPreparedPayload && target.sequence > expected.sequence && !isIncidentPayload(payload)) {
         throw new Error("sqlite_monotonic_incident_payload_required");
       }
-      if (payload?.kind === INCIDENT_APPEND_KIND) {
+      if (isIncidentPayload(payload)) {
         if (!this.#applyPreparedPayload) throw new Error("sqlite_monotonic_payload_handler_required");
+        if (payload.kind === INCIDENT_UPDATE_KIND
+          && (!Number.isSafeInteger(payload.previousRevision) || payload.previousRevision < 1
+            || !HASH.test(payload.previousSnapshotHash ?? ""))) {
+          throw new Error("sqlite_monotonic_update_payload_mismatch");
+        }
         const applied = this.#applyPreparedPayload(payload, target);
         if (applied && typeof applied.then === "function") {
           throw new Error("sqlite_monotonic_payload_handler_must_be_synchronous");
