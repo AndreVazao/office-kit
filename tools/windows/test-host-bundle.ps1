@@ -25,15 +25,15 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.edition -ne "Universal") {
   throw "Portable Windows host bundle must identify itself as Universal."
 }
-if ($manifest.minimumNodeVersion -ne "22.5.0" -or $manifest.nodeArchitecture -ne "x64") {
+if ($manifest.minimumNodeVersion -ne "22.13.0" -or $manifest.nodeArchitecture -ne "x64") {
   throw "Universal bundle manifest has an invalid Node.js runtime floor or architecture."
 }
 if ($manifest.nodeVersion -notmatch '^v?(\d+)\.(\d+)\.(\d+)') {
   throw ("Portable bundle manifest contains an invalid Node.js version: " + $manifest.nodeVersion)
 }
 $manifestNodeVersion = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
-if ($manifestNodeVersion -lt [version]"22.5.0") {
-  throw "Portable bundle Node.js version is below the required 22.5.0 floor."
+if ($manifestNodeVersion -lt [version]"22.13.0") {
+  throw "Portable bundle Node.js version is below the required 22.13.0 floor."
 }
 $actualNodeVersion = (& $nodePath --version).Trim()
 $actualNodeArchitecture = (& $nodePath -p "process.arch").Trim()
