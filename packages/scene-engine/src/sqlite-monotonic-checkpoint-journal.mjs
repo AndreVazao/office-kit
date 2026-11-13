@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 const INSTALLATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
 const HASH = /^[a-f0-9]{64}$/;
 
@@ -45,6 +43,14 @@ function parseJson(value, errorCode) {
   catch { throw new Error(errorCode); }
 }
 
+function createDefaultId() {
+  const id = globalThis.crypto?.randomUUID?.();
+  if (typeof id !== "string" || !id) {
+    throw new Error("sqlite_monotonic_id_provider_unavailable");
+  }
+  return id;
+}
+
 /**
  * SQLite persistence adapter for monotonic checkpoint coordination.
  *
@@ -60,7 +66,7 @@ export class SqliteMonotonicCheckpointJournal {
   #lockProvider;
   #makeId;
 
-  constructor({ database, installationId, lockProvider, makeId = randomUUID } = {}) {
+  constructor({ database, installationId, lockProvider, makeId = createDefaultId } = {}) {
     if (!database || typeof database.exec !== "function"
       || typeof database.prepare !== "function"
       || typeof database.transaction !== "function") {
