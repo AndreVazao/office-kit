@@ -1,12 +1,12 @@
 # Protocolo anti-rollback do diário de incidentes
 
-Estado: contrato neutro e testes de conformidade implementados na branch de trabalho; protocolo crash-consistent, integração SQLite, provider TPM nativo e validação física continuam por implementar. Nenhuma proteção anti-rollback é declarada nesta fase.
+Estado em 13 de novembro de 2026: contrato genérico de provider, coordenador crash-consistent, journal SQLite, lock de operações do host Windows e primitive de append atómico estão integrados. **Não existe ainda provider TPM 2.0 de produção. Nenhuma proteção anti-rollback está ativa ou declarada.**
 
 ## Objetivo e limite de segurança
 
-A cadeia SHA-256 + HMAC deteta alteração de eventos e a perda de chaves. Não deteta, isoladamente, a restauração de uma cópia antiga e internamente válida da base SQLite. O objetivo é detetar que o estado persistido recuou relativamente a um estado autenticado previamente confirmado por uma âncora que não recua juntamente com o ficheiro SQLite.
+A cadeia SHA-256 + HMAC deteta alteração de eventos e perda de chaves. Não deteta isoladamente a restauração de uma cópia antiga e internamente válida da base SQLite. A proteção contra rollback exige uma âncora monotónica externa, autenticada e resistente a rollback dentro do modelo de ameaça.
 
-A proteção só pode ser declarada quando a instalação tem uma âncora monotónica externa, autenticada e resistente ao rollback dentro do modelo de ameaça. CNG Software KSP, Registry, ficheiros locais, timestamps e outra base SQLite no mesmo volume não satisfazem este requisito.
+CNG Software KSP, Registry, ficheiros locais, timestamps e outra base SQLite no mesmo volume não satisfazem este requisito. Não confundir uma chave não exportável com um contador monotónico.
 
 ## Modelo de ameaça
 
@@ -14,72 +14,87 @@ Pretende-se detetar:
 - Restauro de backup SQLite antigo, incluindo prefixo válido da cadeia HMAC.
 - Truncagem de eventos autenticados.
 - Reposição de ficheiros locais de estado/metadata juntamente com SQLite.
-- Interrupção do processo entre persistência do evento e atualização da âncora.
+- Interrupção do processo entre o prepare durável, avanço da âncora e finalização SQLite.
 
 Não se promete proteção contra:
 - Administrador/kernel comprometido enquanto o dispositivo está operacional.
-- Extração física ou substituição do TPM, limpeza/reprovisionamento do TPM ou reinstalação sem recuperação da identidade.
-- Rollback coordenado de todo o dispositivo/firmware/TPM por um atacante com capacidades superiores às garantias do hardware.
+- Extração física ou substituição do TPM, clear/reprovision sem recuperação autorizada.
+- Rollback coordenado de todo o dispositivo/firmware/TPM além das garantias do hardware.
 - Perda definitiva da âncora ou das chaves sem recuperação aprovada pelo proprietário.
 
-## Arquitetura por providers
+## Contrato de provider
 
-Contrato neutro no core, sem chamadas nativas:
-- `MonotonicAnchorProvider.read()`: devolve contador/geração, digest comprometido, identidade da âncora e estado de confiança.
-- `MonotonicAnchorProvider.advance(expected, next)`: compare-and-advance atómico; rejeita valores inesperados ou recuo.
-- `MonotonicAnchorProvider.capabilities()`: declara durabilidade, atomicidade, escopo e resistência a rollback, sem inferir proteção.
+O core não contém chamadas nativas:
+- `MonotonicAnchorProvider.read()`: estado, identidade e checkpoint atual.
+- `MonotonicAnchorProvider.advance(expected, next)`: compare-and-advance atómico; rejeita predecessor divergente, repetição inválida e recuo.
+- `MonotonicAnchorProvider.capabilities()`: declara durabilidade, atomicidade, escopo, suporte hardware e resistência a rollback.
 - Estados explícitos: `protected`, `unsupported`, `unprovisioned`, `unavailable`, `mismatch`, `recovery_required`.
 
-O provider Windows TPM deverá usar TPM 2.0 NV index/counter com autorização e atributos definidos durante provisioning consentido. A implementação nativa terá de validar presença/capacidades TPM, disponibilidade do índice, autorização, erros de clear/reprovision e comportamento entre reinícios. TBS/TPM API é uma fronteira nativa; não assumir que o Windows Software KSP implementa contador monotónico.
+O core só aceita `protected` quando todas as capacidades obrigatórias são explícitas e o checkpoint pertence à instalação esperada. A declaração do provider continua a ser uma fronteira de confiança; só um provider nativo auditado e validado pode suportar uma afirmação de hardware.
 
-Um provider cloud pode ser considerado futuramente como opção separada, com serviço externo que forneça compare-and-advance autenticado. Nunca é obrigatório, nunca substitui automaticamente o TPM e a indisponibilidade de rede não deve degradar silenciosamente um estado protegido para não protegido.
+## Protocolo implementado
 
-## Protocolo crash-consistent
+A unidade de compromisso é um checkpoint com `installationId`, geração, sequência do evento, hash do evento, MAC do evento e versão do protocolo.
 
-A unidade de compromisso é um checkpoint de journal: `installationId`, sequência final, hash do último evento, MAC final, geração da âncora e versão do protocolo.
+1. Adquirir o lock exclusivo partilhado pelo host e verificar a cadeia SHA-256/HMAC completa.
+2. Ler a âncora e reconciliar o checkpoint local e qualquer prepare pendente.
+3. Construir um payload imutável para o append, com snapshot, evento canónico, hash, key ID, MAC anterior e HMAC.
+4. Persistir o prepare e o payload limitado numa transação SQLite durável. Nesta fase ainda não inserir o evento no journal.
+5. Executar compare-and-advance na âncora externa.
+6. Finalizar numa única transação SQLite: revalidar o payload; inserir snapshot, evento e HMAC; atualizar a cabeça da cadeia e o checkpoint; remover o prepare.
+7. Confirmar que o checkpoint local final corresponde ao checkpoint confirmado pela âncora antes de devolver sucesso.
 
-1. Ler e verificar a cadeia HMAC completa; validar identidade/escopo da âncora.
-2. Ler a âncora e comparar o checkpoint SQLite com o checkpoint ancorado.
-3. Preparar o próximo checkpoint de forma determinística.
-4. Persistir no SQLite o checkpoint preparado e os eventos correspondentes numa transação durável.
-5. Avançar a âncora por compare-and-advance, ligando a geração seguinte ao digest do checkpoint preparado.
-6. Marcar o checkpoint SQLite como confirmado numa segunda transação durável.
-7. Só depois declarar o novo estado confirmado ao chamador.
+A finalização do payload é síncrona porque decorre dentro da transação SQLite. Se falhar, a transação reverte snapshot, evento, HMAC, cabeça e checkpoint em conjunto.
 
-Recuperação no arranque:
-- SQLite confirmado e âncora igual: estado consistente.
-- SQLite preparado e âncora ainda no checkpoint anterior: repetir advance idempotente, apenas se o predecessor corresponder exatamente.
-- SQLite preparado e âncora já no novo checkpoint: finalizar a confirmação local.
-- Âncora mais avançada do que qualquer checkpoint local recuperável: fail-closed, `recovery_required`.
-- SQLite mais antigo do que a âncora ou digest divergente: rollback/truncagem detetado; não reparar nem sobrescrever automaticamente.
-- Âncora ausente, limpa, inacessível ou reconfigurada: nunca criar silenciosamente uma âncora nova para uma instalação previamente protegida.
+## Recuperação
 
-O provider precisa de garantir atomicidade compare-and-advance. Se o hardware só permitir contador sem digest, o protocolo deve armazenar um compromisso criptográfico autenticado associado à geração e provar que o contador não pode avançar sem registo recuperável. Não aceitar uma implementação que apenas incremente o contador depois de gravar, sem estado preparado e recuperação determinística.
+- Sem prepare e checkpoint local igual à âncora: estado consistente.
+- Prepare presente e âncora igual ao sucessor: finalizar o prepare.
+- Prepare presente e âncora igual ao predecessor: descartar o prepare não comprometido. Se o avanço anterior devolveu erro ambíguo, o coordenador relê a âncora antes de decidir.
+- Âncora indisponível ou resultado indeterminado: preservar o prepare e falhar fechado.
+- Âncora e estado local/preparado divergentes: preservar evidência e devolver mismatch/recovery-required; não reparar nem sobrescrever automaticamente.
+- Âncora mais avançada sem prepare recuperável, ou SQLite abaixo da âncora: tratar como rollback/truncagem.
+- Âncora ausente, limpa, inacessível ou reconfigurada numa instalação previamente protegida: nunca criar silenciosamente uma âncora nova.
+
+O journal rejeita avanço de sequência sem o payload de incident append quando o applier de incidentes está configurado. O payload persistido é revalidado durante a finalização; remover ou alterar o payload para `null` não pode avançar o checkpoint sem gravar o evento. Um journal genérico sem applier mantém o contrato metadata-only e não ancora incidentes.
+
+## Provider Windows TPM 2.0 — ainda por implementar
+
+O provider deverá usar TPM 2.0 NV index/counter com atributos, autorização e identidade definidos durante provisioning consentido. Deve demonstrar:
+- Presença e versão/capacidades TPM verificadas por API nativa.
+- Provisioning idempotente e explicitamente autorizado.
+- Compare-and-advance realmente atómico para a geração e o compromisso do checkpoint.
+- Deteção de clear, reprovision, índice perdido, autorização incorreta e mismatch de instalação.
+- Persistência entre reinícios e comportamento definido perante timeout/erro ambíguo.
+- Fallback fail-closed; nunca promover CNG Software KSP, registry ou ficheiro para hardware-backed.
+
+TBS/TPM API é uma fronteira nativa. Não assumir que CNG Platform/Software KSP implementa contador monotónico. Um NV counter simples não basta se o digest do checkpoint não ficar autenticadamente associado à geração e recuperável após falha.
+
+Um provider cloud pode ser opção futura separada, com compare-and-advance autenticado. Nunca é obrigatório nem substitui automaticamente o TPM; indisponibilidade de rede não pode degradar silenciosamente um estado protegido.
 
 ## Provisioning, backup e recuperação
 
-- Provisioning exige consentimento explícito do proprietário e regista a identidade/capacidades da âncora.
-- Backup deve incluir instruções e material recuperável permitido, mas nunca exportar chaves privadas não exportáveis nem alegar que SQLite isolado basta.
-- Restore de SQLite para a mesma âncora deve ser validado e normalmente detetado como rollback se estiver abaixo do checkpoint.
-- Migração para novo hardware/TPM exige fluxo de transferência explícito, autenticação do proprietário e registo de desativação da âncora anterior quando possível.
-- Perda/clear do TPM exige estado `recovery_required`; nunca reset automático.
-- Retenção de histórico e rotação de chaves MAC permanecem independentes da geração monotónica.
+- Provisioning exige consentimento explícito do proprietário e regista identidade/capacidades da âncora.
+- Backup SQLite isolado não é suficiente para recuperar uma instalação protegida.
+- Restore para a mesma âncora deve ser comparado com o checkpoint externo e normalmente detetar rollback se estiver abaixo dele.
+- Migração para novo hardware exige transferência explícita, autenticação do proprietário e desativação da âncora anterior quando possível.
+- Perda/clear do TPM exige `recovery_required`; nunca reset automático.
+- Rotação das chaves MAC e retenção histórica permanecem separadas da geração monotónica.
 
-## Gates obrigatórios
+## Evidência atual e gates
 
-1. Testes unitários do contrato neutro e transições de estado.
-2. Fault injection em cada fronteira de persistência/advance, incluindo crash antes/depois de cada operação.
-3. Testes de concorrência e compare-and-advance; duas instâncias não podem confirmar a mesma geração.
-4. Testes de rollback para prefixo HMAC válido, truncagem, backup antigo e mismatch de installation ID.
-5. Windows CI com provider fake determinístico; não confundir com hardware.
-6. Windows runner com TPM virtual/emulado, se disponível, apenas como evidência de integração API, não de segurança física.
-7. Teste em TPM 2.0 físico com reinício, clear/reprovision, falhas de energia e recuperação de backup.
+PR #85: lock de operações do host Windows integrado por squash em `988c78f7e876f862356f657285b5938bad1ceabb`.
+
+PR #86: append atómico com payload e checkpoint integrado por squash em `edb7bd3c79051078141d54424bfcaccf249156c5`. O HEAD final da PR foi `8a98567d53e8f65ce351745047c46da18b691c11`; CI #571 e regressão visual #491 passaram nesse mesmo SHA. Os testes usam SQLite real em ficheiro temporário, WAL, `synchronous=FULL`, `BEGIN IMMEDIATE` e reopen. O provider de âncora é fake; isto não é validação TPM.
+
+Gates ainda obrigatórios:
+1. Provider TPM 2.0 nativo com provisioning consentido e compare-and-advance verificável.
+2. Integrar todas as mutações de incidentes (append/update) com uma política de writer ancorado; não misturar mutações ancoradas e não ancoradas.
+3. Fault injection em cada fronteira prepare/advance/finalize e testes de concorrência entre processos.
+4. Rollback de prefixo HMAC, truncagem, backup antigo e mismatch de installation ID.
+5. Windows runner com TPM virtual/emulado, se disponível, apenas como evidência de API.
+6. TPM 2.0 físico com reinício, clear/reprovision, falhas de energia e restore.
+7. Providers equivalentes para Linux, macOS e Android.
 8. CI Linux/Windows e regressão visual no mesmo HEAD antes de merge.
 
-## Critério de declaração
-
-- Sem provider monotónico validado: `integrity=authenticated_only`, `rollbackProtection=unsupported|unavailable`.
-- Com provider provisionado e verificado: `rollbackProtection=protected`.
-- Em divergência ou perda da âncora: `rollbackProtection=recovery_required`; bloquear exportação/ações que dependam de integridade até resolução autorizada.
-
-Nenhum teste fake, runner genérico ou CNG Software KSP pode ser apresentado como validação de TPM físico.
+Sem provider monotónico real e provisionado: `integrity=authenticated_only` e `rollbackProtection=unsupported|unavailable`. Só declarar `protected` depois de validar provider, instalação e checkpoint. Nenhum teste fake ou runner genérico é prova de TPM físico.
