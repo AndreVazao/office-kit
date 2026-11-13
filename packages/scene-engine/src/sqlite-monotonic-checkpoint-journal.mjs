@@ -1,5 +1,6 @@
 const INSTALLATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
 const HASH = /^[a-f0-9]{64}$/;
+const INCIDENT_APPEND_KIND = "office-kit.monotonic-incident-append.v1";
 
 function validateCheckpoint(value, installationId) {
   if (!value || typeof value !== "object" || Array.isArray(value)
@@ -65,8 +66,9 @@ export class SqliteMonotonicCheckpointJournal {
   #installationId;
   #lockProvider;
   #makeId;
+  #applyPreparedPayload;
 
-  constructor({ database, installationId, lockProvider, makeId = createDefaultId } = {}) {
+  constructor({ database, installationId, lockProvider, makeId = createDefaultId, applyPreparedPayload = null } = {}) {
     if (!database || typeof database.exec !== "function"
       || typeof database.prepare !== "function"
       || typeof database.transaction !== "function") {
@@ -79,10 +81,14 @@ export class SqliteMonotonicCheckpointJournal {
       throw new TypeError("sqlite_monotonic_cross_process_lock_required");
     }
     if (typeof makeId !== "function") throw new TypeError("sqlite_monotonic_id_provider_invalid");
+    if (applyPreparedPayload !== null && typeof applyPreparedPayload !== "function") {
+      throw new TypeError("sqlite_monotonic_payload_handler_invalid");
+    }
     this.#database = database;
     this.#installationId = installationId;
     this.#lockProvider = lockProvider;
     this.#makeId = makeId;
+    this.#applyPreparedPayload = applyPreparedPayload;
 
     const initial = {
       installationId,
@@ -171,6 +177,19 @@ export class SqliteMonotonicCheckpointJournal {
     if (typeof payloadJson !== "string" || payloadJson.length > 1_048_576) {
       throw new Error("sqlite_monotonic_payload_invalid");
     }
+    if (payload?.kind === INCIDENT_APPEND_KIND) {
+      if (!this.#applyPreparedPayload) throw new Error("sqlite_monotonic_payload_handler_required");
+      if (payload.schemaVersion !== 1 || payload.installationId !== this.#installationId
+        || !Number.isSafeInteger(payload.sequence) || payload.sequence < 1
+        || target.sequence !== payload.sequence
+        || target.eventHash !== payload.eventHash
+        || target.eventMac !== payload.eventMac
+        || typeof payload.snapshot?.id !== "string"
+        || typeof payload.eventJson !== "string"
+        || typeof payload.keyId !== "string") {
+        throw new Error("sqlite_monotonic_event_payload_mismatch");
+      }
+    }
     const id = this.#makeId();
     if (typeof id !== "string" || !id || id.length > 256) {
       throw new Error("sqlite_monotonic_prepare_id_invalid");
@@ -219,7 +238,7 @@ export class SqliteMonotonicCheckpointJournal {
           "SELECT 1 AS present FROM office_kit_monotonic_prepares WHERE installation_id = ?"
         ).get(this.#installationId)) return;
       const pending = this.#database.prepare([
-        "SELECT prepare_id, expected_json, next_json FROM office_kit_monotonic_prepares",
+        "SELECT prepare_id, expected_json, next_json, payload_json FROM office_kit_monotonic_prepares",
         "WHERE installation_id = ?"
       ].join(" ")).get(this.#installationId);
       if (!pending || pending.prepare_id !== record.id) throw new Error("sqlite_monotonic_prepare_missing");
@@ -227,6 +246,14 @@ export class SqliteMonotonicCheckpointJournal {
       const persistedNext = validateCheckpoint(parseJson(pending.next_json, "sqlite_monotonic_prepare_corrupt"), this.#installationId);
       if (!sameCheckpoint(persistedExpected, expected) || !sameCheckpoint(persistedNext, target)) {
         throw new Error("sqlite_monotonic_prepare_mismatch");
+      }
+      const payload = parseJson(pending.payload_json, "sqlite_monotonic_prepare_corrupt");
+      if (payload?.kind === INCIDENT_APPEND_KIND) {
+        if (!this.#applyPreparedPayload) throw new Error("sqlite_monotonic_payload_handler_required");
+        const applied = this.#applyPreparedPayload(payload, target);
+        if (applied && typeof applied.then === "function") {
+          throw new Error("sqlite_monotonic_payload_handler_must_be_synchronous");
+        }
       }
       if (sameCheckpoint(current, target)) {
         this.#database.prepare("DELETE FROM office_kit_monotonic_prepares WHERE installation_id = ? AND prepare_id = ?")
