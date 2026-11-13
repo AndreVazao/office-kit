@@ -10,15 +10,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "26.13.1"
       - name: Validate shared core and tests
         run: npm run check
       - name: Build VST source package
         run: node scripts/build-edition.mjs vst
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: office-kit-vst
           path: dist/vst/*
