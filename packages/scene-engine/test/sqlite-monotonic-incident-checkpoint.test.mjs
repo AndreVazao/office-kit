@@ -262,3 +262,51 @@ sqliteTest("rejects a checkpoint whose event hash differs from its prepared appe
     macKey.fill(0);
   }
 });
+
+
+sqliteTest("rejects sequence advancement without an incident append payload", async () => {
+  const opened = openDatabase();
+  const lock = createInProcessExclusiveLockProvider();
+  try {
+    const store = createStore(opened.adapter, lock);
+    const journal = createJournal(opened.adapter, lock, store);
+    const expected = await journal.readCheckpoint();
+    await assert.rejects(journal.prepareCheckpoint({
+      expected,
+      next: point(expected.generation + 1, 1, "a".repeat(64), "b".repeat(64)),
+      payload: null
+    }), /sqlite_monotonic_incident_payload_required/);
+    assert.equal(await journal.readPreparedCheckpoint(), null);
+    assert.equal((await journal.readCheckpoint()).sequence, 0);
+  } finally {
+    await lock.close();
+    opened.database.close();
+    macKey.fill(0);
+  }
+});
+
+sqliteTest("fails closed if a prepared incident payload is removed before finalization", async () => {
+  const opened = openDatabase();
+  const lock = createInProcessExclusiveLockProvider();
+  try {
+    const store = createStore(opened.adapter, lock);
+    const journal = createJournal(opened.adapter, lock, store);
+    const expected = await journal.readCheckpoint();
+    const payload = store.prepareMonotonicAppend(incident("incident-tampered-prepare"));
+    const transition = transitionFromPayload(expected, payload);
+    const prepared = await journal.prepareCheckpoint({ expected, ...transition });
+
+    opened.database.prepare(
+      "UPDATE office_kit_monotonic_prepares SET payload_json = ? WHERE installation_id = ?"
+    ).run("null", installationId);
+
+    await assert.rejects(journal.finalizeCheckpoint(prepared), /sqlite_monotonic_incident_payload_required/);
+    assert.equal(await store.get("incident-tampered-prepare"), null);
+    assert.equal((await journal.readCheckpoint()).sequence, 0);
+    assert.ok(await journal.readPreparedCheckpoint());
+  } finally {
+    await lock.close();
+    opened.database.close();
+    macKey.fill(0);
+  }
+});
