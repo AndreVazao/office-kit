@@ -53,6 +53,6 @@ The edition build now creates a temporary staging directory and copies only an e
 
 The generic scene-engine entrypoint is backend-neutral. DGM-MAT-specific exports are available only through the DGM-MAT entrypoint.
 
-All edition tarballs declare Node.js >=22.5.0, matching the host's node:sqlite requirement. node:sqlite is still experimental on Node 22; this limitation is recorded in each edition manifest. The three manual workflows use Node 22 rather than Node 20.
+All edition tarballs declare Node.js >=22.13.0. Although node:sqlite was added in Node 22.5.0, Node 22.5–22.12 requires the --experimental-sqlite flag; Node 22.13.0 is the first 22.x release where the module is available without that flag. The API remains experimental on Node 22 and Stability 1.2 — Release Candidate on Node 26. The three manual workflows use Node 22 rather than Node 20.
 
 Automated tests inspect the actual .tgz file lists for all three editions, not just their generated manifests. These artifacts remain source packages, not OS installers.
