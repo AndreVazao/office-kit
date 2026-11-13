@@ -566,3 +566,9 @@ PR #85 review found a TOCTOU race in stale lock reclamation: independent contend
 - Explicit limitation: PR #86 does not provide a TPM provider, does not enable checkpointing by default and does not route ordinary incident `append()`/`update()` calls through an external anchor. The Windows host currently wires the synchronous prepared-payload applier into the journal; the complete production anchor lifecycle remains pending. Do not claim anti-rollback protection or production readiness.
 - Universal, DGM-MAT and VST package boundaries are unchanged; this is generic core/storage work and introduces no edition-specific credentials or adapter routes.
 - PR #86 was squash-merged as `edb7bd3c79051078141d54424bfcaccf249156c5`; final PR HEAD `8a98567d53e8f65ce351745047c46da18b691c11` passed CI #571 and Chromium visual #491 on that exact SHA. The first CI attempt #567 failed because a new guard also affected generic metadata-only journals; the guard was narrowed to incident-applier-enabled journals, regression tests were added, and the final HEAD passed.
+
+## 2026-11-13 — Node SQLite runtime floor correction
+
+- Raised the package/edition/Windows-host minimum from Node 22.5.0 to `>=22.13.0`. Node.js documentation states that `node:sqlite` was added in 22.5.0, but remained behind `--experimental-sqlite` until 22.13.0. The host does not require an experimental startup flag.
+- Node 22 still classifies `node:sqlite` as Experimental; Node 26 classifies it as Stability 1.2 — Release Candidate. The runtime-floor correction fixes availability, not API maturity.
+- Package engines, generated edition manifests, Windows bundle build and verification scripts, tests and runtime documentation are synchronized in the current compatibility PR. Final Linux/Windows Node 22/26 CI and visual regression are required on its final HEAD.
