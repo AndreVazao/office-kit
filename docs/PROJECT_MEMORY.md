@@ -566,3 +566,11 @@ PR #85 review found a TOCTOU race in stale lock reclamation: independent contend
 - Explicit limitation: PR #86 does not provide a TPM provider, does not enable checkpointing by default and does not route ordinary incident `append()`/`update()` calls through an external anchor. The Windows host currently wires the synchronous prepared-payload applier into the journal; the complete production anchor lifecycle remains pending. Do not claim anti-rollback protection or production readiness.
 - Universal, DGM-MAT and VST package boundaries are unchanged; this is generic core/storage work and introduces no edition-specific credentials or adapter routes.
 - PR #86 was squash-merged as `edb7bd3c79051078141d54424bfcaccf249156c5`; final PR HEAD `8a98567d53e8f65ce351745047c46da18b691c11` passed CI #571 and Chromium visual #491 on that exact SHA. The first CI attempt #567 failed because a new guard also affected generic metadata-only journals; the guard was narrowed to incident-applier-enabled journals, regression tests were added, and the final HEAD passed.
+
+## 2026-11-13 — monotonic incident writer core
+
+The generic core now contains `MonotonicIncidentWriter`, which routes append and update mutations through `SqliteMonotonicCheckpointCoordinator.commit()`. The writer constructs payloads under the coordinator's exclusive lock and confirms the resulting checkpoint before returning the incident ID.
+
+Prepared update payloads include the previous revision and SHA-256 digest of the exact predecessor snapshot. The SQLite journal now recognizes append and update payload kinds, requires a one-event sequence increment, and dispatches the synchronous applier inside the same finalization transaction. The Windows host callback dispatches both payload types.
+
+This is not yet the production host write path: the Windows host does not instantiate the writer as its public incident facade, so direct `incidentStore.append()` and `update()` remain unanchored. The tests use SQLite/WAL with a fake monotonic anchor; they do not prove TPM, rollback resistance, power-loss durability or physical-machine behavior. Next: validate CI/visual on the same PR HEAD, wire a fail-closed host facade, then implement a real TPM 2.0 provider with physical validation. Universal, DGM-MAT and VST edition boundaries and credentials remain unchanged.
