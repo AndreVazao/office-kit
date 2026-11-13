@@ -17,8 +17,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         node-version: [22, "26.13.1"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
       - name: Validate core syntax and run tests
@@ -49,7 +49,7 @@ jobs:
           }
       - name: Set up .NET SDK for native Windows keystore
         if: runner.os == 'Windows'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
       - name: Publish Windows CNG host
