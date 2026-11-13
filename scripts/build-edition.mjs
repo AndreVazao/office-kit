@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createProductProfile, productEditionCatalog } from "../packages/scene-engine/src/product-profile.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const NODE_RANGE = ">=22.5.0";
+const NODE_RANGE = ">=22.13.0";
 
 export const EDITION_FILE_ALLOWLISTS = Object.freeze({
   universal: Object.freeze([
@@ -181,7 +181,7 @@ export async function buildEditionPackage(edition, { outputDirectory = resolve(R
       adapterAllowlist: profile.adapterAllowlist,
       adapterStatus,
       backendIndependentCore: true,
-      nodeRuntime: { minimumVersion: "22.5.0", range: NODE_RANGE, sqliteApi: "node:sqlite", stability: "experimental_on_node_22" },
+      nodeRuntime: { minimumVersion: "22.13.0", range: NODE_RANGE, sqliteApi: "node:sqlite", stabilityByMajor: { "22": "experimental", "26": "release_candidate" } },
       defaults: { autoConnect: false, adapterMode: "read-only", telemetry: false, crossInstallationSync: false, shareDataByDefault: false },
       installation: { installationId: null, storageNamespace: null, provisionOnFirstRun: true },
       packageContents: {
@@ -195,7 +195,7 @@ export async function buildEditionPackage(edition, { outputDirectory = resolve(R
         "This is an edition-isolated source package, not an OS installer.",
         "Packages start disconnected and read-only; backend activation requires explicit owner authorization.",
         ...(hasVst ? ["The VST adapter is read-only preview; live backend and physical-PC validation remain pending."] : []),
-        "The Windows host requires Node.js 22.5 or later because it uses node:sqlite."
+        "The Windows host requires Node.js 22.13 or later because earlier Node 22 releases require --experimental-sqlite."
       ]
     };
 
