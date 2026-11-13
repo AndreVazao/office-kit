@@ -87,9 +87,11 @@ PR #85: lock de operações do host Windows integrado por squash em `988c78f7e87
 
 PR #86: append atómico com payload e checkpoint integrado por squash em `edb7bd3c79051078141d54424bfcaccf249156c5`. O HEAD final da PR foi `8a98567d53e8f65ce351745047c46da18b691c11`; CI #571 e regressão visual #491 passaram nesse mesmo SHA. Os testes usam SQLite real em ficheiro temporário, WAL, `synchronous=FULL`, `BEGIN IMMEDIATE` e reopen. O provider de âncora é fake; isto não é validação TPM.
 
+Incremento de core em validação: `MonotonicIncidentWriter` acrescenta encaminhamento de append e update pelo coordenador. O update vincula a revisão e o hash do snapshot predecessor. O journal aceita apenas payloads reconhecidos e avanço de sequência unitário. A API ainda não está ligada à fachada de escrita do Windows host; as chamadas diretas ao store continuam não ancoradas. Os testes com provider fake não validam hardware nem TPM.
+
 Gates ainda obrigatórios:
 1. Provider TPM 2.0 nativo com provisioning consentido e compare-and-advance verificável.
-2. Integrar todas as mutações de incidentes (append/update) com uma política de writer ancorado; não misturar mutações ancoradas e não ancoradas.
+2. Integrar o writer de core no Windows host, encaminhar todas as mutações append/update e impedir mistura entre escritas ancoradas e não ancoradas.
 3. Fault injection em cada fronteira prepare/advance/finalize e testes de concorrência entre processos.
 4. Rollback de prefixo HMAC, truncagem, backup antigo e mismatch de installation ID.
 5. Windows runner com TPM virtual/emulado, se disponível, apenas como evidência de API.
