@@ -388,3 +388,10 @@ The process lock is atomic file creation with an owner PID and random ownership 
 This is not a general-purpose filesystem lock for arbitrary programs that bypass the Office Kit host and open the SQLite file directly. The private data directory ACL and single-host architecture define the supported writer boundary. Other platform hosts must supply their own equivalent cross-process serialization before enabling monotonic checkpoint coordination.
 
 The checkpoint adapter remains metadata-only after PR #84. No TPM provider, external rollback-resistant anchor, incident-event/MAC atomic integration, power-loss proof or physical-machine validation is claimed.
+
+
+## Windows host lock: stale-owner recovery
+
+The Windows host acquires host.lock before opening its private SQLite database and holds it until shutdown. A lock record contains the owner PID and a random ownership token; release removes the file only if both still match. Stale-owner reclamation is serialized by an exclusive sibling file named host.lock.recovery. The contender re-reads the original lock and probes the owner again while holding that recovery gate before removing anything. A second stale-lock reclaimer fails closed while the gate exists, so it cannot delete a replacement host lock based on an earlier read.
+
+The recovery gate is deliberately not auto-stolen. If the process crashes while holding it, startup reports windows_host_lock_recovery_in_progress. An operator must first verify that no Office Kit host or recovery process is active, inspect both lock records, and only then remove the stale recovery file. This favors single-writer safety over automatic recovery from an ambiguous recovery-gate crash. The lock still does not exclude arbitrary processes that bypass the supported host and open SQLite directly.

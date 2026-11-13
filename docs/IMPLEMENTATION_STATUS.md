@@ -596,3 +596,15 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Limitação: não acrescenta ainda o evento/MAC ao journal de incidentes. O lock e anchor dos testes são fixtures; não existe provider TPM nem prova de rollback/power-loss físico.
 - PR #85 em desenvolvimento: lock assíncrono partilhado entre writes do incident store e operações de checkpoint, host singleton Windows e teste de exclusão entre processos. A validação ainda está pendente.
 - Próximos gates: integração transacional com evento/MAC real, lock de produção para todos os writers suportados, provider TPM 2.0, fault injection e validação física.
+
+
+## Windows host lock stale-recovery hardening — PR #85
+
+- [x] Identify a stale-lock reclamation race: two contenders could both read the same dead owner, then one could remove the lock file created by the other between stale-check and removal.
+- [x] Serialize stale reclamation through an exclusive host.lock.recovery file; re-read the original lock and re-probe the owner while holding the gate.
+- [x] Fail closed when a recovery gate already exists; do not automatically steal an ambiguous gate.
+- [x] Add tests for stale-lock recovery, an existing recovery gate, owner recheck and replacement-safe release.
+- [ ] Re-run Linux/Windows Node 22 and Node 26.13.1 CI, native Windows CNG/bundle E2E and visual regression on the final PR HEAD.
+- [ ] Validate stale-lock recovery and interrupted-recovery handling on a physical Windows installation.
+
+The new gate is a safety mechanism, not proof of arbitrary-process SQLite locking. A crash while the recovery gate is held can require operator inspection/removal after confirming that no host/recovery process remains.

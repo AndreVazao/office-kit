@@ -549,3 +549,8 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - PR #85 em desenvolvimento: provider assíncrono de lock dentro do processo, partilhado pelo incident store e pelo checkpoint journal; Windows host singleton lock movido para módulo testável, com token de ownership; teste child-process para provar exclusão entre processos e teste de serialização entre writes e checkpoint.
 - Limite: o singleton Windows impede outra instância oficial do Office Kit no mesmo data directory. Não é um mecanismo contra processos arbitrários que ignorem o host e abram diretamente a SQLite.
 - Próximos passos: integrar append event/MAC e checkpoint prepare/finalize de forma crash-consistent, testar contention multi-process real no Windows host, implementar TPM 2.0 com provisioning consentido e validar power-loss/backup/restore em hardware físico.
+
+
+## Windows host singleton lock race — 2026-11-13
+
+PR #85 review found a TOCTOU race in stale lock reclamation: independent contenders could both observe the same dead PID and a later stale remover could delete a newly-created host lock. The branch now serializes reclamation with an exclusive sibling host.lock.recovery gate, re-reads the lock record and re-probes the PID while holding the gate, and fails closed if a gate already exists. Added coverage for stale recovery, gate contention, owner recheck and replacement-safe release. The recovery gate is intentionally not auto-stolen after a crash; operator verification is required. CI and visual regression for this new HEAD are pending, so this is not yet validated or merged.

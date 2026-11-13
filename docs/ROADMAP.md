@@ -667,3 +667,13 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [ ] Construir instaladores nativos assinados, atualização/rollback e desinstalação com retenção de dados explícita.
 - [ ] Completar live E2E DGM-MAT e VST, licenciamento/ativação de produção e isolamento multi-organização.
 - [ ] Integrar onboarding, UX adaptativa, acessibilidade, observabilidade e recuperação no host instalado.
+
+
+### Windows host singleton lock — stale-recovery gate (PR #85)
+
+- [x] Add owner PID plus random ownership token and prevent an old release closure from deleting a replacement lock.
+- [x] Serialize stale-lock reclamation through an exclusive sibling recovery file and revalidate the owner under that gate.
+- [x] Fail closed when an existing recovery gate makes ownership ambiguous; add regression tests for stale recovery and gate contention.
+- [ ] Validate the final PR HEAD in Linux/Windows Node 22/26.13.1, native CNG, portable bundle E2E and Chromium visual regression.
+- [ ] Validate interrupted recovery and operator recovery on a physical Windows installation.
+- [ ] Continue to treat the host lock as a boundary for supported Office Kit processes only, not arbitrary SQLite writers.

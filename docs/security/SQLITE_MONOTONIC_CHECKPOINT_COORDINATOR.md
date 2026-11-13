@@ -74,3 +74,8 @@ Next work:
 
 A provider reporting `unsupported`, `unprovisioned` or `unavailable` cannot
 be promoted to `protected`.
+
+
+## Windows host stale-lock recovery gate — PR #85
+
+The host singleton lock now serializes stale-owner reclamation through an exclusive sibling recovery file. A contender re-reads the original lock record and probes its PID again while holding that gate before unlinking it. A second reclaimer fails closed if the gate exists. The gate is not auto-stolen after a crash; operator verification is required before removing it. This closes the identified stale-lock replacement race for supported host instances, but it does not lock out arbitrary programs that bypass the host and open the SQLite database directly. The new implementation and tests are awaiting final-head CI and visual regression.
