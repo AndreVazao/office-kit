@@ -123,6 +123,54 @@ test("Windows host enforces a single process lock and releases it on close", asy
   }
 });
 
+test("Windows host shares one operation lock between incident writes and monotonic checkpoints", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-monotonic-lock-"));
+  let host;
+  try {
+    host = setup(directory);
+    await host.ready;
+    assert.equal((await host.monotonicCheckpointJournal.readCheckpoint()).sequence, 0);
+
+    let enteredResolve;
+    let releaseOperation;
+    const entered = new Promise(resolve => { enteredResolve = resolve; });
+    const held = host.monotonicCheckpointJournal.withExclusiveLock(async () => {
+      enteredResolve();
+      await new Promise(resolve => { releaseOperation = resolve; });
+    });
+    await entered;
+
+    const append = host.incidentStore.append({
+      id: "incident-monotonic-lock-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    await Promise.resolve();
+    assert.equal((await host.incidentStore.list()).length, 0);
+
+    releaseOperation();
+    await held;
+    await append;
+    assert.equal((await host.incidentStore.list()).length, 1);
+
+    const journal = host.monotonicCheckpointJournal;
+    const store = host.incidentStore;
+    await host.close();
+    host = null;
+    await assert.rejects(journal.withExclusiveLock(() => {}), /exclusive_operation_lock_closed/);
+    await assert.rejects(store.append({
+      id: "incident-after-host-close",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    }), /exclusive_operation_lock_closed/);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Windows host refuses redirected or invalid installation metadata", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-metadata-"));
   const appDataPath = join(directory, "OfficeKit");

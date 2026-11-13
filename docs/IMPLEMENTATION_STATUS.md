@@ -584,3 +584,27 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - Unit/fake tests cover route restrictions, authentication, normalization, freshness, deadlines, cancellation, reconnect generation and secret redaction. Edition artifact tests inspect actual tarball contents for isolation.
 - CI #43230962819 and visual regression #43230962934 passed on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; Linux/Windows Node 22/26 matrix, Windows CNG integration (including VST namespace) and portable bundle E2E passed. The subsequent documentation-only synchronization commit is being revalidated on its own PR HEAD before merge. Remaining gates: live E2E against the real VST observer, full signed host lifecycle, physical-PC provisioning/reconnect/restart, and production installer/signing.
 
+
+
+## SQLite monotonic checkpoint journal — PR #84 integrada (2026-11-13)
+
+- PR #84 squash-merged em `0163babd2ad2524dc1d82fe3f45e1c016070d6ee`.
+- HEAD final da PR: `c2598283cbe99f0d96c694f5e2f07419ce9181bd`.
+- CI #554 (`43433248846`) passou em Linux e Windows, Node 22 e Node 26.13.1; o runner Windows executou os testes nativos CNG e o bundle portátil E2E.
+- Regressão visual #474 (`43433249070`) passou com Chromium no mesmo HEAD.
+- `SqliteMonotonicCheckpointJournal` persiste checkpoint metadata e prepare records em transações SQLite `BEGIN IMMEDIATE`, com reabertura e finalização idempotente.
+- Limitação: não acrescenta ainda o evento/MAC ao journal de incidentes. O lock e anchor dos testes são fixtures; não existe provider TPM nem prova de rollback/power-loss físico.
+- PR #85 em desenvolvimento: lock assíncrono partilhado entre writes do incident store e operações de checkpoint, host singleton Windows e teste de exclusão entre processos. A validação ainda está pendente.
+- Próximos gates: integração transacional com evento/MAC real, lock de produção para todos os writers suportados, provider TPM 2.0, fault injection e validação física.
+
+
+## Windows host lock stale-recovery hardening — PR #85
+
+- [x] Identify a stale-lock reclamation race: two contenders could both read the same dead owner, then one could remove the lock file created by the other between stale-check and removal.
+- [x] Serialize stale reclamation through an exclusive host.lock.recovery file; re-read the original lock and re-probe the owner while holding the gate.
+- [x] Fail closed when a recovery gate already exists; do not automatically steal an ambiguous gate.
+- [x] Add tests for stale-lock recovery, an existing recovery gate, owner recheck and replacement-safe release.
+- [ ] Re-run Linux/Windows Node 22 and Node 26.13.1 CI, native Windows CNG/bundle E2E and visual regression on the final PR HEAD.
+- [ ] Validate stale-lock recovery and interrupted-recovery handling on a physical Windows installation.
+
+The new gate is a safety mechanism, not proof of arbitrary-process SQLite locking. A crash while the recovery gate is held can require operator inspection/removal after confirming that no host/recovery process remains.

@@ -34,6 +34,8 @@ $sceneModules = @(
   "windows-cng-p256-keystore.mjs",
   "resource-policy.mjs",
   "sqlite-office-incident-store.mjs",
+  "exclusive-operation-lock.mjs",
+  "sqlite-monotonic-checkpoint-journal.mjs",
   "office-health.mjs",
   "adapter-gateway.mjs",
   "runtime-session.mjs",
@@ -48,7 +50,7 @@ foreach ($module in $sceneModules) {
   Copy-Item -LiteralPath $source -Destination $sceneTarget
 }
 
-$hostModules = @("cli.mjs", "hardware-capabilities.mjs", "installation-lifecycle.mjs", "sqlite-installation-lifecycle-store.mjs", "secret-vault.mjs", "index.mjs")
+$hostModules = @("cli.mjs", "hardware-capabilities.mjs", "installation-lifecycle.mjs", "sqlite-installation-lifecycle-store.mjs", "secret-vault.mjs", "process-lock.mjs", "index.mjs")
 foreach ($module in $hostModules) {
   $source = Join-Path $repoRoot ("packages\windows-host\src\" + $module)
   if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {

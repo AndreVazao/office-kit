@@ -1,3 +1,5 @@
+import { createInProcessExclusiveLockProvider } from "./exclusive-operation-lock.mjs";
+
 const ZERO_HASH = "0".repeat(64);
 const MAC_DOMAIN = "office-kit-incident-event-mac-v1";
 const EVENT_TYPES = new Set(["incident.imported_snapshot", "incident.created", "incident.updated"]);
@@ -100,10 +102,11 @@ export class SqliteOfficeIncidentStore {
   #macProvider = null;
   #macProviders = new Map();
   #integrityRequired;
+  #writeLockProvider;
   #integrityReady = false;
   persistent = true;
 
-  constructor({ database, installationId, cryptoProvider, requireMac = false }) {
+  constructor({ database, installationId, cryptoProvider, requireMac = false, writeLockProvider } = {}) {
     if (!database || typeof database.exec !== "function"
       || typeof database.prepare !== "function"
       || typeof database.transaction !== "function") {
@@ -123,6 +126,10 @@ export class SqliteOfficeIncidentStore {
     this.#installationId = installationId;
     this.#cryptoProvider = cryptoProvider;
     this.#integrityRequired = requireMac;
+    this.#writeLockProvider = writeLockProvider ?? createInProcessExclusiveLockProvider();
+    if (!this.#writeLockProvider || typeof this.#writeLockProvider.acquire !== "function") {
+      throw new TypeError("incident_write_lock_provider_invalid");
+    }
     this.#database.exec([
       "CREATE TABLE IF NOT EXISTS office_kit_incidents (",
       "  installation_id TEXT NOT NULL,",
@@ -186,6 +193,18 @@ export class SqliteOfficeIncidentStore {
       "END;"
     ].join("\n"));
     this.#seedLegacySnapshots();
+  }
+
+  async #withWriteLock(operation) {
+    if (typeof operation !== "function") throw new TypeError("incident_write_operation_required");
+    const lease = await this.#writeLockProvider.acquire({
+      resource: "office-kit-incident-store:" + this.#installationId
+    });
+    if (!lease || typeof lease.release !== "function") {
+      throw new Error("incident_write_lock_acquire_unconfirmed");
+    }
+    try { return await operation(); }
+    finally { await lease.release(); }
   }
 
   #appendEvent(eventType, snapshot) {
@@ -514,22 +533,25 @@ export class SqliteOfficeIncidentStore {
     const stored = { ...safe, revision: 1 };
     const serialized = JSON.stringify(stored);
     try {
-      runImmediate(this.#database, () => {
-        this.#verifyEventChain();
-        this.#database.prepare([
-          "INSERT INTO office_kit_incidents",
-          "  (installation_id, incident_id, occurred_at, status, origin, revision, incident_json)",
-          "VALUES (?, ?, ?, ?, ?, ?, ?)"
-        ].join("\n")).run(
-          this.#installationId,
-          stored.id,
-          typeof stored.occurredAt === "string" ? stored.occurredAt : new Date().toISOString(),
-          typeof stored.status === "string" ? stored.status : "unknown",
-          typeof stored.origin === "string" ? stored.origin : "indeterminate",
-          stored.revision,
-          serialized
-        );
-        this.#appendEvent("incident.created", stored);
+      return await this.#withWriteLock(() => {
+        runImmediate(this.#database, () => {
+          this.#verifyEventChain();
+          this.#database.prepare([
+            "INSERT INTO office_kit_incidents",
+            "  (installation_id, incident_id, occurred_at, status, origin, revision, incident_json)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+          ].join("\n")).run(
+            this.#installationId,
+            stored.id,
+            typeof stored.occurredAt === "string" ? stored.occurredAt : new Date().toISOString(),
+            typeof stored.status === "string" ? stored.status : "unknown",
+            typeof stored.origin === "string" ? stored.origin : "indeterminate",
+            stored.revision,
+            serialized
+          );
+          this.#appendEvent("incident.created", stored);
+        });
+        return stored.id;
       });
     } catch (error) {
       if (String(error?.message ?? "").toLowerCase().includes("unique")) {
@@ -537,7 +559,6 @@ export class SqliteOfficeIncidentStore {
       }
       throw error;
     }
-    return stored.id;
   }
 
   async update(id, patch) {
@@ -549,7 +570,7 @@ export class SqliteOfficeIncidentStore {
       throw new TypeError("incident_update_reserved_field");
     }
     const safePatch = sanitize(patch);
-    return runImmediate(this.#database, () => {
+    return this.#withWriteLock(() => runImmediate(this.#database, () => {
       this.#verifyEventChain();
       const row = this.#database.prepare([
         "SELECT incident_json, revision FROM office_kit_incidents",
@@ -585,7 +606,7 @@ export class SqliteOfficeIncidentStore {
       if (Number(result.changes) !== 1) throw new Error("incident_update_conflict");
       this.#appendEvent("incident.updated", next);
       return id;
-    });
+    }));
   }
 
   async get(id) {

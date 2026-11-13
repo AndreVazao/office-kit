@@ -23,6 +23,9 @@ import { SqliteOfficeIncidentStore } from "../../scene-engine/src/sqlite-office-
 import { AdapterGateway } from "../../scene-engine/src/adapter-gateway.mjs";
 import { OfficeConnectionSupervisor, OfficeHealthRecoveryEngine } from "../../scene-engine/src/office-health.mjs";
 import { WindowsCngSecretVault } from "./secret-vault.mjs";
+import { acquireWindowsHostProcessLock } from "./process-lock.mjs";
+import { createInProcessExclusiveLockProvider } from "../../scene-engine/src/exclusive-operation-lock.mjs";
+import { SqliteMonotonicCheckpointJournal } from "../../scene-engine/src/sqlite-monotonic-checkpoint-journal.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
 
@@ -153,41 +156,6 @@ function readOrCreateInstallationId(path, makeId = randomUUID) {
   return installationId;
 }
 
-function acquireProcessLock(path, now = Date.now, pid = process.pid) {
-  const content = JSON.stringify({ pid, createdAt: now() }) + "\n";
-  try {
-    const descriptor = openSync(path, "wx", 0o600);
-    try {
-      writeFileSync(descriptor, content);
-      fsyncSync(descriptor);
-    } finally {
-      closeSync(descriptor);
-    }
-    return () => {
-      try {
-        const current = JSON.parse(readFileSync(path, "utf8"));
-        if (current.pid === pid) rmSync(path, { force: true });
-      } catch { /* A removed or corrupted lock must not block shutdown. */ }
-    };
-  } catch (error) {
-    if (error?.code !== "EEXIST") throw error;
-    let current;
-    try { current = JSON.parse(readFileSync(path, "utf8")); } catch { current = null; }
-    if (!Number.isSafeInteger(current?.pid) || current.pid <= 0) {
-      throw new Error("windows_host_lock_unreadable");
-    }
-    try {
-      process.kill(current.pid, 0);
-      throw new Error("windows_host_already_running");
-    } catch (probeError) {
-      if (probeError?.message === "windows_host_already_running") throw probeError;
-      if (probeError?.code !== "ESRCH") throw new Error("windows_host_lock_owner_unknown");
-    }
-    rmSync(path, { force: true });
-    return acquireProcessLock(path, now, pid);
-  }
-}
-
 /**
  * Windows-only local host composition root.
  * No network listener, backend discovery, telemetry or automatic enrollment is started.
@@ -232,6 +200,8 @@ export function createWindowsHost({
   let runtime;
   let installationId;
   let releaseLock;
+  let operationLockProvider;
+  let monotonicCheckpointJournal;
   let hardwareCapabilities;
   let resourcePolicy;
   let profileOverride = requestedProfile;
@@ -243,7 +213,8 @@ export function createWindowsHost({
     ensureRealDirectory(root);
     const userSid = resolveUserSid();
     applyAcl(root, userSid);
-    releaseLock = acquireProcessLock(lockPath, now);
+    releaseLock = acquireWindowsHostProcessLock(lockPath, { now });
+    operationLockProvider = createInProcessExclusiveLockProvider();
     applyAcl(lockPath, userSid);
     ensureRealDirectory(dataDirectory);
     applyAcl(dataDirectory, userSid);
@@ -275,10 +246,16 @@ export function createWindowsHost({
       database: sqliteAdapter(database),
       installationId,
       requireMac: true,
+      writeLockProvider: operationLockProvider,
       cryptoProvider: {
         sha256Hex: value => createHash("sha256").update(value, "utf8").digest("hex"),
         randomUUID
       }
+    });
+    monotonicCheckpointJournal = new SqliteMonotonicCheckpointJournal({
+      database: sqliteAdapter(database),
+      installationId,
+      lockProvider: operationLockProvider
     });
     var installationLifecycleStore = new SqliteInstallationLifecycleStore({
       database: sqliteAdapter(database),
@@ -507,6 +484,7 @@ export function createWindowsHost({
     closed = true;
     await Promise.allSettled([...managedGateways].map(gateway => gateway.close()));
     try { await ready; } catch { /* Initialization failure must not leak the database or lock. */ }
+    await operationLockProvider?.close();
     for (const key of incidentMacKeys.values()) key.fill(0);
     incidentMacKeys.clear();
     activeIncidentMacKeyId = null;
@@ -661,6 +639,7 @@ export function createWindowsHost({
   return Object.freeze({
     installationId,
     incidentStore,
+    monotonicCheckpointJournal,
     installationLifecycleStore,
     createInstallationLifecycleRuntime,
     createDiagnostics,
