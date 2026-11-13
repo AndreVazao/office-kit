@@ -257,7 +257,7 @@ export function createWindowsHost({
       installationId,
       lockProvider: operationLockProvider,
       applyPreparedPayload: (payload, checkpoint) => (
-        incidentStore.applyPreparedMonotonicAppend(payload, checkpoint)
+        incidentStore.applyPreparedMonotonicPayload(payload, checkpoint)
       )
     });
     var installationLifecycleStore = new SqliteInstallationLifecycleStore({
