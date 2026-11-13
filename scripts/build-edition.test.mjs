@@ -90,11 +90,11 @@ test("VST tarball includes only its read-only adapter and excludes DGM-MAT sourc
   assert.ok(manifest.limitations.some(value => value.includes("VST adapter is read-only preview")));
 });
 
-test("every edition tarball declares the Node 22.5 runtime floor", async () => {
+test("every edition tarball declares the Node 22.13 runtime floor", async () => {
   for (const edition of ["universal", "dgmat", "vst"]) {
     const { entries, manifest } = await build(edition);
     assert.ok(entries.includes("package/package.json"));
-    assert.equal(manifest.nodeRuntime.minimumVersion, "22.5.0");
-    assert.equal(manifest.nodeRuntime.range, ">=22.5.0");
+    assert.equal(manifest.nodeRuntime.minimumVersion, "22.13.0");
+    assert.equal(manifest.nodeRuntime.range, ">=22.13.0");
   }
 });
