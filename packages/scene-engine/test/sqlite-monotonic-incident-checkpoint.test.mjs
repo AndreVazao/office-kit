@@ -12,6 +12,7 @@ import { createInProcessExclusiveLockProvider } from "../src/exclusive-operation
 import { SqliteOfficeIncidentStore } from "../src/sqlite-office-incident-store.mjs";
 import { SqliteMonotonicCheckpointJournal } from "../src/sqlite-monotonic-checkpoint-journal.mjs";
 import { SqliteMonotonicCheckpointCoordinator } from "../src/sqlite-monotonic-checkpoint.mjs";
+import { MonotonicIncidentWriter } from "../src/monotonic-incident-writer.mjs";
 
 const installationId = "officekit-monotonic-incident-01";
 const cryptoProvider = Object.freeze({
@@ -304,6 +305,112 @@ sqliteTest("fails closed if a prepared incident payload is removed before finali
     assert.equal(await store.get("incident-tampered-prepare"), null);
     assert.equal((await journal.readCheckpoint()).sequence, 0);
     assert.ok(await journal.readPreparedCheckpoint());
+  } finally {
+    await lock.close();
+    opened.database.close();
+    macKey.fill(0);
+  }
+});
+
+
+sqliteTest("routes incident creation and updates through the monotonic checkpoint coordinator", async () => {
+  const opened = openDatabase();
+  const lock = createInProcessExclusiveLockProvider();
+  try {
+    const store = createStore(opened.adapter, lock);
+    const journal = createJournal(opened.adapter, lock, store);
+    const anchor = anchorFixture();
+    const coordinator = new SqliteMonotonicCheckpointCoordinator({
+      provider: anchor.provider, journal, installationId
+    });
+    const writer = new MonotonicIncidentWriter({ incidentStore: store, coordinator });
+
+    const id = await writer.append(incident("incident-anchored-writer-001"));
+    assert.equal(id, "incident-anchored-writer-001");
+    assert.equal((await store.get(id)).revision, 1);
+
+    const updatedId = await writer.update(id, { status: "resolved", outcome: "fixed" });
+    assert.equal(updatedId, id);
+    const snapshot = await store.get(id);
+    assert.equal(snapshot.revision, 2);
+    assert.equal(snapshot.status, "resolved");
+    assert.equal(snapshot.outcome, "fixed");
+
+    const events = store.listEvents();
+    assert.deepEqual(events.map(event => event.eventType), ["incident.created", "incident.updated"]);
+    assert.deepEqual(events.map(event => event.revision), [1, 2]);
+    const integrity = store.verifyIntegrity();
+    assert.equal(integrity.eventCount, 2);
+
+    const checkpoint = await journal.readCheckpoint();
+    assert.equal(checkpoint.sequence, 2);
+    assert.equal(checkpoint.eventHash, integrity.headHash);
+    assert.deepEqual(anchor.read().checkpoint, checkpoint);
+    assert.equal(await journal.readPreparedCheckpoint(), null);
+  } finally {
+    await lock.close();
+    opened.database.close();
+    macKey.fill(0);
+  }
+});
+
+sqliteTest("rejects an anchored incident write when the provider is unsupported", async () => {
+  const opened = openDatabase();
+  const lock = createInProcessExclusiveLockProvider();
+  try {
+    const store = createStore(opened.adapter, lock);
+    const journal = createJournal(opened.adapter, lock, store);
+    const anchor = anchorFixture();
+    anchor.provider.read = async () => ({ status: "unsupported" });
+    const coordinator = new SqliteMonotonicCheckpointCoordinator({
+      provider: anchor.provider, journal, installationId
+    });
+    const writer = new MonotonicIncidentWriter({ incidentStore: store, coordinator });
+
+    await assert.rejects(
+      writer.append(incident("incident-unsupported-anchor")),
+      /monotonic_anchor_not_protected/
+    );
+    assert.equal(await store.get("incident-unsupported-anchor"), null);
+    assert.equal(await journal.readPreparedCheckpoint(), null);
+    assert.equal((await journal.readCheckpoint()).sequence, 0);
+  } finally {
+    await lock.close();
+    opened.database.close();
+    macKey.fill(0);
+  }
+});
+
+sqliteTest("binds an anchored update to the exact predecessor snapshot", async () => {
+  const opened = openDatabase();
+  const lock = createInProcessExclusiveLockProvider();
+  try {
+    const store = createStore(opened.adapter, lock);
+    const journal = createJournal(opened.adapter, lock, store);
+    const anchor = anchorFixture();
+    const coordinator = new SqliteMonotonicCheckpointCoordinator({
+      provider: anchor.provider, journal, installationId
+    });
+    const writer = new MonotonicIncidentWriter({ incidentStore: store, coordinator });
+    const id = await writer.append(incident("incident-update-predecessor"));
+    const expected = await journal.readCheckpoint();
+    const payload = store.prepareMonotonicUpdate(id, { status: "resolved" });
+    const tampered = { ...payload, previousSnapshotHash: "f".repeat(64) };
+    const checkpoint = {
+      ...expected,
+      generation: expected.generation + 1,
+      sequence: tampered.sequence,
+      eventHash: tampered.eventHash,
+      eventMac: tampered.eventMac
+    };
+
+    await assert.rejects(
+      store.applyPreparedMonotonicUpdate(tampered, checkpoint),
+      /incident_monotonic_update_predecessor_mismatch/
+    );
+    assert.equal((await store.get(id)).revision, 1);
+    assert.equal(store.verifyIntegrity().eventCount, 1);
+    assert.equal((await journal.readCheckpoint()).sequence, 1);
   } finally {
     await lock.close();
     opened.database.close();
