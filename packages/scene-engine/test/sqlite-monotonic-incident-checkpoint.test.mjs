@@ -404,8 +404,8 @@ sqliteTest("binds an anchored update to the exact predecessor snapshot", async (
       eventMac: tampered.eventMac
     };
 
-    await assert.rejects(
-      store.applyPreparedMonotonicUpdate(tampered, checkpoint),
+    assert.throws(
+      () => store.applyPreparedMonotonicUpdate(tampered, checkpoint),
       /incident_monotonic_update_predecessor_mismatch/
     );
     assert.equal((await store.get(id)).revision, 1);
