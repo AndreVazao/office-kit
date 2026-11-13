@@ -177,6 +177,9 @@ export class SqliteMonotonicCheckpointJournal {
     if (typeof payloadJson !== "string" || payloadJson.length > 1_048_576) {
       throw new Error("sqlite_monotonic_payload_invalid");
     }
+    if (target.sequence > before.sequence && payload?.kind !== INCIDENT_APPEND_KIND) {
+      throw new Error("sqlite_monotonic_incident_payload_required");
+    }
     if (payload?.kind === INCIDENT_APPEND_KIND) {
       if (!this.#applyPreparedPayload) throw new Error("sqlite_monotonic_payload_handler_required");
       if (payload.schemaVersion !== 1 || payload.installationId !== this.#installationId
@@ -248,6 +251,9 @@ export class SqliteMonotonicCheckpointJournal {
         throw new Error("sqlite_monotonic_prepare_mismatch");
       }
       const payload = parseJson(pending.payload_json, "sqlite_monotonic_prepare_corrupt");
+      if (target.sequence > expected.sequence && payload?.kind !== INCIDENT_APPEND_KIND) {
+        throw new Error("sqlite_monotonic_incident_payload_required");
+      }
       if (payload?.kind === INCIDENT_APPEND_KIND) {
         if (!this.#applyPreparedPayload) throw new Error("sqlite_monotonic_payload_handler_required");
         const applied = this.#applyPreparedPayload(payload, target);
