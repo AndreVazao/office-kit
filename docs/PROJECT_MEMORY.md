@@ -530,3 +530,12 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - CI run #43226023576 passed Linux and Windows on Node 22 and Node 26.13.1. The Windows jobs ran native CNG secret vault, identity, journal and portable bundle E2E checks on both Node versions; the Linux jobs ran the core suite and all three edition source-package builds.
 - Visual regression #43226023574 passed after installing Chromium and rendering the responsive viewports on Node 26.13.1.
 - The visual and manual edition workflows now use Node 26.13.1. The package engine floor remains `>=22.5.0`; `node:sqlite` is still Experimental on Node 22 and Stability 1.2 — Release Candidate on Node 26. Runtime compatibility checks passed, but the API maturity decision remains open.
+
+
+## SQLite monotonic checkpoint journal adapter — 2026-11-12
+- Branch ativa: `feat/sqlite-monotonic-journal-adapter-2026-11-12`, criada a partir de `main` HEAD `5985328ce6f1a6a2fdb766959309fbae112ac559`.
+- Adicionado `SqliteMonotonicCheckpointJournal`: checkpoint finalized + prepare row persistidos em SQLite, transações `BEGIN IMMEDIATE`, validação de installation scope, geração/sequence, limite de payload, leitura após reopen e finalização idempotente.
+- O adapter exige um `lockProvider.acquire/release` injetado; o teste usa lock fake em memória. Não é prova de exclusão entre processos nem está ainda ligado ao process lock do Windows host.
+- Testes novos usam `node:sqlite` com ficheiro temporário, WAL e `synchronous=FULL`, reabertura da base, commit coordenado com anchor fake e reconciliação após restart.
+- Limitação explícita: guarda apenas metadata de checkpoint e payload preparado. Ainda não acrescenta o evento real ao `SqliteOfficeIncidentStore`, não garante que eventHash/eventMac correspondem a um evento existente, não fornece TPM e não prova rollback/power-loss físico.
+- Não declarar anti-rollback protegido. Próximos gates: ligar ao append transacional de eventos/MACs, lock cross-process real no host, fault injection com processos separados e provider TPM 2.0 com provisioning consentido.
