@@ -58,8 +58,9 @@ function createDefaultId() {
  * The caller must provide a cross-process exclusive lock shared by every
  * writer of this database. The host must configure durable SQLite settings
  * (WAL or rollback journal as appropriate, synchronous=FULL) before use.
- * This adapter stores checkpoint metadata and prepare records; it does not
- * append incident events or provide a hardware monotonic anchor.
+ * When configured with a synchronous prepared-payload applier, finalization
+ * applies that domain payload and checkpoint metadata in the same SQLite
+ * transaction. This adapter does not provide a hardware monotonic anchor.
  */
 export class SqliteMonotonicCheckpointJournal {
   #database;
