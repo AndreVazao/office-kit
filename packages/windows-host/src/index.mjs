@@ -255,7 +255,10 @@ export function createWindowsHost({
     monotonicCheckpointJournal = new SqliteMonotonicCheckpointJournal({
       database: sqliteAdapter(database),
       installationId,
-      lockProvider: operationLockProvider
+      lockProvider: operationLockProvider,
+      applyPreparedPayload: (payload, checkpoint) => (
+        incidentStore.applyPreparedMonotonicAppend(payload, checkpoint)
+      )
     });
     var installationLifecycleStore = new SqliteInstallationLifecycleStore({
       database: sqliteAdapter(database),

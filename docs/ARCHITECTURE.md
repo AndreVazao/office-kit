@@ -395,3 +395,20 @@ The checkpoint adapter remains metadata-only after PR #84. No TPM provider, exte
 The Windows host acquires host.lock before opening its private SQLite database and holds it until shutdown. A lock record contains the owner PID and a random ownership token; release removes the file only if both still match. Stale-owner reclamation is serialized by an exclusive sibling file named host.lock.recovery. The contender re-reads the original lock and probes the owner again while holding that recovery gate before removing anything. A second stale-lock reclaimer fails closed while the gate exists, so it cannot delete a replacement host lock based on an earlier read.
 
 The recovery gate is deliberately not auto-stolen. If the process crashes while holding it, startup reports windows_host_lock_recovery_in_progress. An operator must first verify that no Office Kit host or recovery process is active, inspect both lock records, and only then remove the stale recovery file. This favors single-writer safety over automatic recovery from an ambiguous recovery-gate crash. The lock still does not exclude arbitrary processes that bypass the supported host and open SQLite directly.
+
+## Incident append bound to monotonic checkpoint — PR #86 (2026-11-13)
+
+The generic SQLite checkpoint journal accepts an optional synchronous prepared-payload applier. For the incident append payload kind `office-kit.monotonic-incident-append.v1`, the coordinator follows this sequence:
+
+1. Under the shared host operation lock, read the current checkpoint and construct a canonical incident snapshot/event, SHA-256 event hash, key ID, previous HMAC and event HMAC.
+2. Persist a prepare record containing expected/next checkpoint and the bounded payload in SQLite.
+3. Advance the external monotonic anchor using compare-and-advance.
+4. In one SQLite `BEGIN IMMEDIATE` finalization transaction, revalidate the persisted payload, insert the incident snapshot, append-only event and HMAC, update the event-chain head, update checkpoint metadata and remove the prepare record.
+
+Recovery distinguishes three states: anchor at the successor means finalize; anchor at the predecessor means discard the uncommitted prepare; an indeterminate or mismatched anchor means retain the prepare and fail closed. The finalization applier must be synchronous because it executes inside the SQLite transaction. An exception rolls back the event, HMAC, chain-head and checkpoint changes together.
+
+When the incident-payload applier is configured (as in the Windows host composition), a checkpoint sequence advance requires the recognized incident-append payload. Finalization repeats this check against the persisted prepare row, so changing the payload to `null` after prepare cannot silently advance the checkpoint without appending the event. A generic journal without an applier retains its metadata-only checkpoint contract and must not be treated as an incident anchor. Event JSON, installation scope, sequence, previous hash, event hash, key ID, previous MAC and HMAC are revalidated before insertion.
+
+**Current implementation boundary:** the Windows host wires the applier to `SqliteOfficeIncidentStore.applyPreparedMonotonicAppend`, but no production TPM 2.0 provider is supplied and the coordinator is not enabled as the default writer. Ordinary `incidentStore.append()` and `update()` remain direct SQLite operations. Do not mix those unanchored writes with a claimed protected checkpoint history; production host integration must route every relevant mutation through a defined policy.
+
+Tests use real temporary SQLite databases with WAL, `synchronous=FULL`, `BEGIN IMMEDIATE` and close/reopen recovery. Their monotonic anchor is a test-only fake whose capabilities are fixtures, not hardware evidence. No TPM, external rollback resistance, power-loss proof or physical-PC validation is claimed. The feature is a transaction/recovery primitive, not a production anti-rollback guarantee.

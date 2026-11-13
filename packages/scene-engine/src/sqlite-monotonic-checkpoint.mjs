@@ -152,14 +152,27 @@ export class SqliteMonotonicCheckpointCoordinator {
     return this.#journal.withExclusiveLock(() => this.#reconcileLocked());
   }
 
-  async commit({ next, payload } = {}) {
+  async commit({ next, payload, prepareTransition } = {}) {
+    if (prepareTransition !== undefined && typeof prepareTransition !== "function") {
+      throw new TypeError("monotonic_checkpoint_transition_factory_invalid");
+    }
+    if (prepareTransition && (next !== undefined || payload !== undefined)) {
+      throw new Error("monotonic_checkpoint_transition_arguments_conflict");
+    }
     return this.#journal.withExclusiveLock(async () => {
       const reconciled = await this.#reconcileLocked();
       if (reconciled.status !== "protected") {
         throw new Error("monotonic_anchor_not_protected");
       }
       const expected = checkpoint(reconciled.checkpoint, this.#installationId);
-      const target = checkpoint(next, this.#installationId);
+      const transition = prepareTransition
+        ? await prepareTransition(Object.freeze({ installationId: this.#installationId, expected }))
+        : { next, payload };
+      if (!transition || typeof transition !== "object" || Array.isArray(transition)) {
+        throw new TypeError("monotonic_checkpoint_transition_invalid");
+      }
+      const target = checkpoint(transition.next, this.#installationId);
+      const preparedPayload = transition.payload ?? null;
       if (target.generation !== expected.generation + 1
         || target.sequence < expected.sequence) {
         throw new Error("monotonic_checkpoint_transition_invalid");
@@ -168,7 +181,7 @@ export class SqliteMonotonicCheckpointCoordinator {
       const prepared = await this.#journal.prepareCheckpoint({
         expected,
         next: target,
-        payload
+        payload: preparedPayload
       });
       if (!prepared || typeof prepared.id !== "string" || !prepared.id) {
         throw new Error("monotonic_checkpoint_prepare_unconfirmed");

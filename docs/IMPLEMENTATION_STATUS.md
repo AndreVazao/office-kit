@@ -608,3 +608,13 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 - [ ] Validate stale-lock recovery and interrupted-recovery handling on a physical Windows installation.
 
 The new gate is a safety mechanism, not proof of arbitrary-process SQLite locking. A crash while the recovery gate is held can require operator inspection/removal after confirming that no host/recovery process remains.
+
+## Current security/storage increment — 2026-11-13
+
+- **PR #85 merged:** `988c78f7e876f862356f657285b5938bad1ceabb`; final PR HEAD `8700f3e27862387eaf0d4bb96989136d82cd9cfa`. CI #559 (run ID `43439223212`) and Chromium visual #479 (run ID `43439223186`) passed on that same final PR HEAD.
+- Windows host lock stale-owner recovery now uses an exclusive sibling recovery gate and rechecks owner state while holding it. A stale recovery gate is deliberately not auto-removed after a crash. The mechanism protects the supported Office Kit host boundary, not arbitrary direct SQLite writers.
+- **PR #86 active:** `feat/security: bind incident events to monotonic checkpoints`. It adds a synchronous prepared-payload applier so incident snapshot/event/HMAC/chain-head rows and checkpoint metadata are committed in one SQLite finalization transaction.
+- PR #86 tests use real temporary SQLite files with WAL, `synchronous=FULL`, `BEGIN IMMEDIATE` and reopen-based recovery. The anchor is a test-only fake; no TPM/hardware-backed anchor has been implemented or validated.
+- With the Windows host's incident-payload applier configured, the journal rejects sequence advancement without the recognized incident append payload and fails closed if the persisted prepare payload is removed before finalization. A generic journal without that applier remains metadata-only and does not anchor incident events.
+- **Not yet implemented/validated:** a production TPM 2.0 provider; production host wiring that routes every incident mutation through an anchored coordinator; live Windows TPM integration; power-loss/filesystem durability; backup/restore; physical-PC testing. Ordinary `incidentStore.append()` and `update()` remain unanchored and must not be described as anti-rollback protected.
+- PR #86 must pass Linux/Windows Node 22 and Node 26.13.1, native Windows CNG, portable bundle E2E and Chromium visual regression on one exact final HEAD before merge.
