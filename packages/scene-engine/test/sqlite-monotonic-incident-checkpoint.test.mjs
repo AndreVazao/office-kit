@@ -97,7 +97,7 @@ function createJournal(database, lock, store, applyPreparedPayload) {
   return new SqliteMonotonicCheckpointJournal({
     database, installationId, lockProvider: lock, makeId: randomUUID,
     applyPreparedPayload: applyPreparedPayload ?? ((payload, checkpoint) => (
-      store.applyPreparedMonotonicAppend(payload, checkpoint)
+      store.applyPreparedMonotonicPayload(payload, checkpoint)
     ))
   });
 }
