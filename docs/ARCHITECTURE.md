@@ -377,3 +377,14 @@ The adapter accepts observer data only when the response envelope has `ok === tr
 Each connection has a fresh session UUID and generation. One bounded deadline covers token retrieval, fetch and JSON body parsing. Disconnect and a newer connection attempt abort the prior token-provider/fetch signal; late events from an old generation are discarded. This is cooperative cancellation: injected providers and transports must honor the AbortSignal.
 
 Unit tests use injected token providers and fake fetch responses. Edition tarball tests verify that only the VST package contains the VST adapter/host composition. The dedicated Windows integration test passed on Node 22 and Node 26.13.1 in CI #43230962819 on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; it uses the real CNG helper and SQLite vault through an injected host factory with a fake observer response, validating encrypted persistence, non-exportability, close/reopen, authenticated GET and removal. Visual regression #43230962934 also passed on that HEAD. These checks do not replace a live E2E against an actual VST instance, the full signed Windows host lifecycle, trusted-publisher acceptance or physical-PC provisioning/reconnect/restart. A documentation-only synchronization commit after this implementation checkpoint is being revalidated on its own PR HEAD before merge. VST remains a read-only preview, not a production integration.
+
+
+## Windows host operation lock and monotonic checkpoint boundary — 2026-11-13
+
+The Windows host acquires a private per-installation `host.lock` before opening the SQLite database and holds it until shutdown. PR #85 adds an in-process asynchronous exclusive-operation provider shared by `SqliteOfficeIncidentStore` writes and `SqliteMonotonicCheckpointJournal` operations. This prevents an incident append/update from interleaving with a checkpoint coordinator operation inside the supported host process.
+
+The process lock is atomic file creation with an owner PID and random ownership token. Release removes the lock only when the stored PID/token still match. A live owner blocks a second host; an unreadable or indeterminate owner fails closed. A child-process test exercises this boundary on CI runners.
+
+This is not a general-purpose filesystem lock for arbitrary programs that bypass the Office Kit host and open the SQLite file directly. The private data directory ACL and single-host architecture define the supported writer boundary. Other platform hosts must supply their own equivalent cross-process serialization before enabling monotonic checkpoint coordination.
+
+The checkpoint adapter remains metadata-only after PR #84. No TPM provider, external rollback-resistant anchor, incident-event/MAC atomic integration, power-loss proof or physical-machine validation is claimed.
