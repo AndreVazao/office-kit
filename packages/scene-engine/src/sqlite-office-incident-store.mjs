@@ -340,8 +340,9 @@ export class SqliteOfficeIncidentStore {
   }
 
   /**
-   * Builds a prepared update payload. The predecessor revision and its digest
-   * are bound into the payload so a stale prepare cannot overwrite a newer snapshot.
+   * Builds a prepared update payload. The caller must hold the same exclusive
+   * operation lock used by the checkpoint journal. The predecessor revision
+   * and digest prevent a stale prepare from overwriting a newer snapshot.
    */
   prepareMonotonicUpdate(id, patch) {
     if (!this.#integrityReady || !this.#macProvider) throw new Error("incident_integrity_key_unavailable");
