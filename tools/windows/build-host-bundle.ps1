@@ -67,8 +67,8 @@ if ($nodeVersion -notmatch '^v?(\d+)\.(\d+)\.(\d+)') {
   throw ("Could not parse bundled Node.js version: " + $nodeVersion)
 }
 $parsedNodeVersion = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
-if ($parsedNodeVersion -lt [version]"22.5.0") {
-  throw ("Universal Windows bundle requires Node.js >=22.5.0; found " + $nodeVersion)
+if ($parsedNodeVersion -lt [version]"22.13.0") {
+  throw ("Universal Windows bundle requires Node.js >=22.13.0; found " + $nodeVersion)
 }
 $nodeArchitecture = (& $nodePath -p "process.arch").Trim()
 if ($nodeArchitecture -ne "x64") {
@@ -81,7 +81,7 @@ $manifest = [ordered]@{
   architecture = "win-x64"
   nodeVersion = $nodeVersion
   nodeArchitecture = $nodeArchitecture
-  minimumNodeVersion = "22.5.0"
+  minimumNodeVersion = "22.13.0"
   entrypoint = "packages/windows-host/src/cli.mjs"
   cngHelper = "OfficeKit.CngHost.exe"
   sceneEngineModules = $sceneModules
