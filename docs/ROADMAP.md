@@ -624,8 +624,9 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Linux, Windows CNG nativo, bundle portátil E2E e regressão visual aprovados nos HEADs finais das PRs #73 e #75.
 - [x] PR #79 integrada em `4d9181f2e93a9596bf268fa521a8860d14355d1b`: rotação Windows CNG pelo host com consentimento explícito, active-key pointer persistente, recuperação após interrupção e retenção de chaves históricas; CI Linux/Windows Node 22/26.13.1 e regressão visual pós-merge passaram no mesmo SHA.
 - [x] Definir contrato neutro `MonotonicAnchorProvider`, estados explícitos, validação estrita de capacidades e compare-and-advance de uma geração; testes com provider fake (não é proteção física).
-- [x] Adicionar adapter SQLite real para checkpoint metadata e registo prepare durável, com finalização idempotente e testes em ficheiro temporário (PR em validação); ainda sem ligação ao journal de incidentes.
-- [ ] Integrar checkpoints no append real de eventos/MACs e fornecer lock cross-process de produção no host; validar crash recovery e rollback real.
+- [x] PR #84 squash-merged em `0163babd2ad2524dc1d82fe3f45e1c016070d6ee`: adapter SQLite para checkpoint metadata e prepare durável, `BEGIN IMMEDIATE`, finalização idempotente e testes em ficheiro temporário; CI #554 e visual #474 passaram no mesmo HEAD `c2598283cbe99f0d96c694f5e2f07419ce9181bd`.
+- [ ] PR #85 em validação: partilhar lock entre writes do incident store e checkpoint coordinator; provar exclusão do host singleton Windows em processos separados. Não cobre processos que contornem o host.
+- [ ] Integrar append de evento/MAC e checkpoint prepare/finalize numa sequência crash-consistent; validar recuperação com falhas injetadas.
 - [ ] Implementar provider TPM 2.0 nativo com provisioning explícito e fallback fail-closed.
 - [ ] Validar power-loss/filesystem durability e backup/restore em hardware físico.
 - [ ] Implementar providers equivalentes para Linux, macOS e Android.
