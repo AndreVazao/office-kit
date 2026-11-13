@@ -3,6 +3,7 @@ import { createInProcessExclusiveLockProvider } from "./exclusive-operation-lock
 const ZERO_HASH = "0".repeat(64);
 const MAC_DOMAIN = "office-kit-incident-event-mac-v1";
 const EVENT_TYPES = new Set(["incident.imported_snapshot", "incident.created", "incident.updated"]);
+const MONOTONIC_UPDATE_KIND = "office-kit.monotonic-incident-update.v1";
 const EVENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SECRET_KEY = /(?:token|password|secret|api[_-]?key|authorization|cookie|private[_-]?key)/i;
 const SECRET_TEXT = [
@@ -339,6 +340,99 @@ export class SqliteOfficeIncidentStore {
   }
 
   /**
+   * Builds a prepared update payload. The predecessor revision and its digest
+   * are bound into the payload so a stale prepare cannot overwrite a newer snapshot.
+   */
+  prepareMonotonicUpdate(id, patch) {
+    if (!this.#integrityReady || !this.#macProvider) throw new Error("incident_integrity_key_unavailable");
+    if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{2,180}$/.test(id)
+      || !patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new TypeError("invalid_incident_update");
+    }
+    if (["id", "installationId", "schemaVersion", "revision"].some(key => Object.hasOwn(patch, key))) {
+      throw new TypeError("incident_update_reserved_field");
+    }
+    const safePatch = sanitize(patch);
+    this.#verifyEventChain();
+    const row = this.#database.prepare([
+      "SELECT incident_json, revision FROM office_kit_incidents",
+      "WHERE installation_id = ? AND incident_id = ?"
+    ].join(" ")).get(this.#installationId, id);
+    if (!row) throw new Error("incident_not_found");
+    const current = parseStoredIncident(row, this.#installationId);
+    if (current.revision >= Number.MAX_SAFE_INTEGER) throw new RangeError("incident_revision_exhausted");
+    const revision = current.revision + 1;
+    const validated = validateIncident({
+      ...current,
+      ...safePatch,
+      id,
+      installationId: this.#installationId
+    }, this.#installationId);
+    const occurredAt = typeof validated.occurredAt === "string"
+      ? validated.occurredAt
+      : new Date().toISOString();
+    if (Number.isNaN(Date.parse(occurredAt))) throw new TypeError("incident_occurred_at_invalid");
+    const snapshot = {
+      ...validated,
+      occurredAt,
+      status: typeof validated.status === "string" ? validated.status : "unknown",
+      origin: typeof validated.origin === "string" ? validated.origin : "indeterminate",
+      revision
+    };
+    const previousSnapshotHash = this.#cryptoProvider.sha256Hex(stableJson(current));
+    if (typeof previousSnapshotHash !== "string" || !/^[a-f0-9]{64}$/.test(previousSnapshotHash)) {
+      throw new Error("incident_crypto_provider_invalid_hash");
+    }
+    const head = this.#database.prepare([
+      "SELECT sequence, head_hash FROM office_kit_incident_chain_heads",
+      "WHERE installation_id = ?"
+    ].join(" ")).get(this.#installationId);
+    const sequence = Number(head?.sequence ?? 0) + 1;
+    const event = {
+      schemaVersion: 1,
+      installationId: this.#installationId,
+      sequence,
+      eventId: this.#cryptoProvider.randomUUID(),
+      incidentId: id,
+      eventType: "incident.updated",
+      revision,
+      occurredAt: snapshot.occurredAt,
+      previousHash: head?.head_hash ?? ZERO_HASH,
+      payload: snapshot
+    };
+    if (typeof event.eventId !== "string" || !EVENT_ID_PATTERN.test(event.eventId)) {
+      throw new Error("incident_event_id_invalid");
+    }
+    const eventJson = stableJson(event);
+    const eventHash = this.#cryptoProvider.sha256Hex(eventJson);
+    if (typeof eventHash !== "string" || !/^[a-f0-9]{64}$/.test(eventHash)) {
+      throw new Error("incident_crypto_provider_invalid_hash");
+    }
+    const previousMacRow = this.#database.prepare(
+      "SELECT event_mac FROM office_kit_incident_event_macs WHERE installation_id = ? ORDER BY sequence DESC LIMIT 1"
+    ).get(this.#installationId);
+    const previousMac = previousMacRow?.event_mac ?? ZERO_HASH;
+    const eventMac = this.#macProvider.hmacSha256Hex(this.#macMessage(sequence, eventHash, previousMac));
+    if (typeof eventMac !== "string" || !/^[a-f0-9]{64}$/.test(eventMac)) {
+      throw new Error("incident_mac_provider_invalid_result");
+    }
+    return Object.freeze({
+      kind: MONOTONIC_UPDATE_KIND,
+      schemaVersion: 1,
+      installationId: this.#installationId,
+      sequence,
+      previousRevision: current.revision,
+      previousSnapshotHash,
+      snapshot: structuredClone(snapshot),
+      eventJson,
+      eventHash,
+      keyId: this.#macProvider.keyId,
+      previousMac,
+      eventMac
+    });
+  }
+
+  /**
    * Applies a prepared append inside the checkpoint journal's active SQLite
    * transaction. Snapshot, event, MAC and checkpoint metadata commit together.
    */
@@ -478,6 +572,167 @@ export class SqliteOfficeIncidentStore {
     }
     this.#verifyEventChain();
     return snapshot.id;
+  }
+
+  /**
+   * Applies a prepared update in the checkpoint journal's active SQLite
+   * transaction. The current snapshot must still match the prepared predecessor.
+   */
+  applyPreparedMonotonicUpdate(payload, checkpoint) {
+    if (!this.#integrityReady || !this.#macProvider) throw new Error("incident_integrity_key_unavailable");
+    if (!payload || payload.kind !== MONOTONIC_UPDATE_KIND
+      || payload.schemaVersion !== 1 || payload.installationId !== this.#installationId
+      || !Number.isSafeInteger(payload.sequence) || payload.sequence < 2
+      || !Number.isSafeInteger(payload.previousRevision) || payload.previousRevision < 1
+      || !/^[a-f0-9]{64}$/.test(payload.previousSnapshotHash ?? "")
+      || typeof payload.eventJson !== "string"
+      || !/^[a-f0-9]{64}$/.test(payload.eventHash ?? "")
+      || !/^[a-f0-9]{64}$/.test(payload.previousMac ?? "")
+      || !/^[a-f0-9]{64}$/.test(payload.eventMac ?? "")
+      || typeof payload.keyId !== "string" || !this.#macProviders.has(payload.keyId)) {
+      throw new Error("incident_monotonic_update_payload_invalid");
+    }
+    if (!checkpoint || checkpoint.installationId !== this.#installationId
+      || checkpoint.sequence !== payload.sequence
+      || checkpoint.eventHash !== payload.eventHash
+      || checkpoint.eventMac !== payload.eventMac) {
+      throw new Error("incident_monotonic_checkpoint_payload_mismatch");
+    }
+    const snapshot = {
+      ...validateIncident(payload.snapshot, this.#installationId),
+      occurredAt: typeof payload.snapshot?.occurredAt === "string" ? payload.snapshot.occurredAt : "",
+      status: typeof payload.snapshot?.status === "string" ? payload.snapshot.status : "unknown",
+      origin: typeof payload.snapshot?.origin === "string" ? payload.snapshot.origin : "indeterminate",
+      revision: payload.snapshot?.revision
+    };
+    if (Number.isNaN(Date.parse(snapshot.occurredAt))
+      || snapshot.revision !== payload.previousRevision + 1
+      || stableJson(snapshot) !== stableJson(payload.snapshot)) {
+      throw new Error("incident_monotonic_update_snapshot_mismatch");
+    }
+    let event;
+    try { event = JSON.parse(payload.eventJson); }
+    catch { throw new Error("incident_monotonic_event_corrupt"); }
+    if (stableJson(event) !== payload.eventJson
+      || event?.schemaVersion !== 1
+      || event.installationId !== this.#installationId
+      || event.sequence !== payload.sequence
+      || typeof event.eventId !== "string" || !EVENT_ID_PATTERN.test(event.eventId)
+      || event.incidentId !== snapshot.id
+      || event.eventType !== "incident.updated"
+      || event.revision !== snapshot.revision
+      || event.occurredAt !== snapshot.occurredAt
+      || !/^[a-f0-9]{64}$/.test(event.previousHash ?? "")
+      || stableJson(event.payload) !== stableJson(snapshot)) {
+      throw new Error("incident_monotonic_update_event_mismatch");
+    }
+
+    this.#verifyEventChain();
+    const existing = this.#database.prepare([
+      "SELECT incident_json, revision FROM office_kit_incidents",
+      "WHERE installation_id = ? AND incident_id = ?"
+    ].join(" ")).get(this.#installationId, snapshot.id);
+    if (!existing) throw new Error("incident_monotonic_update_missing");
+    const current = parseStoredIncident(existing, this.#installationId);
+    if (current.revision === snapshot.revision && stableJson(current) === stableJson(snapshot)) {
+      const eventRow = this.#database.prepare([
+        "SELECT event_json, event_hash FROM office_kit_incident_events",
+        "WHERE installation_id = ? AND sequence = ?"
+      ].join(" ")).get(this.#installationId, payload.sequence);
+      const macRow = this.#database.prepare([
+        "SELECT key_id, previous_mac, event_mac FROM office_kit_incident_event_macs",
+        "WHERE installation_id = ? AND sequence = ?"
+      ].join(" ")).get(this.#installationId, payload.sequence);
+      const head = this.#database.prepare([
+        "SELECT sequence, head_hash FROM office_kit_incident_chain_heads",
+        "WHERE installation_id = ?"
+      ].join(" ")).get(this.#installationId);
+      if (eventRow?.event_json === payload.eventJson
+        && eventRow?.event_hash === payload.eventHash
+        && macRow?.key_id === payload.keyId
+        && macRow?.previous_mac === payload.previousMac
+        && macRow?.event_mac === payload.eventMac
+        && Number(head?.sequence) === payload.sequence
+        && head?.head_hash === payload.eventHash) return snapshot.id;
+      throw new Error("incident_monotonic_existing_update_conflict");
+    }
+    if (current.revision !== payload.previousRevision
+      || this.#cryptoProvider.sha256Hex(stableJson(current)) !== payload.previousSnapshotHash) {
+      throw new Error("incident_monotonic_update_predecessor_mismatch");
+    }
+
+    const head = this.#database.prepare([
+      "SELECT sequence, head_hash FROM office_kit_incident_chain_heads",
+      "WHERE installation_id = ?"
+    ].join(" ")).get(this.#installationId);
+    const expectedSequence = Number(head?.sequence ?? 0) + 1;
+    const previousHash = head?.head_hash ?? ZERO_HASH;
+    if (expectedSequence !== payload.sequence || event.previousHash !== previousHash) {
+      throw new Error("incident_monotonic_event_head_conflict");
+    }
+    const expectedHash = this.#cryptoProvider.sha256Hex(payload.eventJson);
+    if (expectedHash !== payload.eventHash) throw new Error("incident_monotonic_event_hash_mismatch");
+    const previousMacRow = this.#database.prepare(
+      "SELECT event_mac FROM office_kit_incident_event_macs WHERE installation_id = ? ORDER BY sequence DESC LIMIT 1"
+    ).get(this.#installationId);
+    const previousMac = previousMacRow?.event_mac ?? ZERO_HASH;
+    if (previousMac !== payload.previousMac) throw new Error("incident_monotonic_mac_head_conflict");
+    const macProvider = this.#macProviders.get(payload.keyId);
+    const expectedMac = macProvider.hmacSha256Hex(this.#macMessage(payload.sequence, payload.eventHash, previousMac));
+    if (!constantTimeHexEqual(expectedMac, payload.eventMac)) {
+      throw new Error("incident_monotonic_event_mac_mismatch");
+    }
+
+    const updated = this.#database.prepare([
+      "UPDATE office_kit_incidents",
+      "SET occurred_at = ?, status = ?, origin = ?, revision = ?, incident_json = ?",
+      "WHERE installation_id = ? AND incident_id = ? AND revision = ?"
+    ].join(" ")).run(
+      snapshot.occurredAt, snapshot.status, snapshot.origin, snapshot.revision,
+      JSON.stringify(snapshot), this.#installationId, snapshot.id, payload.previousRevision
+    );
+    if (Number(updated.changes) !== 1) throw new Error("incident_update_conflict");
+    this.#database.prepare([
+      "INSERT INTO office_kit_incident_events",
+      "(installation_id, sequence, event_id, incident_id, event_type, revision, previous_hash, event_json, event_hash)",
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ].join(" ")).run(
+      this.#installationId, payload.sequence, event.eventId, snapshot.id,
+      event.eventType, event.revision, event.previousHash, payload.eventJson, payload.eventHash
+    );
+    this.#database.prepare([
+      "INSERT INTO office_kit_incident_event_macs",
+      "(installation_id, sequence, key_id, previous_mac, event_mac)",
+      "VALUES (?, ?, ?, ?, ?)"
+    ].join(" ")).run(
+      this.#installationId, payload.sequence, payload.keyId, payload.previousMac, payload.eventMac
+    );
+    if (head) {
+      const moved = this.#database.prepare([
+        "UPDATE office_kit_incident_chain_heads SET sequence = ?, head_hash = ?",
+        "WHERE installation_id = ? AND sequence = ? AND head_hash = ?"
+      ].join(" ")).run(
+        payload.sequence, payload.eventHash, this.#installationId, head.sequence, head.head_hash
+      );
+      if (Number(moved.changes) !== 1) throw new Error("incident_event_chain_head_conflict");
+    } else {
+      this.#database.prepare([
+        "INSERT INTO office_kit_incident_chain_heads (installation_id, sequence, head_hash)",
+        "VALUES (?, ?, ?)"
+      ].join(" ")).run(this.#installationId, payload.sequence, payload.eventHash);
+    }
+    this.#verifyEventChain();
+    return snapshot.id;
+  }
+
+  applyPreparedMonotonicPayload(payload, checkpoint) {
+    if (payload?.kind === "office-kit.monotonic-incident-append.v1") {
+      return this.applyPreparedMonotonicAppend(payload, checkpoint);
+    }
+    if (payload?.kind === MONOTONIC_UPDATE_KIND) {
+      return this.applyPreparedMonotonicUpdate(payload, checkpoint);
+    }
+    throw new Error("incident_monotonic_payload_kind_invalid");
   }
 
   #macMessage(sequence, eventHash, previousMac) {
