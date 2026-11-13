@@ -12,7 +12,7 @@ Status em 13 de novembro de 2026: o coordenador e o journal SQLite foram integra
 - `finalizeCheckpoint(record)`: finaliza o checkpoint e remove o prepare numa transação; finalização repetida é idempotente.
 - `discardPreparedCheckpoint(id)`: remove apenas o prepare correspondente, depois de o coordenador provar que a âncora continua no predecessor.
 
-Quando configurado com `applyPreparedPayload`, o journal aceita o payload de incident append reconhecido e executa o applier síncrono dentro da transação de finalização. Nessa composição, qualquer avanço de sequência exige esse payload; o payload persistido é revalidado antes de ser aplicado. Sem applier, o journal mantém o contrato genérico metadata-only e não pode ser apresentado como âncora de eventos.
+Quando configurado com `applyPreparedPayload`, o journal aceita os payloads reconhecidos de incident append e update e executa o applier síncrono dentro da transação de finalização. Nessa composição, qualquer avanço de sequência exige um desses payloads e a sequência tem de avançar exatamente uma posição; o payload persistido é revalidado antes de ser aplicado. Sem applier, o journal mantém o contrato genérico metadata-only e não pode ser apresentado como âncora de eventos.
 
 ## Commit sequence
 
@@ -44,11 +44,21 @@ O payload `office-kit.monotonic-incident-append.v1` inclui installation ID, sequ
 
 O applier é síncrono e decorre dentro da transação SQLite de finalização. Se falhar, a transação reverte todas as alterações. Um prepare com payload removido ou alterado não pode avançar a sequência quando o applier está configurado.
 
+## Anchored incident writer — core boundary
+
+`MonotonicIncidentWriter` encaminha `append()` e `update()` através de `SqliteMonotonicCheckpointCoordinator.commit()`. O writer constrói o payload dentro do lock exclusivo do coordenador e só devolve o ID depois de confirmar que o checkpoint final corresponde ao evento.
+
+O payload de update contém a revisão anterior e SHA-256 do snapshot predecessor. A finalização exige que a revisão e o digest atuais coincidam, além de revalidar event JSON, sequência, hash, HMAC e cabeça da cadeia. Isto impede que um prepare de update antigo sobrescreva uma revisão mais recente.
+
+O writer exige que incident store e checkpoint journal partilhem a mesma base SQLite e o mesmo lock de operações. Se o provider não reportar estado `protected`, o coordenador rejeita a escrita; não existe fallback automático para escrita não ancorada.
+
+**Limite desta implementação:** o writer está disponível no core, mas ainda não foi instalado como fachada de escrita do Windows host. As chamadas diretas `incidentStore.append()` e `update()` continuam a ser o caminho não ancorado até à integração do host. Não apresentar esta API nem os testes com provider fake como TPM ou anti-rollback de produção.
+
 ## Windows host boundary
 
-O Windows host configura o applier para chamar `SqliteOfficeIncidentStore.applyPreparedMonotonicAppend` e partilha o lock de operações entre incident writes e checkpoint operations. O host singleton lock serializa as instâncias suportadas do Office Kit e a recuperação de stale owner usa um recovery gate. Isto não impede processos arbitrários que ignorem o host e abram SQLite diretamente.
+O Windows host configura o applier para chamar `SqliteOfficeIncidentStore.applyPreparedMonotonicPayload`, que despacha append e update, e partilha o lock de operações entre incident writes e checkpoint operations. O host singleton lock serializa as instâncias suportadas do Office Kit e a recuperação de stale owner usa um recovery gate. Isto não impede processos arbitrários que ignorem o host e abram SQLite diretamente.
 
-**Limite atual:** o host não fornece provider TPM de produção, não ativa o coordenador como writer predefinido e as chamadas normais `incidentStore.append()`/`update()` continuam não ancoradas. Não misturar writes não ancorados com uma história apresentada como protegida. A política de writer completo e o provider TPM são gates seguintes.
+**Limite atual:** o host não fornece provider TPM de produção nem ativa `MonotonicIncidentWriter` como writer predefinido; as chamadas normais `incidentStore.append()`/`update()` continuam não ancoradas. Não misturar writes não ancorados com uma história apresentada como protegida. A integração fail-closed do writer no host e o provider TPM são gates seguintes.
 
 ## Evidence
 
@@ -60,8 +70,8 @@ O Windows host configura o applier para chamar `SqliteOfficeIncidentStore.applyP
 
 ## Remaining gates
 
-1. Implementar provider TPM 2.0 nativo com provisioning consentido e compare-and-advance atómico.
-2. Criar writer que encaminhe todas as mutações de incidentes (append/update) pelo coordenador quando a âncora estiver protegida; falhar fechado em divergência e declarar explicitamente o modo não ancorado.
+1. Integrar `MonotonicIncidentWriter` no Windows host como fachada única de escrita, bloquear mutações diretas quando a instalação estiver em modo protegido e definir recuperação/saída explícita para modo não ancorado.
+2. Implementar provider TPM 2.0 nativo com provisioning consentido e compare-and-advance atómico verificável.
 3. Fault injection e concorrência multi-processo em cada fronteira de commit.
 4. Power-loss, backup/restore e TPM clear/reprovision em hardware físico.
 5. Providers de keystore/âncora para Linux, macOS e Android.
