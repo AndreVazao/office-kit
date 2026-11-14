@@ -583,3 +583,5 @@ A follow-up branch installs `MonotonicIncidentWriter` as the only public inciden
 If no trusted monotonic anchor provider exists, the default provider reports `unsupported` and all incident append/update calls fail with `monotonic_anchor_not_protected`; there is no silent hash-chain-only write fallback. Startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash and fails on mismatch.
 
 The provider fixture is explicitly test-only. GitHub Actions can validate the writer/coordinator and native CNG helper integration, but this is not TPM 2.0 evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, process-kill/power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.
+
+The host also serializes owner-consented incident MAC-key rotation with the same exclusive checkpoint lock used by append/update. A host test holds the fake anchor advance while rotation is requested, verifies rotation waits, then verifies a subsequent update is committed under the rotated key. This is protocol/host test evidence, not TPM evidence.

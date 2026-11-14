@@ -636,5 +636,6 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - When no trusted platform anchor provider is supplied, the default provider reports `unsupported`; append/update fail with `monotonic_anchor_not_protected`. Reads and integrity inspection remain available. There is no unanchored fallback.
 - Startup recovery compares a protected checkpoint sequence and event hash with the keyed SQLite event chain. A mismatch fails startup rather than silently mixing unanchored history with a protected checkpoint.
 - The host accepts a provider factory only at its composition boundary. Repository tests use an explicitly named test-only fake provider; its asserted capabilities are fixtures and are not TPM evidence.
+- Incident MAC-key rotation now shares the monotonic journal exclusive lock, preventing a keyring switch from racing an in-flight append/update.
 - No native Windows TPM 2.0 provider is implemented by this increment. The default production path remains write-disabled until a trusted provider is implemented and physically validated.
 - Branch validation and merge are pending. Windows CNG helper tests validate CNG/SQLite behavior in GitHub Actions, not a physical TPM or a physical PC.

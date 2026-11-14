@@ -420,3 +420,6 @@ Tests use real temporary SQLite databases with WAL, `synchronous=FULL`, `BEGIN I
 ## 2026-11-14 — public host mutation policy
 
 The Windows host has a single incident mutation facade on the active follow-up branch. Diagnostics use that facade; callers cannot reach raw `prepareMonotonicAppend`, `applyPreparedMonotonicPayload`, or the low-level checkpoint journal through the returned host. If a trusted monotonic anchor is unavailable, writes are rejected rather than silently falling back to an unanchored chain. The default is currently unsupported because no native TPM 2.0 provider is implemented. Test-only fake anchors validate protocol wiring only and must never be presented as hardware evidence.
+
+
+The Windows host serializes owner-consented journal MAC-key rotation with the monotonic checkpoint journal lock. This prevents the active MAC provider from switching while an append/update payload is being prepared or finalized. The public facade exposes no direct store mutation methods; when the provider is unsupported, writes remain disabled.

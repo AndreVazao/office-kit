@@ -203,9 +203,15 @@ test("Windows host routes incident writes through the monotonic checkpoint befor
     assert.equal(rotationResult.value.rotated, true);
     assert.equal(host.getIncidentJournalKeyState().activeKeyId, "windows-cng:incident-journal-mac-v2");
     assert.equal((await host.incidentStore.list()).length, 1);
+    await host.incidentStore.update("incident-monotonic-lock-001", { status: "resolved", outcome: "fixed" });
+    const updated = await host.incidentStore.get("incident-monotonic-lock-001");
+    assert.equal(updated.revision, 2);
+    assert.equal(updated.status, "resolved");
+    assert.deepEqual(host.incidentStore.listEvents().map(event => event.eventType), ["incident.created", "incident.updated"]);
     const protection = await host.getIncidentProtectionState();
     assert.equal(protection.status, "protected");
-    assert.equal(protection.checkpoint.sequence, 1);
+    assert.equal(protection.checkpoint.sequence, 2);
+    assert.equal(host.incidentStore.verifyIntegrity().headMac, protection.checkpoint.eventMac);
     const store = host.incidentStore;
     await host.close();
     host = null;
