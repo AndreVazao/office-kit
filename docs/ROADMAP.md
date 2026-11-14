@@ -697,7 +697,7 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Bind prepared updates to the exact predecessor revision and snapshot digest; reject stale updates.
 - [x] Require recognized append/update payloads and one-step sequence advancement in the SQLite journal.
 - [x] Add tests for append + update, unsupported provider fail-closed behavior and predecessor digest mismatch (CI/visual validation pending on the active branch).
-- [ ] Install the writer as the Windows host's single incident mutation facade; prevent direct unanchored writes when a protected anchor is configured.
+- [x] Implement the Windows host's single incident mutation facade on the 2026-11-14 follow-up branch; CI/visual validation and merge remain pending.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
 - [ ] Add process-kill fault injection, multi-process contention, power-loss and backup/restore validation on physical hardware.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.

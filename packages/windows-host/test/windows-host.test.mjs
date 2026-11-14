@@ -357,10 +357,11 @@ test("host blocks mutations and hides identity while reconciliation remains pend
 
 test("Windows host exposes installation-scoped persistent incident diagnostics across restarts", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-incidents-"));
+  const anchor = createTestMonotonicAnchorFactory();
   let host;
   let reopened;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
     const diagnostics = host.createDiagnostics({
       probes: [{
@@ -377,7 +378,7 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     await host.close();
     host = null;
 
-    reopened = setup(directory);
+    reopened = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await reopened.ready;
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
@@ -392,11 +393,12 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
 
 test("Windows host refuses to replace a missing journal key when authenticated history exists", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-journal-key-loss-"));
+  const anchor = createTestMonotonicAnchorFactory();
   let host;
   let reopened;
   let installationId;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
     installationId = host.installationId;
     await host.incidentStore.append({
@@ -409,7 +411,7 @@ test("Windows host refuses to replace a missing journal key when authenticated h
     host = null;
     testSecrets.delete([installationId, "incident.journal", "journal-mac-v1"].join("\\0"));
 
-    reopened = setup(directory);
+    reopened = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await assert.rejects(reopened.ready, /incident_integrity_key_missing_recovery_required/);
     assert.equal(testSecrets.has([installationId, "incident.journal", "journal-mac-v1"].join("\\0")), false);
   } finally {
@@ -471,10 +473,11 @@ test("health snapshots cannot mutate the host's active resource policy", async (
 
 test("managed adapter gateway persists outage and verified recovery through the Windows host", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-supervisor-"));
+  const anchor = createTestMonotonicAnchorFactory();
   let host;
   let managed;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
     const probes = ["office_runtime", "adapter", "transport", "backend"].map(layer => ({
       id: "probe-" + layer,

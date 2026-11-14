@@ -573,7 +573,7 @@ The generic core now contains `MonotonicIncidentWriter`, which routes append and
 
 Prepared update payloads include the previous revision and SHA-256 digest of the exact predecessor snapshot. The SQLite journal now recognizes append and update payload kinds, requires a one-event sequence increment, and dispatches the synchronous applier inside the same finalization transaction. The Windows host callback dispatches both payload types.
 
-This is not yet the production host write path: the Windows host does not instantiate the writer as its public incident facade, so direct `incidentStore.append()` and `update()` remain unanchored. The tests use SQLite/WAL with a fake monotonic anchor; they do not prove TPM, rollback resistance, power-loss durability or physical-machine behavior. Next: validate CI/visual on the same PR HEAD, wire a fail-closed host facade, then implement a real TPM 2.0 provider with physical validation. Universal, DGM-MAT and VST edition boundaries and credentials remain unchanged.
+At the time of this core-only increment, the writer was not yet the production host write path. The follow-up branch dated 2026-11-14 now routes public host mutations through a restricted facade and fails closed without a trusted anchor provider; its CI/visual validation is pending. The tests use SQLite/WAL with a fake monotonic anchor; they do not prove TPM, rollback resistance, power-loss durability or physical-machine behavior. A native TPM 2.0 provider and physical validation remain open. Universal, DGM-MAT and VST edition boundaries and credentials remain unchanged.
 
 
 ## 2026-11-14 — host incident writes fail closed
