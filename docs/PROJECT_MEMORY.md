@@ -596,5 +596,5 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - Sem provider TPM confiável, o provider predefinido reporta `unsupported` e as escritas falham fechado; não existe fallback não ancorado. A leitura e a verificação de integridade continuam disponíveis.
 - Os testes de âncora usam providers fake. SQLite/WAL e CNG são exercitados em CI, mas não existe provider TPM 2.0 nativo nem validação TPM/PC físico. Não declarar anti-rollback de produção.
 - O bundle Windows Universal inclui os módulos genéricos do contrato/coordenador/writer; adaptadores e credenciais DGM-MAT/VST continuam fora do Universal.
-- Próximo gate: fault injection com terminação real de processo nas fronteiras prepare/anchor/finalize; em seguida provider TPM 2.0 com provisioning consentido e compare-and-advance atómico verificável. Manter fail-closed até validação física.
+- Próximo gate em desenvolvimento: a branch `test/monotonic-writer-process-crash-recovery-2026-11-14` acrescenta testes com terminação real de subprocesso antes e depois do avanço da âncora, usando SQLite/WAL real e âncora de ficheiro explicitamente fake; CI ainda pendente. Depois: provider TPM 2.0 com provisioning consentido e compare-and-advance atómico verificável. Manter fail-closed até validação física.
 - A próxima alteração de implementação deve permanecer numa única PR pequena.
