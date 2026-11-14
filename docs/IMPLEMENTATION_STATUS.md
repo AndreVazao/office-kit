@@ -669,3 +669,12 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - After the first process exits, the test reopens the SQLite database and verifies one authenticated incident event, checkpoint sequence/hash/MAC agreement and no pending prepare.
 - The monotonic anchor is an in-memory test fake. This validates the supported host process-exclusion boundary, not TPM behavior, arbitrary direct SQLite writers, power-loss durability or physical hardware.
 - PR #93 test HEAD `782b587b4e26898400b44473dd53b64423416066` passed Linux/Windows Node 22 and Node 26.13.1 CI run `43603350677`; the test passed in all four matrix jobs. Chromium visual regression run `43603350684` also passed on the same HEAD. These results validate the supported host process-exclusion boundary only.
+
+
+## 2026-11-14 — DGM-MAT local-session clock validation
+
+- Added bounded clock validation to `DgmMatLocalSessionProvider`: invalid/throwing/non-finite/negative-zero/out-of-Date-range values fail closed before bootstrap access, and the expiry timestamp is checked before the access token is cached.
+- `getState()` now evaluates a validated clock even when no token exists, avoiding a short-circuit that could hide invalid clock state.
+- Added regressions for invalid clocks before bootstrap and a clock that becomes invalid after the session response but before expiry is stored.
+- Code checkpoint `738cb1a128da855ef875d6a6f741006d98af9bdc` passed CI run `43604106904` (run #602) on Linux/Windows with Node 22 and Node 26.13.1; both new tests passed on Linux and Windows. Chromium visual run `43604106850` (run #522) also passed on that code checkpoint.
+- Documentation synchronization is being added in this PR; its final HEAD must pass CI and visual regression independently before merge. This remains unit-level validation, not live DGM-MAT or physical-PC evidence.
