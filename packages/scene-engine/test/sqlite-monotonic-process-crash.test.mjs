@@ -186,7 +186,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
     "const writer = new MonotonicIncidentWriter({ incidentStore: store, coordinator });",
     "await writer.append({ schemaVersion: 1, id: \"incident-process-crash-\" + phase, occurredAt: \"2026-11-14T00:00:00.000Z\", edition: \"universal\", status: \"degraded\", origin: \"transport\", confidence: \"probable\", diagnostics: [{ probeId: \"process-crash-test\", ok: false, evidence: \"forced-process-termination\" }], recoveryAttempts: [], outcome: \"unresolved\" });",
     "process.stdout.write(\"WRITE_COMPLETED\\\\n\");"
-  ].join("\\n");
+  ].join("\n");
 }
 
 async function terminateAtMarker({ databasePath, anchorPath, phase, marker }) {
