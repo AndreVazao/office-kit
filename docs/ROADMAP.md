@@ -686,7 +686,8 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Pass full Linux/Windows Node 22 and Node 26.13.1 CI, Windows native CNG and portable bundle E2E, and Chromium visual regression on the exact final PR #86 HEAD. PR #86 squash merge: `edb7bd3c79051078141d54424bfcaccf249156c5`; CI #571 and visual #491 passed on final HEAD `8a98567d53e8f65ce351745047c46da18b691c11`.
 - [ ] Implement and validate a real TPM 2.0 monotonic anchor with consented provisioning and atomic compare-and-advance; current anchor tests are fakes only.
 - [x] Implement the Windows host mutation facade on the 2026-11-14 follow-up branch: all public incident mutations route through the coordinator, and the default provider fails closed; CI/visual validation and merge remain pending.
-- [ ] Add process-kill fault injection at each prepare/anchor/finalize boundary and validate power-loss, backup and restore on physical Windows hardware.
+- [x] Add process-kill fault injection after durable prepare/before anchor advance and after anchor advance/before SQLite finalization; PR #91 squash merge `419b45d4294509f1147b2d17375147cd15d1c0c9`, final PR HEAD `16256d4d6c01b0f652dd9694405a2d2cac23e944`, CI `43601453827` and visual `43601453873` passed on that HEAD; post-merge CI `43601790771` and visual `43601790788` passed on main.
+- [ ] Validate power-loss, backup/restore and TPM clear/reprovision on physical Windows hardware.
 - [ ] Provide equivalent platform-specific anchor/keystore providers for Linux, macOS and Android before enabling the feature on those hosts.
 
 PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT or VST edition allowlists or credentials. It is not production anti-rollback until the remaining provider, host-integration and physical validation gates are closed.
@@ -699,7 +700,7 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Add tests for append + update, unsupported provider fail-closed behavior and predecessor digest mismatch. PR #89 squash merge `6544cd07b4aa54d4800b51956fd6a65b6e7b6125`; final PR HEAD `b6c35155a68c3640030b255d937c5efe2bc89d51`; CI run `43451943848` and visual run `43451943880` passed on that HEAD.
 - [x] Implement the Windows host's single incident mutation facade (PR #90 squash merge `009766a1aac5c237dc0720294c43c6aa18141f84`); final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c` passed CI `43599933818` and visual `43599933838`; post-merge CI `43600154571` and visual `43600154514` passed on main.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
-- [x] Add child-process termination tests at the durable-prepare/pre-anchor and post-anchor/pre-finalize boundaries using real SQLite/WAL; implementation is on the active PR branch and CI is pending.
+- [x] Add child-process termination tests at the durable-prepare/pre-anchor and post-anchor/pre-finalize boundaries using real SQLite/WAL; PR #91 merged and pre/post-merge CI plus visual passed on their exact respective SHAs.
 - [ ] Add multi-process contention at the monotonic writer boundary, power-loss and backup/restore validation on physical hardware.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
 
@@ -712,4 +713,4 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Validate protected checkpoint sequence/hash against the keyed event chain during startup recovery.
 - [x] Complete CI, native Windows CNG tests and Chromium visual regression on the final PR #90 HEAD; revalidate post-merge main CI and visual regression.
 - [ ] Implement a trusted Windows TPM 2.0 provider with consented provisioning, durable identity, clear/reprovision detection and atomic compare-and-advance.
-- [ ] Run process-kill, backup/restore and physical TPM 2.0 validation. Test-only fake providers do not satisfy this gate.
+- [ ] Run physical power-loss, backup/restore and TPM 2.0 validation. Process-kill tests use a test-only fake provider and do not satisfy the hardware gate.
