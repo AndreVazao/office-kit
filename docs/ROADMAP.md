@@ -714,3 +714,11 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Complete CI, native Windows CNG tests and Chromium visual regression on the final PR #90 HEAD; revalidate post-merge main CI and visual regression.
 - [ ] Implement a trusted Windows TPM 2.0 provider with consented provisioning, durable identity, clear/reprovision detection and atomic compare-and-advance.
 - [ ] Run physical power-loss, backup/restore and TPM 2.0 validation. Process-kill tests use a test-only fake provider and do not satisfy the hardware gate.
+
+
+## 2026-11-14 — DGM-MAT local session hardening
+
+- [x] Validate clock values before local token reuse/bootstrap and before caching session expiry; fail closed on invalid clock state, including when `getState()` is called without a cached token.
+- [x] Add invalid-clock and mid-exchange clock-change regressions. Code checkpoint `738cb1a128da855ef875d6a6f741006d98af9bdc` passed CI #602 (`43604106904`) across Linux/Windows Node 22 and Node 26.13.1; visual #522 (`43604106850`) passed on the same SHA.
+- [x] Revalidate final documentation-synchronized PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc`: CI #604 (`43604372228`) passed across Linux/Windows Node 22 and Node 26.13.1; Chromium visual #524 (`43604372222`) passed on the same SHA.
+- [ ] Live DGM-MAT instance E2E, reconnect/restart and physical-PC validation remain open.

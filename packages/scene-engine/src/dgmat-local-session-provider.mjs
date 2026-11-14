@@ -1,6 +1,17 @@
 const DEFAULT_BASE_URL = "http://127.0.0.1:8181";
 const CLIENT_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,63}$/;
 const SESSION_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/;
+const MAX_DATE_MS = 8_640_000_000_000_000;
+
+function readClock(clock) {
+  let value;
+  try { value = clock(); }
+  catch { throw new Error("dgm_mat_clock_invalid"); }
+  if (!Number.isFinite(value) || Object.is(value, -0) || Math.abs(value) > MAX_DATE_MS) {
+    throw new Error("dgm_mat_clock_invalid");
+  }
+  return value;
+}
 
 function isExactLoopbackBase(value) {
   try {
@@ -107,7 +118,7 @@ export class DgmMatLocalSessionProvider {
 
   async getAccessToken({ signal } = {}) {
     if (signal?.aborted) throw new Error("dgm_mat_session_exchange_timeout");
-    const now = this.#clock();
+    const now = readClock(this.#clock);
     if (this.#accessToken && now + 15_000 < this.#expiresAt) return this.#accessToken;
     if (this.#inFlight) return this.#inFlight;
 
@@ -204,8 +215,13 @@ export class DgmMatLocalSessionProvider {
         if (generation !== this.#generation) {
           throw new Error("dgm_mat_session_exchange_timeout");
         }
+        const issuedAt = readClock(this.#clock);
+        const expiresAt = issuedAt + payload.expires_in * 1000;
+        if (!Number.isFinite(expiresAt) || Math.abs(expiresAt) > MAX_DATE_MS) {
+          throw new Error("dgm_mat_clock_invalid");
+        }
         this.#accessToken = payload.access_token;
-        this.#expiresAt = this.#clock() + payload.expires_in * 1000;
+        this.#expiresAt = expiresAt;
         return this.#accessToken;
       } finally {
         bootstrapCredential = null;
@@ -229,8 +245,9 @@ export class DgmMatLocalSessionProvider {
   }
 
   getState() {
+    const now = readClock(this.#clock);
     return Object.freeze({
-      authenticated: Boolean(this.#accessToken && this.#clock() < this.#expiresAt),
+      authenticated: Boolean(this.#accessToken && now < this.#expiresAt),
       expiresAt: this.#expiresAt ? new Date(this.#expiresAt).toISOString() : null,
       storage: "memory-only-session-token",
       bootstrapCredentialRetained: false
