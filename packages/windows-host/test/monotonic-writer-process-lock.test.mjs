@@ -182,11 +182,11 @@ sqliteTest("blocks a second process from entering the monotonic writer boundary 
   const writerMarkerPath = join(directory, "writer.completed");
   const moduleUrls = {
     lock: new URL("../../windows-host/src/process-lock.mjs", import.meta.url).href,
-    lockProvider: new URL("../src/exclusive-operation-lock.mjs", import.meta.url).href,
-    store: new URL("../src/sqlite-office-incident-store.mjs", import.meta.url).href,
-    journal: new URL("../src/sqlite-monotonic-checkpoint-journal.mjs", import.meta.url).href,
-    coordinator: new URL("../src/sqlite-monotonic-checkpoint.mjs", import.meta.url).href,
-    writer: new URL("../src/monotonic-incident-writer.mjs", import.meta.url).href
+    lockProvider: new URL("../../scene-engine/src/exclusive-operation-lock.mjs", import.meta.url).href,
+    store: new URL("../../scene-engine/src/sqlite-office-incident-store.mjs", import.meta.url).href,
+    journal: new URL("../../scene-engine/src/sqlite-monotonic-checkpoint-journal.mjs", import.meta.url).href,
+    coordinator: new URL("../../scene-engine/src/sqlite-monotonic-checkpoint.mjs", import.meta.url).href,
+    writer: new URL("../../scene-engine/src/monotonic-incident-writer.mjs", import.meta.url).href
   };
   const source = childProgram(
     moduleUrls.lock, moduleUrls.lockProvider, moduleUrls.store,
