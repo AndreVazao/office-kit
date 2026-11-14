@@ -681,7 +681,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 ## 2026-11-13 — checkpoint transaction and Windows host lock
 
 - [x] Integrate Windows host singleton lock with ownership token and serialized stale-owner reclamation. PR #85 squash merge: `988c78f7e876f862356f657285b5938bad1ceabb`; CI #559 and visual #479 passed on final PR HEAD `8700f3e27862387eaf0d4bb96989136d82cd9cfa`.
-- [x] Add the SQLite prepared-payload boundary that commits an incident snapshot, append-only event, HMAC row, event-chain head and monotonic checkpoint metadata in one finalization transaction (PR #86 implementation; final validation pending).
+- [x] Add the SQLite prepared-payload boundary that commits an incident snapshot, append-only event, HMAC row, event-chain head and monotonic checkpoint metadata in one finalization transaction. PR #86 squash merge `edb7bd3c79051078141d54424bfcaccf249156c5`; final PR HEAD `8a98567d53e8f65ce351745047c46da18b691c11`; CI #571 and visual #491 passed on that HEAD.
 - [x] Add failure-path tests for anchor-success recovery, predecessor-anchor discard, rollback of event/checkpoint rows when finalization fails, mismatched event hash, missing payload and tampered prepare payload.
 - [x] Pass full Linux/Windows Node 22 and Node 26.13.1 CI, Windows native CNG and portable bundle E2E, and Chromium visual regression on the exact final PR #86 HEAD. PR #86 squash merge: `edb7bd3c79051078141d54424bfcaccf249156c5`; CI #571 and visual #491 passed on final HEAD `8a98567d53e8f65ce351745047c46da18b691c11`.
 - [ ] Implement and validate a real TPM 2.0 monotonic anchor with consented provisioning and atomic compare-and-advance; current anchor tests are fakes only.
@@ -696,16 +696,17 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Add a generic `MonotonicIncidentWriter` API for incident append and update through the checkpoint coordinator.
 - [x] Bind prepared updates to the exact predecessor revision and snapshot digest; reject stale updates.
 - [x] Require recognized append/update payloads and one-step sequence advancement in the SQLite journal.
-- [x] Add tests for append + update, unsupported provider fail-closed behavior and predecessor digest mismatch (CI/visual validation pending on the active branch).
+- [x] Add tests for append + update, unsupported provider fail-closed behavior and predecessor digest mismatch. PR #89 squash merge `6544cd07b4aa54d4800b51956fd6a65b6e7b6125`; final PR HEAD `b6c35155a68c3640030b255d937c5efe2bc89d51`; CI run `43451943848` and visual run `43451943880` passed on that HEAD.
 - [x] Implement the Windows host's single incident mutation facade (PR #90 squash merge `009766a1aac5c237dc0720294c43c6aa18141f84`); final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c` passed CI `43599933818` and visual `43599933838`; post-merge CI `43600154571` and visual `43600154514` passed on main.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
-- [ ] Add process-kill fault injection at prepare/anchor/finalize boundaries, multi-process contention, power-loss and backup/restore validation on physical hardware.
+- [x] Add child-process termination tests at the durable-prepare/pre-anchor and post-anchor/pre-finalize boundaries using real SQLite/WAL; implementation is on the active PR branch and CI is pending.
+- [ ] Add multi-process contention at the monotonic writer boundary, power-loss and backup/restore validation on physical hardware.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
 
 
 ## 2026-11-14 — Windows host incident write boundary
 
-- [x] Add a restricted public incident-store facade on the active implementation branch; route host `append()` and `update()` through `MonotonicIncidentWriter`.
+- [x] Add a restricted public incident-store facade, merged in PR #90; route host `append()` and `update()` through `MonotonicIncidentWriter`.
 - [x] Route Office Health diagnostics through the same facade and remove the raw checkpoint journal/store mutation surface from the returned host object.
 - [x] Default to an unsupported anchor provider and fail closed; no unanchored fallback when the TPM provider is absent.
 - [x] Validate protected checkpoint sequence/hash against the keyed event chain during startup recovery.
