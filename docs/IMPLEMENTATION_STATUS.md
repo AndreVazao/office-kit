@@ -639,3 +639,5 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Incident MAC-key rotation now shares the monotonic journal exclusive lock, preventing a keyring switch from racing an in-flight append/update.
 - No native Windows TPM 2.0 provider is implemented by this increment. The default production path remains write-disabled until a trusted provider is implemented and physically validated.
 - Branch validation and merge are pending. Windows CNG helper tests validate CNG/SQLite behavior in GitHub Actions, not a physical TPM or a physical PC.
+
+- The first Windows bundle E2E run on this branch exposed a missing module allowlist entry after host composition began importing the monotonic coordinator/writer. The follow-up adds `monotonic-anchor.mjs`, `monotonic-incident-writer.mjs` and `sqlite-monotonic-checkpoint.mjs` to both the bundle copy list and the exact bundle test allowlist. Final bundle validation remains pending on the latest HEAD.

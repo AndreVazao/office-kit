@@ -121,3 +121,6 @@ A edição VST expõe `createWindowsVstHost` apenas pelo entrypoint `./windows-h
 A ligação é manual e read-only: somente `GET http://127.0.0.1:8765/observer/summary` com `X-Token`, sem redirects ou endpoints remotos. O envelope só é aceite quando `ok === true`. O adapter não expõe comandos, não infere atividade de agentes/tarefas e mantém o estado operacional `unverified`. O modo REAL não concede autorização de execução.
 
 O CI #43230962819 passou em Node 22 e Node 26.13.1 no HEAD de implementação `3aff126095e4af10d16ea65fccaeb58be983eb43`. O teste VST usa o helper CNG nativo e SQLite real através da composição VST, com host factory injetada e resposta HTTP simulada; valida o percurso do segredo/CNG, não o host Windows completo nem uma instância VST ativa. A regressão visual #43230962934 também passou. O commit subsequente de sincronização documental está a ser revalidado no seu próprio HEAD da PR antes do merge. A validação live e no PC físico continua pendente.
+
+
+The portable Universal Windows bundle now includes the generic monotonic anchor contract, coordinator and incident writer modules required by the Windows host composition. These modules are backend-neutral; DGM-MAT/VST adapter modules remain excluded from the Universal bundle. The bundle allowlist test must stay in sync with the copy list.
