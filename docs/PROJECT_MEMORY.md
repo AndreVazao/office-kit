@@ -582,7 +582,7 @@ A follow-up branch installs `MonotonicIncidentWriter` as the only public inciden
 
 If no trusted monotonic anchor provider exists, the default provider reports `unsupported` and all incident append/update calls fail with `monotonic_anchor_not_protected`; there is no silent hash-chain-only write fallback. Startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash and fails on mismatch.
 
-The provider fixture is explicitly test-only. GitHub Actions can validate the writer/coordinator and native CNG helper integration, but this is not TPM 2.0 evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, process-kill/power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.
+The provider fixture is explicitly test-only. PR #91 now validates process-kill recovery at two coordinator boundaries with real SQLite/WAL, but its file-backed anchor is not TPM evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.
 
 The host also serializes owner-consented incident MAC-key rotation with the same exclusive checkpoint lock used by append/update. A host test holds the fake anchor advance while rotation is requested, verifies rotation waits, then verifies a subsequent update is committed under the rotated key. This is protocol/host test evidence, not TPM evidence.
 
@@ -596,5 +596,17 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - Sem provider TPM confiável, o provider predefinido reporta `unsupported` e as escritas falham fechado; não existe fallback não ancorado. A leitura e a verificação de integridade continuam disponíveis.
 - Os testes de âncora usam providers fake. SQLite/WAL e CNG são exercitados em CI, mas não existe provider TPM 2.0 nativo nem validação TPM/PC físico. Não declarar anti-rollback de produção.
 - O bundle Windows Universal inclui os módulos genéricos do contrato/coordenador/writer; adaptadores e credenciais DGM-MAT/VST continuam fora do Universal.
-- Próximo gate em desenvolvimento: a branch `test/monotonic-writer-process-crash-recovery-2026-11-14` acrescenta testes com terminação real de subprocesso antes e depois do avanço da âncora, usando SQLite/WAL real e âncora de ficheiro explicitamente fake; CI ainda pendente. Depois: provider TPM 2.0 com provisioning consentido e compare-and-advance atómico verificável. Manter fail-closed até validação física.
+- PR #91 integrou os testes de terminação real de subprocesso antes e depois do avanço da âncora; CI/visual pré-merge e pós-merge passaram nos SHAs registados acima. A âncora de ficheiro é explicitamente fake. Próximo gate: provider TPM 2.0 com provisioning consentido e compare-and-advance atómico verificável, mantendo fail-closed até validação física.
 - A próxima alteração de implementação deve permanecer numa única PR pequena.
+
+
+## Estado global confirmado — 2026-11-14 13:50 UTC
+
+- Main HEAD: `419b45d4294509f1147b2d17375147cd15d1c0c9`; PR #91 squash-merged. Não existe PR aberta após a integração.
+- PR #91 final HEAD `16256d4d6c01b0f652dd9694405a2d2cac23e944`; CI `43601453827` e visual `43601453873` passaram nesse SHA. CI pós-merge `43601790771` e visual `43601790788` passaram no merge commit.
+- A matriz passou em Linux e Windows com Node 22 e Node 26.13.1. Os dois novos testes de terminação real de subprocesso passaram nos quatro jobs.
+- O teste de crash usa SQLite/WAL real e uma âncora de ficheiro fake; não é prova de TPM, power-loss, hardware-backed ou validação física.
+- PR #90 mantém a fachada única de mutação do Windows host; sem provider TPM confiável, o provider predefinido continua `unsupported` e as escritas continuam fail-closed.
+- Pesquisa TBS: `Tbsip_Submit_Command` submete comandos TPM, mas Windows aplica allow-list TPM 2.0 fixa no driver desde Windows 10 1809. `TBS_SUCCESS` não garante sucesso no TPM; o código de resposta TPM tem de ser interpretado. NV counter é de oito octetos e increment-only; não assumir que CNG Platform Crypto Provider oferece contador monotónico.
+- Não executar `TPM2_NV_Increment` como probe nem provisionar índice sem consentimento. Nenhuma operação TPM foi executada nesta execução.
+- Próximo gate: provider Windows TPM 2.0 com contrato suportado, consentimento, identidade de índice persistente, deteção de clear/reprovision e compare-and-advance verificável; depois power-loss, backup/restore e hardware físico. Manter fail-closed.
