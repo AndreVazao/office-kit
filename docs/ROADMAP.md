@@ -720,4 +720,5 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 
 - [x] Validate clock values before local token reuse/bootstrap and before caching session expiry; fail closed on invalid clock state, including when `getState()` is called without a cached token.
 - [x] Add invalid-clock and mid-exchange clock-change regressions. Code checkpoint `738cb1a128da855ef875d6a6f741006d98af9bdc` passed CI #602 (`43604106904`) across Linux/Windows Node 22 and Node 26.13.1; visual #522 (`43604106850`) passed on the same SHA.
-- [ ] Revalidate the final documentation-synchronized PR HEAD before merge. Live DGM-MAT instance E2E, reconnect/restart and physical-PC validation remain open.
+- [x] Revalidate final documentation-synchronized PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc`: CI #604 (`43604372228`) passed across Linux/Windows Node 22 and Node 26.13.1; Chromium visual #524 (`43604372222`) passed on the same SHA.
+- [ ] Live DGM-MAT instance E2E, reconnect/restart and physical-PC validation remain open.
