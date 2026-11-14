@@ -676,5 +676,5 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Added bounded clock validation to `DgmMatLocalSessionProvider`: invalid/throwing/non-finite/negative-zero/out-of-Date-range values fail closed before bootstrap access, and the expiry timestamp is checked before the access token is cached.
 - `getState()` now evaluates a validated clock even when no token exists, avoiding a short-circuit that could hide invalid clock state.
 - Added regressions for invalid clocks before bootstrap and a clock that becomes invalid after the session response but before expiry is stored.
-- Code checkpoint `738cb1a128da855ef875d6a6f741006d98af9bdc` passed CI run `43604106904` (run #602) on Linux/Windows with Node 22 and Node 26.13.1; both new tests passed on Linux and Windows. Chromium visual run `43604106850` (run #522) also passed on that code checkpoint.
-- Documentation synchronization is being added in this PR; its final HEAD must pass CI and visual regression independently before merge. This remains unit-level validation, not live DGM-MAT or physical-PC evidence.
+- The documentation-synchronized final PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc` passed CI run `43604372228` (run #604) on Linux/Windows with Node 22 and Node 26.13.1; both new tests passed in all four matrix jobs. Chromium visual run `43604372222` (run #524) passed on the same SHA.
+- This remains unit-level clock validation, not live DGM-MAT or physical-PC evidence.
