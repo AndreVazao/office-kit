@@ -4,6 +4,8 @@ This page records implemented work separately from planned or independently veri
 
 ## Current integration status — 2026-11-14
 
+- Main HEAD at this status update: `009766a1aac5c237dc0720294c43c6aa18141f84` (PR #90 squash merge). No implementation PR was open at the time of this update.
+
 - **Universal:** backend-independent core and source-package profile. It must not include DGM-MAT/VST adapter code or credentials.
 - **DGM-MAT:** isolated read-only adapter/session and Windows CNG bootstrap composition are integrated. Live E2E against a running DGM-MAT instance, physical-PC validation and CNG-profile backup/recovery remain pending.
 - **VST:** the isolated VST source package now contains a read-only preview adapter and Windows host composition. It uses authenticated loopback `GET /observer/summary` with `X-Token`; the token is stored through the generic Windows CNG vault in namespace `vst.local-api`. Provisioning/removal require explicit owner consent and connection is manual. No write/trading capability is exposed; `REAL` is informational only, `executionAuthorized=false`, and backend readiness remains `unverified`.
@@ -613,10 +615,10 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 
 - **PR #85 merged:** `988c78f7e876f862356f657285b5938bad1ceabb`; final PR HEAD `8700f3e27862387eaf0d4bb96989136d82cd9cfa`. CI #559 (run ID `43439223212`) and Chromium visual #479 (run ID `43439223186`) passed on that same final PR HEAD.
 - Windows host lock stale-owner recovery now uses an exclusive sibling recovery gate and rechecks owner state while holding it. A stale recovery gate is deliberately not auto-removed after a crash. The mechanism protects the supported Office Kit host boundary, not arbitrary direct SQLite writers.
-- **PR #86 active:** `feat/security: bind incident events to monotonic checkpoints`. It adds a synchronous prepared-payload applier so incident snapshot/event/HMAC/chain-head rows and checkpoint metadata are committed in one SQLite finalization transaction.
+- **PR #86 merged:** `feat/security: bind incident events to monotonic checkpoints`. It added a synchronous prepared-payload applier so incident snapshot/event/HMAC/chain-head rows and checkpoint metadata are committed in one SQLite finalization transaction.
 - PR #86 tests use real temporary SQLite files with WAL, `synchronous=FULL`, `BEGIN IMMEDIATE` and reopen-based recovery. The anchor is a test-only fake; no TPM/hardware-backed anchor has been implemented or validated.
 - With the Windows host's incident-payload applier configured, the journal rejects sequence advancement without the recognized incident append payload and fails closed if the persisted prepare payload is removed before finalization. A generic journal without that applier remains metadata-only and does not anchor incident events.
-- **Not yet implemented/validated:** a production TPM 2.0 provider; production host wiring that routes every incident mutation through an anchored coordinator; live Windows TPM integration; power-loss/filesystem durability; backup/restore; physical-PC testing. Ordinary `incidentStore.append()` and `update()` remain unanchored and must not be described as anti-rollback protected.
+- **At the time PR #86 was integrated:** a production TPM 2.0 provider, host-wide anchored mutation facade, live Windows TPM integration, power-loss/filesystem durability, backup/restore and physical-PC testing were still outstanding. PR #90 subsequently completed the public Windows host write-path integration; the TPM and physical-validation gates remain open.
 - **PR #86 merged:** `edb7bd3c79051078141d54424bfcaccf249156c5`; final PR HEAD `8a98567d53e8f65ce351745047c46da18b691c11`. CI #571 and Chromium visual #491 passed on the same HEAD. Windows Node 22/26 jobs passed native CNG, DGM/VST vault integration, CNG incident journal restart and portable bundle E2E; Linux Node 22/26 passed. Initial CI #567 exposed an over-broad guard; the final code scopes it to journals configured with the incident applier and includes regressions.
 
 ## Current security/storage increment — 2026-11-13 (anchored writer core)
@@ -626,18 +628,24 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Extended the SQLite checkpoint journal to recognize both append and update payloads, require a single-sequence advance, and dispatch synchronous payload application inside the same SQLite finalization transaction.
 - Updated the Windows host payload dispatcher to handle both mutation types. At the time of this core increment, the writer had not yet been installed as the public host facade; the follow-up branch dated 2026-11-14 adds that integration and remains subject to CI/visual validation.
 - Added tests for create + update through a coordinator, unsupported-anchor fail-closed behavior, and predecessor-digest mismatch. Tests use real SQLite files/WAL when `node:sqlite` is available, but a fake anchor; this is not TPM evidence.
-- Remaining gates: validate this branch's CI and Chromium visual regression on the same final HEAD; wire the writer into the Windows host without exposing an unanchored bypass in protected mode; implement and physically validate a TPM 2.0 provider; add process-kill/power-loss/backup-restore tests. No anti-rollback production claim is made.
+- PR #89 merged the generic append/update writer after CI and visual passed on final PR HEAD `b6c35155a68c3640030b255d937c5efe2bc89d51` (CI run `43451943848`, visual run `43451943880`). PR #90 then integrated the writer as the Windows host facade. A new branch now adds real child-process termination tests before and after anchor advancement; those tests await CI. TPM 2.0 and physical power-loss/backup-restore validation remain open. No anti-rollback production claim is made.
 
 
-## 2026-11-14 — Windows host incident mutation facade (branch validation pending)
+## 2026-11-14 — Windows host incident mutation facade (PR #90 merged)
 
-- The host constructs `MonotonicIncidentWriter` over the SQLite checkpoint coordinator and exposes a restricted incident-store facade. Public `append()` and `update()` route only through the writer; the raw store, prepare methods and checkpoint journal are not returned to callers.
-- `createDiagnostics()` receives the same restricted facade, so its incident writes cannot bypass the monotonic coordinator.
-- When no trusted platform anchor provider is supplied, the default provider reports `unsupported`; append/update fail with `monotonic_anchor_not_protected`. Reads and integrity inspection remain available. There is no unanchored fallback.
-- Startup recovery compares a protected checkpoint sequence and event hash with the keyed SQLite event chain. A mismatch fails startup rather than silently mixing unanchored history with a protected checkpoint.
-- The host accepts a provider factory only at its composition boundary. Repository tests use an explicitly named test-only fake provider; its asserted capabilities are fixtures and are not TPM evidence.
-- Incident MAC-key rotation now shares the monotonic journal exclusive lock, preventing a keyring switch from racing an in-flight append/update.
-- No native Windows TPM 2.0 provider is implemented by this increment. The default production path remains write-disabled until a trusted provider is implemented and physically validated.
-- Branch validation and merge are pending. Windows CNG helper tests validate CNG/SQLite behavior in GitHub Actions, not a physical TPM or a physical PC.
+- PR #90 was squash-merged as `009766a1aac5c237dc0720294c43c6aa18141f84` from final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c`.
+- CI run `43599933818` and Chromium visual run `43599933838` both passed on that exact PR HEAD. Post-merge CI run `43600154571` and visual run `43600154514` passed on the main merge commit.
+- The Windows host exposes only a restricted incident-store facade. Public `append()` and `update()` route through `MonotonicIncidentWriter`; the raw store, prepare methods and checkpoint journal are not returned to callers.
+- Office Health diagnostics use the same facade. Incident MAC-key rotation shares the monotonic journal exclusive lock.
+- The default anchor provider reports `unsupported`; writes fail closed with `monotonic_anchor_not_protected`. Reads and integrity inspection remain available. There is no unanchored fallback.
+- Startup compares a protected checkpoint with the keyed SQLite event-chain sequence/hash/MAC. A mismatch blocks startup/recovery rather than silently mixing histories.
+- Tests use real SQLite/WAL and a test-only fake anchor. The fake's capability flags are fixtures, not TPM evidence. The default production path remains write-disabled until a trusted provider exists.
+- No native Windows TPM 2.0 provider, physical TPM validation, power-loss proof, or physical-PC validation is claimed. The merge completes host write-path integration, not production anti-rollback readiness.
+- The portable Universal Windows bundle includes the generic monotonic anchor contract, coordinator and writer modules. DGM-MAT/VST-specific adapters remain excluded from the Universal bundle. CI bundle E2E passed on the post-merge main commit.
 
-- The first Windows bundle E2E run on this branch exposed a missing module allowlist entry after host composition began importing the monotonic coordinator/writer. The follow-up adds `monotonic-anchor.mjs`, `monotonic-incident-writer.mjs` and `sqlite-monotonic-checkpoint.mjs` to both the bundle copy list and the exact bundle test allowlist. Final bundle validation remains pending on the latest HEAD.
+## Current next gates
+
+1. Implement a consented Windows TPM 2.0 provider with durable identity, clear/reprovision detection and verifiable atomic compare-and-advance; do not substitute CNG Software KSP or a fake.
+2. Add process-kill fault injection at prepare/anchor/finalize boundaries, then multi-process contention and physical power-loss/backup/restore validation.
+3. Keep writes fail-closed until the provider is trusted and physically validated.
+4. Implement equivalent providers for Linux, macOS and Android before enabling protected writes on those platforms.
