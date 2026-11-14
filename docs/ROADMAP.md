@@ -685,7 +685,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Add failure-path tests for anchor-success recovery, predecessor-anchor discard, rollback of event/checkpoint rows when finalization fails, mismatched event hash, missing payload and tampered prepare payload.
 - [x] Pass full Linux/Windows Node 22 and Node 26.13.1 CI, Windows native CNG and portable bundle E2E, and Chromium visual regression on the exact final PR #86 HEAD. PR #86 squash merge: `edb7bd3c79051078141d54424bfcaccf249156c5`; CI #571 and visual #491 passed on final HEAD `8a98567d53e8f65ce351745047c46da18b691c11`.
 - [ ] Implement and validate a real TPM 2.0 monotonic anchor with consented provisioning and atomic compare-and-advance; current anchor tests are fakes only.
-- [x] Implement the Windows host mutation facade on the 2026-11-14 follow-up branch: all public incident mutations route through the coordinator, and the default provider fails closed; CI/visual validation and merge remain pending.
+- [x] Integrate the Windows host mutation facade through PR #90; all public incident mutations route through the coordinator and the default provider fails closed. Final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c` passed CI `43599933818` and visual `43599933838`; post-merge main CI `43600154571` and visual `43600154514` passed.
 - [x] Add process-kill fault injection after durable prepare/before anchor advance and after anchor advance/before SQLite finalization; PR #91 squash merge `419b45d4294509f1147b2d17375147cd15d1c0c9`, final PR HEAD `16256d4d6c01b0f652dd9694405a2d2cac23e944`, CI `43601453827` and visual `43601453873` passed on that HEAD; post-merge CI `43601790771` and visual `43601790788` passed on main.
 - [ ] Validate power-loss, backup/restore and TPM clear/reprovision on physical Windows hardware.
 - [ ] Provide equivalent platform-specific anchor/keystore providers for Linux, macOS and Android before enabling the feature on those hosts.
@@ -701,7 +701,7 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Implement the Windows host's single incident mutation facade (PR #90 squash merge `009766a1aac5c237dc0720294c43c6aa18141f84`); final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c` passed CI `43599933818` and visual `43599933838`; post-merge CI `43600154571` and visual `43600154514` passed on main.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
 - [x] Add child-process termination tests at the durable-prepare/pre-anchor and post-anchor/pre-finalize boundaries using real SQLite/WAL; PR #91 merged and pre/post-merge CI plus visual passed on their exact respective SHAs.
-- [ ] Add multi-process contention at the monotonic writer boundary, power-loss and backup/restore validation on physical hardware.
+- [x] Validate multi-process contention at the supported monotonic writer boundary: PR #93 final test HEAD `782b587b4e26898400b44473dd53b64423416066`, CI run `43603350677` and Chromium visual run `43603350684` passed. The test proves the real host singleton lock blocks a second process while the first commits through the writer; its anchor is an in-memory fake. [ ] Power-loss, backup/restore and TPM clear/reprovision validation on physical Windows hardware remains open.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
 
 

@@ -423,3 +423,10 @@ The Windows host has a single incident mutation facade integrated by PR #90. Dia
 
 
 The Windows host serializes owner-consented journal MAC-key rotation with the monotonic checkpoint journal lock. This prevents the active MAC provider from switching while an append/update payload is being prepared or finalized. The public facade exposes no direct store mutation methods; when the provider is unsupported, writes remain disabled.
+
+
+## 2026-11-14 — monotonic writer process boundary
+
+The supported Windows host opens its private SQLite database only after acquiring the per-installation singleton process lock and holds that lock until shutdown. Inside that single host process, the same asynchronous exclusive-operation provider serializes incident-store writes, checkpoint prepare/finalize/recovery and journal MAC-key rotation. The process lock is the cross-process boundary; the in-process provider is not itself a cross-process lock.
+
+The host-contention integration test starts an actual writer process against a real SQLite/WAL file, then starts a second process that attempts the same host lock. The second process must fail closed with `windows_host_already_running`; after the first exits, the test reopens SQLite and verifies the incident event and monotonic checkpoint agree. The test anchor is an in-memory fake and does not establish TPM, power-loss or physical-machine guarantees. Programs that bypass the host and open the SQLite file directly remain outside the supported writer boundary. PR #93 final test HEAD `782b587b4e26898400b44473dd53b64423416066` passed Linux/Windows Node 22 and Node 26.13.1 CI run `43603350677` and Chromium visual run `43603350684` on the same SHA.

@@ -610,3 +610,11 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - Pesquisa TBS: `Tbsip_Submit_Command` submete comandos TPM, mas Windows aplica allow-list TPM 2.0 fixa no driver desde Windows 10 1809. `TBS_SUCCESS` não garante sucesso no TPM; o código de resposta TPM tem de ser interpretado. NV counter é de oito octetos e increment-only; não assumir que CNG Platform Crypto Provider oferece contador monotónico.
 - Não executar `TPM2_NV_Increment` como probe nem provisionar índice sem consentimento. Nenhuma operação TPM foi executada nesta execução.
 - Próximo gate: provider Windows TPM 2.0 com contrato suportado, consentimento, identidade de índice persistente, deteção de clear/reprovision e compare-and-advance verificável; depois power-loss, backup/restore e hardware físico. Manter fail-closed.
+
+
+## 2026-11-14 — monotonic writer host-process contention
+- Current main after PR #92: `05fe4f0bb1b67e02a058e3ef98fdb7d74aca5250`; post-merge Office Kit CI run `43602478137` and Chromium visual run `43602478136` both passed on that SHA.
+- PR #90 routes all public Windows host incident append/update operations through `MonotonicIncidentWriter`; PR #91 covers process termination before/after anchor advancement using real SQLite/WAL and a test-only fake anchor; PR #92 records the TPM/TBS implementation limits.
+- New work branch `test/monotonic-writer-host-contention-2026-11-14` adds a process-level integration test: one process holds the host singleton lock and commits through the monotonic writer; a second process must be denied before entering the writer boundary; the parent then reopens SQLite and checks event/checkpoint consistency.
+- This test uses real SQLite/WAL and the real process lock implementation, but an in-memory fake monotonic anchor. PR #93 test HEAD `782b587b4e26898400b44473dd53b64423416066` passed CI run `43603350677` across Linux/Windows Node 22 and Node 26.13.1 (the new test passed in all four jobs); Chromium visual run `43603350684` passed on the same SHA. It does not validate TPM, power-loss, direct external SQLite writers or a physical PC.
+- Keep all incident writes fail-closed until a trusted Windows TPM 2.0 provider is implemented and physically validated. Do not infer hardware protection from fake test capabilities.
