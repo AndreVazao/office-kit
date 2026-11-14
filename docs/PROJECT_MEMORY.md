@@ -585,3 +585,16 @@ If no trusted monotonic anchor provider exists, the default provider reports `un
 The provider fixture is explicitly test-only. GitHub Actions can validate the writer/coordinator and native CNG helper integration, but this is not TPM 2.0 evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, process-kill/power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.
 
 The host also serializes owner-consented incident MAC-key rotation with the same exclusive checkpoint lock used by append/update. A host test holds the fake anchor advance while rotation is requested, verifies rotation waits, then verifies a subsequent update is committed under the rotated key. This is protocol/host test evidence, not TPM evidence.
+
+
+## Estado global confirmado — 2026-11-14 13:34 UTC
+
+- Repositório: `AndreVazao/office-kit`; main HEAD `009766a1aac5c237dc0720294c43c6aa18141f84`.
+- PR #90 `feat(windows): route incident mutations through monotonic writer` foi squash-merged em 2026-11-14. Final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c`; CI run `43599933818` e visual run `43599933838` passaram no mesmo SHA. Pós-merge CI run `43600154571` e visual run `43600154514` passaram no HEAD da main.
+- Não havia PRs abertas neste check-up. Permanecem duas issues abertas (#57 DGM-MAT session hardening/live validation e #58 SQLite journal/anti-rollback).
+- O Windows host encaminha todas as mutações públicas de incidentes (`append`/`update`) por `MonotonicIncidentWriter`; a fachada não expõe o store bruto nem o checkpoint journal. Office Health usa a mesma fachada. Rotação da chave MAC é serializada com o lock do journal.
+- Sem provider TPM confiável, o provider predefinido reporta `unsupported` e as escritas falham fechado; não existe fallback não ancorado. A leitura e a verificação de integridade continuam disponíveis.
+- Os testes de âncora usam providers fake. SQLite/WAL e CNG são exercitados em CI, mas não existe provider TPM 2.0 nativo nem validação TPM/PC físico. Não declarar anti-rollback de produção.
+- O bundle Windows Universal inclui os módulos genéricos do contrato/coordenador/writer; adaptadores e credenciais DGM-MAT/VST continuam fora do Universal.
+- Próximo gate: fault injection com terminação real de processo nas fronteiras prepare/anchor/finalize; em seguida provider TPM 2.0 com provisioning consentido e compare-and-advance atómico verificável. Manter fail-closed até validação física.
+- A próxima alteração de implementação deve permanecer numa única PR pequena.
