@@ -623,5 +623,5 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 ## 2026-11-14 — DGM-MAT session clock guard
 - PR #94 adds finite Date-range clock validation before token reuse/bootstrap and before storing the session expiry; `getState()` validates the clock even when the token cache is empty.
 - New tests cover invalid clocks before bootstrap and a clock that becomes invalid after the local session response. The first CI attempt on HEAD `1099dc9e2b5eb144a093f4f4bb6226087a77431a` exposed a short-circuit in `getState()`; the code was corrected on `738cb1a128da855ef875d6a6f741006d98af9bdc`.
-- Code checkpoint CI #602 (`43604106904`) and visual #522 (`43604106850`) passed on `738cb1a128da855ef875d6a6f741006d98af9bdc`. The documentation sync HEAD remains subject to its own checks.
+- Final documentation-synchronized PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc` passed CI #604 (`43604372228`) on Linux/Windows Node 22 and Node 26.13.1, with both new tests passing in all four matrix jobs; visual #524 (`43604372222`) passed on the same SHA.
 - No endpoint, scope, permission or credential lifetime was expanded. DGM-MAT remains loopback-only, GET-only/read-only for runtime inspection; live instance and physical-PC validation remain open.
