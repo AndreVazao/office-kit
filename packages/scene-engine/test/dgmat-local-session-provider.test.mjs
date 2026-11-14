@@ -86,7 +86,7 @@ test("does not cache a session when the clock becomes invalid before expiry is r
   const provider = new DgmMatLocalSessionProvider({
     now: () => {
       clockCalls += 1;
-      if (invalidDuringIssue && clockCalls === 2) return NaN;
+      if (invalidDuringIssue && clockCalls >= 2) return NaN;
       return 1_800_000_000_000;
     },
     getBootstrapCredential: async () => bootstrap,
