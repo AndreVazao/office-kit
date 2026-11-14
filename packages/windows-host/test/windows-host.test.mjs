@@ -37,6 +37,39 @@ function runtimeFactory() {
   };
 }
 
+function createTestMonotonicAnchorFactory({ holdAdvance = false } = {}) {
+  let state = null;
+  let enteredResolve;
+  let releaseResolve;
+  const advanceEntered = new Promise(resolve => { enteredResolve = resolve; });
+  const advanceGate = new Promise(resolve => { releaseResolve = resolve; });
+  return {
+    waitForAdvance: () => advanceEntered,
+    releaseAdvance: () => releaseResolve?.(),
+    factory: ({ installationId }) => {
+      if (!state) state = {
+        status: "protected", installationId, anchorId: "test-only-fake-monotonic-anchor",
+        checkpoint: { installationId, generation: 0, sequence: 0, eventHash: null, eventMac: null, protocolVersion: 1 }
+      };
+      if (state.installationId !== installationId) throw new Error("test_anchor_installation_mismatch");
+      return Object.freeze({
+        async capabilities() { return { hardwareBacked: true, rollbackResistant: true, atomicCompareAndAdvance: true, durableAcrossRestart: true, scope: "test-only-fake" }; },
+        async read() { return structuredClone(state); },
+        async advance(expected, next) {
+          if (holdAdvance) { enteredResolve?.(); await advanceGate; }
+          const current = state.checkpoint;
+          if (current.installationId !== expected.installationId || current.generation !== expected.generation
+            || current.sequence !== expected.sequence || current.eventHash !== expected.eventHash || current.eventMac !== expected.eventMac) {
+            throw new Error("test_anchor_compare_failed");
+          }
+          state.checkpoint = structuredClone(next);
+          return { status: "protected", installationId };
+        }
+      });
+    }
+  };
+}
+
 function setup(directory, overrides = {}) {
   const helperPath = join(directory, "helper.exe");
   writeFileSync(helperPath, "test helper");
@@ -71,6 +104,29 @@ test("Windows host starts local-only, persists installation identity and reports
     assert.equal(active.identityStatus, "active");
     assert.equal(active.identity.identityFingerprint, "aa:bb");
     assert.equal(active.capabilities.hardwareBacked, false);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows host fails closed for incident mutations when no hardware anchor provider exists", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-unanchored-"));
+  let host;
+  try {
+    host = setup(directory);
+    await host.ready;
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "unsupported");
+    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.hardwareBacked, false);
+    assert.equal("monotonicCheckpointJournal" in host, false);
+    assert.equal(typeof host.incidentStore.prepareMonotonicAppend, "undefined");
+    assert.equal(typeof host.incidentStore.applyPreparedMonotonicPayload, "undefined");
+    await assert.rejects(host.incidentStore.append({ id: "incident-anchor-required-001", status: "degraded", origin: "transport" }), /monotonic_anchor_not_protected/);
+    assert.equal(await host.incidentStore.get("incident-anchor-required-001"), null);
+    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 0);
+    assert.equal((await host.health()).incidentProtection.writeEnabled, false);
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
@@ -123,49 +179,45 @@ test("Windows host enforces a single process lock and releases it on close", asy
   }
 });
 
-test("Windows host shares one operation lock between incident writes and monotonic checkpoints", async () => {
+test("Windows host routes incident writes through the monotonic checkpoint before exposing them", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-monotonic-lock-"));
+  const anchor = createTestMonotonicAnchorFactory({ holdAdvance: true });
   let host;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
-    assert.equal((await host.monotonicCheckpointJournal.readCheckpoint()).sequence, 0);
-
-    let enteredResolve;
-    let releaseOperation;
-    const entered = new Promise(resolve => { enteredResolve = resolve; });
-    const held = host.monotonicCheckpointJournal.withExclusiveLock(async () => {
-      enteredResolve();
-      await new Promise(resolve => { releaseOperation = resolve; });
-    });
-    await entered;
-
-    const append = host.incidentStore.append({
-      id: "incident-monotonic-lock-001",
-      occurredAt: new Date().toISOString(),
-      status: "degraded",
-      origin: "transport"
-    });
-    await Promise.resolve();
+    assert.equal((await host.getIncidentProtectionState()).checkpoint.sequence, 0);
+    const append = host.incidentStore.append({ id: "incident-monotonic-lock-001", occurredAt: new Date().toISOString(), status: "degraded", origin: "transport" });
+    await anchor.waitForAdvance();
     assert.equal((await host.incidentStore.list()).length, 0);
-
-    releaseOperation();
-    await held;
+    let rotationSettled = false;
+    const rotationPromise = host.rotateIncidentJournalMacKey({ ownerConsent: true })
+      .then(value => ({ value }), error => ({ error }))
+      .then(result => { rotationSettled = true; return result; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(rotationSettled, false);
+    anchor.releaseAdvance();
     await append;
+    const rotationResult = await rotationPromise;
+    assert.equal(rotationResult.error, undefined);
+    assert.equal(rotationResult.value.rotated, true);
+    assert.equal(host.getIncidentJournalKeyState().activeKeyId, "windows-cng:incident-journal-mac-v2");
     assert.equal((await host.incidentStore.list()).length, 1);
-
-    const journal = host.monotonicCheckpointJournal;
+    await host.incidentStore.update("incident-monotonic-lock-001", { status: "resolved", outcome: "fixed" });
+    const updated = await host.incidentStore.get("incident-monotonic-lock-001");
+    assert.equal(updated.revision, 2);
+    assert.equal(updated.status, "resolved");
+    assert.deepEqual(host.incidentStore.listEvents().map(event => event.eventType), ["incident.created", "incident.updated"]);
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "protected");
+    assert.equal(protection.checkpoint.sequence, 2);
+    assert.equal(host.incidentStore.verifyIntegrity().headMac, protection.checkpoint.eventMac);
     const store = host.incidentStore;
     await host.close();
     host = null;
-    await assert.rejects(journal.withExclusiveLock(() => {}), /exclusive_operation_lock_closed/);
-    await assert.rejects(store.append({
-      id: "incident-after-host-close",
-      occurredAt: new Date().toISOString(),
-      status: "degraded",
-      origin: "transport"
-    }), /exclusive_operation_lock_closed/);
+    await assert.rejects(store.append({ id: "incident-after-host-close", status: "degraded", origin: "transport" }), /windows_host_stopped/);
   } finally {
+    anchor.releaseAdvance();
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
@@ -321,10 +373,11 @@ test("host blocks mutations and hides identity while reconciliation remains pend
 
 test("Windows host exposes installation-scoped persistent incident diagnostics across restarts", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-incidents-"));
+  const anchor = createTestMonotonicAnchorFactory();
   let host;
   let reopened;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
     const diagnostics = host.createDiagnostics({
       probes: [{
@@ -341,7 +394,7 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
     await host.close();
     host = null;
 
-    reopened = setup(directory);
+    reopened = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await reopened.ready;
     assert.equal((await reopened.incidentStore.get(incident.id)).status, "degraded");
     assert.equal((await reopened.incidentStore.list()).length, 1);
@@ -356,11 +409,12 @@ test("Windows host exposes installation-scoped persistent incident diagnostics a
 
 test("Windows host refuses to replace a missing journal key when authenticated history exists", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-journal-key-loss-"));
+  const anchor = createTestMonotonicAnchorFactory();
   let host;
   let reopened;
   let installationId;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
     installationId = host.installationId;
     await host.incidentStore.append({
@@ -373,7 +427,7 @@ test("Windows host refuses to replace a missing journal key when authenticated h
     host = null;
     testSecrets.delete([installationId, "incident.journal", "journal-mac-v1"].join("\\0"));
 
-    reopened = setup(directory);
+    reopened = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await assert.rejects(reopened.ready, /incident_integrity_key_missing_recovery_required/);
     assert.equal(testSecrets.has([installationId, "incident.journal", "journal-mac-v1"].join("\\0")), false);
   } finally {
@@ -435,10 +489,11 @@ test("health snapshots cannot mutate the host's active resource policy", async (
 
 test("managed adapter gateway persists outage and verified recovery through the Windows host", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-supervisor-"));
+  const anchor = createTestMonotonicAnchorFactory();
   let host;
   let managed;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
     const probes = ["office_runtime", "adapter", "transport", "backend"].map(layer => ({
       id: "probe-" + layer,

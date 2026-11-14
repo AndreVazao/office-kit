@@ -144,6 +144,7 @@ sqliteTest("commits an incident event, HMAC and checkpoint metadata in one final
     assert.equal(store.verifyIntegrity().eventCount, 1);
     assert.equal(await journal.readPreparedCheckpoint(), null);
     assert.deepEqual(await journal.readCheckpoint(), result.checkpoint);
+    assert.equal(store.verifyIntegrity().headMac, result.checkpoint.eventMac);
     assert.deepEqual(anchor.read().checkpoint, result.checkpoint);
   } finally {
     await lock.close();
@@ -345,6 +346,7 @@ sqliteTest("routes incident creation and updates through the monotonic checkpoin
     const checkpoint = await journal.readCheckpoint();
     assert.equal(checkpoint.sequence, 2);
     assert.equal(checkpoint.eventHash, integrity.headHash);
+    assert.equal(checkpoint.eventMac, integrity.headMac);
     assert.deepEqual(anchor.read().checkpoint, checkpoint);
     assert.equal(await journal.readPreparedCheckpoint(), null);
   } finally {

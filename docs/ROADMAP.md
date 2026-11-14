@@ -685,7 +685,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Add failure-path tests for anchor-success recovery, predecessor-anchor discard, rollback of event/checkpoint rows when finalization fails, mismatched event hash, missing payload and tampered prepare payload.
 - [x] Pass full Linux/Windows Node 22 and Node 26.13.1 CI, Windows native CNG and portable bundle E2E, and Chromium visual regression on the exact final PR #86 HEAD. PR #86 squash merge: `edb7bd3c79051078141d54424bfcaccf249156c5`; CI #571 and visual #491 passed on final HEAD `8a98567d53e8f65ce351745047c46da18b691c11`.
 - [ ] Implement and validate a real TPM 2.0 monotonic anchor with consented provisioning and atomic compare-and-advance; current anchor tests are fakes only.
-- [ ] Route all production incident mutations through the coordinator when a protected anchor is available; define explicit fail-closed/unanchored behavior and avoid mixing anchored and unanchored writes.
+- [x] Implement the Windows host mutation facade on the 2026-11-14 follow-up branch: all public incident mutations route through the coordinator, and the default provider fails closed; CI/visual validation and merge remain pending.
 - [ ] Add process-kill fault injection at each prepare/anchor/finalize boundary and validate power-loss, backup and restore on physical Windows hardware.
 - [ ] Provide equivalent platform-specific anchor/keystore providers for Linux, macOS and Android before enabling the feature on those hosts.
 
@@ -697,7 +697,18 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Bind prepared updates to the exact predecessor revision and snapshot digest; reject stale updates.
 - [x] Require recognized append/update payloads and one-step sequence advancement in the SQLite journal.
 - [x] Add tests for append + update, unsupported provider fail-closed behavior and predecessor digest mismatch (CI/visual validation pending on the active branch).
-- [ ] Install the writer as the Windows host's single incident mutation facade; prevent direct unanchored writes when a protected anchor is configured.
+- [x] Implement the Windows host's single incident mutation facade on the 2026-11-14 follow-up branch; CI/visual validation and merge remain pending.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
 - [ ] Add process-kill fault injection, multi-process contention, power-loss and backup/restore validation on physical hardware.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
+
+
+## 2026-11-14 — Windows host incident write boundary
+
+- [x] Add a restricted public incident-store facade on the active implementation branch; route host `append()` and `update()` through `MonotonicIncidentWriter`.
+- [x] Route Office Health diagnostics through the same facade and remove the raw checkpoint journal/store mutation surface from the returned host object.
+- [x] Default to an unsupported anchor provider and fail closed; no unanchored fallback when the TPM provider is absent.
+- [x] Validate protected checkpoint sequence/hash against the keyed event chain during startup recovery.
+- [ ] Complete CI, native Windows CNG tests and Chromium visual regression on the final branch HEAD; merge only after all applicable checks pass on that same SHA.
+- [ ] Implement a trusted Windows TPM 2.0 provider with consented provisioning, durable identity, clear/reprovision detection and atomic compare-and-advance.
+- [ ] Run process-kill, backup/restore and physical TPM 2.0 validation. Test-only fake providers do not satisfy this gate.

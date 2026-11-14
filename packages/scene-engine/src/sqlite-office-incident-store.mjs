@@ -841,6 +841,7 @@ export class SqliteOfficeIncidentStore {
     let previousHash = ZERO_HASH;
     const latestByIncident = new Map();
     let expectedSequence = 1;
+    let headMac = null;
 
     for (const row of rows) {
       let event;
@@ -913,6 +914,7 @@ export class SqliteOfficeIncidentStore {
         }
         previousMac = expectedMac;
       }
+      headMac = rows.length ? previousMac : null;
     } else {
       const macCount = this.#database.prepare(
         "SELECT COUNT(*) AS count FROM office_kit_incident_event_macs WHERE installation_id = ?"
@@ -949,6 +951,7 @@ export class SqliteOfficeIncidentStore {
       verification: this.#macProvider ? "sha256_plus_keystore_hmac" : "sha256_chain_only",
       eventCount: rows.length,
       headHash: rows.length ? previousHash : null,
+      headMac,
       externalAnchor: false,
       macAlgorithm: this.#macProvider ? "HMAC-SHA-256" : null,
       keyId: this.#macProvider?.keyId ?? null,
