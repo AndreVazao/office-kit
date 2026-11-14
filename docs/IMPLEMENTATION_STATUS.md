@@ -4,7 +4,7 @@ This page records implemented work separately from planned or independently veri
 
 ## Current integration status — 2026-11-14
 
-- Main HEAD at this status update: `009766a1aac5c237dc0720294c43c6aa18141f84` (PR #90 squash merge). No implementation PR was open at the time of this update.
+- Main HEAD at this status update: `419b45d4294509f1147b2d17375147cd15d1c0c9` (PR #91 squash merge). No PR is currently open.
 
 - **Universal:** backend-independent core and source-package profile. It must not include DGM-MAT/VST adapter code or credentials.
 - **DGM-MAT:** isolated read-only adapter/session and Windows CNG bootstrap composition are integrated. Live E2E against a running DGM-MAT instance, physical-PC validation and CNG-profile backup/recovery remain pending.
@@ -628,7 +628,7 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Extended the SQLite checkpoint journal to recognize both append and update payloads, require a single-sequence advance, and dispatch synchronous payload application inside the same SQLite finalization transaction.
 - Updated the Windows host payload dispatcher to handle both mutation types. At the time of this core increment, the writer had not yet been installed as the public host facade; the follow-up branch dated 2026-11-14 adds that integration and remains subject to CI/visual validation.
 - Added tests for create + update through a coordinator, unsupported-anchor fail-closed behavior, and predecessor-digest mismatch. Tests use real SQLite files/WAL when `node:sqlite` is available, but a fake anchor; this is not TPM evidence.
-- PR #89 merged the generic append/update writer after CI and visual passed on final PR HEAD `b6c35155a68c3640030b255d937c5efe2bc89d51` (CI run `43451943848`, visual run `43451943880`). PR #90 then integrated the writer as the Windows host facade. A new branch now adds real child-process termination tests before and after anchor advancement; those tests await CI. TPM 2.0 and physical power-loss/backup-restore validation remain open. No anti-rollback production claim is made.
+- PR #89 merged the generic append/update writer after CI and visual passed on final PR HEAD `b6c35155a68c3640030b255d937c5efe2bc89d51` (CI `43451943848`, visual `43451943880`). PR #90 integrated the writer as the Windows host facade. PR #91 then added real child-process termination tests before anchor advancement and after anchor advancement/before SQLite finalization. PR #91 squash merge is `419b45d4294509f1147b2d17375147cd15d1c0c9`; final PR HEAD `16256d4d6c01b0f652dd9694405a2d2cac23e944` passed CI `43601453827` and visual `43601453873`, with post-merge CI `43601790771` and visual `43601790788` passing on main. The file-backed anchor is test-only; TPM 2.0 and physical power-loss/backup-restore validation remain open. No anti-rollback production claim is made.
 
 
 ## 2026-11-14 — Windows host incident mutation facade (PR #90 merged)
@@ -649,3 +649,14 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 2. Add process-kill fault injection at prepare/anchor/finalize boundaries, then multi-process contention and physical power-loss/backup/restore validation.
 3. Keep writes fail-closed until the provider is trusted and physically validated.
 4. Implement equivalent providers for Linux, macOS and Android before enabling protected writes on those platforms.
+
+
+## 2026-11-14 — process termination recovery (PR #91 merged)
+
+- PR #91 squash merge: `419b45d4294509f1147b2d17375147cd15d1c0c9`; final PR HEAD: `16256d4d6c01b0f652dd9694405a2d2cac23e944`.
+- Pre-merge CI `43601453827` and Chromium visual `43601453873` passed on the same PR HEAD. Post-merge CI `43601790771` and visual `43601790788` passed on the main merge commit.
+- CI matrix passed on Linux/Windows with Node 22 and Node 26.13.1. Both new process-termination scenarios passed in all four matrix jobs.
+- Scenario A kills the child after the durable SQLite prepare and before anchor advancement; recovery discards the prepare and leaves event count/checkpoint unchanged.
+- Scenario B kills the child after the test anchor advances and before SQLite finalization; recovery finalizes the incident event and checkpoint.
+- The tests use real SQLite/WAL with `synchronous=FULL`; the anchor is a test-only file-backed fake. This is process-crash recovery evidence, not TPM, hardware-backed, power-loss or physical-PC evidence.
+- Next gates: native TPM 2.0 provider, multi-process contention at the writer boundary, power-loss, backup/restore and physical TPM validation.
