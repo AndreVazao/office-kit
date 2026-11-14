@@ -701,7 +701,7 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Implement the Windows host's single incident mutation facade (PR #90 squash merge `009766a1aac5c237dc0720294c43c6aa18141f84`); final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c` passed CI `43599933818` and visual `43599933838`; post-merge CI `43600154571` and visual `43600154514` passed on main.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
 - [x] Add child-process termination tests at the durable-prepare/pre-anchor and post-anchor/pre-finalize boundaries using real SQLite/WAL; PR #91 merged and pre/post-merge CI plus visual passed on their exact respective SHAs.
-- [ ] Add multi-process contention at the monotonic writer boundary, power-loss and backup/restore validation on physical hardware.
+- [x] Validate multi-process contention at the supported monotonic writer boundary: PR #93 final test HEAD `782b587b4e26898400b44473dd53b64423416066`, CI run `43603350677` and Chromium visual run `43603350684` passed. The test proves the real host singleton lock blocks a second process while the first commits through the writer; its anchor is an in-memory fake. [ ] Power-loss, backup/restore and TPM clear/reprovision validation on physical Windows hardware remains open.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
 
 
