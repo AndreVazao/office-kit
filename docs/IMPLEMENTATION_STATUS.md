@@ -2,7 +2,7 @@
 
 This page records implemented work separately from planned or independently verified behavior.
 
-## Current integration status — 2026-11-12
+## Current integration status — 2026-11-14
 
 - **Universal:** backend-independent core and source-package profile. It must not include DGM-MAT/VST adapter code or credentials.
 - **DGM-MAT:** isolated read-only adapter/session and Windows CNG bootstrap composition are integrated. Live E2E against a running DGM-MAT instance, physical-PC validation and CNG-profile backup/recovery remain pending.
@@ -627,3 +627,14 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Updated the Windows host payload dispatcher to handle both mutation types. The host still does **not** instantiate the writer as its public write facade; ordinary `incidentStore.append()` and `update()` remain unanchored until host integration is completed.
 - Added tests for create + update through a coordinator, unsupported-anchor fail-closed behavior, and predecessor-digest mismatch. Tests use real SQLite files/WAL when `node:sqlite` is available, but a fake anchor; this is not TPM evidence.
 - Remaining gates: validate this branch's CI and Chromium visual regression on the same final HEAD; wire the writer into the Windows host without exposing an unanchored bypass in protected mode; implement and physically validate a TPM 2.0 provider; add process-kill/power-loss/backup-restore tests. No anti-rollback production claim is made.
+
+
+## 2026-11-14 — Windows host incident mutation facade (branch validation pending)
+
+- The host constructs `MonotonicIncidentWriter` over the SQLite checkpoint coordinator and exposes a restricted incident-store facade. Public `append()` and `update()` route only through the writer; the raw store, prepare methods and checkpoint journal are not returned to callers.
+- `createDiagnostics()` receives the same restricted facade, so its incident writes cannot bypass the monotonic coordinator.
+- When no trusted platform anchor provider is supplied, the default provider reports `unsupported`; append/update fail with `monotonic_anchor_not_protected`. Reads and integrity inspection remain available. There is no unanchored fallback.
+- Startup recovery compares a protected checkpoint sequence and event hash with the keyed SQLite event chain. A mismatch fails startup rather than silently mixing unanchored history with a protected checkpoint.
+- The host accepts a provider factory only at its composition boundary. Repository tests use an explicitly named test-only fake provider; its asserted capabilities are fixtures and are not TPM evidence.
+- No native Windows TPM 2.0 provider is implemented by this increment. The default production path remains write-disabled until a trusted provider is implemented and physically validated.
+- Branch validation and merge are pending. Windows CNG helper tests validate CNG/SQLite behavior in GitHub Actions, not a physical TPM or a physical PC.

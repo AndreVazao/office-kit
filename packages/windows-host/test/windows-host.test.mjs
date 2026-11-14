@@ -37,6 +37,39 @@ function runtimeFactory() {
   };
 }
 
+function createTestMonotonicAnchorFactory({ holdAdvance = false } = {}) {
+  let state = null;
+  let enteredResolve;
+  let releaseResolve;
+  const advanceEntered = new Promise(resolve => { enteredResolve = resolve; });
+  const advanceGate = new Promise(resolve => { releaseResolve = resolve; });
+  return {
+    waitForAdvance: () => advanceEntered,
+    releaseAdvance: () => releaseResolve?.(),
+    factory: ({ installationId }) => {
+      if (!state) state = {
+        status: "protected", installationId, anchorId: "test-only-fake-monotonic-anchor",
+        checkpoint: { installationId, generation: 0, sequence: 0, eventHash: null, eventMac: null, protocolVersion: 1 }
+      };
+      if (state.installationId !== installationId) throw new Error("test_anchor_installation_mismatch");
+      return Object.freeze({
+        async capabilities() { return { hardwareBacked: true, rollbackResistant: true, atomicCompareAndAdvance: true, durableAcrossRestart: true, scope: "test-only-fake" }; },
+        async read() { return structuredClone(state); },
+        async advance(expected, next) {
+          if (holdAdvance) { enteredResolve?.(); await advanceGate; }
+          const current = state.checkpoint;
+          if (current.installationId !== expected.installationId || current.generation !== expected.generation
+            || current.sequence !== expected.sequence || current.eventHash !== expected.eventHash || current.eventMac !== expected.eventMac) {
+            throw new Error("test_anchor_compare_failed");
+          }
+          state.checkpoint = structuredClone(next);
+          return { status: "protected", installationId };
+        }
+      });
+    }
+  };
+}
+
 function setup(directory, overrides = {}) {
   const helperPath = join(directory, "helper.exe");
   writeFileSync(helperPath, "test helper");
@@ -71,6 +104,29 @@ test("Windows host starts local-only, persists installation identity and reports
     assert.equal(active.identityStatus, "active");
     assert.equal(active.identity.identityFingerprint, "aa:bb");
     assert.equal(active.capabilities.hardwareBacked, false);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows host fails closed for incident mutations when no hardware anchor provider exists", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-unanchored-"));
+  let host;
+  try {
+    host = setup(directory);
+    await host.ready;
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "unsupported");
+    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.hardwareBacked, false);
+    assert.equal("monotonicCheckpointJournal" in host, false);
+    assert.equal(typeof host.incidentStore.prepareMonotonicAppend, "undefined");
+    assert.equal(typeof host.incidentStore.applyPreparedMonotonicPayload, "undefined");
+    await assert.rejects(host.incidentStore.append({ id: "incident-anchor-required-001", status: "degraded", origin: "transport" }), /monotonic_anchor_not_protected/);
+    assert.equal(await host.incidentStore.get("incident-anchor-required-001"), null);
+    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 0);
+    assert.equal((await host.health()).incidentProtection.writeEnabled, false);
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
@@ -123,49 +179,29 @@ test("Windows host enforces a single process lock and releases it on close", asy
   }
 });
 
-test("Windows host shares one operation lock between incident writes and monotonic checkpoints", async () => {
+test("Windows host routes incident writes through the monotonic checkpoint before exposing them", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-monotonic-lock-"));
+  const anchor = createTestMonotonicAnchorFactory({ holdAdvance: true });
   let host;
   try {
-    host = setup(directory);
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
     await host.ready;
-    assert.equal((await host.monotonicCheckpointJournal.readCheckpoint()).sequence, 0);
-
-    let enteredResolve;
-    let releaseOperation;
-    const entered = new Promise(resolve => { enteredResolve = resolve; });
-    const held = host.monotonicCheckpointJournal.withExclusiveLock(async () => {
-      enteredResolve();
-      await new Promise(resolve => { releaseOperation = resolve; });
-    });
-    await entered;
-
-    const append = host.incidentStore.append({
-      id: "incident-monotonic-lock-001",
-      occurredAt: new Date().toISOString(),
-      status: "degraded",
-      origin: "transport"
-    });
-    await Promise.resolve();
+    assert.equal((await host.getIncidentProtectionState()).checkpoint.sequence, 0);
+    const append = host.incidentStore.append({ id: "incident-monotonic-lock-001", occurredAt: new Date().toISOString(), status: "degraded", origin: "transport" });
+    await anchor.waitForAdvance();
     assert.equal((await host.incidentStore.list()).length, 0);
-
-    releaseOperation();
-    await held;
+    anchor.releaseAdvance();
     await append;
     assert.equal((await host.incidentStore.list()).length, 1);
-
-    const journal = host.monotonicCheckpointJournal;
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "protected");
+    assert.equal(protection.checkpoint.sequence, 1);
     const store = host.incidentStore;
     await host.close();
     host = null;
-    await assert.rejects(journal.withExclusiveLock(() => {}), /exclusive_operation_lock_closed/);
-    await assert.rejects(store.append({
-      id: "incident-after-host-close",
-      occurredAt: new Date().toISOString(),
-      status: "degraded",
-      origin: "transport"
-    }), /exclusive_operation_lock_closed/);
+    await assert.rejects(store.append({ id: "incident-after-host-close", status: "degraded", origin: "transport" }), /windows_host_stopped/);
   } finally {
+    anchor.releaseAdvance();
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }

@@ -9,6 +9,28 @@ const skipReason = process.platform === "win32" && process.env.OFFICE_KIT_CNG_HO
   ? false
   : "Requires the native Windows CNG helper supplied by the Windows CI job.";
 
+function createTestMonotonicAnchorFactory() {
+  let state = null;
+  return ({ installationId }) => {
+    if (!state) state = {
+      status: "protected", installationId, anchorId: "test-only-fake-monotonic-anchor",
+      checkpoint: { installationId, generation: 0, sequence: 0, eventHash: null, eventMac: null, protocolVersion: 1 }
+    };
+    if (state.installationId !== installationId) throw new Error("test_anchor_installation_mismatch");
+    return Object.freeze({
+      async capabilities() { return { hardwareBacked: true, rollbackResistant: true, atomicCompareAndAdvance: true, durableAcrossRestart: true, scope: "test-only-fake" }; },
+      async read() { return structuredClone(state); },
+      async advance(expected, next) {
+        const current = state.checkpoint;
+        if (current.generation !== expected.generation || current.sequence !== expected.sequence
+          || current.eventHash !== expected.eventHash || current.eventMac !== expected.eventMac) throw new Error("test_anchor_compare_failed");
+        state.checkpoint = structuredClone(next);
+        return { status: "protected", installationId };
+      }
+    });
+  };
+}
+
 function runtimeFactory() {
   return {
     capabilities: Object.freeze({ providerId: "incident-journal-cng-integration", persistent: true, hardwareBacked: false }),
@@ -19,7 +41,7 @@ function runtimeFactory() {
   };
 }
 
-test("Windows host protects incident journal MAC key with CNG across host restarts", {
+test("Windows host protects incident journal MAC key with CNG and a test-only anchor across restarts", {
   skip: skipReason
 }, async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-journal-cng-"));
@@ -34,11 +56,16 @@ test("Windows host protects incident journal MAC key with CNG across host restar
     verifyHelper: () => true,
     resolveUserSid: () => "S-1-5-21-100",
     applyAcl: () => {},
-    runtimeFactory
+    runtimeFactory,
+    monotonicAnchorProviderFactory: createTestMonotonicAnchorFactory()
   };
   try {
     host = createWindowsHost(hostOptions);
     await host.ready;
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "protected");
+    assert.equal(protection.writeEnabled, true);
+    assert.equal(protection.hardwareBacked, true);
     const initial = host.incidentStore.verifyIntegrity();
     assert.equal(initial.status, "keyed_hmac_chain");
     assert.equal(initial.verification, "sha256_plus_keystore_hmac");

@@ -1,6 +1,6 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-12
+Última atualização: 2026-11-14
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
@@ -574,3 +574,12 @@ The generic core now contains `MonotonicIncidentWriter`, which routes append and
 Prepared update payloads include the previous revision and SHA-256 digest of the exact predecessor snapshot. The SQLite journal now recognizes append and update payload kinds, requires a one-event sequence increment, and dispatches the synchronous applier inside the same finalization transaction. The Windows host callback dispatches both payload types.
 
 This is not yet the production host write path: the Windows host does not instantiate the writer as its public incident facade, so direct `incidentStore.append()` and `update()` remain unanchored. The tests use SQLite/WAL with a fake monotonic anchor; they do not prove TPM, rollback resistance, power-loss durability or physical-machine behavior. Next: validate CI/visual on the same PR HEAD, wire a fail-closed host facade, then implement a real TPM 2.0 provider with physical validation. Universal, DGM-MAT and VST edition boundaries and credentials remain unchanged.
+
+
+## 2026-11-14 — host incident writes fail closed
+
+A follow-up branch installs `MonotonicIncidentWriter` as the only public incident mutation path on the Windows host. The returned incident facade exposes append/update plus read/verify methods, but not raw store prepare/apply methods or the low-level checkpoint journal. The Office Health recovery engine receives this same facade.
+
+If no trusted monotonic anchor provider exists, the default provider reports `unsupported` and all incident append/update calls fail with `monotonic_anchor_not_protected`; there is no silent hash-chain-only write fallback. Startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash and fails on mismatch.
+
+The provider fixture is explicitly test-only. GitHub Actions can validate the writer/coordinator and native CNG helper integration, but this is not TPM 2.0 evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, process-kill/power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.

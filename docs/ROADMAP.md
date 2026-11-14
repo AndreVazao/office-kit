@@ -701,3 +701,14 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
 - [ ] Add process-kill fault injection, multi-process contention, power-loss and backup/restore validation on physical hardware.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
+
+
+## 2026-11-14 — Windows host incident write boundary
+
+- [x] Add a restricted public incident-store facade on the active implementation branch; route host `append()` and `update()` through `MonotonicIncidentWriter`.
+- [x] Route Office Health diagnostics through the same facade and remove the raw checkpoint journal/store mutation surface from the returned host object.
+- [x] Default to an unsupported anchor provider and fail closed; no unanchored fallback when the TPM provider is absent.
+- [x] Validate protected checkpoint sequence/hash against the keyed event chain during startup recovery.
+- [ ] Complete CI, native Windows CNG tests and Chromium visual regression on the final branch HEAD; merge only after all applicable checks pass on that same SHA.
+- [ ] Implement a trusted Windows TPM 2.0 provider with consented provisioning, durable identity, clear/reprovision detection and atomic compare-and-advance.
+- [ ] Run process-kill, backup/restore and physical TPM 2.0 validation. Test-only fake providers do not satisfy this gate.

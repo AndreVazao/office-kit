@@ -26,8 +26,30 @@ import { WindowsCngSecretVault } from "./secret-vault.mjs";
 import { acquireWindowsHostProcessLock } from "./process-lock.mjs";
 import { createInProcessExclusiveLockProvider } from "../../scene-engine/src/exclusive-operation-lock.mjs";
 import { SqliteMonotonicCheckpointJournal } from "../../scene-engine/src/sqlite-monotonic-checkpoint-journal.mjs";
+import { SqliteMonotonicCheckpointCoordinator } from "../../scene-engine/src/sqlite-monotonic-checkpoint.mjs";
+import { MonotonicIncidentWriter } from "../../scene-engine/src/monotonic-incident-writer.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
+
+function createUnsupportedMonotonicAnchorProvider() {
+  return Object.freeze({
+    async capabilities() {
+      return Object.freeze({
+        hardwareBacked: false,
+        rollbackResistant: false,
+        atomicCompareAndAdvance: false,
+        durableAcrossRestart: false,
+        scope: "windows-host-no-tpm-provider"
+      });
+    },
+    async read() {
+      return Object.freeze({ status: "unsupported" });
+    },
+    async advance() {
+      throw new Error("monotonic_anchor_provider_unsupported");
+    }
+  });
+}
 
 function assertWindows(platform) {
   if (platform !== "win32") throw new Error("windows_host_requires_windows");
@@ -177,7 +199,8 @@ export function createWindowsHost({
   requestedRenderer = "auto",
   now = Date.now,
   makeId = randomUUID,
-  secretVaultFactory = options => new WindowsCngSecretVault(options)
+  secretVaultFactory = options => new WindowsCngSecretVault(options),
+  monotonicAnchorProviderFactory = () => createUnsupportedMonotonicAnchorProvider()
 } = {}) {
   assertWindows(platform);
   if (typeof appDataPath !== "string" || !isAbsolute(appDataPath)) {
@@ -187,7 +210,8 @@ export function createWindowsHost({
     throw new TypeError("windows_host_cng_helper_path_must_be_absolute");
   }
   if (typeof runtimeFactory !== "function" || typeof databaseFactory !== "function"
-    || typeof hardwareProbe !== "function" || typeof secretVaultFactory !== "function") {
+    || typeof hardwareProbe !== "function" || typeof secretVaultFactory !== "function"
+    || typeof monotonicAnchorProviderFactory !== "function") {
     throw new TypeError("windows_host_factories_required");
   }
 
@@ -202,6 +226,9 @@ export function createWindowsHost({
   let releaseLock;
   let operationLockProvider;
   let monotonicCheckpointJournal;
+  let monotonicCheckpointCoordinator;
+  let monotonicAnchorProvider;
+  let incidentProtectionState = Object.freeze({ status: "initializing", rollbackProtection: "unavailable" });
   let hardwareCapabilities;
   let resourcePolicy;
   let profileOverride = requestedProfile;
@@ -229,6 +256,12 @@ export function createWindowsHost({
 
     installationId = readOrCreateInstallationId(identityPath, makeId);
     applyAcl(identityPath, userSid);
+    monotonicAnchorProvider = monotonicAnchorProviderFactory({ installationId, platform, dataDirectory });
+    if (!monotonicAnchorProvider || typeof monotonicAnchorProvider.read !== "function"
+      || typeof monotonicAnchorProvider.advance !== "function"
+      || typeof monotonicAnchorProvider.capabilities !== "function") {
+      throw new TypeError("windows_host_monotonic_anchor_provider_invalid");
+    }
 
     rejectRedirectedFile(databasePath);
     database = databaseFactory(databasePath);
@@ -259,6 +292,11 @@ export function createWindowsHost({
       applyPreparedPayload: (payload, checkpoint) => (
         incidentStore.applyPreparedMonotonicPayload(payload, checkpoint)
       )
+    });
+    monotonicCheckpointCoordinator = new SqliteMonotonicCheckpointCoordinator({
+      provider: monotonicAnchorProvider,
+      journal: monotonicCheckpointJournal,
+      installationId
     });
     var installationLifecycleStore = new SqliteInstallationLifecycleStore({
       database: sqliteAdapter(database),
@@ -333,6 +371,16 @@ export function createWindowsHost({
       providers: [...incidentMacKeys].map(([keyId, key]) => createIncidentMacProvider(keyId, key)),
       activeKeyId: activeId
     });
+    incidentProtectionState = await monotonicCheckpointCoordinator.recover();
+    if (incidentProtectionState.status === "protected") {
+      const integrity = incidentStore.verifyIntegrity();
+      if (integrity.eventCount !== incidentProtectionState.checkpoint.sequence
+        || (incidentProtectionState.checkpoint.sequence === 0
+          ? integrity.headHash !== null
+          : integrity.headHash !== incidentProtectionState.checkpoint.eventHash)) {
+        throw new Error("windows_host_incident_checkpoint_store_mismatch");
+      }
+    }
     return runtime.manager.reconcile();
   });
   async function ensureReady() {
@@ -342,6 +390,64 @@ export function createWindowsHost({
     }
     return result;
   }
+
+  const monotonicIncidentWriter = new MonotonicIncidentWriter({ incidentStore, coordinator: monotonicCheckpointCoordinator });
+  const publicIncidentStore = Object.freeze({
+    append: async incident => {
+      if (closed) throw new Error("windows_host_stopped");
+      await ensureReady();
+      return monotonicIncidentWriter.append(incident);
+    },
+    update: async (id, patch) => {
+      if (closed) throw new Error("windows_host_stopped");
+      await ensureReady();
+      return monotonicIncidentWriter.update(id, patch);
+    },
+    get: async id => {
+      if (closed) throw new Error("windows_host_stopped");
+      await ensureReady();
+      return incidentStore.get(id);
+    },
+    list: async options => {
+      if (closed) throw new Error("windows_host_stopped");
+      await ensureReady();
+      return incidentStore.list(options);
+    },
+    export: async options => {
+      if (closed) throw new Error("windows_host_stopped");
+      await ensureReady();
+      return incidentStore.export(options);
+    },
+    listEvents: () => {
+      if (closed) throw new Error("windows_host_stopped");
+      return incidentStore.listEvents();
+    },
+    verifyIntegrity: () => {
+      if (closed) throw new Error("windows_host_stopped");
+      return incidentStore.verifyIntegrity();
+    }
+  });
+
+  async function getIncidentProtectionState() {
+    if (closed) throw new Error("windows_host_stopped");
+    await ready;
+    incidentProtectionState = await monotonicCheckpointCoordinator.recover();
+    if (incidentProtectionState.status === "protected") {
+      const integrity = incidentStore.verifyIntegrity();
+      if (integrity.eventCount !== incidentProtectionState.checkpoint.sequence
+        || (incidentProtectionState.checkpoint.sequence === 0
+          ? integrity.headHash !== null
+          : integrity.headHash !== incidentProtectionState.checkpoint.eventHash)) {
+        throw new Error("windows_host_incident_checkpoint_store_mismatch");
+      }
+    }
+    return Object.freeze({
+      ...incidentProtectionState,
+      writeEnabled: incidentProtectionState.status === "protected",
+      hardwareBacked: incidentProtectionState.capabilities?.hardwareBacked === true
+    });
+  }
+
   const manager = Object.freeze({
     create: async input => {
       await ensureReady();
@@ -430,6 +536,7 @@ export function createWindowsHost({
   async function health() {
     if (closed) return Object.freeze({ status: "stopped", identityStatus: "unknown" });
     await ready;
+    const incidentProtection = await getIncidentProtectionState();
     const reconciliation = await runtime.manager.reconcile();
     const identityStatus = reconciliation.status;
     const healthy = identityStatus === "empty" || identityStatus === "active" || identityStatus === "revoked";
@@ -438,6 +545,7 @@ export function createWindowsHost({
       status: healthy ? "ready" : "degraded",
       identityStatus,
       installationId,
+      incidentProtection,
       identity: identity ? Object.freeze({
         organizationId: identity.organizationId,
         nodeId: identity.nodeId,
@@ -530,7 +638,7 @@ export function createWindowsHost({
   function createDiagnostics({ probes, recoveryActions = [], clock } = {}) {
     return new OfficeHealthRecoveryEngine({
       probes,
-      incidentStore,
+      incidentStore: publicIncidentStore,
       recoveryActions,
       ...(typeof clock === "function" ? { clock } : {})
     });
@@ -641,14 +749,14 @@ export function createWindowsHost({
 
   return Object.freeze({
     installationId,
-    incidentStore,
-    monotonicCheckpointJournal,
+    incidentStore: publicIncidentStore,
     installationLifecycleStore,
     createInstallationLifecycleRuntime,
     createDiagnostics,
     createSecretStore,
     rotateIncidentJournalMacKey,
     getIncidentJournalKeyState,
+    getIncidentProtectionState,
     getResourcePolicy,
     refreshResourcePolicy,
     setResourceOverrides,
