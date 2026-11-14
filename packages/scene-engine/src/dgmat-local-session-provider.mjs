@@ -245,8 +245,9 @@ export class DgmMatLocalSessionProvider {
   }
 
   getState() {
+    const now = readClock(this.#clock);
     return Object.freeze({
-      authenticated: Boolean(this.#accessToken && readClock(this.#clock) < this.#expiresAt),
+      authenticated: Boolean(this.#accessToken && now < this.#expiresAt),
       expiresAt: this.#expiresAt ? new Date(this.#expiresAt).toISOString() : null,
       storage: "memory-only-session-token",
       bootstrapCredentialRetained: false
