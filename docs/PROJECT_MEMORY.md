@@ -618,3 +618,10 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - New work branch `test/monotonic-writer-host-contention-2026-11-14` adds a process-level integration test: one process holds the host singleton lock and commits through the monotonic writer; a second process must be denied before entering the writer boundary; the parent then reopens SQLite and checks event/checkpoint consistency.
 - This test uses real SQLite/WAL and the real process lock implementation, but an in-memory fake monotonic anchor. PR #93 test HEAD `782b587b4e26898400b44473dd53b64423416066` passed CI run `43603350677` across Linux/Windows Node 22 and Node 26.13.1 (the new test passed in all four jobs); Chromium visual run `43603350684` passed on the same SHA. It does not validate TPM, power-loss, direct external SQLite writers or a physical PC.
 - Keep all incident writes fail-closed until a trusted Windows TPM 2.0 provider is implemented and physically validated. Do not infer hardware protection from fake test capabilities.
+
+
+## 2026-11-14 — DGM-MAT session clock guard
+- PR #94 adds finite Date-range clock validation before token reuse/bootstrap and before storing the session expiry; `getState()` validates the clock even when the token cache is empty.
+- New tests cover invalid clocks before bootstrap and a clock that becomes invalid after the local session response. The first CI attempt on HEAD `1099dc9e2b5eb144a093f4f4bb6226087a77431a` exposed a short-circuit in `getState()`; the code was corrected on `738cb1a128da855ef875d6a6f741006d98af9bdc`.
+- Code checkpoint CI #602 (`43604106904`) and visual #522 (`43604106850`) passed on `738cb1a128da855ef875d6a6f741006d98af9bdc`. The documentation sync HEAD remains subject to its own checks.
+- No endpoint, scope, permission or credential lifetime was expanded. DGM-MAT remains loopback-only, GET-only/read-only for runtime inspection; live instance and physical-PC validation remain open.
