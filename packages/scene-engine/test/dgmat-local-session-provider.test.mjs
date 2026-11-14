@@ -63,6 +63,51 @@ test("exchanges bootstrap credential only through loopback POST and caches acces
   assert.equal(provider.getState().authenticated, false);
 });
 
+test("rejects invalid session clock values before reading bootstrap credentials", async () => {
+  for (const invalidClock of [NaN, Infinity, -Infinity, 8_640_000_000_000_001, -8_640_000_000_000_001]) {
+    let credentialReads = 0;
+    let fetchCalls = 0;
+    const provider = new DgmMatLocalSessionProvider({
+      now: () => invalidClock,
+      getBootstrapCredential: async () => { credentialReads += 1; return bootstrap; },
+      fetchImpl: async () => { fetchCalls += 1; return jsonResponse(validSession()); }
+    });
+    await assert.rejects(provider.getAccessToken(), /dgm_mat_clock_invalid/);
+    assert.equal(credentialReads, 0);
+    assert.equal(fetchCalls, 0);
+    assert.throws(() => provider.getState(), /dgm_mat_clock_invalid/);
+  }
+});
+
+test("does not cache a session when the clock becomes invalid before expiry is recorded", async () => {
+  let clockCalls = 0;
+  let invalidDuringIssue = true;
+  let fetchCalls = 0;
+  const provider = new DgmMatLocalSessionProvider({
+    now: () => {
+      clockCalls += 1;
+      if (invalidDuringIssue && clockCalls === 2) return NaN;
+      return 1_800_000_000_000;
+    },
+    getBootstrapCredential: async () => bootstrap,
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return jsonResponse(validSession());
+    }
+  });
+
+  await assert.rejects(provider.getAccessToken(), /dgm_mat_clock_invalid/);
+  assert.equal(fetchCalls, 1);
+  assert.throws(() => provider.getState(), /dgm_mat_clock_invalid/);
+
+  invalidDuringIssue = false;
+  clockCalls = 0;
+  const token = await provider.getAccessToken();
+  assert.equal(token, "short-lived-access-token-123456");
+  assert.equal(fetchCalls, 2);
+  assert.equal(provider.getState().authenticated, true);
+});
+
 test("coalesces concurrent session exchanges", async () => {
   let calls = 0;
   const provider = new DgmMatLocalSessionProvider({
