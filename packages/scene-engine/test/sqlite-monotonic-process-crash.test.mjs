@@ -176,7 +176,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
     "    const nextState = { status: \"protected\", installationId, anchorId: \"test-only-file-anchor\", checkpoint: next };",
     "    const temporaryPath = anchorPath + \".\" + process.pid + \".tmp\";",
     "    const descriptor = openSync(temporaryPath, \"wx\", 0o600);",
-    "    try { writeFileSync(descriptor, JSON.stringify(nextState) + \"\\\\n\"); fsyncSync(descriptor); } finally { closeSync(descriptor); }",
+    "    try { writeFileSync(descriptor, JSON.stringify(nextState)); fsyncSync(descriptor); } finally { closeSync(descriptor); }",
     "    renameSync(temporaryPath, anchorPath);",
     "    process.stdout.write(\"ANCHOR_ADVANCED\\\\n\");",
     "    await new Promise(() => {});",
