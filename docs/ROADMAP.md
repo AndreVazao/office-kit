@@ -697,9 +697,9 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Bind prepared updates to the exact predecessor revision and snapshot digest; reject stale updates.
 - [x] Require recognized append/update payloads and one-step sequence advancement in the SQLite journal.
 - [x] Add tests for append + update, unsupported provider fail-closed behavior and predecessor digest mismatch (CI/visual validation pending on the active branch).
-- [x] Implement the Windows host's single incident mutation facade on the 2026-11-14 follow-up branch; CI/visual validation and merge remain pending.
+- [x] Implement the Windows host's single incident mutation facade (PR #90 squash merge `009766a1aac5c237dc0720294c43c6aa18141f84`); final PR HEAD `f8771a29b9873e0e61b3701dd5931787abd52e4c` passed CI `43599933818` and visual `43599933838`; post-merge CI `43600154571` and visual `43600154514` passed on main.
 - [ ] Implement a consented Windows TPM 2.0 provider with verifiable compare-and-advance; do not substitute CNG Software KSP or a fake provider.
-- [ ] Add process-kill fault injection, multi-process contention, power-loss and backup/restore validation on physical hardware.
+- [ ] Add process-kill fault injection at prepare/anchor/finalize boundaries, multi-process contention, power-loss and backup/restore validation on physical hardware.
 - [ ] Implement equivalent platform providers for Linux, macOS and Android before enabling protected mode there.
 
 
@@ -709,6 +709,6 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Route Office Health diagnostics through the same facade and remove the raw checkpoint journal/store mutation surface from the returned host object.
 - [x] Default to an unsupported anchor provider and fail closed; no unanchored fallback when the TPM provider is absent.
 - [x] Validate protected checkpoint sequence/hash against the keyed event chain during startup recovery.
-- [ ] Complete CI, native Windows CNG tests and Chromium visual regression on the final branch HEAD; merge only after all applicable checks pass on that same SHA.
+- [x] Complete CI, native Windows CNG tests and Chromium visual regression on the final PR #90 HEAD; revalidate post-merge main CI and visual regression.
 - [ ] Implement a trusted Windows TPM 2.0 provider with consented provisioning, durable identity, clear/reprovision detection and atomic compare-and-advance.
 - [ ] Run process-kill, backup/restore and physical TPM 2.0 validation. Test-only fake providers do not satisfy this gate.
