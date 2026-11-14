@@ -442,7 +442,7 @@ export function createWindowsHost({
     return Object.freeze({
       ...incidentProtectionState,
       writeEnabled: incidentProtectionState.status === "protected",
-      hardwareBacked: incidentProtectionState.capabilities?.hardwareBacked === true
+      hardwareBacked: incidentProtectionState.status === "protected"
     });
   }
 
