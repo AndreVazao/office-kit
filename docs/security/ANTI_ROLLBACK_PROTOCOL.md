@@ -1,6 +1,6 @@
 # Protocolo anti-rollback do diário de incidentes
 
-Estado em 13 de novembro de 2026: contrato genérico de provider, coordenador crash-consistent, journal SQLite, lock de operações do host Windows e primitive de append atómico estão integrados. **Não existe ainda provider TPM 2.0 de produção. Nenhuma proteção anti-rollback está ativa ou declarada.**
+Estado em 14 de novembro de 2026: contrato genérico, coordenador crash-consistent, journal SQLite, writer append/update, fachada única de mutação do Windows host e testes de terminação de processo estão integrados. **Não existe ainda provider TPM 2.0 de produção. Nenhuma proteção anti-rollback está ativa ou declarada.**
 
 ## Objetivo e limite de segurança
 
@@ -60,7 +60,7 @@ O journal rejeita avanço de sequência sem o payload de incident append quando 
 
 ## Provider Windows TPM 2.0 — ainda por implementar
 
-O provider deverá usar TPM 2.0 NV index/counter com atributos, autorização e identidade definidos durante provisioning consentido. Deve demonstrar:
+O provider deverá usar TPM 2.0 NV index/counter com atributos, autorização e identidade definidos durante provisioning consentido. Deve demonstrar presença/capacidades por API nativa, provisioning consentido, compare-and-advance verificável, deteção de clear/reprovision/índice perdido e recuperação fail-closed. TBS/TPM API é uma fronteira nativa; não assumir que CNG Platform/Software KSP implementa contador monotónico. `TBS_SUCCESS` só confirma a submissão pela TBS; o código de resposta TPM também tem de ser analisado.
 - Presença e versão/capacidades TPM verificadas por API nativa.
 - Provisioning idempotente e explicitamente autorizado.
 - Compare-and-advance realmente atómico para a geração e o compromisso do checkpoint.
@@ -100,3 +100,30 @@ Gates ainda obrigatórios:
 8. CI Linux/Windows e regressão visual no mesmo HEAD antes de merge.
 
 Sem provider monotónico real e provisionado: `integrity=authenticated_only` e `rollbackProtection=unsupported|unavailable`. Só declarar `protected` depois de validar provider, instalação e checkpoint. Nenhum teste fake ou runner genérico é prova de TPM físico.
+
+
+## Evidência de crash recovery — PR #91 (2026-11-14)
+
+PR #91 foi squash-merged como `419b45d4294509f1147b2d17375147cd15d1c0c9`. O HEAD final da PR `16256d4d6c01b0f652dd9694405a2d2cac23e944` passou CI `43601453827` e visual `43601453873`; pós-merge CI `43601790771` e visual `43601790788` passaram no merge commit.
+
+Os testes terminam um processo Node filho:
+- Depois do prepare SQLite durável e antes de avançar a âncora: recuperação descarta o prepare e não cria evento.
+- Depois do avanço da âncora de teste e antes da finalização SQLite: recuperação finaliza o evento/checkpoint.
+
+SQLite/WAL é real; a âncora é um provider fake baseado em ficheiro. Esta evidência não equivale a TPM, hardware, power-loss ou teste físico.
+
+## Restrições específicas do Windows TBS/TPM (pesquisa de 2026-11-14)
+
+- Microsoft documenta `Tbsip_Submit_Command` como fronteira para submeter comandos TPM. O Windows aplica command blocking; TPM 2.0 usa allow-list e, desde Windows 10 1809, a lista é fixa no driver e não pode ser alterada por registo.
+- `TBS_SUCCESS` indica que TBS aceitou a submissão; o buffer de resposta ainda pode conter um erro TPM. O provider tem de validar ambos os resultados.
+- Um NV counter TPM 2.0 é um valor de oito octetos modificado por `TPM2_NV_Increment`; a escrita NV pode ser rate-limited. Não usar increment como probe de permissões.
+- CNG Platform Crypto Provider é um provider de armazenamento/uso de chaves apoiado pelo TPM, não uma API documentada de contador monotónico.
+- Não existe aqui prova de que o opcode `TPM2_NV_Increment` esteja permitido para um utilizador não administrador no dispositivo-alvo. A capability do firmware não prova o filtro TBS nem a autorização do índice.
+- Provisioning do índice e qualquer increment exigem consentimento explícito e teste no dispositivo físico. Sem isso, manter `unsupported`/fail-closed; nunca criar ou redefinir silenciosamente um índice perdido.
+
+Referências:
+- Microsoft TBS command submission: https://learn.microsoft.com/windows/win32/api/tbs/nf-tbs-tbsip_submit_command
+- Microsoft TPM command blocking: https://learn.microsoft.com/en-us/windows/win32/tbs/command-blocking
+- Microsoft Using TBS: https://learn.microsoft.com/en-us/windows/win32/tbs/using-tbs
+- Microsoft CNG Key Storage Providers: https://learn.microsoft.com/en-us/windows/win32/seccertenroll/cng-key-storage-providers
+- TPM 2.0 NV counter attributes: https://github.com/tpm2-software/tpm2-tools/blob/master/man/common/nv-attrs.md
