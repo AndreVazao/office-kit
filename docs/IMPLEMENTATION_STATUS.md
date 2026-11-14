@@ -660,3 +660,12 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Scenario B kills the child after the test anchor advances and before SQLite finalization; recovery finalizes the incident event and checkpoint.
 - The tests use real SQLite/WAL with `synchronous=FULL`; the anchor is a test-only file-backed fake. This is process-crash recovery evidence, not TPM, hardware-backed, power-loss or physical-PC evidence.
 - Next gates: native TPM 2.0 provider, multi-process contention at the writer boundary, power-loss, backup/restore and physical TPM validation.
+
+
+## 2026-11-14 — monotonic writer host-process contention (validation pending)
+
+- Added `packages/windows-host/test/monotonic-writer-process-lock.test.mjs` to exercise the supported single-host writer boundary across independent Node processes.
+- The first process acquires the real host singleton lock, opens a real SQLite/WAL database with `synchronous=FULL`, and commits one incident through `MonotonicIncidentWriter`. A second process attempts to acquire the same host lock while the first writer remains alive and must fail with `windows_host_already_running` before entering the writer boundary.
+- After the first process exits, the test reopens the SQLite database and verifies one authenticated incident event, checkpoint sequence/hash/MAC agreement and no pending prepare.
+- The monotonic anchor is an in-memory test fake. This validates the supported host process-exclusion boundary, not TPM behavior, arbitrary direct SQLite writers, power-loss durability or physical hardware.
+- CI and Chromium visual regression for this increment are pending; do not mark the multi-process writer gate complete until both pass on the same PR HEAD.
