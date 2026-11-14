@@ -375,9 +375,8 @@ export function createWindowsHost({
     if (incidentProtectionState.status === "protected") {
       const integrity = incidentStore.verifyIntegrity();
       if (integrity.eventCount !== incidentProtectionState.checkpoint.sequence
-        || (incidentProtectionState.checkpoint.sequence === 0
-          ? integrity.headHash !== null
-          : integrity.headHash !== incidentProtectionState.checkpoint.eventHash)) {
+        || integrity.headHash !== incidentProtectionState.checkpoint.eventHash
+        || integrity.headMac !== incidentProtectionState.checkpoint.eventMac) {
         throw new Error("windows_host_incident_checkpoint_store_mismatch");
       }
     }
@@ -435,9 +434,8 @@ export function createWindowsHost({
     if (incidentProtectionState.status === "protected") {
       const integrity = incidentStore.verifyIntegrity();
       if (integrity.eventCount !== incidentProtectionState.checkpoint.sequence
-        || (incidentProtectionState.checkpoint.sequence === 0
-          ? integrity.headHash !== null
-          : integrity.headHash !== incidentProtectionState.checkpoint.eventHash)) {
+        || integrity.headHash !== incidentProtectionState.checkpoint.eventHash
+        || integrity.headMac !== incidentProtectionState.checkpoint.eventMac) {
         throw new Error("windows_host_incident_checkpoint_store_mismatch");
       }
     }

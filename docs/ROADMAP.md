@@ -685,7 +685,7 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 - [x] Add failure-path tests for anchor-success recovery, predecessor-anchor discard, rollback of event/checkpoint rows when finalization fails, mismatched event hash, missing payload and tampered prepare payload.
 - [x] Pass full Linux/Windows Node 22 and Node 26.13.1 CI, Windows native CNG and portable bundle E2E, and Chromium visual regression on the exact final PR #86 HEAD. PR #86 squash merge: `edb7bd3c79051078141d54424bfcaccf249156c5`; CI #571 and visual #491 passed on final HEAD `8a98567d53e8f65ce351745047c46da18b691c11`.
 - [ ] Implement and validate a real TPM 2.0 monotonic anchor with consented provisioning and atomic compare-and-advance; current anchor tests are fakes only.
-- [ ] Route all production incident mutations through the coordinator when a protected anchor is available; define explicit fail-closed/unanchored behavior and avoid mixing anchored and unanchored writes.
+- [x] Implement the Windows host mutation facade on the 2026-11-14 follow-up branch: all public incident mutations route through the coordinator, and the default provider fails closed; CI/visual validation and merge remain pending.
 - [ ] Add process-kill fault injection at each prepare/anchor/finalize boundary and validate power-loss, backup and restore on physical Windows hardware.
 - [ ] Provide equivalent platform-specific anchor/keystore providers for Linux, macOS and Android before enabling the feature on those hosts.
 
