@@ -473,7 +473,9 @@ export function createWindowsHost({
     if (closed) throw new Error("windows_host_stopped");
     if (ownerConsent !== true) throw new Error("incident_key_rotation_owner_consent_required");
     await ready;
-    if (incidentMacKeys.size >= 32) throw new Error("incident_key_rotation_limit_reached");
+    return monotonicCheckpointJournal.withExclusiveLock(async () => {
+      if (closed) throw new Error("windows_host_stopped");
+      if (incidentMacKeys.size >= 32) throw new Error("incident_key_rotation_limit_reached");
     const currentMatch = /^windows-cng:incident-journal-mac-v([1-9][0-9]{0,2})$/.exec(activeIncidentMacKeyId ?? "");
     if (!currentMatch) throw new Error("incident_integrity_key_id_invalid");
     const nextVersion = Number(currentMatch[1]) + 1;
@@ -515,10 +517,11 @@ export function createWindowsHost({
       try { await incidentJournalVault.setSecret("journal-mac-active", previousActiveId); }
       catch { /* A persisted new pointer remains recoverable because its key was stored first. */ }
       throw error;
-    } finally {
-      generated.fill(0);
-      nextKey?.fill(0);
-    }
+      } finally {
+        generated.fill(0);
+        nextKey?.fill(0);
+      }
+    });
   }
 
   function getIncidentJournalKeyState() {
