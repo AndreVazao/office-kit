@@ -1,6 +1,6 @@
 # SQLite monotonic checkpoint coordinator
 
-Status em 13 de novembro de 2026: o coordenador e o journal SQLite foram integrados por PRs #83/#84; o lock partilhado do host Windows por PR #85; a ligação atómica do payload de incident append ao checkpoint por PR #86. **Ainda não existe provider TPM 2.0 nem proteção anti-rollback de produção.**
+Status em 15 de novembro de 2026: o coordenador/journal SQLite, writer monotónico, fachada pública Windows, recuperação por terminação de processo e contenção multi-processo foram integrados por PRs #83–#93. PR #95 acrescentou o modo `authenticated_only` para instalações novas nunca protegidas. **Ainda não existe provider TPM 2.0 de produção nem proteção anti-rollback de produção.**
 
 ## Adapter contract
 
@@ -58,7 +58,7 @@ O writer exige que incident store e checkpoint journal partilhem a mesma base SQ
 
 O Windows host configura o applier para chamar `SqliteOfficeIncidentStore.applyPreparedMonotonicPayload`, que despacha append e update, e partilha o lock de operações entre incident writes e checkpoint operations. O host singleton lock serializa as instâncias suportadas do Office Kit e a recuperação de stale owner usa um recovery gate. Isto não impede processos arbitrários que ignorem o host e abram SQLite diretamente.
 
-**Limite atual:** o host não fornece provider TPM de produção nem ativa `MonotonicIncidentWriter` como writer predefinido; as chamadas normais `incidentStore.append()`/`update()` continuam não ancoradas. Não misturar writes não ancorados com uma história apresentada como protegida. A integração fail-closed do writer no host e o provider TPM são gates seguintes.
+**Limite atual:** o host usa `MonotonicIncidentWriter` para instalações em estado `protected`. PR #95 permite `authenticated_only` apenas numa instalação nunca protegida, com provider explicitamente `unsupported`, sem prepare pendente, geração local zero e HMAC chain válida; o estado declara `rollbackProtection=unsupported` e `hardwareBacked=false`. Se uma instalação previamente protegida perder a âncora, o marcador CNG força `recovery_required` e bloqueia escritas. Não apresentar authenticated-only como anti-rollback.
 
 ## Evidence
 
@@ -70,10 +70,15 @@ O Windows host configura o applier para chamar `SqliteOfficeIncidentStore.applyP
 
 ## Remaining gates
 
-1. Integrar `MonotonicIncidentWriter` no Windows host como fachada única de escrita, bloquear mutações diretas quando a instalação estiver em modo protegido e definir recuperação/saída explícita para modo não ancorado.
-2. Implementar provider TPM 2.0 nativo com provisioning consentido e compare-and-advance atómico verificável.
-3. Fault injection e concorrência multi-processo em cada fronteira de commit.
-4. Power-loss, backup/restore e TPM clear/reprovision em hardware físico.
-5. Providers de keystore/âncora para Linux, macOS e Android.
+1. Implementar provider TPM 2.0 nativo com provisioning consentido, identidade durável, deteção de clear/reprovision e compare-and-advance atómico verificável.
+2. Acrescentar fault injection para truncagem/prefixo HMAC, restore de backup antigo e resultados ambíguos do TPM.
+3. Validar power-loss, backup/restore e TPM clear/reprovision em hardware físico.
+4. Implementar providers de keystore/âncora para Linux, macOS e Android antes de ativar protected writes nessas plataformas.
+5. Validar o caminho authenticated-only com CNG nativo em CI e, depois, em instalação Windows física.
 
 Não inferir `protected` a partir de SQLite, HMAC, CNG Software KSP, provider fake ou runner CI.
+
+
+## Atualização de evidência — PR #95 (2026-11-15)
+
+PR #95 foi squash-merged em `68be0150c8f5ecd5a59f28a99426110c0c9fed08`, a partir do final PR HEAD `514736e844a51da0d3b3e74f0485e6b535d14eb1`. CI `43710997821` e Chromium visual `43710997810` passaram nesse mesmo SHA. O teste específico authenticated-only usa SQLite/WAL real, fake secret vault e anchor unsupported; não é prova TPM nem teste CNG nativo do novo ramo. Os passos nativos Windows CNG existentes passaram separadamente.
