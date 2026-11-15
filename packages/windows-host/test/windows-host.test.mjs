@@ -110,23 +110,25 @@ test("Windows host starts local-only, persists installation identity and reports
   }
 });
 
-test("Windows host fails closed for incident mutations when no hardware anchor provider exists", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-unanchored-"));
+test("Windows host keeps incident journaling available in authenticated-only mode without a TPM anchor", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-authenticated-only-"));
   let host;
   try {
     host = setup(directory);
     await host.ready;
     const protection = await host.getIncidentProtectionState();
-    assert.equal(protection.status, "unsupported");
-    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.status, "authenticated_only");
+    assert.equal(protection.integrity, "sha256_plus_keystore_hmac");
+    assert.equal(protection.rollbackProtection, "unsupported");
+    assert.equal(protection.writeEnabled, true);
     assert.equal(protection.hardwareBacked, false);
     assert.equal("monotonicCheckpointJournal" in host, false);
-    assert.equal(typeof host.incidentStore.prepareMonotonicAppend, "undefined");
-    assert.equal(typeof host.incidentStore.applyPreparedMonotonicPayload, "undefined");
-    await assert.rejects(host.incidentStore.append({ id: "incident-anchor-required-001", status: "degraded", origin: "transport" }), /monotonic_anchor_not_protected/);
-    assert.equal(await host.incidentStore.get("incident-anchor-required-001"), null);
-    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 0);
-    assert.equal((await host.health()).incidentProtection.writeEnabled, false);
+    const id = "incident-authenticated-only-001";
+    await host.incidentStore.append({ id, status: "degraded", origin: "transport" });
+    await host.incidentStore.update(id, { outcome: "recovered" });
+    assert.equal((await host.incidentStore.get(id)).outcome, "recovered");
+    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 2);
+    assert.equal((await host.health()).incidentProtection.status, "authenticated_only");
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
