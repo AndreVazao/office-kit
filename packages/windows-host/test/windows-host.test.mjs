@@ -135,6 +135,39 @@ test("Windows host keeps incident journaling available in authenticated-only mod
   }
 });
 
+test("Windows host refuses authenticated-only downgrade after monotonic protection was established", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-no-downgrade-"));
+  const anchor = createTestMonotonicAnchorFactory();
+  let host;
+  try {
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await host.ready;
+    assert.equal((await host.getIncidentProtectionState()).status, "protected");
+    await host.incidentStore.append({
+      id: "incident-protected-before-restart-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    await host.close();
+    host = null;
+    host = setup(directory);
+    await host.ready;
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "recovery_required");
+    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.reason, "previously_protected_anchor_unavailable");
+    await assert.rejects(host.incidentStore.append({
+      id: "incident-must-not-downgrade-001",
+      status: "degraded",
+      origin: "transport"
+    }), /windows_host_incident_writes_unavailable/);
+    assert.equal((await host.incidentStore.list()).length, 1);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 test("Windows host exposes an installation-scoped generic CNG secret vault", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-secret-vault-"));
   let host;
