@@ -1,6 +1,6 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-14
+Última atualização: 2026-11-15
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
@@ -576,11 +576,11 @@ Prepared update payloads include the previous revision and SHA-256 digest of the
 At the time of this core-only increment, the writer was not yet the production host write path. The follow-up branch dated 2026-11-14 now routes public host mutations through a restricted facade and fails closed without a trusted anchor provider; its CI/visual validation is pending. The tests use SQLite/WAL with a fake monotonic anchor; they do not prove TPM, rollback resistance, power-loss durability or physical-machine behavior. A native TPM 2.0 provider and physical validation remain open. Universal, DGM-MAT and VST edition boundaries and credentials remain unchanged.
 
 
-## 2026-11-14 — host incident writes fail closed
+## 2026-11-14 — historical host incident write policy (superseded by PR #95 on 2026-11-15)
 
 A follow-up branch installs `MonotonicIncidentWriter` as the only public incident mutation path on the Windows host. The returned incident facade exposes append/update plus read/verify methods, but not raw store prepare/apply methods or the low-level checkpoint journal. The Office Health recovery engine receives this same facade.
 
-If no trusted monotonic anchor provider exists, the default provider reports `unsupported` and all incident append/update calls fail with `monotonic_anchor_not_protected`; there is no silent hash-chain-only write fallback. Startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash and fails on mismatch.
+Historical state before PR #95: the default provider reported `unsupported` and all incident append/update calls failed with `monotonic_anchor_not_protected`. PR #95 superseded this blanket rule: a fresh never-protected installation may use `authenticated_only` under the strict conditions recorded in the 2026-11-15 status section. A previously protected or ambiguous installation still fails closed; startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash.
 
 The provider fixture is explicitly test-only. PR #91 now validates process-kill recovery at two coordinator boundaries with real SQLite/WAL, but its file-backed anchor is not TPM evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.
 
@@ -617,7 +617,7 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - PR #90 routes all public Windows host incident append/update operations through `MonotonicIncidentWriter`; PR #91 covers process termination before/after anchor advancement using real SQLite/WAL and a test-only fake anchor; PR #92 records the TPM/TBS implementation limits.
 - New work branch `test/monotonic-writer-host-contention-2026-11-14` adds a process-level integration test: one process holds the host singleton lock and commits through the monotonic writer; a second process must be denied before entering the writer boundary; the parent then reopens SQLite and checks event/checkpoint consistency.
 - This test uses real SQLite/WAL and the real process lock implementation, but an in-memory fake monotonic anchor. PR #93 test HEAD `782b587b4e26898400b44473dd53b64423416066` passed CI run `43603350677` across Linux/Windows Node 22 and Node 26.13.1 (the new test passed in all four jobs); Chromium visual run `43603350684` passed on the same SHA. It does not validate TPM, power-loss, direct external SQLite writers or a physical PC.
-- Keep all incident writes fail-closed until a trusted Windows TPM 2.0 provider is implemented and physically validated. Do not infer hardware protection from fake test capabilities.
+- Keep protected/ambiguous incident writes fail-closed until a trusted Windows TPM 2.0 provider is implemented and physically validated. PR #95 allows authenticated-only writes only for a fresh never-protected installation; this does not provide rollback protection. Do not infer hardware protection from fake test capabilities.
 
 
 ## 2026-11-14 — DGM-MAT session clock guard
@@ -625,3 +625,17 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - New tests cover invalid clocks before bootstrap and a clock that becomes invalid after the local session response. The first CI attempt on HEAD `1099dc9e2b5eb144a093f4f4bb6226087a77431a` exposed a short-circuit in `getState()`; the code was corrected on `738cb1a128da855ef875d6a6f741006d98af9bdc`.
 - Final documentation-synchronized PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc` passed CI #604 (`43604372228`) on Linux/Windows Node 22 and Node 26.13.1, with both new tests passing in all four matrix jobs; visual #524 (`43604372222`) passed on the same SHA.
 - No endpoint, scope, permission or credential lifetime was expanded. DGM-MAT remains loopback-only, GET-only/read-only for runtime inspection; live instance and physical-PC validation remain open.
+
+
+## Estado global confirmado — 2026-11-15 (PR #95 integrada)
+
+- Main HEAD: `68be0150c8f5ecd5a59f28a99426110c0c9fed08`, squash merge da PR #95.
+- PR #95 final HEAD: `514736e844a51da0d3b3e74f0485e6b535d14eb1`.
+- CI #43710997821 e Chromium visual regression #43710997810 concluíram com sucesso no mesmo PR HEAD. A matriz CI passou em Linux/Windows com Node 22 e Node 26.13.1; os passos nativos Windows CNG, identidade, DGM/VST vaults, journal CNG e bundle E2E passaram nos jobs Windows.
+- O novo teste específico `authenticated_only` usa SQLite real em ficheiro temporário, mas um secret-vault fake de teste e o provider de âncora `unsupported`. Não é teste TPM nem prova de CNG físico para esse cenário. O workflow contém também testes CNG nativos separados.
+- Em instalações novas nunca protegidas, `authenticated_only` permite append/update quando o provider declara explicitamente `unsupported`, não existe prepare pendente, a geração local é zero e a cadeia SHA-256 + HMAC é verificada. O estado declara `rollbackProtection=unsupported` e `hardwareBacked=false`.
+- O CNG vault mantém um marcador de enrollment depois de uma instalação entrar em `protected`. Se a âncora desaparecer numa instalação marcada, o host passa a `recovery_required` e bloqueia escritas; não existe downgrade silencioso.
+- HMAC deteta adulteração da base enquanto a chave original está disponível; não deteta por si só rollback/truncagem para um backup antigo internamente válido. Não declarar anti-rollback de produção.
+- PR #94 integrou validação do relógio da sessão local DGM-MAT. Main commit `a72d966239dc1e60ac98e4a5cf1214bc8ea145db`; final PR HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc`; CI `43604372228` e visual `43604372222` passaram no mesmo SHA. Continua sem live E2E contra uma instância DGM-MAT.
+- Estado auditado após PR #95: zero PRs abertas, issues #57 e #58 abertas, 55 branches listadas. A separação Universal/DGM-MAT/VST mantém-se.
+- Bloqueios principais: provider Windows TPM 2.0 real e consentido; testes físicos de clear/power-loss/backup-restore; providers Linux/macOS/Android; live E2E DGM-MAT/VST; hosts/instaladores comerciais, assinatura, licenciamento e recuperação multiplataforma.

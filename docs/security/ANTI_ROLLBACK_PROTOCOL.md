@@ -95,7 +95,7 @@ PR #91: testes SQLite/WAL terminam um processo filho nas duas fronteiras crític
 
 PR #93: teste multiprocesso comprova que uma segunda instância do Windows host não consegue concorrer com a primeira durante o compromisso monotónico.
 
-PR #95 (em desenvolvimento): permitir `authenticated_only` apenas quando a instalação nunca foi protegida e não existe prepare/checkpoint monotónico pendente. O CNG vault guarda um marcador persistente de enrollment; se uma instalação previamente protegida perder a âncora, passa a `recovery_required` e bloqueia escritas. Testes cobrem append/update, HMAC, restart e rejeição de downgrade.
+PR #95 (integrada por squash em 2026-11-15; merge `68be0150c8f5ecd5a59f28a99426110c0c9fed08`, final PR HEAD `514736e844a51da0d3b3e74f0485e6b535d14eb1`): permite `authenticated_only` apenas numa instalação nunca protegida, com provider explicitamente `unsupported`, sem prepare pendente e geração local zero. O CNG vault guarda um marcador persistente de enrollment; se uma instalação previamente protegida perder a âncora, passa a `recovery_required` e bloqueia escritas. CI `43710997821` e regressão visual Chromium `43710997810` passaram no mesmo HEAD. O teste específico usa SQLite/WAL real e secret vault fake; não é prova TPM nem validação física.
 
 Gates ainda obrigatórios:
 1. Provider TPM 2.0 nativo com provisioning consentido e compare-and-advance verificável.
@@ -133,3 +133,12 @@ Referências:
 - Microsoft Using TBS: https://learn.microsoft.com/en-us/windows/win32/tbs/using-tbs
 - Microsoft CNG Key Storage Providers: https://learn.microsoft.com/en-us/windows/win32/seccertenroll/cng-key-storage-providers
 - TPM 2.0 NV counter attributes: https://github.com/tpm2-software/tpm2-tools/blob/master/man/common/nv-attrs.md
+
+
+## Resultado final da PR #95 — 2026-11-15
+
+A PR #95 foi integrada por squash em `68be0150c8f5ecd5a59f28a99426110c0c9fed08`. O HEAD final da PR foi `514736e844a51da0d3b3e74f0485e6b535d14eb1`; CI `43710997821` e regressão visual Chromium `43710997810` concluíram com sucesso nesse mesmo SHA.
+
+O modo `authenticated_only` mantém a cadeia SHA-256 + HMAC e permite incidentes numa instalação nova nunca protegida, sem fingir uma âncora externa. Declara sempre `rollbackProtection=unsupported` e `hardwareBacked=false`. O marcador CNG impede downgrade de uma instalação anteriormente protegida. Se a âncora desaparecer, a escrita fica bloqueada em `recovery_required`.
+
+O teste específico de modo autenticado usa SQLite/WAL real, provider de âncora explicitamente unsupported e secret vault fake de teste. As verificações nativas Windows CNG do workflow são passos separados. Não foi executado comando TPM, provisionado hardware TPM nem validado PC físico. Os gates TPM, backup/restore, power-loss e providers multiplataforma continuam abertos.

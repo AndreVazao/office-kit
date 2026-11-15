@@ -722,3 +722,18 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [x] Add invalid-clock and mid-exchange clock-change regressions. Code checkpoint `738cb1a128da855ef875d6a6f741006d98af9bdc` passed CI #602 (`43604106904`) across Linux/Windows Node 22 and Node 26.13.1; visual #522 (`43604106850`) passed on the same SHA.
 - [x] Revalidate final documentation-synchronized PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc`: CI #604 (`43604372228`) passed across Linux/Windows Node 22 and Node 26.13.1; Chromium visual #524 (`43604372222`) passed on the same SHA.
 - [ ] Live DGM-MAT instance E2E, reconnect/restart and physical-PC validation remain open.
+
+
+## 2026-11-15 — authenticated-only incident journal and production gates
+
+- [x] Permit incident append/update on a fresh, never-protected Windows installation only when the monotonic provider explicitly reports `unsupported`, no prepare is pending, local generation is zero, and the SHA-256 + CNG-keystore HMAC chain verifies.
+- [x] Persist a CNG-vault enrollment marker after a protected anchor is observed; reject silent downgrade and enter `recovery_required` if that anchor later disappears.
+- [x] Validate the PR #95 final HEAD `514736e844a51da0d3b3e74f0485e6b535d14eb1`: CI `43710997821` and Chromium visual `43710997810` passed on the same SHA; squash merge `68be0150c8f5ecd5a59f28a99426110c0c9fed08`.
+- [ ] Implement a native, consented Windows TPM 2.0 provider. CNG Software KSP, local files and fake anchors are not monotonic hardware anchors.
+- [ ] Validate TPM clear/reprovision, ambiguous increment outcomes, old-backup restore, prefix truncation and power-loss on physical Windows hardware.
+- [ ] Implement equivalent native keystore/anchor providers for Linux, macOS and Android; keep protected writes disabled until each provider is independently validated.
+- [ ] Run live read-only E2E against actual DGM-MAT and VST instances, including reconnect, disconnect, host restart and credential recovery.
+- [ ] Deliver native desktop/mobile hosts and installable packages with signed publisher, upgrade/rollback/uninstall, durable licensing and backup/restore.
+- [ ] Validate each edition independently: Universal must remain backend-neutral; DGM-MAT and VST adapters/credentials remain in their own edition packages.
+
+**Evidence boundary:** PR #95's authenticated-only regression uses real SQLite/WAL with a test fake secret vault and an explicitly unsupported anchor. It is not TPM evidence. The workflow's separate Windows CNG integration steps passed, but no physical TPM, physical-PC installation, live personal backend or commercial installer was validated by this PR. `authenticated_only` provides HMAC tamper evidence while the original key is available; it does not provide rollback/truncation protection.

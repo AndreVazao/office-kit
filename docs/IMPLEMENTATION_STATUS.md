@@ -2,9 +2,9 @@
 
 This page records implemented work separately from planned or independently verified behavior.
 
-## Current integration status — 2026-11-14
+## Current integration status — 2026-11-15
 
-- Main HEAD at this status update: `419b45d4294509f1147b2d17375147cd15d1c0c9` (PR #91 squash merge). No PR is currently open.
+- Main HEAD at this status update: `68be0150c8f5ecd5a59f28a99426110c0c9fed08` (PR #95 squash merge). No PR is currently open; issues #57 and #58 remain open.
 
 - **Universal:** backend-independent core and source-package profile. It must not include DGM-MAT/VST adapter code or credentials.
 - **DGM-MAT:** isolated read-only adapter/session and Windows CNG bootstrap composition are integrated. Live E2E against a running DGM-MAT instance, physical-PC validation and CNG-profile backup/recovery remain pending.
@@ -637,9 +637,9 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - CI run `43599933818` and Chromium visual run `43599933838` both passed on that exact PR HEAD. Post-merge CI run `43600154571` and visual run `43600154514` passed on the main merge commit.
 - The Windows host exposes only a restricted incident-store facade. Public `append()` and `update()` route through `MonotonicIncidentWriter`; the raw store, prepare methods and checkpoint journal are not returned to callers.
 - Office Health diagnostics use the same facade. Incident MAC-key rotation shares the monotonic journal exclusive lock.
-- The default anchor provider reports `unsupported`; writes fail closed with `monotonic_anchor_not_protected`. Reads and integrity inspection remain available. There is no unanchored fallback.
+- PR #95 supersedes the earlier blanket fail-closed behavior: a fresh never-protected installation may write in `authenticated_only` when the provider explicitly reports `unsupported`, no prepare is pending, local generation is zero and the HMAC chain verifies. The host reports `rollbackProtection=unsupported` and `hardwareBacked=false`. Previously protected or ambiguous states remain fail-closed.
 - Startup compares a protected checkpoint with the keyed SQLite event-chain sequence/hash/MAC. A mismatch blocks startup/recovery rather than silently mixing histories.
-- Tests use real SQLite/WAL and a test-only fake anchor. The fake's capability flags are fixtures, not TPM evidence. The default production path remains write-disabled until a trusted provider exists.
+- The authenticated-only-specific regression uses real SQLite/WAL with a test fake secret vault and unsupported anchor; it does not prove TPM or native CNG behavior for that scenario. Separate Windows CI CNG integration steps passed. No production TPM provider or anti-rollback guarantee exists.
 - No native Windows TPM 2.0 provider, physical TPM validation, power-loss proof, or physical-PC validation is claimed. The merge completes host write-path integration, not production anti-rollback readiness.
 - The portable Universal Windows bundle includes the generic monotonic anchor contract, coordinator and writer modules. DGM-MAT/VST-specific adapters remain excluded from the Universal bundle. CI bundle E2E passed on the post-merge main commit.
 
@@ -678,3 +678,23 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Added regressions for invalid clocks before bootstrap and a clock that becomes invalid after the session response but before expiry is stored.
 - The documentation-synchronized final PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc` passed CI run `43604372228` (run #604) on Linux/Windows with Node 22 and Node 26.13.1; both new tests passed in all four matrix jobs. Chromium visual run `43604372222` (run #524) passed on the same SHA.
 - This remains unit-level clock validation, not live DGM-MAT or physical-PC evidence.
+
+
+## 2026-11-15 — authenticated-only incident journal mode (PR #95 merged)
+
+- PR #95 was squash-merged as `68be0150c8f5ecd5a59f28a99426110c0c9fed08` from final PR HEAD `514736e844a51da0d3b3e74f0485e6b535d14eb1`.
+- CI run `43710997821` and Chromium visual run `43710997810` both completed successfully on that exact PR HEAD. CI covered Linux/Windows Node 22 and Node 26.13.1. Windows jobs also completed the existing native CNG, vault, identity and portable-bundle E2E steps.
+- A fresh installation may use `authenticated_only` incident journaling only when the monotonic provider explicitly reports `unsupported`, no monotonic prepare is pending, the local monotonic generation is zero, and the SQLite SHA-256 + keystore-HMAC chain verifies.
+- In this mode public incident append/update use the authenticated SQLite store directly. The host reports `rollbackProtection=unsupported` and `hardwareBacked=false`; it does not claim TPM or anti-rollback protection.
+- The authenticated-only-specific host regression uses real temporary SQLite/WAL with a test fake secret vault and unsupported anchor. It verifies append/update, HMAC integrity, close/reopen persistence and rejection of a protected-to-unavailable downgrade. This test is not a native TPM test; the separate Windows CI CNG integration steps are distinct evidence.
+- Once a protected installation is observed, a persistent enrollment marker is stored in the CNG vault. If the anchor later disappears, the host reports `recovery_required` and blocks writes. It must never downgrade.
+- Unprovisioned, unavailable, mismatch, recovery-required, corrupt marker, pending-prepare and nonzero local-generation states remain write-blocked.
+- HMAC protects against database-only modification while the original key is available. It does not detect restoration/truncation to an older internally valid SQLite backup. No production anti-rollback guarantee is claimed.
+
+### Remaining production gates
+
+1. Implement and physically validate a consented Windows TPM 2.0 provider with durable identity, clear/reprovision detection and atomic compare-and-advance.
+2. Test prefix rollback, truncation, old backup restore, ambiguous TPM increment outcomes and physical power-loss/TPM-clear recovery.
+3. Implement equivalent native providers for Linux, macOS and Android before enabling protected writes there.
+4. Complete live read-only E2E and physical-PC lifecycle validation for DGM-MAT and VST.
+5. Complete native desktop/mobile hosts, commercial installers, signing, licensing/activation, backup/restore and uninstall/update validation.

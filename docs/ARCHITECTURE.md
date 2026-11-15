@@ -430,3 +430,19 @@ The Windows host serializes owner-consented journal MAC-key rotation with the mo
 The supported Windows host opens its private SQLite database only after acquiring the per-installation singleton process lock and holds that lock until shutdown. Inside that single host process, the same asynchronous exclusive-operation provider serializes incident-store writes, checkpoint prepare/finalize/recovery and journal MAC-key rotation. The process lock is the cross-process boundary; the in-process provider is not itself a cross-process lock.
 
 The host-contention integration test starts an actual writer process against a real SQLite/WAL file, then starts a second process that attempts the same host lock. The second process must fail closed with `windows_host_already_running`; after the first exits, the test reopens SQLite and verifies the incident event and monotonic checkpoint agree. The test anchor is an in-memory fake and does not establish TPM, power-loss or physical-machine guarantees. Programs that bypass the host and open the SQLite file directly remain outside the supported writer boundary. PR #93 final test HEAD `782b587b4e26898400b44473dd53b64423416066` passed Linux/Windows Node 22 and Node 26.13.1 CI run `43603350677` and Chromium visual run `43603350684` on the same SHA.
+
+
+## Windows incident journal operating modes — 2026-11-15
+
+The Windows host distinguishes authenticated journal integrity from external rollback protection.
+
+- `authenticated_only` is allowed only for an installation that has never been enrolled with a monotonic anchor, when the provider explicitly reports `unsupported`, no prepared checkpoint exists, local checkpoint generation is zero, and the SQLite SHA-256 + keystore-HMAC chain verifies.
+- In `authenticated_only`, the public incident facade writes directly through the authenticated SQLite incident store. The host reports `rollbackProtection=unsupported` and `hardwareBacked=false`. This is not a monotonic commit and must not be described as anti-rollback.
+- Once a valid `protected` state has been observed, the host persists `monotonic-anchor-enrolled=true` in the installation-scoped CNG vault. If that marker exists but the anchor later becomes unavailable, the host reports `recovery_required` and blocks append/update. It must never downgrade the installation to `authenticated_only`.
+- `unprovisioned`, `unavailable`, `mismatch`, `recovery_required`, corrupt enrollment markers, pending prepares and nonzero local generations without a matching protected anchor remain write-blocked.
+- The default Windows monotonic provider is still `unsupported`; no production TPM 2.0 provider is implemented. CNG Software KSP protects the MAC key but is not a monotonic counter.
+- HMAC detects database-only changes while the original CNG-protected key remains available. It cannot detect restoration or truncation to an older internally valid SQLite backup.
+
+PR #95 implemented these mode boundaries and was squash-merged as `68be0150c8f5ecd5a59f28a99426110c0c9fed08` from PR HEAD `514736e844a51da0d3b3e74f0485e6b535d14eb1`. CI `43710997821` and Chromium visual regression `43710997810` passed on that same SHA. The authenticated-only-specific test uses real temporary SQLite/WAL with a fake secret vault and unsupported anchor; it is not TPM or native CNG evidence. Separate Windows CI native CNG integration steps passed in the same workflow.
+
+This section supersedes earlier blanket statements that every incident write must fail whenever the monotonic provider is unsupported. The correct rule is: allow authenticated-only writes solely for a fresh never-protected installation under the exact conditions above; keep protected or ambiguous installations fail-closed.
