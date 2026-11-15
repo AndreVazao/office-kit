@@ -128,4 +128,10 @@ The checkpoint journal can apply a recognized incident-append payload synchronou
 
 Crash recovery uses the external anchor only as an ordering decision: successor state finalizes the durable prepare; predecessor state discards it; indeterminate/mismatched state retains the prepare and blocks recovery. Tests use a real SQLite file and reopen it across simulated process shutdown, but the anchor is a test-only fake. This does not validate TPM semantics.
 
-The Windows host currently wires the payload applier but does not provide a production TPM 2.0 anchor or route all ordinary incident append/update calls through the coordinator. Unanchored writes remain unanchored. Do not claim rollback resistance or production anti-rollback until a real provider, complete host mutation policy, fault-injection and physical power-loss/restore validation exist.
+The Windows host routes public incident append/update through a restricted facade. Protected installations use `MonotonicIncidentWriter`; PR #95 adds `authenticated_only` writes for fresh never-protected installations only when the provider explicitly reports `unsupported`, no prepare is pending, local generation is zero and the SHA-256 + keystore-HMAC chain verifies. This mode reports `rollbackProtection=unsupported` and `hardwareBacked=false`; it does not prevent rollback/truncation of an older valid SQLite backup. A persistent CNG-vault enrollment marker prevents a previously protected installation from silently downgrading: missing anchor becomes `recovery_required` and writes are blocked. No production TPM 2.0 provider or production anti-rollback guarantee exists.
+
+## Authenticated-only Windows incident journal — PR #95 (2026-11-15)
+
+PR #95 was squash-merged as `68be0150c8f5ecd5a59f28a99426110c0c9fed08`; final PR HEAD `514736e844a51da0d3b3e74f0485e6b535d14eb1` passed CI `43710997821` and Chromium visual regression `43710997810` on the same SHA.
+
+The authenticated-only-specific test uses a real temporary SQLite/WAL database but a test fake secret vault and an explicitly unsupported anchor. The workflow's separate Windows native CNG tests passed; they are not evidence of TPM support. CNG Software KSP is software-backed and reports `hardwareBacked=false`. TPM, backup/restore, power-loss and physical-PC validation remain open.
