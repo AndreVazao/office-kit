@@ -576,11 +576,11 @@ Prepared update payloads include the previous revision and SHA-256 digest of the
 At the time of this core-only increment, the writer was not yet the production host write path. The follow-up branch dated 2026-11-14 now routes public host mutations through a restricted facade and fails closed without a trusted anchor provider; its CI/visual validation is pending. The tests use SQLite/WAL with a fake monotonic anchor; they do not prove TPM, rollback resistance, power-loss durability or physical-machine behavior. A native TPM 2.0 provider and physical validation remain open. Universal, DGM-MAT and VST edition boundaries and credentials remain unchanged.
 
 
-## 2026-11-14 — host incident writes fail closed
+## 2026-11-14 — historical host incident write policy (superseded by PR #95 on 2026-11-15)
 
 A follow-up branch installs `MonotonicIncidentWriter` as the only public incident mutation path on the Windows host. The returned incident facade exposes append/update plus read/verify methods, but not raw store prepare/apply methods or the low-level checkpoint journal. The Office Health recovery engine receives this same facade.
 
-If no trusted monotonic anchor provider exists, the default provider reports `unsupported` and all incident append/update calls fail with `monotonic_anchor_not_protected`; there is no silent hash-chain-only write fallback. Startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash and fails on mismatch.
+Historical state before PR #95: the default provider reported `unsupported` and all incident append/update calls failed with `monotonic_anchor_not_protected`. PR #95 superseded this blanket rule: a fresh never-protected installation may use `authenticated_only` under the strict conditions recorded in the 2026-11-15 status section. A previously protected or ambiguous installation still fails closed; startup compares a protected anchor checkpoint against the SQLite HMAC event-chain sequence and head hash.
 
 The provider fixture is explicitly test-only. PR #91 now validates process-kill recovery at two coordinator boundaries with real SQLite/WAL, but its file-backed anchor is not TPM evidence. A native Windows TPM provider, consented provisioning, recovery after clear/reprovision, power-loss tests, backup/restore and physical-PC validation remain open. No production anti-rollback claim is made.
 
@@ -617,7 +617,7 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - PR #90 routes all public Windows host incident append/update operations through `MonotonicIncidentWriter`; PR #91 covers process termination before/after anchor advancement using real SQLite/WAL and a test-only fake anchor; PR #92 records the TPM/TBS implementation limits.
 - New work branch `test/monotonic-writer-host-contention-2026-11-14` adds a process-level integration test: one process holds the host singleton lock and commits through the monotonic writer; a second process must be denied before entering the writer boundary; the parent then reopens SQLite and checks event/checkpoint consistency.
 - This test uses real SQLite/WAL and the real process lock implementation, but an in-memory fake monotonic anchor. PR #93 test HEAD `782b587b4e26898400b44473dd53b64423416066` passed CI run `43603350677` across Linux/Windows Node 22 and Node 26.13.1 (the new test passed in all four jobs); Chromium visual run `43603350684` passed on the same SHA. It does not validate TPM, power-loss, direct external SQLite writers or a physical PC.
-- Keep all incident writes fail-closed until a trusted Windows TPM 2.0 provider is implemented and physically validated. Do not infer hardware protection from fake test capabilities.
+- Keep protected/ambiguous incident writes fail-closed until a trusted Windows TPM 2.0 provider is implemented and physically validated. PR #95 allows authenticated-only writes only for a fresh never-protected installation; this does not provide rollback protection. Do not infer hardware protection from fake test capabilities.
 
 
 ## 2026-11-14 — DGM-MAT session clock guard
