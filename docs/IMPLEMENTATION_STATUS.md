@@ -637,9 +637,9 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - CI run `43599933818` and Chromium visual run `43599933838` both passed on that exact PR HEAD. Post-merge CI run `43600154571` and visual run `43600154514` passed on the main merge commit.
 - The Windows host exposes only a restricted incident-store facade. Public `append()` and `update()` route through `MonotonicIncidentWriter`; the raw store, prepare methods and checkpoint journal are not returned to callers.
 - Office Health diagnostics use the same facade. Incident MAC-key rotation shares the monotonic journal exclusive lock.
-- The default anchor provider reports `unsupported`; writes fail closed with `monotonic_anchor_not_protected`. Reads and integrity inspection remain available. There is no unanchored fallback.
+- PR #95 supersedes the earlier blanket fail-closed behavior: a fresh never-protected installation may write in `authenticated_only` when the provider explicitly reports `unsupported`, no prepare is pending, local generation is zero and the HMAC chain verifies. The host reports `rollbackProtection=unsupported` and `hardwareBacked=false`. Previously protected or ambiguous states remain fail-closed.
 - Startup compares a protected checkpoint with the keyed SQLite event-chain sequence/hash/MAC. A mismatch blocks startup/recovery rather than silently mixing histories.
-- Tests use real SQLite/WAL and a test-only fake anchor. The fake's capability flags are fixtures, not TPM evidence. The default production path remains write-disabled until a trusted provider exists.
+- The authenticated-only-specific regression uses real SQLite/WAL with a test fake secret vault and unsupported anchor; it does not prove TPM or native CNG behavior for that scenario. Separate Windows CI CNG integration steps passed. No production TPM provider or anti-rollback guarantee exists.
 - No native Windows TPM 2.0 provider, physical TPM validation, power-loss proof, or physical-PC validation is claimed. The merge completes host write-path integration, not production anti-rollback readiness.
 - The portable Universal Windows bundle includes the generic monotonic anchor contract, coordinator and writer modules. DGM-MAT/VST-specific adapters remain excluded from the Universal bundle. CI bundle E2E passed on the post-merge main commit.
 
