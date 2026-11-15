@@ -229,6 +229,7 @@ export function createWindowsHost({
   let monotonicCheckpointCoordinator;
   let monotonicAnchorProvider;
   let incidentProtectionState = Object.freeze({ status: "initializing", rollbackProtection: "unavailable" });
+  let monotonicAnchorEverProtected = false;
   let hardwareCapabilities;
   let resourcePolicy;
   let profileOverride = requestedProfile;
@@ -371,17 +372,72 @@ export function createWindowsHost({
       providers: [...incidentMacKeys].map(([keyId, key]) => createIncidentMacProvider(keyId, key)),
       activeKeyId: activeId
     });
-    incidentProtectionState = await monotonicCheckpointCoordinator.recover();
-    if (incidentProtectionState.status === "protected") {
-      const integrity = incidentStore.verifyIntegrity();
-      if (integrity.eventCount !== incidentProtectionState.checkpoint.sequence
-        || integrity.headHash !== incidentProtectionState.checkpoint.eventHash
-        || integrity.headMac !== incidentProtectionState.checkpoint.eventMac) {
-        throw new Error("windows_host_incident_checkpoint_store_mismatch");
-      }
-    }
+    await refreshIncidentProtectionState();
     return runtime.manager.reconcile();
   });
+  async function refreshIncidentProtectionState() {
+    const enrolled = await incidentJournalVault.getSecret("monotonic-anchor-enrolled");
+    monotonicAnchorEverProtected = enrolled === "true";
+    const recovered = await monotonicCheckpointCoordinator.recover();
+
+    if (recovered.status === "protected") {
+      if (!monotonicAnchorEverProtected) {
+        await incidentJournalVault.setSecret("monotonic-anchor-enrolled", "true");
+        monotonicAnchorEverProtected = true;
+      }
+      const integrity = incidentStore.verifyIntegrity();
+      if (integrity.eventCount !== recovered.checkpoint.sequence
+        || integrity.headHash !== recovered.checkpoint.eventHash
+        || integrity.headMac !== recovered.checkpoint.eventMac) {
+        throw new Error("windows_host_incident_checkpoint_store_mismatch");
+      }
+      incidentProtectionState = Object.freeze({
+        ...recovered,
+        integrity: "sha256_plus_keystore_hmac_plus_monotonic",
+        writeEnabled: true,
+        hardwareBacked: true
+      });
+      return incidentProtectionState;
+    }
+
+    if (monotonicAnchorEverProtected) {
+      incidentProtectionState = Object.freeze({
+        status: "recovery_required",
+        rollbackProtection: "unavailable",
+        reason: "previously_protected_anchor_unavailable",
+        localCheckpoint: recovered.localCheckpoint ?? null,
+        writeEnabled: false,
+        hardwareBacked: false
+      });
+      return incidentProtectionState;
+    }
+
+    const prepared = await monotonicCheckpointJournal.readPreparedCheckpoint();
+    if (recovered.status === "unsupported" && !prepared
+      && Number(recovered.localCheckpoint?.generation ?? 0) === 0) {
+      const integrity = incidentStore.verifyIntegrity();
+      if (integrity.verification !== "sha256_plus_keystore_hmac") {
+        throw new Error("windows_host_authenticated_journal_unverified");
+      }
+      incidentProtectionState = Object.freeze({
+        status: "authenticated_only",
+        integrity: "sha256_plus_keystore_hmac",
+        rollbackProtection: "unsupported",
+        localCheckpoint: recovered.localCheckpoint,
+        writeEnabled: true,
+        hardwareBacked: false
+      });
+      return incidentProtectionState;
+    }
+
+    incidentProtectionState = Object.freeze({
+      ...recovered,
+      writeEnabled: false,
+      hardwareBacked: false
+    });
+    return incidentProtectionState;
+  }
+
   async function ensureReady() {
     const result = await ready;
     if (!["empty", "active", "revoked"].includes(result?.status)) {
@@ -395,12 +451,16 @@ export function createWindowsHost({
     append: async incident => {
       if (closed) throw new Error("windows_host_stopped");
       await ensureReady();
-      return monotonicIncidentWriter.append(incident);
+      if (incidentProtectionState.status === "protected") return monotonicIncidentWriter.append(incident);
+      if (incidentProtectionState.status === "authenticated_only") return incidentStore.append(incident);
+      throw new Error("windows_host_incident_writes_unavailable");
     },
     update: async (id, patch) => {
       if (closed) throw new Error("windows_host_stopped");
       await ensureReady();
-      return monotonicIncidentWriter.update(id, patch);
+      if (incidentProtectionState.status === "protected") return monotonicIncidentWriter.update(id, patch);
+      if (incidentProtectionState.status === "authenticated_only") return incidentStore.update(id, patch);
+      throw new Error("windows_host_incident_writes_unavailable");
     },
     get: async id => {
       if (closed) throw new Error("windows_host_stopped");
@@ -430,20 +490,7 @@ export function createWindowsHost({
   async function getIncidentProtectionState() {
     if (closed) throw new Error("windows_host_stopped");
     await ready;
-    incidentProtectionState = await monotonicCheckpointCoordinator.recover();
-    if (incidentProtectionState.status === "protected") {
-      const integrity = incidentStore.verifyIntegrity();
-      if (integrity.eventCount !== incidentProtectionState.checkpoint.sequence
-        || integrity.headHash !== incidentProtectionState.checkpoint.eventHash
-        || integrity.headMac !== incidentProtectionState.checkpoint.eventMac) {
-        throw new Error("windows_host_incident_checkpoint_store_mismatch");
-      }
-    }
-    return Object.freeze({
-      ...incidentProtectionState,
-      writeEnabled: incidentProtectionState.status === "protected",
-      hardwareBacked: incidentProtectionState.status === "protected"
-    });
+    return await refreshIncidentProtectionState();
   }
 
   const manager = Object.freeze({
