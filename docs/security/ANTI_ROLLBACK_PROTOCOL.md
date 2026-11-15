@@ -1,6 +1,6 @@
 # Protocolo anti-rollback do diário de incidentes
 
-Estado em 14 de novembro de 2026: contrato genérico, coordenador crash-consistent, journal SQLite, writer append/update, fachada única de mutação do Windows host e testes de terminação de processo estão integrados. **Não existe ainda provider TPM 2.0 de produção. Nenhuma proteção anti-rollback está ativa ou declarada.**
+Estado em 15 de novembro de 2026: contrato genérico, coordenador crash-consistent, journal SQLite, writer append/update, integração no Windows host, recuperação após terminação de processo e exclusão entre processos estão integrados. **Ainda não existe provider TPM 2.0 de produção; o build normal não declara proteção anti-rollback.** O Windows host mantém agora dois níveis explícitos: `authenticated_only` permite persistência SHA-256 + HMAC sem proteção contra rollback; `protected` exige uma âncora monotónica validada. Uma instalação que já esteve em `protected` não pode degradar automaticamente para `authenticated_only`: um marcador persistente no CNG vault força `recovery_required` se a âncora desaparecer.
 
 ## Objetivo e limite de segurança
 
@@ -87,17 +87,23 @@ PR #85: lock de operações do host Windows integrado por squash em `988c78f7e87
 
 PR #86: append atómico com payload e checkpoint integrado por squash em `edb7bd3c79051078141d54424bfcaccf249156c5`. O HEAD final da PR foi `8a98567d53e8f65ce351745047c46da18b691c11`; CI #571 e regressão visual #491 passaram nesse mesmo SHA. Os testes usam SQLite real em ficheiro temporário, WAL, `synchronous=FULL`, `BEGIN IMMEDIATE` e reopen. O provider de âncora é fake; isto não é validação TPM.
 
-Incremento de core em validação: `MonotonicIncidentWriter` acrescenta encaminhamento de append e update pelo coordenador. O update vincula a revisão e o hash do snapshot predecessor. O journal aceita apenas payloads reconhecidos e avanço de sequência unitário. A API ainda não está ligada à fachada de escrita do Windows host; as chamadas diretas ao store continuam não ancoradas. Os testes com provider fake não validam hardware nem TPM.
+PR #89: `MonotonicIncidentWriter` encaminha append/update do core pelo coordenador; o update vincula a revisão e o hash do snapshot predecessor. O journal aceita apenas payloads reconhecidos e avanço de sequência unitário.
+
+PR #90: o Windows host encaminha todas as mutações pela fachada monotónica e mantém o lock de processo. Escritas não ancoradas não podem contornar o writer quando a instalação está protegida.
+
+PR #91: testes SQLite/WAL terminam um processo filho nas duas fronteiras críticas e comprovam recuperação após reopen. A âncora de teste é fake; não equivale a TPM ou power-loss físico.
+
+PR #93: teste multiprocesso comprova que uma segunda instância do Windows host não consegue concorrer com a primeira durante o compromisso monotónico.
+
+PR #95 (em desenvolvimento): permitir `authenticated_only` apenas quando a instalação nunca foi protegida e não existe prepare/checkpoint monotónico pendente. O CNG vault guarda um marcador persistente de enrollment; se uma instalação previamente protegida perder a âncora, passa a `recovery_required` e bloqueia escritas. Testes cobrem append/update, HMAC, restart e rejeição de downgrade.
 
 Gates ainda obrigatórios:
 1. Provider TPM 2.0 nativo com provisioning consentido e compare-and-advance verificável.
-2. Integrar o writer de core no Windows host, encaminhar todas as mutações append/update e impedir mistura entre escritas ancoradas e não ancoradas.
-3. Fault injection em cada fronteira prepare/advance/finalize e testes de concorrência entre processos.
-4. Rollback de prefixo HMAC, truncagem, backup antigo e mismatch de installation ID.
-5. Windows runner com TPM virtual/emulado, se disponível, apenas como evidência de API.
-6. TPM 2.0 físico com reinício, clear/reprovision, falhas de energia e restore.
-7. Providers equivalentes para Linux, macOS e Android.
-8. CI Linux/Windows e regressão visual no mesmo HEAD antes de merge.
+2. Testes de rollback de prefixo HMAC, truncagem, backup antigo e mismatch de installation ID ligados ao provider real.
+3. Windows runner com TPM virtual/emulado, se disponível, apenas como evidência de API.
+4. TPM 2.0 físico com reinício, clear/reprovision, falhas de energia e restore.
+5. Providers equivalentes para Linux, macOS e Android.
+6. CI Linux/Windows e regressão visual no mesmo HEAD antes de merge.
 
 Sem provider monotónico real e provisionado: `integrity=authenticated_only` e `rollbackProtection=unsupported|unavailable`. Só declarar `protected` depois de validar provider, instalação e checkpoint. Nenhum teste fake ou runner genérico é prova de TPM físico.
 

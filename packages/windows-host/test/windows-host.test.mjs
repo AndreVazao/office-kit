@@ -110,29 +110,71 @@ test("Windows host starts local-only, persists installation identity and reports
   }
 });
 
-test("Windows host fails closed for incident mutations when no hardware anchor provider exists", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-unanchored-"));
+test("Windows host keeps incident journaling available in authenticated-only mode without a TPM anchor", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-authenticated-only-"));
   let host;
   try {
     host = setup(directory);
     await host.ready;
     const protection = await host.getIncidentProtectionState();
-    assert.equal(protection.status, "unsupported");
-    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.status, "authenticated_only");
+    assert.equal(protection.integrity, "sha256_plus_keystore_hmac");
+    assert.equal(protection.rollbackProtection, "unsupported");
+    assert.equal(protection.writeEnabled, true);
     assert.equal(protection.hardwareBacked, false);
     assert.equal("monotonicCheckpointJournal" in host, false);
-    assert.equal(typeof host.incidentStore.prepareMonotonicAppend, "undefined");
-    assert.equal(typeof host.incidentStore.applyPreparedMonotonicPayload, "undefined");
-    await assert.rejects(host.incidentStore.append({ id: "incident-anchor-required-001", status: "degraded", origin: "transport" }), /monotonic_anchor_not_protected/);
-    assert.equal(await host.incidentStore.get("incident-anchor-required-001"), null);
-    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 0);
-    assert.equal((await host.health()).incidentProtection.writeEnabled, false);
+    const id = "incident-authenticated-only-001";
+    await host.incidentStore.append({ id, status: "degraded", origin: "transport" });
+    await host.incidentStore.update(id, { outcome: "recovered" });
+    assert.equal((await host.incidentStore.get(id)).outcome, "recovered");
+    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 2);
+    await host.close();
+    host = null;
+    host = setup(directory);
+    await host.ready;
+    assert.equal((await host.getIncidentProtectionState()).status, "authenticated_only");
+    assert.equal((await host.incidentStore.get(id)).outcome, "recovered");
+    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 2);
+    assert.equal((await host.health()).incidentProtection.writeEnabled, true);
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });
 
+test("Windows host refuses authenticated-only downgrade after monotonic protection was established", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-no-downgrade-"));
+  const anchor = createTestMonotonicAnchorFactory();
+  let host;
+  try {
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await host.ready;
+    assert.equal((await host.getIncidentProtectionState()).status, "protected");
+    await host.incidentStore.append({
+      id: "incident-protected-before-restart-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    await host.close();
+    host = null;
+    host = setup(directory);
+    await host.ready;
+    const protection = await host.getIncidentProtectionState();
+    assert.equal(protection.status, "recovery_required");
+    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.reason, "previously_protected_anchor_unavailable");
+    await assert.rejects(host.incidentStore.append({
+      id: "incident-must-not-downgrade-001",
+      status: "degraded",
+      origin: "transport"
+    }), /windows_host_incident_writes_unavailable/);
+    assert.equal((await host.incidentStore.list()).length, 1);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 test("Windows host exposes an installation-scoped generic CNG secret vault", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-secret-vault-"));
   let host;
