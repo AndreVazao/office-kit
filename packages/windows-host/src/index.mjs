@@ -377,6 +377,9 @@ export function createWindowsHost({
   });
   async function refreshIncidentProtectionState() {
     const enrolled = await incidentJournalVault.getSecret("monotonic-anchor-enrolled");
+    if (enrolled !== null && enrolled !== "true") {
+      throw new Error("windows_host_monotonic_enrollment_marker_corrupt");
+    }
     monotonicAnchorEverProtected = enrolled === "true";
     const recovered = await monotonicCheckpointCoordinator.recover();
 
