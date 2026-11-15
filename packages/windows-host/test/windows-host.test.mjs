@@ -128,7 +128,14 @@ test("Windows host keeps incident journaling available in authenticated-only mod
     await host.incidentStore.update(id, { outcome: "recovered" });
     assert.equal((await host.incidentStore.get(id)).outcome, "recovered");
     assert.equal(host.incidentStore.verifyIntegrity().eventCount, 2);
-    assert.equal((await host.health()).incidentProtection.status, "authenticated_only");
+    await host.close();
+    host = null;
+    host = setup(directory);
+    await host.ready;
+    assert.equal((await host.getIncidentProtectionState()).status, "authenticated_only");
+    assert.equal((await host.incidentStore.get(id)).outcome, "recovered");
+    assert.equal(host.incidentStore.verifyIntegrity().eventCount, 2);
+    assert.equal((await host.health()).incidentProtection.writeEnabled, true);
   } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
