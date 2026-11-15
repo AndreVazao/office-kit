@@ -451,6 +451,7 @@ export function createWindowsHost({
     append: async incident => {
       if (closed) throw new Error("windows_host_stopped");
       await ensureReady();
+      await refreshIncidentProtectionState();
       if (incidentProtectionState.status === "protected") return monotonicIncidentWriter.append(incident);
       if (incidentProtectionState.status === "authenticated_only") return incidentStore.append(incident);
       throw new Error("windows_host_incident_writes_unavailable");
@@ -458,6 +459,7 @@ export function createWindowsHost({
     update: async (id, patch) => {
       if (closed) throw new Error("windows_host_stopped");
       await ensureReady();
+      await refreshIncidentProtectionState();
       if (incidentProtectionState.status === "protected") return monotonicIncidentWriter.update(id, patch);
       if (incidentProtectionState.status === "authenticated_only") return incidentStore.update(id, patch);
       throw new Error("windows_host_incident_writes_unavailable");
