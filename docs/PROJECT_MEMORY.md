@@ -1,6 +1,6 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-14
+Última atualização: 2026-11-15
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
@@ -625,3 +625,17 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - New tests cover invalid clocks before bootstrap and a clock that becomes invalid after the local session response. The first CI attempt on HEAD `1099dc9e2b5eb144a093f4f4bb6226087a77431a` exposed a short-circuit in `getState()`; the code was corrected on `738cb1a128da855ef875d6a6f741006d98af9bdc`.
 - Final documentation-synchronized PR #94 HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc` passed CI #604 (`43604372228`) on Linux/Windows Node 22 and Node 26.13.1, with both new tests passing in all four matrix jobs; visual #524 (`43604372222`) passed on the same SHA.
 - No endpoint, scope, permission or credential lifetime was expanded. DGM-MAT remains loopback-only, GET-only/read-only for runtime inspection; live instance and physical-PC validation remain open.
+
+
+## Estado global confirmado — 2026-11-15 (PR #95 integrada)
+
+- Main HEAD: `68be0150c8f5ecd5a59f28a99426110c0c9fed08`, squash merge da PR #95.
+- PR #95 final HEAD: `514736e844a51da0d3b3e74f0485e6b535d14eb1`.
+- CI #43710997821 e Chromium visual regression #43710997810 concluíram com sucesso no mesmo PR HEAD. A matriz CI passou em Linux/Windows com Node 22 e Node 26.13.1; os passos nativos Windows CNG, identidade, DGM/VST vaults, journal CNG e bundle E2E passaram nos jobs Windows.
+- O novo teste específico `authenticated_only` usa SQLite real em ficheiro temporário, mas um secret-vault fake de teste e o provider de âncora `unsupported`. Não é teste TPM nem prova de CNG físico para esse cenário. O workflow contém também testes CNG nativos separados.
+- Em instalações novas nunca protegidas, `authenticated_only` permite append/update quando o provider declara explicitamente `unsupported`, não existe prepare pendente, a geração local é zero e a cadeia SHA-256 + HMAC é verificada. O estado declara `rollbackProtection=unsupported` e `hardwareBacked=false`.
+- O CNG vault mantém um marcador de enrollment depois de uma instalação entrar em `protected`. Se a âncora desaparecer numa instalação marcada, o host passa a `recovery_required` e bloqueia escritas; não existe downgrade silencioso.
+- HMAC deteta adulteração da base enquanto a chave original está disponível; não deteta por si só rollback/truncagem para um backup antigo internamente válido. Não declarar anti-rollback de produção.
+- PR #94 integrou validação do relógio da sessão local DGM-MAT. Main commit `a72d966239dc1e60ac98e4a5cf1214bc8ea145db`; final PR HEAD `9cea25e098bcd5c1467b05abc21c93921f23d1bc`; CI `43604372228` e visual `43604372222` passaram no mesmo SHA. Continua sem live E2E contra uma instância DGM-MAT.
+- Estado auditado após PR #95: zero PRs abertas, issues #57 e #58 abertas, 55 branches listadas. A separação Universal/DGM-MAT/VST mantém-se.
+- Bloqueios principais: provider Windows TPM 2.0 real e consentido; testes físicos de clear/power-loss/backup-restore; providers Linux/macOS/Android; live E2E DGM-MAT/VST; hosts/instaladores comerciais, assinatura, licenciamento e recuperação multiplataforma.
