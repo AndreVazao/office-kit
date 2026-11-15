@@ -997,7 +997,15 @@ export class SqliteOfficeIncidentStore {
 
   async append(incident) {
     const safe = validateIncident(incident, this.#installationId);
-    const stored = { ...safe, revision: 1 };
+    const occurredAt = typeof safe.occurredAt === "string" ? safe.occurredAt : new Date().toISOString();
+    if (Number.isNaN(Date.parse(occurredAt))) throw new TypeError("incident_occurred_at_invalid");
+    const stored = {
+      ...safe,
+      occurredAt,
+      status: typeof safe.status === "string" ? safe.status : "unknown",
+      origin: typeof safe.origin === "string" ? safe.origin : "indeterminate",
+      revision: 1
+    };
     const serialized = JSON.stringify(stored);
     try {
       return await this.#withWriteLock(() => {
@@ -1010,9 +1018,9 @@ export class SqliteOfficeIncidentStore {
           ].join("\n")).run(
             this.#installationId,
             stored.id,
-            typeof stored.occurredAt === "string" ? stored.occurredAt : new Date().toISOString(),
-            typeof stored.status === "string" ? stored.status : "unknown",
-            typeof stored.origin === "string" ? stored.origin : "indeterminate",
+            stored.occurredAt,
+            stored.status,
+            stored.origin,
             stored.revision,
             serialized
           );
