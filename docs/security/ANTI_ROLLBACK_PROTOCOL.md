@@ -72,6 +72,24 @@ TBS/TPM API é uma fronteira nativa. Não assumir que CNG Platform/Software KSP 
 
 Um provider cloud pode ser opção futura separada, com compare-and-advance autenticado. Nunca é obrigatório nem substitui automaticamente o TPM; indisponibilidade de rede não pode degradar silenciosamente um estado protegido.
 
+
+## Deteção preliminar do TPM no Windows — sem provisioning
+
+O helper Windows expõe o comando interno `tpm-info`, baseado em `Tbsi_GetDeviceInfo`. A chamada reserva uma estrutura de quatro campos `UINT32` (16 bytes) e só interpreta o resultado depois de `TBS_SUCCESS`. O schema de saída atualmente aceite é `structVersion=1`; os campos reservados não participam em decisões de segurança.
+
+Estados possíveis: `detected_tpm_2_0`, `detected_tpm_1_2`, `not_present`, `unsupported_schema`, `unsupported_tpm_version` e `unavailable`. Um resultado TPM 2.0 significa apenas que a API reportou essa versão. Não demonstra que o TPM é físico, que um NV index está disponível, que comandos NV são permitidos, nem que existe uma âncora monotónica.
+
+A operação não cria contextos TBS, não submete comandos TPM através de `Tbsip_Submit_Command`, não provisiona índices e nunca altera o estado de proteção do diário. A ausência de TBS, um erro da API ou um schema desconhecido não pode ser interpretado como TPM ausente nem como autorização para provisioning. Nenhum campo de saída é usado quando a chamada falha.
+
+A documentação Microsoft identifica `Tbsi_GetDeviceInfo` como consulta da versão TPM e exige espaço para quatro valores de 32 bits. A referência de `TPM_DEVICE_INFO` descreve os quatro campos e os dois valores TPM suportados; a interpretação do primeiro campo como schema de saída versão 1 é sustentada pela documentação técnica Microsoft adicional, não pela descrição ambígua atualmente publicada na página da estrutura. O helper rejeita schemas desconhecidos e não infere compatibilidade futura.
+
+Esta chamada não fornece contrato publicado sobre cache/frescura, arranque implícito de serviços, atividade física do TPM, duração máxima ou cancelamento. Por isso, a deteção é apenas informativa e não é usada como health check com garantias temporais nem como gate de segurança.
+
+Referências:
+- Microsoft `Tbsi_GetDeviceInfo`: https://learn.microsoft.com/en-us/windows/win32/api/tbs/nf-tbs-tbsi_getdeviceinfo
+- Microsoft `TPM_DEVICE_INFO`: https://learn.microsoft.com/en-us/windows/win32/api/tbs/ns-tbs-tpm_device_info
+- Microsoft TBS API overview: https://learn.microsoft.com/en-us/windows/win32/api/_tbs/
+
 ## Provisioning, backup e recuperação
 
 - Provisioning exige consentimento explícito do proprietário e regista identidade/capacidades da âncora.
