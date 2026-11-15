@@ -130,3 +130,137 @@ test("Windows host protects incident journal MAC key with CNG and a test-only an
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Windows host keeps authenticated-only incident journaling in the native CNG vault across restarts", {
+  skip: skipReason
+}, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-journal-cng-authenticated-only-"));
+  const appDataPath = join(directory, "OfficeKit");
+  const helperPath = process.env.OFFICE_KIT_CNG_HOST_PATH;
+  const hostOptions = {
+    platform: "win32",
+    appDataPath,
+    helperPath,
+    verifyHelper: () => true,
+    resolveUserSid: () => "S-1-5-21-100",
+    applyAcl: () => {},
+    runtimeFactory
+  };
+  let host;
+  let reopened;
+  try {
+    host = createWindowsHost(hostOptions);
+    await host.ready;
+
+    const initialProtection = await host.getIncidentProtectionState();
+    assert.equal(initialProtection.status, "authenticated_only");
+    assert.equal(initialProtection.integrity, "sha256_plus_keystore_hmac");
+    assert.equal(initialProtection.rollbackProtection, "unsupported");
+    assert.equal(initialProtection.writeEnabled, true);
+    assert.equal(initialProtection.hardwareBacked, false);
+
+    const journalVault = host.createSecretStore("incident.journal");
+    assert.equal(await journalVault.getSecret("monotonic-anchor-enrolled"), null);
+
+    const id = "incident-authenticated-only-cng-001";
+    await host.incidentStore.append({
+      id,
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport",
+      evidence: { code: "authenticated_only_cng_test", detail: "native CNG journal test" }
+    });
+    await host.incidentStore.update(id, { status: "resolved", outcome: "recovered" });
+
+    const writtenIntegrity = host.incidentStore.verifyIntegrity();
+    assert.equal(writtenIntegrity.status, "keyed_hmac_chain");
+    assert.equal(writtenIntegrity.verification, "sha256_plus_keystore_hmac");
+    assert.equal(writtenIntegrity.eventCount, 2);
+    assert.equal(writtenIntegrity.externalAnchor, false);
+    assert.equal(writtenIntegrity.tamperResistance, false);
+
+    await host.close();
+    host = null;
+
+    reopened = createWindowsHost(hostOptions);
+    await reopened.ready;
+    const restoredProtection = await reopened.getIncidentProtectionState();
+    assert.equal(restoredProtection.status, "authenticated_only");
+    assert.equal(restoredProtection.rollbackProtection, "unsupported");
+    assert.equal(restoredProtection.writeEnabled, true);
+    assert.equal(restoredProtection.hardwareBacked, false);
+    assert.equal((await reopened.incidentStore.get(id)).outcome, "recovered");
+    assert.equal(reopened.incidentStore.verifyIntegrity().eventCount, 2);
+    assert.deepEqual(reopened.incidentStore.listEvents().map(event => event.eventType), [
+      "incident.created",
+      "incident.updated"
+    ]);
+  } finally {
+    await reopened?.close();
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows host preserves CNG enrollment marker and blocks downgrade when a protected anchor disappears", {
+  skip: skipReason
+}, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-journal-cng-no-downgrade-"));
+  const appDataPath = join(directory, "OfficeKit");
+  const helperPath = process.env.OFFICE_KIT_CNG_HOST_PATH;
+  const hostOptions = {
+    platform: "win32",
+    appDataPath,
+    helperPath,
+    verifyHelper: () => true,
+    resolveUserSid: () => "S-1-5-21-100",
+    applyAcl: () => {},
+    runtimeFactory
+  };
+  const protectedAnchorFactory = createTestMonotonicAnchorFactory();
+  let host;
+  let reopened;
+  try {
+    host = createWindowsHost({
+      ...hostOptions,
+      monotonicAnchorProviderFactory: protectedAnchorFactory
+    });
+    await host.ready;
+    assert.equal((await host.getIncidentProtectionState()).status, "protected");
+    await host.incidentStore.append({
+      id: "incident-protected-cng-enrollment-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport",
+      evidence: { code: "protected_anchor_test", detail: "test-only fake anchor" }
+    });
+    await host.close();
+    host = null;
+
+    reopened = createWindowsHost(hostOptions);
+    await reopened.ready;
+    const protection = await reopened.getIncidentProtectionState();
+    assert.equal(protection.status, "recovery_required");
+    assert.equal(protection.writeEnabled, false);
+    assert.equal(protection.reason, "previously_protected_anchor_unavailable");
+    assert.equal(
+      await reopened.createSecretStore("incident.journal").getSecret("monotonic-anchor-enrolled"),
+      "true"
+    );
+    await assert.rejects(
+      reopened.incidentStore.append({
+        id: "incident-cng-downgrade-must-block-001",
+        occurredAt: new Date().toISOString(),
+        status: "degraded",
+        origin: "transport"
+      }),
+      /windows_host_incident_writes_unavailable/
+    );
+    assert.equal((await reopened.incidentStore.list()).length, 1);
+    assert.equal(reopened.incidentStore.verifyIntegrity().eventCount, 1);
+  } finally {
+    await reopened?.close();
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
