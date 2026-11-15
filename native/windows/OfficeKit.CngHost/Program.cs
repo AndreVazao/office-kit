@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -48,11 +49,97 @@ internal static class Program
             "has" => Has(prefix, RequiredString(request, "keyId")),
             "delete" => Delete(prefix, RequiredString(request, "keyId")),
             "check-export" => CheckExport(prefix, RequiredString(request, "keyId")),
+            "tpm-info" => GetTpmInfo(),
             "secret-public-key" => SecretPublicKey(installationId, RequiredString(request, "namespace")),
             "secret-decrypt-key" => SecretDecryptKey(installationId, RequiredString(request, "namespace"), Decode(RequiredString(request, "wrappedKey"))),
             "secret-check-export" => SecretCheckExport(installationId, RequiredString(request, "namespace")),
             "secret-delete-key" => SecretDeleteKey(installationId, RequiredString(request, "namespace")),
             _ => throw new ArgumentException("unsupported_command")
+        };
+    }
+
+    private static object GetTpmInfo()
+    {
+        TpmDeviceInfo info = default;
+        uint result;
+        try
+        {
+            result = Tbsi_GetDeviceInfo((uint)Marshal.SizeOf<TpmDeviceInfo>(), out info);
+        }
+        catch (DllNotFoundException)
+        {
+            return new
+            {
+                ok = true,
+                status = "unavailable",
+                reason = "tbs_library_unavailable",
+                monotonicAnchorAvailable = false,
+                provisioningPerformed = false
+            };
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return new
+            {
+                ok = true,
+                status = "unavailable",
+                reason = "tbs_entrypoint_unavailable",
+                monotonicAnchorAvailable = false,
+                provisioningPerformed = false
+            };
+        }
+
+        if (result != 0)
+        {
+            var status = result == 0x8028400F
+                ? "not_present"
+                : "unavailable";
+            return new
+            {
+                ok = true,
+                status,
+                tbsResult = $"0x{result:X8}",
+                monotonicAnchorAvailable = false,
+                provisioningPerformed = false
+            };
+        }
+
+        // The current device-info output schema is version 1. Do not interpret
+        // fields from a schema version this helper does not explicitly support.
+        if (info.StructVersion != 1)
+        {
+            return new
+            {
+                ok = true,
+                status = "unsupported_schema",
+                schemaVersion = info.StructVersion,
+                monotonicAnchorAvailable = false,
+                provisioningPerformed = false
+            };
+        }
+
+        var version = info.TpmVersion switch
+        {
+            1 => "1.2",
+            2 => "2.0",
+            _ => "unknown"
+        };
+        var detectionStatus = info.TpmVersion switch
+        {
+            1 => "detected_tpm_1_2",
+            2 => "detected_tpm_2_0",
+            _ => "unsupported_tpm_version"
+        };
+
+        return new
+        {
+            ok = true,
+            status = detectionStatus,
+            schemaVersion = info.StructVersion,
+            tpmVersion = version,
+            monotonicAnchorAvailable = false,
+            provisioningPerformed = false,
+            protectionPromotionAllowed = false
         };
     }
 
@@ -341,6 +428,18 @@ internal static class Program
 
     private static string Encode(byte[] value) =>
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TpmDeviceInfo
+    {
+        public uint StructVersion;
+        public uint TpmVersion;
+        public uint TpmInterfaceType;
+        public uint TpmImpRevision;
+    }
+
+    [DllImport("tbs.dll", EntryPoint = "Tbsi_GetDeviceInfo", ExactSpelling = true)]
+    private static extern uint Tbsi_GetDeviceInfo(uint size, out TpmDeviceInfo info);
 
     private static string NormalizeError(Exception error)
     {
