@@ -3,11 +3,47 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { createWindowsHost } from "../src/index.mjs";
 
 const skipReason = process.platform === "win32" && process.env.OFFICE_KIT_CNG_HOST_PATH
   ? false
   : "Requires the native Windows CNG helper supplied by the Windows CI job.";
+
+
+test("native TBS TPM metadata probe never provisions an anchor or promotes journal protection", {
+  skip: skipReason
+}, () => {
+  const helperPath = process.env.OFFICE_KIT_CNG_HOST_PATH;
+  const result = spawnSync(helperPath, [], {
+    input: JSON.stringify({
+      command: "tpm-info",
+      installationId: "office-kit-tpm-probe-test"
+    }) + "\n",
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 15_000
+  });
+
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const response = JSON.parse(result.stdout.trim());
+  assert.equal(response.ok, true);
+  assert.ok([
+    "detected_tpm_2_0",
+    "detected_tpm_1_2",
+    "not_present",
+    "unsupported_schema",
+    "unsupported_tpm_version",
+    "unavailable"
+  ].includes(response.status));
+  assert.equal(response.monotonicAnchorAvailable, false);
+  assert.equal(response.provisioningPerformed, false);
+  if (response.status === "detected_tpm_2_0") {
+    assert.equal(response.tpmVersion, "2.0");
+    assert.equal(response.protectionPromotionAllowed, false);
+  }
+});
 
 function createTestMonotonicAnchorFactory() {
   let state = null;
