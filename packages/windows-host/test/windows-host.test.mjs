@@ -736,8 +736,12 @@ test("Windows host rejects a locally valid truncated incident prefix against the
     try {
       database.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
       // Model a database-level attacker who can remove immutability triggers.
-      database.exec("DROP TRIGGER office_kit_incident_events_immutable_delete");
-      database.exec("DROP TRIGGER office_kit_incident_event_macs_immutable_delete");
+      const triggers = database.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all();
+      for (const trigger of triggers) {
+        assert.match(trigger.name, /^[A-Za-z0-9_]+$/);
+        database.exec(`DROP TRIGGER "${trigger.name}"`);
+      }
+      assert.equal(Number(database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'trigger'").get().count), 0);
       const first = database.prepare(
         "SELECT event_hash FROM office_kit_incident_events WHERE installation_id = ? AND sequence = 1"
       ).get(installationId);
