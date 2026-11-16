@@ -648,6 +648,8 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
 });
 
 
+// These regressions use real SQLite/WAL with the explicitly test-only in-memory anchor above.
+// They validate host recovery decisions, not TPM hardware or physical power-loss behavior.
 test("Windows host rejects an older valid SQLite backup after the monotonic anchor advances", {
   skip: !DatabaseSync
 }, async () => {
