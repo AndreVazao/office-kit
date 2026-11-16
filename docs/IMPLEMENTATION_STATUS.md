@@ -698,3 +698,15 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 3. Implement equivalent native providers for Linux, macOS and Android before enabling protected writes there.
 4. Complete live read-only E2E and physical-PC lifecycle validation for DGM-MAT and VST.
 5. Complete native desktop/mobile hosts, commercial installers, signing, licensing/activation, backup/restore and uninstall/update validation.
+
+
+## 2026-11-16 — read-only Windows TPM metadata discovery
+
+- The main branch resolves to commit `764b8328c42559677bb7b61ca1d4137ca586cc20`, whose tree contains the read-only `tpm-info` helper command and the native TBS integration test introduced by the changeset associated with PR #98.
+- PR #98 head was `9589c813b44a6e2baf00b05a118aef262e66965e`. Office Kit CI run `43750126744` and Chromium visual run `43750126757` both completed successfully on that exact PR head.
+- The CI matrix passed Linux and Windows on Node 22 and Node 26.13.1. The native test `native TBS TPM metadata probe never provisions an anchor or promotes journal protection` passed in both Windows jobs after the CNG helper was published. The earlier generic test invocation skips this helper-dependent test; the dedicated native integration step executes it.
+- The implementation calls `Tbsi_GetDeviceInfo`, accepts only the documented current four-`UINT32` output layout and schema version 1, and distinguishes TPM 1.2, TPM 2.0, no compatible TPM, unsupported schema/version and API unavailability.
+- This is metadata discovery only. It creates no TBS context, submits no TPM command, provisions no NV index, exposes no monotonic anchor, and cannot promote the journal to `protected`. A reported TPM 2.0 version does not prove physical TPM provenance, NV command permissions, a usable counter, atomic compare-and-advance, rollback resistance or successful hardware provisioning.
+- Microsoft documents `Tbsi_GetDeviceInfo` as a version query with a buffer large enough for four 32-bit values and identifies `0x8028400F` as `TBS_E_TPM_NOT_FOUND`. The implementation ignores output fields on every non-success result. See the Microsoft API reference: https://learn.microsoft.com/en-us/windows/win32/api/tbs/nf-tbs-tbsi_getdeviceinfo and structure reference: https://learn.microsoft.com/en-us/windows/win32/api/tbs/ns-tbs-tpm_device_info.
+- Repository-state caveat: the main tree contains commit `764b8328c42559677bb7b61ca1d4137ca586cc20`, but the GitHub PR metadata endpoints still report PR #98 as open and unmerged. Record the code as present in main, but do not mark the PR lifecycle as reconciled until GitHub reports it closed/merged. No second merge attempt was made because the exact changeset is already in main.
+- The next security gate remains a separate, consented TPM 2.0 anchor provider with a documented command path, persistent NV identity, safe handling of clear/reprovision and ambiguous increment outcomes, and atomic compare-and-advance. Keep protected writes disabled until real hardware and physical-machine validation pass.
