@@ -45,6 +45,45 @@ test("native TBS TPM metadata probe never provisions an anchor or promotes journ
   }
 });
 
+test("native TBS TPM capability probe sends only GetCapability and never provisions NV", {
+  skip: skipReason
+}, () => {
+  const helperPath = process.env.OFFICE_KIT_CNG_HOST_PATH;
+  const result = spawnSync(helperPath, [], {
+    input: JSON.stringify({
+      command: "tpm-capabilities",
+      installationId: "office-kit-tpm-capabilities-test"
+    }) + "\n",
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 15_000
+  });
+
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const response = JSON.parse(result.stdout.trim());
+  assert.equal(response.ok, true);
+  assert.ok([
+    "capabilities_read",
+    "not_present",
+    "unsupported_tpm_1_2",
+    "unsupported_tpm_version",
+    "unavailable",
+    "tpm_command_rejected"
+  ].includes(response.status));
+  assert.equal(response.nvProvisioningPerformed, false);
+  assert.equal(response.monotonicAnchorAvailable, false);
+  assert.equal(response.protectionPromotionAllowed, false);
+  if (response.status === "capabilities_read") {
+    assert.equal(response.tpmResponded, true);
+    assert.equal(response.tpmVersion, "2.0");
+    assert.equal(response.tbsCommandPermissionVerified, false);
+    for (const value of Object.values(response.advertisedNvCommands)) {
+      assert.equal(typeof value, "boolean");
+    }
+  }
+});
+
 function createTestMonotonicAnchorFactory() {
   let state = null;
   return ({ installationId }) => {
