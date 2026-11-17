@@ -475,3 +475,11 @@ The capability response is advisory only. Firmware advertisement is not equivale
 The follow-up parser hardening requires `TPM_ST_NO_SESSIONS` because the request contains no authorization sessions. It validates the declared response size, success code, `moreData` byte, capability selector, bounded count, exact payload length and uniqueness of command codes. If `moreData` is true, a missing code is unknown rather than a confirmed negative. These checks prevent malformed or differently framed responses from being interpreted as a valid command list.
 
 This component is discovery-only. It is not a monotonic anchor provider and does not change incident-journal protection mode.
+
+## Validation and packaging follow-up — 2026-11-17
+
+PR #103's strict TPM response parser and synthetic protocol harness were squash-merged as `51d5db49309e02f2e42594194ab778651e26d2ae` from final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`; CI `44095809628` and Chromium visual `44095809554` passed on that same SHA. The harness validates parser framing only; it does not emulate TPM authorization, TBS allow-list policy or hardware counter behavior.
+
+A separate distribution gap is tracked by [issue #104](https://github.com/AndreVazao/office-kit/issues/104): the current portable Windows host bundle is Universal-only. The three edition source allowlists are built independently, but DGM-MAT and VST do not yet have their own installable desktop bundles/installers. Future packaging must preserve the existing adapter and credential isolation.
+
+The PR #103 squash merge commit `51d5db49309e02f2e42594194ab778651e26d2ae` passed post-merge CI `44096288229` and visual regression `44096287944` on the same main SHA. Windows CI executed the deterministic parser harness, native CNG integration and portable bundle E2E. No physical TPM provisioning or TPM-backed rollback test was performed.

@@ -724,5 +724,13 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - CI run `44041193372` and Chromium visual run `44041192318` passed on the same PR HEAD.
 - The native Windows helper now issues only `TPM2_GetCapability(TPM_CAP_COMMANDS)` after TPM 2.0 metadata detection. It reports firmware-advertised NV command codes but explicitly leaves TBS command permission, NV provisioning, monotonic anchor availability and protection promotion false.
 - Windows Node 22/26 CI jobs built and exercised the helper. The test accepts `not_present` and `unavailable`; this does not prove a physical TPM responded. Linux jobs skip Windows-native steps.
-- Follow-up branch `fix/windows-tpm-capability-response-parser-2026-11-17` adds strict response framing and a hardware-independent protocol test harness. It is not merged or validated until its own final HEAD has passing CI and visual regression.
+- PR #103 was squash-merged as `51d5db49309e02f2e42594194ab778651e26d2ae` from final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`; CI `44095809628` and visual `44095809554` passed on that same SHA. Its deterministic .NET harness validates no-session framing, exact lengths, response codes, `moreData`, bounded command counts, payload length and duplicate command rejection. The harness uses synthetic frames and is not physical TPM evidence.
 - The actual TPM 2.0 provider, consented NV provisioning, atomic compare-and-advance, clear/reprovision handling and physical hardware validation remain unimplemented.
+
+## 2026-11-17 — edition packaging gap
+
+Issue [#104](https://github.com/AndreVazao/office-kit/issues/104) tracks delivery of isolated native hosts and production installers for all three editions. The current `build:all-editions` workflow builds separate source packages, but `tools/windows/build-host-bundle.ps1` is hard-coded to Universal and explicitly excludes DGM-MAT/VST adapters. DGM-MAT and VST still lack their own Windows desktop bundles/installers; Linux, macOS and Android native hosts/installers also remain pending. Do not describe source-package builds or the Universal portable bundle as commercial installers.
+
+### Post-merge verification — 2026-11-17
+
+Main merge commit `51d5db49309e02f2e42594194ab778651e26d2ae` passed CI `44096288229` and Chromium visual regression `44096287944` on the same SHA. Linux/Windows Node 22 and Node 26.13.1 passed; Windows native CNG, TPM parser protocol tests and portable bundle E2E passed. This validates the software and Windows CI environment, not a physical TPM or user-PC installation.
