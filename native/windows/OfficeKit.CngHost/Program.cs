@@ -215,7 +215,7 @@ internal static class Program
             BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(6, 4), 0x0000017A);
             BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(10, 4), 0x00000002);
             BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(14, 4), 0x00000122);
-            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(18, 4), 64);
+            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(18, 4), 256);
 
             var response = new byte[4096];
             uint responseSize = (uint)response.Length;
