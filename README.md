@@ -23,9 +23,11 @@ The canonical product contract lives in [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_
 - [Core module](packages/core/src/index.mjs): configuration validation and safe interpretation of backend/social states.
 - [Scene engine](packages/scene-engine/src/index.mjs): renderer-neutral layout calculations.
 - [Graphics quality profiles](packages/scene-engine/src/quality.mjs): economy, balanced, detailed, cinematic, and automatic selection from conservative device hints.
-- Run `npm run check` with Node.js 20+ to execute syntax checks and the dependency-free tests.
+- Run `npm run check` with Node.js 22.5+ to execute syntax checks and the dependency-free tests. CI currently validates Node 22 and Node 26.13.1.
 
 The browser preview is an early CSS prototype, not the final Diorama-quality renderer. Quality profiles are currently policy data and are not yet wired to a production rendering pipeline. The project is not yet packaged as an Android or desktop application.
+
+The current portable Windows host bundle is the Universal edition only. DGM-MAT and VST source packages are built and checked independently, but their edition-specific desktop bundles/installers are not yet delivered.
 
 ## Core principles
 
