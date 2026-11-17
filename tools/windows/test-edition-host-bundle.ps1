@@ -21,19 +21,19 @@ $expectedEntrypoint = if ($Edition -eq "DGM-MAT") {
   "packages/windows-host/src/vst-cli.mjs"
 }
 $expectedLauncher = if ($Edition -eq "DGM-MAT") { "office-kit-dgmat.cmd" } else { "office-kit-vst.cmd" }
-if ($manifest.edition -ne $Edition -or $manifest.editionKey -ne $expectedKey
-  -or $manifest.entrypoint -ne $expectedEntrypoint -or $manifest.launcher -ne $expectedLauncher) {
+$manifestIdentityMismatch = ($manifest.edition -ne $Edition) -or ($manifest.editionKey -ne $expectedKey) -or ($manifest.entrypoint -ne $expectedEntrypoint) -or ($manifest.launcher -ne $expectedLauncher)
+if ($manifestIdentityMismatch) {
   throw "Edition bundle manifest does not match the requested product."
 }
-if ($manifest.minimumNodeVersion -ne "22.5.0" -or $manifest.nodeArchitecture -ne "x64"
-  -or $manifest.backendAutoConnect -ne $false -or $manifest.backendMode -ne "read-only") {
+$manifestPolicyMismatch = ($manifest.minimumNodeVersion -ne "22.5.0") -or ($manifest.nodeArchitecture -ne "x64") -or ($manifest.backendAutoConnect -ne $false) -or ($manifest.backendMode -ne "read-only")
+if ($manifestPolicyMismatch) {
   throw "Edition bundle manifest violates the runtime or safe-default contract."
 }
 
 $nodePath = Join-Path $bundleRoot "node.exe"
 $helperPath = Join-Path $bundleRoot "OfficeKit.CngHost.exe"
 $launcherPath = Join-Path $bundleRoot $expectedLauncher
-$entrypointPath = Join-Path $bundleRoot ($expectedEntrypoint.Replace("/", [System.IO.Path]::DirectorySeparatorChar))
+$entrypointPath = Join-Path $bundleRoot ($expectedEntrypoint.Replace("/", "\"))
 foreach ($required in @($nodePath, $helperPath, $launcherPath, $entrypointPath)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
     throw ("Edition bundle is incomplete: " + $required)
@@ -67,14 +67,14 @@ if (Compare-Object -ReferenceObject @($manifest.windowsHostModules | Sort-Object
   throw "Edition bundle Windows-host manifest does not match the source allowlist."
 }
 
+$containsDgmatModules = @($manifest.sourceFiles | Where-Object { $_ -match "(^|/)dgmat-" }).Count -gt 0
+$containsVstModules = @($manifest.sourceFiles | Where-Object { $_ -match "(^|/)vst-" }).Count -gt 0
 if ($Edition -eq "DGM-MAT") {
-  if (-not ($manifest.adapterAllowlist -contains "dgm-mat")
-    -or ($manifest.sourceFiles | Where-Object { $_ -match "(^|/)vst-" }).Count -gt 0) {
+  if (-not ($manifest.adapterAllowlist -contains "dgm-mat") -or $containsVstModules) {
     throw "DGM-MAT bundle contains an invalid adapter allowlist."
   }
 } else {
-  if (-not ($manifest.adapterAllowlist -contains "vazao-sovereign-trader")
-    -or ($manifest.sourceFiles | Where-Object { $_ -match "(^|/)dgmat-" }).Count -gt 0) {
+  if (-not ($manifest.adapterAllowlist -contains "vazao-sovereign-trader") -or $containsDgmatModules) {
     throw "VST bundle contains an invalid adapter allowlist."
   }
 }
@@ -106,8 +106,8 @@ try {
 
   $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
   $verifiedSignature = Get-AuthenticodeSignature -FilePath $helperPath
-  if ($signature.Status -ne "Valid" -or $verifiedSignature.Status -ne "Valid"
-    -or $verifiedSignature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint) {
+  $signatureMismatch = ($signature.Status -ne "Valid") -or ($verifiedSignature.Status -ne "Valid") -or ($verifiedSignature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint)
+  if ($signatureMismatch) {
     throw "The temporary CI publisher did not produce a trusted helper signature."
   }
 
@@ -120,8 +120,8 @@ try {
     throw ("Edition launcher health smoke test failed: " + ($launcherOutput -join [Environment]::NewLine))
   }
   $launcherResult = ($launcherOutput -join [Environment]::NewLine) | ConvertFrom-Json
-  if ($launcherResult.ok -ne $true -or $launcherResult.health.edition -ne $expectedKey
-    -or $launcherResult.health.adapterConnected -ne $false) {
+  $launcherMismatch = ($launcherResult.ok -ne $true) -or ($launcherResult.health.edition -ne $expectedKey) -or ($launcherResult.health.adapterConnected -ne $false)
+  if ($launcherMismatch) {
     throw "Edition launcher did not start disconnected with the expected edition identity."
   }
   $runnerOutput = & $nodePath $runnerPath $bundleRoot $Edition
