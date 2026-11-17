@@ -48,7 +48,7 @@ internal static class Program
         AssertRejected(wrongCapability, "tpm_capability_type_invalid");
 
         var wrongCount = (byte[])valid.Clone();
-        BinaryPrimitives.WriteUInt32BigEndian(wrongCount.AsSpan(15, 4), 256);
+        BinaryPrimitives.WriteUInt32BigEndian(wrongCount.AsSpan(15, 4), 257);
         AssertRejected(wrongCount, "tpm_command_count_invalid");
 
         var mismatchedPayload = (byte[])valid.Clone();
