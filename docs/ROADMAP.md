@@ -767,3 +767,5 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - [ ] Keep Linux, macOS and Android protected mode disabled until each platform has its own durable monotonic provider and physical validation.
 
 A passing native-helper CI job is not evidence that a TPM was present, that TBS permitted NV mutation, or that hardware-backed rollback resistance exists.
+
+- [ ] Deliver edition-specific Windows desktop bundles/installers for Universal, DGM-MAT and VST, followed by native Linux/macOS/Android hosts and packages; verify artifact allowlists and installation isolation (tracked in [issue #104](https://github.com/AndreVazao/office-kit/issues/104)).
