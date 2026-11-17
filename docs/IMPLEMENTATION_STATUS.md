@@ -718,3 +718,11 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Added two Windows-host startup regressions: restoring a previously valid sequence-1 SQLite backup after the protected anchor advances to sequence 2 must fail with `monotonic_anchor_mismatch`; truncating a locally self-consistent event/MAC/snapshot prefix while leaving the protected checkpoint at sequence 2 must fail with `windows_host_incident_checkpoint_store_mismatch`.
 - The SQLite database and WAL are real. The monotonic anchor and Windows host factories are test-only fakes. These tests exercise host recovery decisions; they do not prove TPM behavior, physical power-loss durability or hardware-backed rollback resistance.
  - Initial final-HEAD validation completed on `f5dd92a71a148b5cc10a0c296f52072c4e075c71`: CI run `43886278807` and Chromium visual regression run `43886278917` both passed on that exact SHA on 2026-11-16. The follow-up documentation-only commit must be revalidated independently; these earlier results are not treated as checks for a later SHA.
+## 2026-11-17 — Windows TPM command capability discovery
+
+- PR #102 was squash-merged as `5319c132386a6d619cafa13e0bf2669103623ce8`; final PR HEAD `707ad1c2f07347f3379df1293b9e82cc1b93642d`.
+- CI run `44041193372` and Chromium visual run `44041192318` passed on the same PR HEAD.
+- The native Windows helper now issues only `TPM2_GetCapability(TPM_CAP_COMMANDS)` after TPM 2.0 metadata detection. It reports firmware-advertised NV command codes but explicitly leaves TBS command permission, NV provisioning, monotonic anchor availability and protection promotion false.
+- Windows Node 22/26 CI jobs built and exercised the helper. The test accepts `not_present` and `unavailable`; this does not prove a physical TPM responded. Linux jobs skip Windows-native steps.
+- Follow-up branch `fix/windows-tpm-capability-response-parser-2026-11-17` adds strict response framing and a hardware-independent protocol test harness. It is not merged or validated until its own final HEAD has passing CI and visual regression.
+- The actual TPM 2.0 provider, consented NV provisioning, atomic compare-and-advance, clear/reprovision handling and physical hardware validation remain unimplemented.
