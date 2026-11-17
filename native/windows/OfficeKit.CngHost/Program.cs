@@ -234,14 +234,17 @@ internal static class Program
                     protectionPromotionAllowed = false
                 };
 
-            if (responseSize < 19 || responseSize > response.Length)
+            if (responseSize < 10 || responseSize > response.Length)
                 return TpmCapabilitiesUnavailable("tpm_response_size_invalid");
             var actualSize = checked((int)responseSize);
-            var tag = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(0, 2));
+            var responseTag = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(0, 2));
             var declaredSize = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(2, 4));
+            if (responseTag != 0x8001)
+                return TpmCapabilitiesUnavailable("tpm_response_tag_invalid");
+            if (declaredSize != responseSize)
+                return TpmCapabilitiesUnavailable("tpm_response_size_mismatch");
+
             var responseCode = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(6, 4));
-            if ((tag != 0x8001 && tag != 0x8002) || declaredSize != responseSize)
-                return TpmCapabilitiesUnavailable("tpm_response_header_invalid");
             if (responseCode != 0)
                 return new
                 {
@@ -254,32 +257,29 @@ internal static class Program
                     protectionPromotionAllowed = false
                 };
 
-            var returnedCapability = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(11, 4));
-            var count = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(15, 4));
-            if (returnedCapability != 0x00000002 || count > 256
-                || 19L + (long)count * 4L != actualSize)
-                return TpmCapabilitiesUnavailable("tpm_capability_payload_invalid");
+            if (!TpmCapabilityResponseParser.TryParse(
+                response.AsSpan(0, actualSize),
+                out var parsedCapabilities,
+                out var parseError))
+                return TpmCapabilitiesUnavailable(parseError);
 
-            var advertised = new HashSet<uint>();
-            for (var index = 0; index < count; index++)
-                advertised.Add(BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(19 + index * 4, 4)));
-
-            bool Has(uint code) => advertised.Contains(code);
+            var capabilities = parsedCapabilities!;
             return new
             {
                 ok = true,
                 status = "capabilities_read",
                 tpmResponded = true,
                 tpmVersion = "2.0",
-                commandListMoreData = response[10] != 0,
+                commandListMoreData = capabilities.MoreData,
+                commandListComplete = !capabilities.MoreData,
                 advertisedNvCommands = new
                 {
-                    defineSpace = Has(0x0000012A),
-                    undefineSpace = Has(0x00000122),
-                    increment = Has(0x00000134),
-                    read = Has(0x0000014E),
-                    readPublic = Has(0x00000169),
-                    write = Has(0x00000137)
+                    defineSpace = capabilities.IsAdvertised(0x0000012A),
+                    undefineSpace = capabilities.IsAdvertised(0x00000122),
+                    increment = capabilities.IsAdvertised(0x00000134),
+                    read = capabilities.IsAdvertised(0x0000014E),
+                    readPublic = capabilities.IsAdvertised(0x00000169),
+                    write = capabilities.IsAdvertised(0x00000137)
                 },
                 // TPM advertisement is not proof that Windows TBS policy permits
                 // the command for this process, nor proof of usable NV authorization.

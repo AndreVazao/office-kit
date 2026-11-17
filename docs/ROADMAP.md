@@ -757,3 +757,13 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 - Added two Windows-host startup regressions: restoring a previously valid sequence-1 SQLite backup after the protected anchor advances to sequence 2 must fail with `monotonic_anchor_mismatch`; truncating a locally self-consistent event/MAC/snapshot prefix while leaving the protected checkpoint at sequence 2 must fail with `windows_host_incident_checkpoint_store_mismatch`.
 - The SQLite database and WAL are real. The monotonic anchor and Windows host factories are test-only fakes. These tests exercise host recovery decisions; they do not prove TPM behavior, physical power-loss durability or hardware-backed rollback resistance.
  - Initial final-HEAD validation completed on `f5dd92a71a148b5cc10a0c296f52072c4e075c71`: CI run `43886278807` and Chromium visual regression run `43886278917` both passed on that exact SHA on 2026-11-16. The follow-up documentation-only commit must be revalidated independently; these earlier results are not treated as checks for a later SHA.
+## 2026-11-17 — TPM discovery milestone and next gate
+
+- [x] Add a read-only Windows TBS `TPM2_GetCapability(TPM_CAP_COMMANDS)` probe after TPM 2.0 metadata detection (PR #102, merged as `5319c132386a6d619cafa13e0bf2669103623ce8`).
+- [x] Validate PR #102 final HEAD `707ad1c2f07347f3379df1293b9e82cc1b93642d` with CI `44041193372` and visual regression `44041192318` on the same SHA.
+- [ ] Harden the response parser against session-tag/layout confusion, invalid `moreData`, inconsistent lengths and duplicate command codes; add a deterministic protocol test independent of physical TPM availability.
+- [ ] Design a consented NV provisioning protocol that binds installation identity and checkpoint digest, and handles TBS command blocking, authorization, TPM clear and ambiguous increment outcomes.
+- [ ] Implement and validate a real compare-and-advance provider on physical Windows TPM 2.0 hardware. Do not promote `authenticated_only` to `protected` before this gate passes.
+- [ ] Keep Linux, macOS and Android protected mode disabled until each platform has its own durable monotonic provider and physical validation.
+
+A passing native-helper CI job is not evidence that a TPM was present, that TBS permitted NV mutation, or that hardware-backed rollback resistance exists.
