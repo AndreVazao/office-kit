@@ -49,6 +49,7 @@ function makeHost() {
       return {
         async setSecret(name, value) { assert.equal(name, "bootstrap"); secret = value; },
         async getSecret(name) { assert.equal(name, "bootstrap"); return secret; },
+        hasSecret(name) { assert.equal(name, "bootstrap"); return secret !== null; },
         async destroy() { calls.destroyed += 1; const hadSecret = secret !== null; secret = null; return { deletedCount: hadSecret ? 1 : 0, keyDeleted: true }; }
       };
     },
@@ -80,12 +81,15 @@ test("DGM-MAT Windows host requires explicit credential consent and explicit con
       /bootstrap_credential_invalid/
     );
     assert.equal(host.secret, null);
+    assert.equal(composed.getCredentialState().configured, false);
     const provisioned = await composed.provisionBootstrapCredential({
       secret: bootstrapSecret,
       ownerConsent: true
     });
     assert.equal(provisioned.stored, true);
     assert.equal(host.secret, bootstrapSecret);
+    assert.equal(composed.getCredentialState().configured, true);
+    assert.equal(composed.getCredentialState().credentialExposed, false);
     assert.equal(calls.length, 0);
 
     const connected = await composed.connect();
@@ -112,6 +116,7 @@ test("DGM-MAT Windows host requires explicit credential consent and explicit con
     assert.equal(removed.deletedCount, 1);
     assert.equal(removed.keyDeleted, true);
     assert.equal(host.secret, null);
+    assert.equal(composed.getCredentialState().configured, false);
     await assert.rejects(composed.connect(), /bootstrap_credential_invalid/);
     assert.equal(calls.filter(call => call.url.endsWith("/auth/session")).length, 1);
   } finally {
