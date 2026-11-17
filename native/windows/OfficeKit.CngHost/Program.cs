@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -50,6 +51,7 @@ internal static class Program
             "delete" => Delete(prefix, RequiredString(request, "keyId")),
             "check-export" => CheckExport(prefix, RequiredString(request, "keyId")),
             "tpm-info" => GetTpmInfo(),
+            "tpm-capabilities" => GetTpmCapabilities(),
             "secret-public-key" => SecretPublicKey(installationId, RequiredString(request, "namespace")),
             "secret-decrypt-key" => SecretDecryptKey(installationId, RequiredString(request, "namespace"), Decode(RequiredString(request, "wrappedKey"))),
             "secret-check-export" => SecretCheckExport(installationId, RequiredString(request, "namespace")),
@@ -142,6 +144,176 @@ internal static class Program
             protectionPromotionAllowed = false
         };
     }
+
+    private static object GetTpmCapabilities()
+    {
+        // Do not create a TBS context unless the metadata query explicitly reports TPM 2.0.
+        TpmDeviceInfo deviceInfo = default;
+        uint infoResult;
+        try
+        {
+            infoResult = Tbsi_GetDeviceInfo((uint)Marshal.SizeOf<TpmDeviceInfo>(), out deviceInfo);
+        }
+        catch (DllNotFoundException)
+        {
+            return TpmCapabilitiesUnavailable("tbs_library_unavailable");
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return TpmCapabilitiesUnavailable("tbs_entrypoint_unavailable");
+        }
+
+        if (infoResult != 0)
+        {
+            return new
+            {
+                ok = true,
+                status = infoResult == 0x8028400F ? "not_present" : "unavailable",
+                tbsResult = $"0x{infoResult:X8}",
+                tpmResponded = false,
+                nvProvisioningPerformed = false,
+                monotonicAnchorAvailable = false,
+                protectionPromotionAllowed = false
+            };
+        }
+        if (deviceInfo.StructVersion != 1)
+            return TpmCapabilitiesUnavailable("unsupported_tpm_info_schema");
+        if (deviceInfo.TpmVersion != 2)
+            return new
+            {
+                ok = true,
+                status = deviceInfo.TpmVersion == 1 ? "unsupported_tpm_1_2" : "unsupported_tpm_version",
+                tpmResponded = false,
+                nvProvisioningPerformed = false,
+                monotonicAnchorAvailable = false,
+                protectionPromotionAllowed = false
+            };
+
+        IntPtr context = IntPtr.Zero;
+        try
+        {
+            var parameters = new TbsContextParams2 { Version = 2, Flags = 0x4 };
+            var createResult = Tbsi_Context_Create(ref parameters, out context);
+            if (createResult != 0 || context == IntPtr.Zero)
+                return new
+                {
+                    ok = true,
+                    status = createResult == 0x8028400F ? "not_present" : "unavailable",
+                    tbsResult = $"0x{createResult:X8}",
+                    tpmResponded = false,
+                    nvProvisioningPerformed = false,
+                    monotonicAnchorAvailable = false,
+                    protectionPromotionAllowed = false
+                };
+
+            // TPM2_GetCapability(TPM_CAP_COMMANDS) is read-only. This query only
+            // asks which NV command codes the TPM advertises; it never defines,
+            // reads, writes, increments, or removes an NV index.
+            var command = new byte[22];
+            BinaryPrimitives.WriteUInt16BigEndian(command.AsSpan(0, 2), 0x8001);
+            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(2, 4), (uint)command.Length);
+            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(6, 4), 0x0000017A);
+            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(10, 4), 0x00000002);
+            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(14, 4), 0x00000122);
+            BinaryPrimitives.WriteUInt32BigEndian(command.AsSpan(18, 4), 64);
+
+            var response = new byte[4096];
+            uint responseSize = (uint)response.Length;
+            var submitResult = Tbsip_Submit_Command(
+                context, 0, 200, command, (uint)command.Length, response, ref responseSize
+            );
+            if (submitResult != 0)
+                return new
+                {
+                    ok = true,
+                    status = "unavailable",
+                    tbsResult = $"0x{submitResult:X8}",
+                    tpmResponded = false,
+                    nvProvisioningPerformed = false,
+                    monotonicAnchorAvailable = false,
+                    protectionPromotionAllowed = false
+                };
+
+            if (responseSize < 19 || responseSize > response.Length)
+                return TpmCapabilitiesUnavailable("tpm_response_size_invalid");
+            var actualSize = checked((int)responseSize);
+            var tag = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(0, 2));
+            var declaredSize = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(2, 4));
+            var responseCode = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(6, 4));
+            if ((tag != 0x8001 && tag != 0x8002) || declaredSize != responseSize)
+                return TpmCapabilitiesUnavailable("tpm_response_header_invalid");
+            if (responseCode != 0)
+                return new
+                {
+                    ok = true,
+                    status = "tpm_command_rejected",
+                    tpmResponseCode = $"0x{responseCode:X8}",
+                    tpmResponded = true,
+                    nvProvisioningPerformed = false,
+                    monotonicAnchorAvailable = false,
+                    protectionPromotionAllowed = false
+                };
+
+            var returnedCapability = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(11, 4));
+            var count = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(15, 4));
+            if (returnedCapability != 0x00000002 || count > 256
+                || 19L + (long)count * 4L != actualSize)
+                return TpmCapabilitiesUnavailable("tpm_capability_payload_invalid");
+
+            var advertised = new HashSet<uint>();
+            for (var index = 0; index < count; index++)
+                advertised.Add(BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(19 + index * 4, 4)));
+
+            bool Has(uint code) => advertised.Contains(code);
+            return new
+            {
+                ok = true,
+                status = "capabilities_read",
+                tpmResponded = true,
+                tpmVersion = "2.0",
+                commandListMoreData = response[10] != 0,
+                advertisedNvCommands = new
+                {
+                    defineSpace = Has(0x0000012A),
+                    undefineSpace = Has(0x00000122),
+                    increment = Has(0x00000134),
+                    read = Has(0x0000014E),
+                    readPublic = Has(0x00000169),
+                    write = Has(0x00000137)
+                },
+                // TPM advertisement is not proof that Windows TBS policy permits
+                // the command for this process, nor proof of usable NV authorization.
+                tbsCommandPermissionVerified = false,
+                nvProvisioningPerformed = false,
+                monotonicAnchorAvailable = false,
+                protectionPromotionAllowed = false
+            };
+        }
+        catch (DllNotFoundException)
+        {
+            return TpmCapabilitiesUnavailable("tbs_library_unavailable");
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return TpmCapabilitiesUnavailable("tbs_entrypoint_unavailable");
+        }
+        finally
+        {
+            if (context != IntPtr.Zero)
+                _ = Tbsip_Context_Close(context);
+        }
+    }
+
+    private static object TpmCapabilitiesUnavailable(string reason) => new
+    {
+        ok = true,
+        status = "unavailable",
+        reason,
+        tpmResponded = false,
+        nvProvisioningPerformed = false,
+        monotonicAnchorAvailable = false,
+        protectionPromotionAllowed = false
+    };
 
     private static object Create(string prefix)
     {
@@ -430,6 +602,13 @@ internal static class Program
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct TbsContextParams2
+    {
+        public uint Version;
+        public uint Flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct TpmDeviceInfo
     {
         public uint StructVersion;
@@ -440,6 +619,18 @@ internal static class Program
 
     [DllImport("tbs.dll", EntryPoint = "Tbsi_GetDeviceInfo", ExactSpelling = true)]
     private static extern uint Tbsi_GetDeviceInfo(uint size, out TpmDeviceInfo info);
+
+    [DllImport("tbs.dll", EntryPoint = "Tbsi_Context_Create", ExactSpelling = true)]
+    private static extern uint Tbsi_Context_Create(ref TbsContextParams2 parameters, out IntPtr context);
+
+    [DllImport("tbs.dll", EntryPoint = "Tbsip_Submit_Command", ExactSpelling = true)]
+    private static extern uint Tbsip_Submit_Command(
+        IntPtr context, uint locality, uint priority,
+        byte[] command, uint commandSize, byte[] result, ref uint resultSize
+    );
+
+    [DllImport("tbs.dll", EntryPoint = "Tbsip_Context_Close", ExactSpelling = true)]
+    private static extern uint Tbsip_Context_Close(IntPtr context);
 
     private static string NormalizeError(Exception error)
     {
