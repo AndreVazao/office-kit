@@ -176,3 +176,12 @@ A PR #95 foi integrada por squash em `68be0150c8f5ecd5a59f28a99426110c0c9fed08`.
 O modo `authenticated_only` mantém a cadeia SHA-256 + HMAC e permite incidentes numa instalação nova nunca protegida, sem fingir uma âncora externa. Declara sempre `rollbackProtection=unsupported` e `hardwareBacked=false`. O marcador CNG impede downgrade de uma instalação anteriormente protegida. Se a âncora desaparecer, a escrita fica bloqueada em `recovery_required`.
 
 O teste específico de modo autenticado usa SQLite/WAL real, provider de âncora explicitamente unsupported e secret vault fake de teste. As verificações nativas Windows CNG do workflow são passos separados. Não foi executado comando TPM, provisionado hardware TPM nem validado PC físico. Os gates TPM, backup/restore, power-loss e providers multiplataforma continuam abertos.
+## 2026-11-17 — read-only TPM NV command capability discovery
+
+PR #102 was squash-merged as `5319c132386a6d619cafa13e0bf2669103623ce8` from final PR HEAD `707ad1c2f07347f3379df1293b9e82cc1b93642d`. CI run `44041193372` and Chromium visual run `44041192318` both passed on that exact PR HEAD. The Windows Node 22 and Node 26 jobs executed the native helper build, CNG integration suite, TPM helper integration test and portable bundle E2E; Linux jobs correctly skipped Windows-only native steps.
+
+The helper's `tpm-capabilities` command checks TPM 2.0 metadata, creates a TBS context, and submits only `TPM2_GetCapability(TPM_CAP_COMMANDS)`. It does not define, increment, read, write or undefine NV indexes. TPM-advertised command codes do not prove that Windows TBS permits those commands to this process, that NV authorization is available, or that a durable atomic monotonic anchor can be implemented.
+
+The integration test accepts explicit unavailable/not-present/rejected outcomes. A green CI result therefore proves the helper build and result handling, not that a physical TPM was present or returned a capability list. No physical TPM provisioning or monotonic protection was performed.
+
+The follow-up parser-hardening work is isolated on branch `fix/windows-tpm-capability-response-parser-2026-11-17`: require the no-sessions response tag used by this request, validate exact framing and boolean `moreData`, reject duplicate command codes, and report absent commands as unknown when the response says more data remains. This remains discovery-only and cannot promote the journal to `protected`.
