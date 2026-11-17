@@ -466,3 +466,12 @@ This section supersedes earlier blanket statements that every incident write mus
 - Added two Windows-host startup regressions: restoring a previously valid sequence-1 SQLite backup after the protected anchor advances to sequence 2 must fail with `monotonic_anchor_mismatch`; truncating a locally self-consistent event/MAC/snapshot prefix while leaving the protected checkpoint at sequence 2 must fail with `windows_host_incident_checkpoint_store_mismatch`.
 - The SQLite database and WAL are real. The monotonic anchor and Windows host factories are test-only fakes. These tests exercise host recovery decisions; they do not prove TPM behavior, physical power-loss durability or hardware-backed rollback resistance.
  - Initial final-HEAD validation completed on `f5dd92a71a148b5cc10a0c296f52072c4e075c71`: CI run `43886278807` and Chromium visual regression run `43886278917` both passed on that exact SHA on 2026-11-16. The follow-up documentation-only commit must be revalidated independently; these earlier results are not treated as checks for a later SHA.
+## Windows TPM capability discovery boundary — 2026-11-17
+
+The Windows CNG helper exposes `tpm-capabilities` as a read-only diagnostic. It first checks TPM 2.0 metadata, creates a TBS context only for a supported TPM 2.0 device, and submits `TPM2_GetCapability(TPM_CAP_COMMANDS)`. It never submits an NV mutation command.
+
+The capability response is advisory only. Firmware advertisement is not equivalent to TBS allow-list permission, usable NV authorization, persistent index identity, or atomic compare-and-advance. The returned result must keep `tbsCommandPermissionVerified=false`, `nvProvisioningPerformed=false`, `monotonicAnchorAvailable=false` and `protectionPromotionAllowed=false`.
+
+The follow-up parser hardening requires `TPM_ST_NO_SESSIONS` because the request contains no authorization sessions. It validates the declared response size, success code, `moreData` byte, capability selector, bounded count, exact payload length and uniqueness of command codes. If `moreData` is true, a missing code is unknown rather than a confirmed negative. These checks prevent malformed or differently framed responses from being interpreted as a valid command list.
+
+This component is discovery-only. It is not a monotonic anchor provider and does not change incident-journal protection mode.
