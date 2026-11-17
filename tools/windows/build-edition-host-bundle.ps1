@@ -67,14 +67,12 @@ if ($sourceFiles.Count -lt 1 -or -not ($sourceFiles -contains "LICENSE")) {
 $containsDgmatModules = @($sourceFiles | Where-Object { $_ -match "(^|/)dgmat-" }).Count -gt 0
 $containsVstModules = @($sourceFiles | Where-Object { $_ -match "(^|/)vst-" }).Count -gt 0
 if ($Edition -eq "DGM-MAT") {
-  $hasEditionEntryPoints = ($sourceFiles -contains "packages/windows-host/src/dgmat-cli.mjs") -and
-    ($sourceFiles -contains "packages/scene-engine/src/dgmat-windows-host.mjs")
+  $hasEditionEntryPoints = ($sourceFiles -contains "packages/windows-host/src/dgmat-cli.mjs") -and ($sourceFiles -contains "packages/scene-engine/src/dgmat-windows-host.mjs")
   if (-not $hasEditionEntryPoints -or $containsVstModules) {
     throw "DGM-MAT allowlist is incomplete or contains VST-specific modules."
   }
 } else {
-  $hasEditionEntryPoints = ($sourceFiles -contains "packages/windows-host/src/vst-cli.mjs") -and
-    ($sourceFiles -contains "packages/scene-engine/src/vst-windows-host.mjs")
+  $hasEditionEntryPoints = ($sourceFiles -contains "packages/windows-host/src/vst-cli.mjs") -and ($sourceFiles -contains "packages/scene-engine/src/vst-windows-host.mjs")
   if (-not $hasEditionEntryPoints -or $containsDgmatModules) {
     throw "VST allowlist is incomplete or contains DGM-MAT-specific modules."
   }
