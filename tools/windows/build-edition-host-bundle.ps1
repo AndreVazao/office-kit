@@ -21,8 +21,10 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
   $OutputDirectory = Join-Path $repoRoot ("artifacts\windows-host-bundle-" + $editionKeyForPath)
 }
 $bundleRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
-if ($bundleRoot -eq $repoRoot) {
-  throw "The edition bundle output directory cannot be the repository root."
+$artifactsRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot "artifacts"))
+$artifactsPrefix = $artifactsRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+if (-not $bundleRoot.StartsWith($artifactsPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "The edition bundle output directory must be below the repository artifacts directory."
 }
 if (Test-Path -LiteralPath $bundleRoot) {
   Remove-Item -LiteralPath $bundleRoot -Recurse -Force
