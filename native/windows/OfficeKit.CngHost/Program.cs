@@ -237,6 +237,13 @@ internal static class Program
             if (responseSize < 10 || responseSize > response.Length)
                 return TpmCapabilitiesUnavailable("tpm_response_size_invalid");
             var actualSize = checked((int)responseSize);
+            var responseTag = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(0, 2));
+            var declaredSize = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(2, 4));
+            if (responseTag != 0x8001)
+                return TpmCapabilitiesUnavailable("tpm_response_tag_invalid");
+            if (declaredSize != responseSize)
+                return TpmCapabilitiesUnavailable("tpm_response_size_mismatch");
+
             var responseCode = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(6, 4));
             if (responseCode != 0)
                 return new
