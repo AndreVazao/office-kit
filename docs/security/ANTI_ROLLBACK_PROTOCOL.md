@@ -185,3 +185,7 @@ The helper's `tpm-capabilities` command checks TPM 2.0 metadata, creates a TBS c
 The integration test accepts explicit unavailable/not-present/rejected outcomes. A green CI result therefore proves the helper build and result handling, not that a physical TPM was present or returned a capability list. No physical TPM provisioning or monotonic protection was performed.
 
 PR #103 was squash-merged as `51d5db49309e02f2e42594194ab778651e26d2ae` from final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`; CI run `44095809628` and Chromium visual run `44095809554` passed on that exact SHA. The parser now requires the no-sessions response tag used by this request, validates exact framing and boolean `moreData`, rejects duplicate command codes, and reports absent commands as unknown when the response says more data remains. A deterministic .NET protocol harness covers valid, partial, malformed, duplicate and truncated frames. Synthetic protocol tests are not physical TPM evidence. This remains discovery-only and cannot promote the journal to `protected`.
+
+### Post-merge verification — 2026-11-17
+
+The squash merge commit `51d5db49309e02f2e42594194ab778651e26d2ae` passed post-merge CI run `44096288229` and Chromium visual run `44096287944`, both on that exact main SHA. CI passed Linux and Windows on Node 22 and Node 26.13.1; Windows also passed native CNG, the TPM parser protocol harness and portable bundle E2E. The parser harness uses synthetic frames and does not prove TPM hardware behavior.
