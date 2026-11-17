@@ -40,7 +40,7 @@ $adapterAllowlist = if ($Edition -eq "DGM-MAT") { @("dgm-mat") } else { @("vazao
 $excludedAdapters = if ($Edition -eq "DGM-MAT") { @("VST") } else { @("DGM-MAT") }
 
 $nodeVersion = (& $nodePath --version).Trim()
-if ($nodeVersion -notmatch '^v?(\\d+)\\.(\\d+)\\.(\\d+)') {
+if ($nodeVersion -notmatch '^v?(\d+)\.(\d+)\.(\d+)') {
   throw ("Could not parse bundled Node.js version: " + $nodeVersion)
 }
 $parsedNodeVersion = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
@@ -119,7 +119,7 @@ $manifest = [ordered]@{
 }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $bundleRoot "bundle-manifest.json") -Encoding utf8
 
-$entrypointWindows = $entrypoint.Replace("/", "\\")
+$entrypointWindows = $entrypoint.Replace("/", "\")
 $launcher = @"
 @echo off
 setlocal
