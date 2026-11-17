@@ -12,9 +12,9 @@ function tarEntryText(gzipPath, bytes, wantedPath) {
   while (offset + 512 <= archive.length) {
     const header = archive.subarray(offset, offset + 512);
     if (header.every(byte => byte === 0)) break;
-    const name = header.subarray(0, 100).toString("utf8").replace(/\\0.*$/s, "");
-    const prefix = header.subarray(345, 500).toString("utf8").replace(/\\0.*$/s, "");
-    const sizeText = header.subarray(124, 136).toString("ascii").replace(/\\0/g, "").trim();
+    const name = header.subarray(0, 100).toString("utf8").replace(/\0.*$/s, "");
+    const prefix = header.subarray(345, 500).toString("utf8").replace(/\0.*$/s, "");
+    const sizeText = header.subarray(124, 136).toString("ascii").replace(/\0/g, "").trim();
     const size = Number.parseInt(sizeText || "0", 8);
     const entryName = prefix ? prefix + "/" + name : name;
     if (entryName === wantedPath) return archive.subarray(offset + 512, offset + 512 + size).toString("utf8");
