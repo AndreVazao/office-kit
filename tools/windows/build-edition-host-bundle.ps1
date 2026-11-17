@@ -7,7 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\\..")).Path
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $helperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 
 if ([string]::IsNullOrWhiteSpace($helperPath) -or -not (Test-Path -LiteralPath $helperPath -PathType Leaf)) {
@@ -18,7 +18,7 @@ $nodeCommand = Get-Command "node.exe" -ErrorAction Stop
 $nodePath = $nodeCommand.Source
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
   $editionKeyForPath = if ($Edition -eq "DGM-MAT") { "dgmat" } else { "vst" }
-  $OutputDirectory = Join-Path $repoRoot ("artifacts\\windows-host-bundle-" + $editionKeyForPath)
+  $OutputDirectory = Join-Path $repoRoot ("artifacts\windows-host-bundle-" + $editionKeyForPath)
 }
 $bundleRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 if ($bundleRoot -eq $repoRoot) {
