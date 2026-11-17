@@ -11,7 +11,7 @@ let DatabaseSync;
 try {
   ({ DatabaseSync } = await import("node:sqlite"));
 } catch {
-  // The package supports Node 20; real node:sqlite integration runs on Node 22+.
+  // The supported runtime floor is Node 22.5.0; node:sqlite integration runs on the declared engine range.
 }
 
 const sqliteTest = (name, fn) => test(name, { skip: !DatabaseSync }, fn);
