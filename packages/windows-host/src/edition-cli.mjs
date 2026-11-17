@@ -88,6 +88,7 @@ async function runServe(host, { input, output }) {
     }
   } finally {
     reader.close();
+    if (typeof input.pause === "function") input.pause();
   }
 }
 
