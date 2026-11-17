@@ -726,3 +726,7 @@ The new gate is a safety mechanism, not proof of arbitrary-process SQLite lockin
 - Windows Node 22/26 CI jobs built and exercised the helper. The test accepts `not_present` and `unavailable`; this does not prove a physical TPM responded. Linux jobs skip Windows-native steps.
 - PR #103 was squash-merged as `51d5db49309e02f2e42594194ab778651e26d2ae` from final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`; CI `44095809628` and visual `44095809554` passed on that same SHA. Its deterministic .NET harness validates no-session framing, exact lengths, response codes, `moreData`, bounded command counts, payload length and duplicate command rejection. The harness uses synthetic frames and is not physical TPM evidence.
 - The actual TPM 2.0 provider, consented NV provisioning, atomic compare-and-advance, clear/reprovision handling and physical hardware validation remain unimplemented.
+
+## 2026-11-17 — edition packaging gap
+
+Issue [#104](https://github.com/AndreVazao/office-kit/issues/104) tracks delivery of isolated native hosts and production installers for all three editions. The current `build:all-editions` workflow builds separate source packages, but `tools/windows/build-host-bundle.ps1` is hard-coded to Universal and explicitly excludes DGM-MAT/VST adapters. DGM-MAT and VST still lack their own Windows desktop bundles/installers; Linux, macOS and Android native hosts/installers also remain pending. Do not describe source-package builds or the Universal portable bundle as commercial installers.
