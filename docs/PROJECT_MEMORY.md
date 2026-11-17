@@ -659,3 +659,11 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - Added two Windows-host startup regressions: restoring a previously valid sequence-1 SQLite backup after the protected anchor advances to sequence 2 must fail with `monotonic_anchor_mismatch`; truncating a locally self-consistent event/MAC/snapshot prefix while leaving the protected checkpoint at sequence 2 must fail with `windows_host_incident_checkpoint_store_mismatch`.
 - The SQLite database and WAL are real. The monotonic anchor and Windows host factories are test-only fakes. These tests exercise host recovery decisions; they do not prove TPM behavior, physical power-loss durability or hardware-backed rollback resistance.
  - Initial final-HEAD validation completed on `f5dd92a71a148b5cc10a0c296f52072c4e075c71`: CI run `43886278807` and Chromium visual regression run `43886278917` both passed on that exact SHA on 2026-11-16. The follow-up documentation-only commit must be revalidated independently; these earlier results are not treated as checks for a later SHA. Before merge, both required workflows must report success for the exact current PR head; green results from `f5dd92a71a148b5cc10a0c296f52072c4e075c71` do not authorize merging a later commit.
+## 2026-11-17 — Windows TPM capability probe
+
+- Main HEAD after PR #102: `5319c132386a6d619cafa13e0bf2669103623ce8`.
+- PR #101 was squash-merged as `e7388306caadb24861501504af587f6b382712cb`; it adds real SQLite/WAL backup rollback and prefix-truncation regressions, while the anchor/host factories remain test fakes.
+- PR #102 was squash-merged as `5319c132386a6d619cafa13e0bf2669103623ce8` from final PR HEAD `707ad1c2f07347f3379df1293b9e82cc1b93642d`; CI `44041193372` and visual `44041192318` passed on that exact SHA.
+- PR #102 adds a read-only TBS `TPM2_GetCapability(TPM_CAP_COMMANDS)` probe. It does not provision NV, prove TBS command permission, expose an anchor, or promote protection.
+- The Windows native integration test accepts unavailable/no-TPM outcomes, so CI success is not proof that a physical TPM answered.
+- Follow-up work on `fix/windows-tpm-capability-response-parser-2026-11-17` hardens TPM response framing and adds deterministic parser tests; its validation and merge are pending.
