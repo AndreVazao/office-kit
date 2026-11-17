@@ -90,6 +90,22 @@ Referências:
 - Microsoft `TPM_DEVICE_INFO`: https://learn.microsoft.com/en-us/windows/win32/api/tbs/ns-tbs-tpm_device_info
 - Microsoft TBS API overview: https://learn.microsoft.com/en-us/windows/win32/api/_tbs/
 
+## Consulta nativa de capacidades NV — fase read-only
+
+O helper Windows acrescenta o comando explícito `tpm-capabilities`. Só cria um contexto TBS TPM 2.0 depois de confirmar `Tbsi_GetDeviceInfo` com schema conhecido e versão 2.0. Envia exclusivamente `TPM2_GetCapability(TPM_CAP_COMMANDS)`, uma consulta sem autorização e sem mutação de estado NV.
+
+A resposta é validada em duas camadas: código de retorno TBS e cabeçalho/código de resposta TPM. O parser valida tag, tamanho declarado, capability devolvida, contagem e comprimento exato da lista antes de interpretar os command codes. O contexto TBS é fechado em `finally`, incluindo respostas de erro.
+
+O resultado enumera se o TPM anuncia os command codes NV_DefineSpace, NV_UndefineSpace, NV_Increment, NV_Read, NV_ReadPublic e NV_Write. **Anúncio não significa permissão**: não confirma que o filtro TBS do Windows permite o comando ao processo, que a autorização NV é conhecida, que o índice existe, nem que compare-and-advance seja atomicamente seguro. Por isso, `tbsCommandPermissionVerified=false`, `nvProvisioningPerformed=false`, `monotonicAnchorAvailable=false` e `protectionPromotionAllowed=false` em todos os resultados.
+
+Esta fase não define, incrementa, lê, escreve ou elimina índices NV. Também não recolhe nem exporta owner/platform authorization. O próximo passo é desenhar o protocolo de provisioning e a associação autenticada entre contador e digest do checkpoint; não se deve usar um contador NV isolado como se guardasse o checkpoint completo.
+
+Referências Microsoft:
+- `Tbsi_Context_Create`: https://learn.microsoft.com/en-us/windows/win32/api/tbs/nf-tbs-tbsi_context_create
+- `TBS_CONTEXT_PARAMS2`: https://learn.microsoft.com/en-us/windows/win32/api/tbs/ns-tbs-tbs_context_params2
+- `Tbsip_Submit_Command`: https://learn.microsoft.com/en-us/windows/win32/api/tbs/nf-tbs-tbsip_submit_command
+- `TPM Base Services`: https://learn.microsoft.com/en-us/windows/win32/api/_tbs/
+
 ## Provisioning, backup e recuperação
 
 - Provisioning exige consentimento explícito do proprietário e regista identidade/capacidades da âncora.
