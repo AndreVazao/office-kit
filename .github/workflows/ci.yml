@@ -101,7 +101,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: \${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition DGM-MAT -OutputDirectory artifacts/windows-host-bundle-dgmat
       - name: Test DGM-MAT portable Windows bundle
         if: runner.os == 'Windows'
@@ -111,7 +111,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: \${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition VST -OutputDirectory artifacts/windows-host-bundle-vst
       - name: Test VST portable Windows bundle
         if: runner.os == 'Windows'
