@@ -56,3 +56,19 @@ The generic scene-engine entrypoint is backend-neutral. DGM-MAT-specific exports
 All edition tarballs declare Node.js >=22.5.0, matching the host's node:sqlite requirement. node:sqlite is still experimental on Node 22; this limitation is recorded in each edition manifest. The three manual workflows use Node 26.13.1; the general CI matrix validates Node 22 and Node 26.13.1.
 
 Automated tests inspect the actual .tgz file lists for all three editions, not just their generated manifests. These artifacts remain source packages, not OS installers.
+
+
+## Edition-specific Windows CLI entrypoints — 2026-11-17
+
+The DGM-MAT and VST source packages expose separate Windows host CLI entrypoints:
+
+- DGM-MAT: `./windows-host/dgmat-cli` → `packages/windows-host/src/dgmat-cli.mjs`.
+- VST: `./windows-host/vst-cli` → `packages/windows-host/src/vst-cli.mjs`.
+
+Each launcher composes only its own adapter/credential provider and uses a separate persistent data root below `%LOCALAPPDATA%\\OfficeKit\\` (`DGM-MAT` or `VST`). The existing Universal data root and launcher are preserved to avoid silently moving existing installation data.
+
+The launcher starts disconnected. `health` does not connect. `serve` accepts newline-delimited JSON requests with exactly one property, `command`, and supports `health`, `credential-status`, `connect`, `snapshot`, `disconnect` and `shutdown`. A snapshot is rejected until an explicit connect succeeds. Every process exit closes the host and disconnects its adapter.
+
+Credential values are not accepted in command-line arguments or control messages, and are never printed. Provisioning/removal remains available only through the edition host API with explicit owner consent; a future onboarding UI must collect secrets through a protected input path. The CLI opens no network listener and does not perform backend discovery or auto-connect.
+
+This increment adds source-package entrypoints and deterministic command-loop tests. It does **not** yet add DGM-MAT/VST portable Windows bundles, MSI/MSIX installers, service registration, live backend proof or physical-PC installation validation. The existing portable bundle builder remains Universal-only until its own edition-specific allowlist and smoke-test work is completed.
