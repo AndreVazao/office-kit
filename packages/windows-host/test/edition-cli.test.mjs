@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
+import { join } from "node:path";
 import { resolveEditionHostOptions, runEditionCli } from "../src/edition-cli.mjs";
 import { runDgmMatCli } from "../src/dgmat-cli.mjs";
 import { runVstCli } from "../src/vst-cli.mjs";
@@ -115,8 +116,8 @@ test("DGM-MAT and VST launchers use distinct persistent data roots", async () =>
     argv: ["health"], env, output: vstOutput,
     createHost: configuration => { vstPath = configuration.hostOptions.appDataPath; return vstHost; }
   });
-  assert.equal(dgmatPath, "/profiles/user/OfficeKit/DGM-MAT");
-  assert.equal(vstPath, "/profiles/user/OfficeKit/VST");
+  assert.equal(dgmatPath, join(env.LOCALAPPDATA, "OfficeKit", "DGM-MAT"));
+  assert.equal(vstPath, join(env.LOCALAPPDATA, "OfficeKit", "VST"));
   assert.notEqual(dgmatPath, vstPath);
 });
 
