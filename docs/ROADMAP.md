@@ -775,7 +775,7 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 
 ### Windows edition host entrypoints — 2026-11-17
 
-- [ ] Validate isolated DGM-MAT/VST Windows CLI entrypoints with explicit connect/disconnect and no credential transport through argv or logs (implementation branch: `feat/edition-specific-windows-cli-2026-11-17`).
+- [x] Integrate isolated DGM-MAT/VST Windows CLI entrypoints with explicit connect/disconnect and no credential transport through argv or logs (PR #106; final PR HEAD `14c9e8d9e3863042fa1eba51db7133433df359ba`; CI #44102217430 and visual #44102217301 passed on that SHA).
 - [ ] Extend the Windows portable bundle builder to three independent allowlists and run artifact-content plus per-edition install/start/health/uninstall smoke tests.
 - [ ] Deliver signed MSI/MSIX installers with upgrade, rollback, recovery and uninstall validation. Source-package CLI entrypoints do not satisfy this gate.
 
