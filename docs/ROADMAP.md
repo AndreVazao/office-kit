@@ -769,3 +769,5 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 A passing native-helper CI job is not evidence that a TPM was present, that TBS permitted NV mutation, or that hardware-backed rollback resistance exists.
 
 - [ ] Deliver edition-specific Windows desktop bundles/installers for Universal, DGM-MAT and VST, followed by native Linux/macOS/Android hosts and packages; verify artifact allowlists and installation isolation (tracked in [issue #104](https://github.com/AndreVazao/office-kit/issues/104)).
+
+- [x] Revalidate PR #103 merge commit `51d5db49309e02f2e42594194ab778651e26d2ae`: post-merge CI `44096288229` and visual `44096287944` passed on the exact main SHA.
