@@ -666,4 +666,4 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - PR #102 was squash-merged as `5319c132386a6d619cafa13e0bf2669103623ce8` from final PR HEAD `707ad1c2f07347f3379df1293b9e82cc1b93642d`; CI `44041193372` and visual `44041192318` passed on that exact SHA.
 - PR #102 adds a read-only TBS `TPM2_GetCapability(TPM_CAP_COMMANDS)` probe. It does not provision NV, prove TBS command permission, expose an anchor, or promote protection.
 - The Windows native integration test accepts unavailable/no-TPM outcomes, so CI success is not proof that a physical TPM answered.
-- Follow-up work on `fix/windows-tpm-capability-response-parser-2026-11-17` hardens TPM response framing and adds deterministic parser tests; its validation and merge are pending.
+- PR #103 hardened TPM response framing and added a deterministic .NET protocol harness. It was squash-merged as `51d5db49309e02f2e42594194ab778651e26d2ae` from final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`; CI `44095809628` and visual `44095809554` passed on the same SHA. The harness uses synthetic response frames, not a physical TPM.
