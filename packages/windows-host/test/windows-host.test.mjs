@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
+
+let DatabaseSync;
+try { ({ DatabaseSync } = await import("node:sqlite")); } catch {}
 
 const testSecrets = new Map();
 function fakeSecretVault({ installationId, namespace }) {
@@ -639,6 +642,137 @@ test("host-bound lifecycle controller persists operation state in the host SQLit
     reopened = null;
   } finally {
     await reopened?.close();
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+// These regressions use real SQLite/WAL with the explicitly test-only in-memory anchor above.
+// They validate host recovery decisions, not TPM hardware or physical power-loss behavior.
+test("Windows host rejects an older valid SQLite backup after the monotonic anchor advances", {
+  skip: !DatabaseSync
+}, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-old-backup-"));
+  const anchor = createTestMonotonicAnchorFactory();
+  const backupPath = join(directory, "journal-sequence-one.sqlite");
+  let host;
+  let databasePath;
+  try {
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await host.ready;
+    await host.incidentStore.append({
+      id: "incident-backup-prefix-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    databasePath = host.databasePath;
+    await host.close();
+    host = null;
+
+    const checkpointDatabase = new DatabaseSync(databasePath);
+    try {
+      checkpointDatabase.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    } finally {
+      checkpointDatabase.close();
+    }
+    copyFileSync(databasePath, backupPath);
+
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await host.ready;
+    await host.incidentStore.append({
+      id: "incident-backup-prefix-002",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    assert.equal((await host.getIncidentProtectionState()).checkpoint.sequence, 2);
+    await host.close();
+    host = null;
+
+    rmSync(databasePath + "-wal", { force: true });
+    rmSync(databasePath + "-shm", { force: true });
+    copyFileSync(backupPath, databasePath);
+
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await assert.rejects(host.ready, /monotonic_anchor_mismatch/);
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Windows host rejects a locally valid truncated incident prefix against the protected checkpoint", {
+  skip: !DatabaseSync
+}, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-prefix-truncation-"));
+  const anchor = createTestMonotonicAnchorFactory();
+  let host;
+  let databasePath;
+  let installationId;
+  try {
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await host.ready;
+    await host.incidentStore.append({
+      id: "incident-prefix-truncation-001",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    await host.incidentStore.append({
+      id: "incident-prefix-truncation-002",
+      occurredAt: new Date().toISOString(),
+      status: "degraded",
+      origin: "transport"
+    });
+    assert.equal((await host.getIncidentProtectionState()).checkpoint.sequence, 2);
+    databasePath = host.databasePath;
+    installationId = host.installationId;
+    await host.close();
+    host = null;
+
+    const database = new DatabaseSync(databasePath);
+    try {
+      database.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
+      // Model a database-level attacker who can remove immutability triggers.
+      const triggers = database.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all();
+      for (const trigger of triggers) {
+        assert.match(trigger.name, /^[A-Za-z0-9_]+$/);
+        database.exec(`DROP TRIGGER "${trigger.name}"`);
+      }
+      assert.equal(Number(database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'trigger'").get().count), 0);
+      const first = database.prepare(
+        "SELECT event_hash FROM office_kit_incident_events WHERE installation_id = ? AND sequence = 1"
+      ).get(installationId);
+      assert.ok(first?.event_hash);
+      database.exec("BEGIN IMMEDIATE");
+      try {
+        database.prepare(
+          "DELETE FROM office_kit_incident_events WHERE installation_id = ? AND sequence = 2"
+        ).run(installationId);
+        database.prepare(
+          "DELETE FROM office_kit_incident_event_macs WHERE installation_id = ? AND sequence = 2"
+        ).run(installationId);
+        database.prepare(
+          "DELETE FROM office_kit_incidents WHERE installation_id = ? AND incident_id = ?"
+        ).run(installationId, "incident-prefix-truncation-002");
+        const moved = database.prepare(
+          "UPDATE office_kit_incident_chain_heads SET sequence = 1, head_hash = ? WHERE installation_id = ?"
+        ).run(first.event_hash, installationId);
+        assert.equal(Number(moved.changes), 1);
+        database.exec("COMMIT");
+      } catch (error) {
+        try { database.exec("ROLLBACK"); } catch {}
+        throw error;
+      }
+    } finally {
+      database.close();
+    }
+
+    host = setup(directory, { monotonicAnchorProviderFactory: anchor.factory });
+    await assert.rejects(host.ready, /windows_host_incident_checkpoint_store_mismatch/);
+  } finally {
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
