@@ -25,6 +25,8 @@ jobs:
         run: npm run check
       - name: Validate example configuration JSON
         run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
+      - name: Validate edition bundle test runner syntax
+        run: node --check tools/windows/edition-host-bundle-test-runner.mjs
       - name: Build all isolated edition source packages
         run: npm run build:all-editions
       - name: Validate Windows PowerShell scripts
@@ -33,7 +35,9 @@ jobs:
         run: |
           $scripts = @(
             "tools/windows/build-host-bundle.ps1",
-            "tools/windows/test-host-bundle.ps1"
+            "tools/windows/test-host-bundle.ps1",
+            "tools/windows/build-edition-host-bundle.ps1",
+            "tools/windows/test-edition-host-bundle.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -93,3 +97,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/windows/test-host-bundle.ps1 -BundleDirectory artifacts/windows-host-bundle
+      - name: Build DGM-MAT portable Windows bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: \${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
+        run: ./tools/windows/build-edition-host-bundle.ps1 -Edition DGM-MAT -OutputDirectory artifacts/windows-host-bundle-dgmat
+      - name: Test DGM-MAT portable Windows bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/windows/test-edition-host-bundle.ps1 -Edition DGM-MAT -BundleDirectory artifacts/windows-host-bundle-dgmat
+      - name: Build VST portable Windows bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: \${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
+        run: ./tools/windows/build-edition-host-bundle.ps1 -Edition VST -OutputDirectory artifacts/windows-host-bundle-vst
+      - name: Test VST portable Windows bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/windows/test-edition-host-bundle.ps1 -Edition VST -BundleDirectory artifacts/windows-host-bundle-vst
