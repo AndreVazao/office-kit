@@ -778,3 +778,12 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Validate isolated DGM-MAT/VST Windows CLI entrypoints with explicit connect/disconnect and no credential transport through argv or logs (implementation branch: `feat/edition-specific-windows-cli-2026-11-17`).
 - [ ] Extend the Windows portable bundle builder to three independent allowlists and run artifact-content plus per-edition install/start/health/uninstall smoke tests.
 - [ ] Deliver signed MSI/MSIX installers with upgrade, rollback, recovery and uninstall validation. Source-package CLI entrypoints do not satisfy this gate.
+
+
+### 2026-11-17 — Windows edition bundle increment (pending validation)
+
+- [ ] Validate the DGM-MAT and VST portable Windows bundle builder derived from the exact source-package allowlists.
+- [ ] Validate artifact-content exclusion, trusted CI-only helper signing, shipped launcher startup, disconnected JSON-lines control and edition-scoped data roots on Windows Node 22 and Node 26.
+- [ ] Keep Universal's existing launcher/data root unchanged.
+- [ ] After this portable-bundle gate, implement MSI/MSIX installation, upgrade, rollback/recovery, complete uninstall and production publisher signing. Portable bundles do not satisfy the installer gate.
+- [ ] Continue Linux/macOS/Android native hosts and platform-native keystores separately.
