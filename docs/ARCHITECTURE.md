@@ -483,3 +483,12 @@ PR #103's strict TPM response parser and synthetic protocol harness were squash-
 A separate distribution gap is tracked by [issue #104](https://github.com/AndreVazao/office-kit/issues/104): the current portable Windows host bundle is Universal-only. The three edition source allowlists are built independently, but DGM-MAT and VST do not yet have their own installable desktop bundles/installers. Future packaging must preserve the existing adapter and credential isolation.
 
 The PR #103 squash merge commit `51d5db49309e02f2e42594194ab778651e26d2ae` passed post-merge CI `44096288229` and visual regression `44096287944` on the same main SHA. Windows CI executed the deterministic parser harness, native CNG integration and portable bundle E2E. No physical TPM provisioning or TPM-backed rollback test was performed.
+
+
+## 2026-11-17 — edition-specific Windows launch and bundle boundary
+
+DGM-MAT and VST have separate Windows CLI entrypoints and persistent roots (`%LOCALAPPDATA%\\OfficeKit\\DGM-MAT` and `%LOCALAPPDATA%\\OfficeKit\\VST`). Each composition imports only its own adapter/session or token provider. Universal retains its existing generic launcher and data root.
+
+The portable DGM-MAT/VST bundle builder derives files from the corresponding source-package allowlist instead of copying a hand-maintained cross-edition tree. Each bundle manifest declares its edition, adapter allowlist, excluded adapter, CLI entrypoint, runtime and safe defaults. The test gate compares the actual files with that manifest and exercises the shipped launcher with an empty temporary profile. A CI-only self-signed publisher is trusted only during the disposable test and removed afterward; this is not commercial publisher signing.
+
+All editions start disconnected. DGM-MAT bootstrap credentials and VST observer tokens are not accepted on command lines or JSON control messages; provisioning remains an explicit owner-consented host API operation. The adapters expose read-only state only. Portable bundles do not provide installer lifecycle, upgrade/rollback/uninstall, live backend validation or physical-machine installation evidence.
