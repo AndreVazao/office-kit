@@ -669,3 +669,5 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - PR #103 hardened TPM response framing and added a deterministic .NET protocol harness. It was squash-merged as `51d5db49309e02f2e42594194ab778651e26d2ae` from final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`; CI `44095809628` and visual `44095809554` passed on the same SHA. The harness uses synthetic response frames, not a physical TPM.
 
 - Issue #104 opened 2026-11-17 to track isolated native hosts and production installers for Universal, DGM-MAT and VST. The source package builder has three edition allowlists, but the current Windows portable bundle script is Universal-only; DGM-MAT/VST installable desktop artifacts remain absent.
+
+- Post-merge main SHA `51d5db49309e02f2e42594194ab778651e26d2ae` passed CI `44096288229` and visual `44096287944` on the exact same SHA. Windows jobs passed the TPM parser harness, native CNG checks and portable Universal bundle E2E; no physical TPM or PC installation was validated.
