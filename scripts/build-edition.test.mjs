@@ -6,6 +6,23 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { buildEditionPackage } from "./build-edition.mjs";
 
+function tarEntryText(gzipPath, bytes, wantedPath) {
+  const archive = gunzipSync(bytes);
+  let offset = 0;
+  while (offset + 512 <= archive.length) {
+    const header = archive.subarray(offset, offset + 512);
+    if (header.every(byte => byte === 0)) break;
+    const name = header.subarray(0, 100).toString("utf8").replace(/\\0.*$/s, "");
+    const prefix = header.subarray(345, 500).toString("utf8").replace(/\\0.*$/s, "");
+    const sizeText = header.subarray(124, 136).toString("ascii").replace(/\\0/g, "").trim();
+    const size = Number.parseInt(sizeText || "0", 8);
+    const entryName = prefix ? prefix + "/" + name : name;
+    if (entryName === wantedPath) return archive.subarray(offset + 512, offset + 512 + size).toString("utf8");
+    offset += 512 + Math.ceil(size / 512) * 512;
+  }
+  assert.fail("Missing tar entry " + wantedPath + " in " + gzipPath);
+}
+
 function tarEntries(gzipPath, bytes) {
   const archive = gunzipSync(bytes);
   const entries = [];
@@ -30,15 +47,16 @@ async function build(edition) {
     const result = await buildEditionPackage(edition, { outputDirectory });
     const archive = await readFile(result.tarball);
     const entries = tarEntries(result.tarball, archive);
+    const packageJson = JSON.parse(tarEntryText(result.tarball, archive, "package/package.json"));
     const manifest = JSON.parse(await readFile(result.manifest, "utf8"));
-    return { result, entries, manifest };
+    return { result, entries, manifest, packageJson };
   } finally {
     await rm(outputDirectory, { recursive: true, force: true });
   }
 }
 
 test("Universal tarball contains generic modules and excludes DGM-MAT/VST source", async () => {
-  const { entries, manifest } = await build("universal");
+  const { entries, manifest, packageJson } = await build("universal");
   const names = entries.join("\n");
   assert.ok(names.includes("package/packages/scene-engine/src/index.mjs"));
   assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
@@ -50,18 +68,28 @@ test("Universal tarball contains generic modules and excludes DGM-MAT/VST source
   assert.ok(!names.includes("vst-readonly-adapter.mjs"));
   assert.ok(!names.includes("vst.mjs"));
   assert.ok(!names.includes("vst-windows-host.mjs"));
+  assert.ok(!names.includes("edition-cli.mjs"));
+  assert.ok(!names.includes("dgmat-cli.mjs"));
+  assert.ok(!names.includes("vst-cli.mjs"));
+  assert.equal(packageJson.exports["./windows-host/dgmat-cli"], undefined);
+  assert.equal(packageJson.exports["./windows-host/vst-cli"], undefined);
   assert.deepEqual(manifest.adapterAllowlist, []);
   assert.equal(manifest.packageContents.dgmMatAdapter, false);
   assert.equal(manifest.packageContents.vstAdapter, false);
 });
 
 test("DGM-MAT tarball includes its adapter/session/Windows host entrypoints and no VST source", async () => {
-  const { entries, manifest } = await build("dgmat");
+  const { entries, manifest, packageJson } = await build("dgmat");
   const names = entries.join("\n");
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat-readonly-adapter.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat-local-session-provider.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/dgmat-windows-host.mjs"));
+  assert.ok(names.includes("package/packages/windows-host/src/edition-cli.mjs"));
+  assert.ok(names.includes("package/packages/windows-host/src/dgmat-cli.mjs"));
+  assert.ok(!names.includes("vst-cli.mjs"));
+  assert.equal(packageJson.exports["./windows-host/dgmat-cli"], "./packages/windows-host/src/dgmat-cli.mjs");
+  assert.equal(packageJson.exports["./windows-host/vst-cli"], undefined);
   assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
   assert.ok(!names.toLowerCase().includes("/vst/"));
   assert.ok(!names.includes("vst-readonly-adapter.mjs"));
@@ -73,12 +101,17 @@ test("DGM-MAT tarball includes its adapter/session/Windows host entrypoints and 
 });
 
 test("VST tarball includes only its read-only adapter and excludes DGM-MAT source", async () => {
-  const { entries, manifest } = await build("vst");
+  const { entries, manifest, packageJson } = await build("vst");
   const names = entries.join("\n");
   assert.ok(names.includes("package/packages/windows-host/src/secret-vault.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/vst-readonly-adapter.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/vst.mjs"));
   assert.ok(names.includes("package/packages/scene-engine/src/vst-windows-host.mjs"));
+  assert.ok(names.includes("package/packages/windows-host/src/edition-cli.mjs"));
+  assert.ok(names.includes("package/packages/windows-host/src/vst-cli.mjs"));
+  assert.ok(!names.includes("dgmat-cli.mjs"));
+  assert.equal(packageJson.exports["./windows-host/vst-cli"], "./packages/windows-host/src/vst-cli.mjs");
+  assert.equal(packageJson.exports["./windows-host/dgmat-cli"], undefined);
   assert.ok(!names.includes("dgmat-windows-host.mjs"));
   assert.ok(!names.includes("dgmat-readonly-adapter.mjs"));
   assert.ok(!names.includes("dgmat-local-session-provider.mjs"));
