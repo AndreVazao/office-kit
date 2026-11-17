@@ -126,6 +126,17 @@ export function createWindowsDgmMatHost({
     return { disconnected: true };
   }
 
+  function getCredentialState() {
+    if (closed) return Object.freeze({ configured: false, storage: "closed", credentialExposed: false });
+    return Object.freeze({
+      configured: bootstrapVault.hasSecret("bootstrap"),
+      provider: "windows-cng-software-ksp-secret-vault",
+      namespace: "dgmat.bootstrap",
+      secretName: "bootstrap",
+      credentialExposed: false
+    });
+  }
+
   async function health() {
     if (closed) return Object.freeze({ status: "stopped", edition: "dgmat" });
     const hostHealth = await host.health();
@@ -133,6 +144,7 @@ export function createWindowsDgmMatHost({
       ...hostHealth,
       edition: "dgmat",
       adapterConnected: adapter.connected === true,
+      bootstrapCredentialConfigured: bootstrapVault.hasSecret("bootstrap"),
       backendSession: sessionProvider.getState(),
       backendOperationalState: "unverified"
     });
@@ -164,6 +176,7 @@ export function createWindowsDgmMatHost({
     disconnect,
     health,
     getSessionState: () => sessionProvider.getState(),
+    getCredentialState,
     close
   });
 }

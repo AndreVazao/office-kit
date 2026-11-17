@@ -734,3 +734,12 @@ Issue [#104](https://github.com/AndreVazao/office-kit/issues/104) tracks deliver
 ### Post-merge verification — 2026-11-17
 
 Main merge commit `51d5db49309e02f2e42594194ab778651e26d2ae` passed CI `44096288229` and Chromium visual regression `44096287944` on the same SHA. Linux/Windows Node 22 and Node 26.13.1 passed; Windows native CNG, TPM parser protocol tests and portable bundle E2E passed. This validates the software and Windows CI environment, not a physical TPM or user-PC installation.
+
+
+## 2026-11-17 — DGM-MAT/VST edition-specific Windows CLI entrypoints
+
+A new implementation slice adds `packages/windows-host/src/edition-cli.mjs`, `dgmat-cli.mjs` and `vst-cli.mjs`. DGM-MAT and VST source packages expose only their own CLI subpath. Their persistent roots are separated under `%LOCALAPPDATA%\\OfficeKit\\DGM-MAT` and `%LOCALAPPDATA%\\OfficeKit\\VST`; the existing Universal root is unchanged.
+
+The JSON-lines command loop starts disconnected and supports explicit `connect`/`disconnect`, read-only `snapshot`, `health`, non-secret `credential-status` and `shutdown`. Requests with any extra field are rejected, so credentials cannot be supplied through CLI arguments or control messages. The DGM-MAT host now reports only whether its bootstrap credential is configured, never the credential itself.
+
+This is a source-package CLI increment. It is not an edition-specific portable bundle or installer. CI and visual regression on the final PR HEAD are required before integration; no live DGM-MAT/VST backend or physical-PC validation is claimed.

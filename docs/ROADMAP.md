@@ -771,3 +771,10 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Deliver edition-specific Windows desktop bundles/installers for Universal, DGM-MAT and VST, followed by native Linux/macOS/Android hosts and packages; verify artifact allowlists and installation isolation (tracked in [issue #104](https://github.com/AndreVazao/office-kit/issues/104)).
 
 - [x] Revalidate PR #103 merge commit `51d5db49309e02f2e42594194ab778651e26d2ae`: post-merge CI `44096288229` and visual `44096287944` passed on the exact main SHA.
+
+
+### Windows edition host entrypoints — 2026-11-17
+
+- [ ] Validate isolated DGM-MAT/VST Windows CLI entrypoints with explicit connect/disconnect and no credential transport through argv or logs (implementation branch: `feat/edition-specific-windows-cli-2026-11-17`).
+- [ ] Extend the Windows portable bundle builder to three independent allowlists and run artifact-content plus per-edition install/start/health/uninstall smoke tests.
+- [ ] Deliver signed MSI/MSIX installers with upgrade, rollback, recovery and uninstall validation. Source-package CLI entrypoints do not satisfy this gate.
