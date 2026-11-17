@@ -761,7 +761,7 @@ PR #86 is generic storage/core work. It does not change the Universal, DGM-MAT o
 
 - [x] Add a read-only Windows TBS `TPM2_GetCapability(TPM_CAP_COMMANDS)` probe after TPM 2.0 metadata detection (PR #102, merged as `5319c132386a6d619cafa13e0bf2669103623ce8`).
 - [x] Validate PR #102 final HEAD `707ad1c2f07347f3379df1293b9e82cc1b93642d` with CI `44041193372` and visual regression `44041192318` on the same SHA.
-- [ ] Harden the response parser against session-tag/layout confusion, invalid `moreData`, inconsistent lengths and duplicate command codes; add a deterministic protocol test independent of physical TPM availability.
+- [x] Harden the response parser against session-tag/layout confusion, invalid `moreData`, inconsistent lengths and duplicate command codes; add a deterministic protocol test independent of physical TPM availability (PR #103, merged as `51d5db49309e02f2e42594194ab778651e26d2ae`; CI `44095809628` and visual `44095809554` passed on final PR HEAD `dd6e74faf7d66b3f6459a397f3357b2bf759e5eb`).
 - [ ] Design a consented NV provisioning protocol that binds installation identity and checkpoint digest, and handles TBS command blocking, authorization, TPM clear and ambiguous increment outcomes.
 - [ ] Implement and validate a real compare-and-advance provider on physical Windows TPM 2.0 hardware. Do not promote `authenticated_only` to `protected` before this gate passes.
 - [ ] Keep Linux, macOS and Android protected mode disabled until each platform has its own durable monotonic provider and physical validation.
