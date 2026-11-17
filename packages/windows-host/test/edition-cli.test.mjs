@@ -1,0 +1,127 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PassThrough } from "node:stream";
+import { resolveEditionHostOptions, runEditionCli } from "../src/edition-cli.mjs";
+import { runDgmMatCli } from "../src/dgmat-cli.mjs";
+import { runVstCli } from "../src/vst-cli.mjs";
+
+function makeHost(edition) {
+  let connected = false;
+  const calls = [];
+  return {
+    calls,
+    ready: Promise.resolve(),
+    async health() {
+      calls.push("health");
+      return { status: "ready", edition, adapterConnected: connected, backendOperationalState: "unverified", backendReadOnly: true };
+    },
+    getCredentialState() {
+      calls.push("credential-status");
+      return { configured: false, credentialExposed: false };
+    },
+    async connect() { calls.push("connect"); connected = true; return { connected: true }; },
+    async getSnapshot() {
+      calls.push("snapshot");
+      if (!connected) throw new Error("not_connected");
+      return { connectionState: "synchronizing", synchronized: false, agents: [], tasks: [] };
+    },
+    async disconnect() { calls.push("disconnect"); connected = false; return { disconnected: true }; },
+    async close() { calls.push("close"); connected = false; }
+  };
+}
+
+async function runWithStreams(options, lines) {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  let text = "";
+  output.setEncoding("utf8");
+  output.on("data", chunk => { text += chunk; });
+  input.end(lines.join("\n") + "\n");
+  const code = await runEditionCli({ ...options, input, output });
+  return { code, responses: text.trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line)), text };
+}
+
+test("edition CLI starts disconnected and accepts only explicit read-only session commands", async () => {
+  const host = makeHost("dgmat");
+  const result = await runWithStreams({
+    edition: "dgmat", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    '{"command":"health"}',
+    '{"command":"credential-status"}',
+    '{"command":"snapshot"}',
+    '{"command":"connect"}',
+    '{"command":"snapshot"}',
+    '{"command":"disconnect"}',
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.code, 0);
+  assert.equal(result.responses[0].health.adapterConnected, false);
+  assert.equal(result.responses[1].credentials.configured, false);
+  assert.equal(result.responses[2].error, "not_connected");
+  assert.equal(result.responses[3].connected, true);
+  assert.equal(result.responses[4].snapshot.synchronized, false);
+  assert.equal(result.responses[5].connected, false);
+  assert.equal(result.responses[6].shutdown, true);
+  assert.equal(host.calls.filter(call => call === "connect").length, 1);
+  assert.equal(host.calls.filter(call => call === "disconnect").length, 1);
+  assert.equal(host.calls.at(-1), "close");
+});
+
+test("edition CLI rejects credential fields and never echoes request contents", async () => {
+  const host = makeHost("vst");
+  const result = await runWithStreams({
+    edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    '{"command":"connect","token":"TOP_SECRET_TEST_VALUE"}',
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(result.responses[1].shutdown, true);
+  assert.equal(result.text.includes("TOP_SECRET_TEST_VALUE"), false);
+  assert.equal(host.calls.includes("connect"), false);
+});
+
+test("edition CLI rejects command-line credential arguments before host creation", async () => {
+  let created = false;
+  const output = new PassThrough();
+  let text = "";
+  output.setEncoding("utf8");
+  output.on("data", chunk => { text += chunk; });
+  const code = await runEditionCli({
+    edition: "dgmat",
+    createHost: () => { created = true; throw new Error("must_not_run"); },
+    hostOptions: {},
+    argv: ["serve", "--token=TOP_SECRET_TEST_VALUE"],
+    output
+  });
+  assert.equal(code, 2);
+  assert.equal(created, false);
+  assert.equal(text.includes("TOP_SECRET_TEST_VALUE"), false);
+});
+
+test("DGM-MAT and VST launchers use distinct persistent data roots", async () => {
+  const dgmatHost = makeHost("dgmat");
+  const vstHost = makeHost("vst");
+  let dgmatPath;
+  let vstPath;
+  const env = { LOCALAPPDATA: "/profiles/user" };
+  const dgmatOutput = new PassThrough();
+  const vstOutput = new PassThrough();
+  await runDgmMatCli({
+    argv: ["health"], env, output: dgmatOutput,
+    createHost: configuration => { dgmatPath = configuration.hostOptions.appDataPath; return dgmatHost; }
+  });
+  await runVstCli({
+    argv: ["health"], env, output: vstOutput,
+    createHost: configuration => { vstPath = configuration.hostOptions.appDataPath; return vstHost; }
+  });
+  assert.equal(dgmatPath, "/profiles/user/OfficeKit/DGM-MAT");
+  assert.equal(vstPath, "/profiles/user/OfficeKit/VST");
+  assert.notEqual(dgmatPath, vstPath);
+});
+
+test("edition host data roots reject missing or relative LOCALAPPDATA", () => {
+  assert.throws(() => resolveEditionHostOptions("dgmat", {}), /local_app_data_required/);
+  assert.throws(() => resolveEditionHostOptions("vst", { LOCALAPPDATA: "relative" }), /local_app_data_required/);
+  assert.throws(() => resolveEditionHostOptions("universal", { LOCALAPPDATA: "/profiles/user" }), /unsupported_edition/);
+});
