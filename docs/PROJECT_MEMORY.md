@@ -676,3 +676,12 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 ### 2026-11-17 — Edition-specific Windows CLI entrypoints
 
 The current packaging gap is tracked by issue #104. The next implementation slice adds isolated DGM-MAT and VST CLI entrypoints to their respective source packages, preserving the existing Universal data root. Both start disconnected and expose an explicit JSON-lines control loop for health, credential-presence status, connect, read-only snapshot, disconnect and shutdown. Credential values are rejected from arguments/control messages and never emitted. The source packages remain distinct; no edition-specific Windows portable bundles or commercial installers are delivered by this slice.
+
+
+## 2026-11-17 — Windows edition CLI and portable bundle work
+
+- PR #106 integrated separate DGM-MAT and VST Windows CLI entrypoints. Final PR HEAD `14c9e8d9e3863042fa1eba51db7133433df359ba` passed CI #44102217430 and visual #44102217301 on the same SHA; merge commit `43f59f4f200041877c2cee6bbb7eb96096ce9fb8` passed push CI #44102956139 and visual #44102956070.
+- The CLI entrypoints start disconnected, accept only explicit health/credential-status/connect/snapshot/disconnect/shutdown commands, reject credentials in argv/control messages, and retain separate DGM-MAT/VST data roots. The adapters remain read-only.
+- Branch `feat/windows-edition-portable-bundles-2026-11-17` adds DGM-MAT/VST portable bundle construction from `getEditionFileAllowlist()`, exact artifact-content checks, a temporary CI-only trusted publisher for CNG helper smoke tests, launcher startup checks and JSON-lines command-loop tests.
+- The branch is pending CI/visual validation. Its output is a portable runtime bundle, not a commercial installer. No live backend or physical-PC installation is claimed.
+- Issue #104 remains open for MSI/MSIX, lifecycle, publisher signing, native Linux/macOS/Android hosts, artifact distribution and per-edition installation/uninstallation validation.
