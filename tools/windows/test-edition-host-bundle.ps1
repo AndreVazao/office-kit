@@ -84,6 +84,8 @@ $rootStore = $null
 $publisherStore = $null
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
+$oldLocalAppData = $env:LOCALAPPDATA
+$launcherDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionLauncher-" + [guid]::NewGuid().ToString("N"))
 $runnerPath = Join-Path $PSScriptRoot "edition-host-bundle-test-runner.mjs"
 
 try {
@@ -111,6 +113,17 @@ try {
 
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
+  New-Item -ItemType Directory -Path $launcherDataRoot -Force | Out-Null
+  $env:LOCALAPPDATA = $launcherDataRoot
+  $launcherOutput = & $launcherPath "health" 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    throw ("Edition launcher health smoke test failed: " + ($launcherOutput -join [Environment]::NewLine))
+  }
+  $launcherResult = ($launcherOutput -join [Environment]::NewLine) | ConvertFrom-Json
+  if ($launcherResult.ok -ne $true -or $launcherResult.health.edition -ne $expectedKey
+    -or $launcherResult.health.adapterConnected -ne $false) {
+    throw "Edition launcher did not start disconnected with the expected edition identity."
+  }
   $runnerOutput = & $nodePath $runnerPath $bundleRoot $Edition
   if ($LASTEXITCODE -ne 0) {
     throw ("Edition bundle CLI smoke test failed: " + ($runnerOutput -join [Environment]::NewLine))
@@ -124,6 +137,10 @@ try {
 } finally {
   $env:OFFICE_KIT_CNG_HOST_PATH = $oldHelperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $oldThumbprint
+  $env:LOCALAPPDATA = $oldLocalAppData
+  if (Test-Path -LiteralPath $launcherDataRoot) {
+    Remove-Item -LiteralPath $launcherDataRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
   if ($rootStore) {
     try {
       if ($certificate) { $rootStore.Remove($certificate) }
