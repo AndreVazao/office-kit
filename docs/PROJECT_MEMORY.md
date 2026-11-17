@@ -671,3 +671,8 @@ The host also serializes owner-consented incident MAC-key rotation with the same
 - Issue #104 opened 2026-11-17 to track isolated native hosts and production installers for Universal, DGM-MAT and VST. The source package builder has three edition allowlists, but the current Windows portable bundle script is Universal-only; DGM-MAT/VST installable desktop artifacts remain absent.
 
 - Post-merge main SHA `51d5db49309e02f2e42594194ab778651e26d2ae` passed CI `44096288229` and visual `44096287944` on the exact same SHA. Windows jobs passed the TPM parser harness, native CNG checks and portable Universal bundle E2E; no physical TPM or PC installation was validated.
+
+
+### 2026-11-17 — Edition-specific Windows CLI entrypoints
+
+The current packaging gap is tracked by issue #104. The next implementation slice adds isolated DGM-MAT and VST CLI entrypoints to their respective source packages, preserving the existing Universal data root. Both start disconnected and expose an explicit JSON-lines control loop for health, credential-presence status, connect, read-only snapshot, disconnect and shutdown. Credential values are rejected from arguments/control messages and never emitted. The source packages remain distinct; no edition-specific Windows portable bundles or commercial installers are delivered by this slice.
