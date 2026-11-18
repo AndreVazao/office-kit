@@ -105,6 +105,7 @@ jobs:
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition DGM-MAT -OutputDirectory artifacts/windows-host-bundle-dgmat
       - name: Test DGM-MAT portable Windows bundle
         if: runner.os == 'Windows'
+        timeout-minutes: 5
         shell: pwsh
         run: ./tools/windows/test-edition-host-bundle.ps1 -Edition DGM-MAT -BundleDirectory artifacts/windows-host-bundle-dgmat
       - name: Build VST portable Windows bundle
@@ -115,5 +116,6 @@ jobs:
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition VST -OutputDirectory artifacts/windows-host-bundle-vst
       - name: Test VST portable Windows bundle
         if: runner.os == 'Windows'
+        timeout-minutes: 5
         shell: pwsh
         run: ./tools/windows/test-edition-host-bundle.ps1 -Edition VST -BundleDirectory artifacts/windows-host-bundle-vst
