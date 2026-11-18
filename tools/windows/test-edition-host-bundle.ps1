@@ -132,8 +132,6 @@ if ($Edition -eq "VST" -and $containsDgmatModules) {
 }
 
 $certificate = $null
-$rootStore = $null
-$publisherStore = $null
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
 $oldLocalAppData = $env:LOCALAPPDATA
@@ -144,28 +142,16 @@ try {
   Write-Output "Edition bundle smoke: creating ephemeral publisher certificate."
   $certificate = New-SelfSignedCertificate -Subject ("CN=Office Kit Edition Bundle CI " + [guid]::NewGuid().ToString("N")) -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
 
-  $rootStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-    [System.Security.Cryptography.X509Certificates.StoreName]::Root,
-    [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-  )
-  $publisherStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-    [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher,
-    [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-  )
-  Write-Output "Edition bundle smoke: opening CurrentUser trust stores."
-  $rootStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-  $publisherStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-  Write-Output "Edition bundle smoke: adding temporary certificate to test trust stores."
-  $rootStore.Add($certificate)
-  $publisherStore.Add($certificate)
-
   Write-Output "Edition bundle smoke: signing native CNG helper."
   $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
-  Write-Output "Edition bundle smoke: verifying helper signature."
+  Write-Output "Edition bundle smoke: verifying signer thumbprint and untrusted-chain status."
   $verifiedSignature = Get-AuthenticodeSignature -FilePath $helperPath
-  $signatureMismatch = ($signature.Status -ne "Valid") -or ($verifiedSignature.Status -ne "Valid") -or ($verifiedSignature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint)
+  $signatureMismatch = ($verifiedSignature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint)
   if ($signatureMismatch) {
-    throw "The temporary CI publisher did not produce a trusted helper signature."
+    throw "The temporary CI publisher thumbprint does not match the signed helper."
+  }
+  if ($verifiedSignature.Status -ne "UnknownError") {
+    throw ("Expected the ephemeral CI certificate to remain untrusted; got signature status " + $verifiedSignature.Status)
   }
 
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
@@ -200,19 +186,7 @@ try {
   if (Test-Path -LiteralPath $launcherDataRoot) {
     Remove-Item -LiteralPath $launcherDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
-  Write-Output "Edition bundle smoke: cleanup of temporary profile and certificate stores."
-  if ($rootStore) {
-    try {
-      if ($certificate) { $rootStore.Remove($certificate) }
-    } catch { }
-    $rootStore.Close()
-  }
-  if ($publisherStore) {
-    try {
-      if ($certificate) { $publisherStore.Remove($certificate) }
-    } catch { }
-    $publisherStore.Close()
-  }
+  Write-Output "Edition bundle smoke: removing temporary profile and CI signing certificate."
   if ($certificate) {
     Remove-Item -LiteralPath ("Cert:\CurrentUser\My\" + $certificate.Thumbprint) -Force -ErrorAction SilentlyContinue
   }
