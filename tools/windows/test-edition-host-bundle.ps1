@@ -8,6 +8,46 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Invoke-BoundedProcess {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FilePath,
+    [Parameter(Mandatory = $true)]
+    [string[]]$Arguments,
+    [Parameter(Mandatory = $true)]
+    [int]$TimeoutMilliseconds
+  )
+  $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $FilePath
+  $startInfo.UseShellExecute = $false
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $startInfo.CreateNoWindow = $true
+  foreach ($argument in $Arguments) { $startInfo.ArgumentList.Add($argument) }
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  try {
+    if (-not $process.Start()) { throw "Edition bundle process could not start." }
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit($TimeoutMilliseconds)) {
+      try { $process.Kill($true) } catch { }
+      $process.WaitForExit()
+      throw ("Edition bundle process timed out after " + $TimeoutMilliseconds + " ms.")
+    }
+    $process.WaitForExit()
+    return [pscustomobject]@{
+      ExitCode = $process.ExitCode
+      StdOut = $stdoutTask.GetAwaiter().GetResult()
+      StdErr = $stderrTask.GetAwaiter().GetResult()
+    }
+  } finally {
+    $process.Dispose()
+  }
+}
+
 $bundleRoot = (Resolve-Path $BundleDirectory).Path
 $manifestPath = Join-Path $bundleRoot "bundle-manifest.json"
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -48,9 +88,14 @@ if ($actualNodeVersion -ne $manifest.nodeVersion -or $actualNodeArchitecture -ne
 
 $expectedFiles = @($manifest.sourceFiles | Sort-Object)
 $rootExtras = @("node.exe", "OfficeKit.CngHost.exe", "bundle-manifest.json", $expectedLauncher)
+if (@($manifest.sourceFiles).Count -ne @($manifest.sourceFiles | Sort-Object -Unique).Count) {
+  throw "Edition bundle source allowlist contains duplicate paths."
+}
 $actualFiles = @(Get-ChildItem -LiteralPath $bundleRoot -File -Recurse |
-  Where-Object { $rootExtras -notcontains $_.Name } |
-  ForEach-Object { $_.FullName.Substring($bundleRoot.Length + 1).Replace("\", "/") } |
+  ForEach-Object {
+    $relativePath = $_.FullName.Substring($bundleRoot.Length + 1).Replace("\", "/")
+    if ($rootExtras -notcontains $relativePath) { $relativePath }
+  } |
   Sort-Object)
 if (Compare-Object -ReferenceObject $expectedFiles -DifferenceObject $actualFiles) {
   throw ("Edition bundle content differs from its source allowlist. Actual files: " + ($actualFiles -join ", "))
@@ -69,14 +114,21 @@ if (Compare-Object -ReferenceObject @($manifest.windowsHostModules | Sort-Object
 
 $containsDgmatModules = @($manifest.sourceFiles | Where-Object { $_ -match "(^|/)dgmat-" }).Count -gt 0
 $containsVstModules = @($manifest.sourceFiles | Where-Object { $_ -match "(^|/)vst-" }).Count -gt 0
-if ($Edition -eq "DGM-MAT") {
-  if (-not ($manifest.adapterAllowlist -contains "dgm-mat") -or $containsVstModules) {
-    throw "DGM-MAT bundle contains an invalid adapter allowlist."
-  }
-} else {
-  if (-not ($manifest.adapterAllowlist -contains "vazao-sovereign-trader") -or $containsDgmatModules) {
-    throw "VST bundle contains an invalid adapter allowlist."
-  }
+$expectedAdapter = if ($Edition -eq "DGM-MAT") { "dgm-mat" } else { "vazao-sovereign-trader" }
+$expectedExcludedAdapter = if ($Edition -eq "DGM-MAT") { "VST" } else { "DGM-MAT" }
+$actualAdapterAllowlist = @($manifest.adapterAllowlist)
+$actualExcludedAdapters = @($manifest.excludedAdapters)
+if ($actualAdapterAllowlist.Count -ne 1 -or $actualAdapterAllowlist[0] -ne $expectedAdapter) {
+  throw "Edition bundle adapter allowlist does not match the selected edition."
+}
+if ($actualExcludedAdapters.Count -ne 1 -or $actualExcludedAdapters[0] -ne $expectedExcludedAdapter) {
+  throw "Edition bundle excluded-adapter manifest does not match the selected edition."
+}
+if ($Edition -eq "DGM-MAT" -and $containsVstModules) {
+  throw "DGM-MAT bundle contains VST-specific modules."
+}
+if ($Edition -eq "VST" -and $containsDgmatModules) {
+  throw "VST bundle contains DGM-MAT-specific modules."
 }
 
 $certificate = $null
@@ -115,20 +167,20 @@ try {
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
   New-Item -ItemType Directory -Path $launcherDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $launcherDataRoot
-  $launcherOutput = & $launcherPath "health" 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    throw ("Edition launcher health smoke test failed: " + ($launcherOutput -join [Environment]::NewLine))
+  $launcherRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
+  if ($launcherRun.ExitCode -ne 0) {
+    throw ("Edition launcher health smoke test failed: " + $launcherRun.StdErr)
   }
-  $launcherResult = ($launcherOutput -join [Environment]::NewLine) | ConvertFrom-Json
+  $launcherResult = ($launcherRun.StdOut.Trim() | ConvertFrom-Json)
   $launcherMismatch = ($launcherResult.ok -ne $true) -or ($launcherResult.health.edition -ne $expectedKey) -or ($launcherResult.health.adapterConnected -ne $false)
   if ($launcherMismatch) {
     throw "Edition launcher did not start disconnected with the expected edition identity."
   }
-  $runnerOutput = & $nodePath $runnerPath $bundleRoot $Edition
-  if ($LASTEXITCODE -ne 0) {
-    throw ("Edition bundle CLI smoke test failed: " + ($runnerOutput -join [Environment]::NewLine))
+  $runnerRun = Invoke-BoundedProcess -FilePath $nodePath -Arguments @($runnerPath, $bundleRoot, $Edition) -TimeoutMilliseconds 90000
+  if ($runnerRun.ExitCode -ne 0) {
+    throw ("Edition bundle CLI smoke test failed: " + $runnerRun.StdErr)
   }
-  $runnerResult = ($runnerOutput -join [Environment]::NewLine) | ConvertFrom-Json
+  $runnerResult = ($runnerRun.StdOut.Trim() | ConvertFrom-Json)
   if ($runnerResult.status -ne "passed" -or $runnerResult.edition -ne $Edition) {
     throw "Edition bundle CLI smoke test did not report the expected product."
   }
