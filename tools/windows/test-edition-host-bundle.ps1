@@ -141,6 +141,7 @@ $launcherDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionLauncher-" + [guid]::
 $runnerPath = Join-Path $PSScriptRoot "edition-host-bundle-test-runner.mjs"
 
 try {
+  Write-Output "Edition bundle smoke: creating ephemeral publisher certificate."
   $certificate = New-SelfSignedCertificate -Subject ("CN=Office Kit Edition Bundle CI " + [guid]::NewGuid().ToString("N")) -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
 
   $rootStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
@@ -151,12 +152,16 @@ try {
     [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher,
     [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
   )
+  Write-Output "Edition bundle smoke: opening CurrentUser trust stores."
   $rootStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
   $publisherStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+  Write-Output "Edition bundle smoke: adding temporary certificate to test trust stores."
   $rootStore.Add($certificate)
   $publisherStore.Add($certificate)
 
+  Write-Output "Edition bundle smoke: signing native CNG helper."
   $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
+  Write-Output "Edition bundle smoke: verifying helper signature."
   $verifiedSignature = Get-AuthenticodeSignature -FilePath $helperPath
   $signatureMismatch = ($signature.Status -ne "Valid") -or ($verifiedSignature.Status -ne "Valid") -or ($verifiedSignature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint)
   if ($signatureMismatch) {
@@ -167,6 +172,7 @@ try {
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
   New-Item -ItemType Directory -Path $launcherDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $launcherDataRoot
+  Write-Output "Edition bundle smoke: executing shipped launcher health check."
   $launcherRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($launcherRun.ExitCode -ne 0) {
     throw ("Edition launcher health smoke test failed: " + $launcherRun.StdErr)
@@ -176,6 +182,7 @@ try {
   if ($launcherMismatch) {
     throw "Edition launcher did not start disconnected with the expected edition identity."
   }
+  Write-Output "Edition bundle smoke: executing JSON-lines test runner."
   $runnerRun = Invoke-BoundedProcess -FilePath $nodePath -Arguments @($runnerPath, $bundleRoot, $Edition) -TimeoutMilliseconds 90000
   if ($runnerRun.ExitCode -ne 0) {
     throw ("Edition bundle CLI smoke test failed: " + $runnerRun.StdErr)
@@ -193,6 +200,7 @@ try {
   if (Test-Path -LiteralPath $launcherDataRoot) {
     Remove-Item -LiteralPath $launcherDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
+  Write-Output "Edition bundle smoke: cleanup of temporary profile and certificate stores."
   if ($rootStore) {
     try {
       if ($certificate) { $rootStore.Remove($certificate) }
