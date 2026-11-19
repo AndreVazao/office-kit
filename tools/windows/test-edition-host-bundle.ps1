@@ -161,7 +161,7 @@ try {
   Write-Output "Edition bundle smoke: executing shipped launcher health check."
   $launcherRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($launcherRun.ExitCode -ne 0) {
-    throw ("Edition launcher health smoke test failed: " + $launcherRun.StdErr)
+    throw ("Edition launcher health smoke test failed (exit " + $launcherRun.ExitCode + "). stdout: " + $launcherRun.StdOut + " stderr: " + $launcherRun.StdErr)
   }
   $launcherResult = ($launcherRun.StdOut.Trim() | ConvertFrom-Json)
   $launcherMismatch = ($launcherResult.ok -ne $true) -or ($launcherResult.health.edition -ne $expectedKey) -or ($launcherResult.health.adapterConnected -ne $false)
@@ -171,7 +171,7 @@ try {
   Write-Output "Edition bundle smoke: executing JSON-lines test runner."
   $runnerRun = Invoke-BoundedProcess -FilePath $nodePath -Arguments @($runnerPath, $bundleRoot, $Edition) -TimeoutMilliseconds 90000
   if ($runnerRun.ExitCode -ne 0) {
-    throw ("Edition bundle CLI smoke test failed: " + $runnerRun.StdErr)
+    throw ("Edition bundle CLI smoke test failed (exit " + $runnerRun.ExitCode + "). stdout: " + $runnerRun.StdOut + " stderr: " + $runnerRun.StdErr)
   }
   $runnerResult = ($runnerRun.StdOut.Trim() | ConvertFrom-Json)
   if ($runnerResult.status -ne "passed" -or $runnerResult.edition -ne $Edition) {
