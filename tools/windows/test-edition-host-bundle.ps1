@@ -132,6 +132,8 @@ if ($Edition -eq "VST" -and $containsDgmatModules) {
 }
 
 $certificate = $null
+$rootStore = $null
+$publisherStore = $null
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
 $oldLocalAppData = $env:LOCALAPPDATA
@@ -152,6 +154,29 @@ try {
   }
   if ($verifiedSignature.Status -ne "UnknownError") {
     throw ("Expected the ephemeral CI certificate to remain untrusted; got signature status " + $verifiedSignature.Status)
+  }
+
+  if ($env:GITHUB_ACTIONS -ne "true") {
+    throw "Trusted-publisher smoke tests may only modify the disposable GitHub Actions runner user stores."
+  }
+  # The production host must reject an untrusted signer. After proving that boundary,
+  # trust this one ephemeral certificate in CurrentUser stores only so the host can
+  # complete its real CNG/SQLite startup path. The certificate is removed in finally.
+  $rootStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+    [System.Security.Cryptography.X509Certificates.StoreName]::Root,
+    [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+  )
+  $publisherStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+    [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher,
+    [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+  )
+  $rootStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+  $publisherStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+  $rootStore.Add($certificate)
+  $publisherStore.Add($certificate)
+  $trustedSignature = Get-AuthenticodeSignature -FilePath $helperPath
+  if ($trustedSignature.Status -ne "Valid" -or $trustedSignature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint) {
+    throw "The ephemeral CI publisher was not accepted from the CurrentUser trust stores."
   }
 
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
@@ -187,6 +212,28 @@ try {
     Remove-Item -LiteralPath $launcherDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
   Write-Output "Edition bundle smoke: removing temporary profile and CI signing certificate."
+  if ($certificate -and $rootStore) {
+    try {
+      $trustedRoots = $rootStore.Certificates.Find(
+        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+        $certificate.Thumbprint,
+        $false
+      )
+      foreach ($trustedCertificate in $trustedRoots) { $rootStore.Remove($trustedCertificate) }
+    } catch { }
+  }
+  if ($certificate -and $publisherStore) {
+    try {
+      $trustedPublishers = $publisherStore.Certificates.Find(
+        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+        $certificate.Thumbprint,
+        $false
+      )
+      foreach ($trustedCertificate in $trustedPublishers) { $publisherStore.Remove($trustedCertificate) }
+    } catch { }
+  }
+  try { $rootStore?.Close() } catch { }
+  try { $publisherStore?.Close() } catch { }
   if ($certificate) {
     Remove-Item -LiteralPath ("Cert:\CurrentUser\My\" + $certificate.Thumbprint) -Force -ErrorAction SilentlyContinue
   }
