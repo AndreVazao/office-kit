@@ -134,10 +134,13 @@ if ($Edition -eq "VST" -and $containsDgmatModules) {
 $certificate = $null
 $rootStore = $null
 $publisherStore = $null
+$rootStoreOpened = $false
+$publisherStoreOpened = $false
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
 $oldLocalAppData = $env:LOCALAPPDATA
 $launcherDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionLauncher-" + [guid]::NewGuid().ToString("N"))
+$untrustedDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionUntrusted-" + [guid]::NewGuid().ToString("N"))
 $runnerPath = Join-Path $PSScriptRoot "edition-host-bundle-test-runner.mjs"
 
 try {
@@ -159,6 +162,21 @@ try {
   if ($env:GITHUB_ACTIONS -ne "true") {
     throw "Trusted-publisher smoke tests may only modify the disposable GitHub Actions runner user stores."
   }
+
+  # Prove that the production host rejects this signer before any trust is granted.
+  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
+  $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
+  New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
+  $env:LOCALAPPDATA = $untrustedDataRoot
+  $untrustedRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
+  if ($untrustedRun.ExitCode -eq 0) {
+    throw "Edition launcher accepted an untrusted publisher."
+  }
+  $untrustedResult = ($untrustedRun.StdOut.Trim() | ConvertFrom-Json)
+  if ($untrustedResult.ok -ne $false -or $untrustedResult.error -ne "host_start_failed") {
+    throw "Untrusted publisher rejection did not produce the expected sanitized startup failure."
+  }
+
   # The production host must reject an untrusted signer. After proving that boundary,
   # trust this one ephemeral certificate in CurrentUser stores only so the host can
   # complete its real CNG/SQLite startup path. The certificate is removed in finally.
@@ -171,7 +189,9 @@ try {
     [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
   )
   $rootStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+  $rootStoreOpened = $true
   $publisherStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+  $publisherStoreOpened = $true
   $rootStore.Add($certificate)
   $publisherStore.Add($certificate)
   $trustedSignature = Get-AuthenticodeSignature -FilePath $helperPath
@@ -212,7 +232,10 @@ try {
     Remove-Item -LiteralPath $launcherDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
   Write-Output "Edition bundle smoke: removing temporary profile and CI signing certificate."
-  if ($certificate -and $rootStore) {
+  if (Test-Path -LiteralPath $untrustedDataRoot) {
+    Remove-Item -LiteralPath $untrustedDataRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  if ($certificate -and $rootStore -and $rootStoreOpened) {
     try {
       $trustedRoots = $rootStore.Certificates.Find(
         [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
@@ -220,9 +243,17 @@ try {
         $false
       )
       foreach ($trustedCertificate in $trustedRoots) { $rootStore.Remove($trustedCertificate) }
-    } catch { }
+      $remainingRoots = $rootStore.Certificates.Find(
+        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+        $certificate.Thumbprint,
+        $false
+      )
+      if ($remainingRoots.Count -ne 0) { throw "Temporary CI root certificate cleanup failed." }
+    } finally {
+      $rootStore.Close()
+    }
   }
-  if ($certificate -and $publisherStore) {
+  if ($certificate -and $publisherStore -and $publisherStoreOpened) {
     try {
       $trustedPublishers = $publisherStore.Certificates.Find(
         [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
@@ -230,10 +261,16 @@ try {
         $false
       )
       foreach ($trustedCertificate in $trustedPublishers) { $publisherStore.Remove($trustedCertificate) }
-    } catch { }
+      $remainingPublishers = $publisherStore.Certificates.Find(
+        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+        $certificate.Thumbprint,
+        $false
+      )
+      if ($remainingPublishers.Count -ne 0) { throw "Temporary CI publisher certificate cleanup failed." }
+    } finally {
+      $publisherStore.Close()
+    }
   }
-  try { $rootStore?.Close() } catch { }
-  try { $publisherStore?.Close() } catch { }
   if ($certificate) {
     Remove-Item -LiteralPath ("Cert:\CurrentUser\My\" + $certificate.Thumbprint) -Force -ErrorAction SilentlyContinue
   }
