@@ -145,10 +145,10 @@ test("every edition package includes the complete relative ESM import closure", 
     for (const file of allowlist.filter(value => value.endsWith(".mjs"))) {
       const absoluteFile = join(REPOSITORY_ROOT, file);
       const source = await readFile(absoluteFile, "utf8");
-      const specifiers = [...source.matchAll(/(?:\\bfrom\\s*|\\bimport\\s*)["']([^"']+)["']/g)].map(match => match[1]);
+      const specifiers = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*)["']([^"']+)["']/g)].map(match => match[1]);
       for (const specifier of specifiers) {
         if (!specifier.startsWith("./") && !specifier.startsWith("../")) continue;
-        const dependency = relative(REPOSITORY_ROOT, resolve(dirname(absoluteFile), specifier)).replace(/\\\\/g, "/");
+        const dependency = relative(REPOSITORY_ROOT, resolve(dirname(absoluteFile), specifier)).replace(/\\/g, "/");
         assert.ok(included.has(dependency), edition + " package omits " + dependency + " imported by " + file);
       }
     }
