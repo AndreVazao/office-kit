@@ -142,6 +142,17 @@
           <button id="view-back" type="button">Costas</button>
           <button id="view-top" type="button">Topo</button>
         </nav>
+        <div class="pose-toolbar" aria-label="Pré-visualização de poses">
+          <label for="pose-mode">Pose / animação</label>
+          <select id="pose-mode">
+            <option value="idle">Repouso</option>
+            <option value="walk">Andar</option>
+            <option value="sit">Sentar</option>
+            <option value="talk">Falar</option>
+            <option value="work">Trabalhar</option>
+          </select>
+          <label class="rig-toggle"><input id="show-rig" type="checkbox"> Mostrar esqueleto</label>
+        </div>
         <div id="viewport" aria-label="Pré-visualização tridimensional do personagem"></div>
         <div class="viewport-footer">
           <span id="character-name">ANDRÉ / CEO MASTER</span>
@@ -175,7 +186,7 @@
         <div class="stat"><span>Exportação</span><strong>glTF Binary</strong></div>
         <div class="detail-note">
           <strong>Próximo marco</strong>
-          <p>Articulações visuais, rig esquelético deformável, pesos de pele e expressões faciais.</p>
+          <p>Rig de ossos e poses de referência. A ligação deformável da malha e os pesos de pele continuam por implementar.</p>
         </div>
       </aside>
     </section>
