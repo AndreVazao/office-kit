@@ -78,3 +78,7 @@ input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #5689ee; }
   .details { order: 3; }
   .identity-card { margin-top: 14px; }
 }
+
+.view-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 12px; border-bottom: 1px solid #2a354a; background: #101a2a; }
+.view-toolbar button { padding: 7px 10px; border: 1px solid #35435b; background: #17243a; color: #c4d2e6; font-size: 9px; }
+.view-toolbar button:focus-visible { outline: 2px solid #5689ee; outline-offset: 2px; }
