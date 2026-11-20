@@ -59,12 +59,12 @@ function createOutput() {
   return { stream, read: () => Buffer.concat(chunks).toString("utf8") };
 }
 
-async function invokeEditionCli({ runEditionCli, edition, createHost, argv, inputLines = [] }) {
+async function invokeEditionCli({ runCli, createHost, hostOptions, argv, inputLines = [] }) {
   const input = new PassThrough();
   const output = createOutput();
-  const invocation = runEditionCli({
-    edition,
+  const invocation = runCli({
     createHost,
+    hostOptions,
     argv,
     input,
     output: output.stream
@@ -107,17 +107,29 @@ async function main() {
     "src",
     expectedKey === "dgmat" ? "dgmat-windows-host.mjs" : "vst-windows-host.mjs"
   );
-  const editionCliPath = join(bundleRoot, "packages", "windows-host", "src", "edition-cli.mjs");
+  const sharedCliPath = join(bundleRoot, "packages", "windows-host", "src", "edition-cli.mjs");
+  const editionCliPath = join(
+    bundleRoot,
+    "packages",
+    "windows-host",
+    "src",
+    expectedKey === "dgmat" ? "dgmat-cli.mjs" : "vst-cli.mjs"
+  );
   const localAppData = await mkdtemp(join(tmpdir(), "OfficeKit-EditionBundle-"));
   const signerThumbprint = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
   assert.match(signerThumbprint ?? "", /^[A-Fa-f0-9]{40}$/, "bundle_signer_thumbprint_required");
 
   try {
-    const [{ createWindowsHost }, editionHostModule, { runEditionCli, resolveEditionHostOptions }] = await Promise.all([
+    const [{ createWindowsHost }, editionHostModule, { resolveEditionHostOptions }, editionCliModule] = await Promise.all([
       import(pathToFileURL(hostIndexPath).href),
       import(pathToFileURL(editionHostPath).href),
+      import(pathToFileURL(sharedCliPath).href),
       import(pathToFileURL(editionCliPath).href)
     ]);
+    const runCli = expectedKey === "dgmat"
+      ? editionCliModule.runDgmMatCli
+      : editionCliModule.runVstCli;
+    assert.equal(typeof runCli, "function", "edition_cli_entrypoint_missing");
     const createEditionHost = expectedKey === "dgmat"
       ? editionHostModule.createWindowsDgmMatHost
       : editionHostModule.createWindowsVstHost;
@@ -138,9 +150,9 @@ async function main() {
     });
 
     const healthRun = await invokeEditionCli({
-      runEditionCli,
-      edition: expectedKey,
+      runCli,
       createHost,
+      hostOptions,
       argv: ["health"]
     });
     assert.equal(healthRun.exitCode, 0, "edition_health_exit_code");
@@ -160,9 +172,9 @@ async function main() {
       { command: "shutdown" }
     ];
     const serveRun = await invokeEditionCli({
-      runEditionCli,
-      edition: expectedKey,
+      runCli,
       createHost,
+      hostOptions,
       argv: ["serve"],
       inputLines: commands.map(command => JSON.stringify(command))
     });
@@ -181,9 +193,9 @@ async function main() {
     const invalidArgsOutput = createOutput();
     const invalidArgsInput = new PassThrough();
     invalidArgsInput.end();
-    const invalidArgsCode = await runEditionCli({
-      edition: expectedKey,
+    const invalidArgsCode = await runCli({
       createHost: () => { throw new Error("invalid_arguments_must_not_start_host"); },
+      hostOptions,
       argv: ["serve", "--token=" + secretSentinel],
       input: invalidArgsInput,
       output: invalidArgsOutput.stream
