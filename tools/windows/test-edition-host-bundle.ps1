@@ -56,7 +56,7 @@ function Invoke-CertUtil {
     [string]$Operation
   )
   $certUtilPath = Join-Path $env:SystemRoot "System32\certutil.exe"
-  $result = Invoke-BoundedProcess -FilePath $certUtilPath -Arguments (@("-silent") + $Arguments) -TimeoutMilliseconds 30000
+  $result = Invoke-BoundedProcess -FilePath $certUtilPath -Arguments $Arguments -TimeoutMilliseconds 30000
   if ($result.ExitCode -ne 0) {
     throw ($Operation + " failed. stdout: " + $result.StdOut + " stderr: " + $result.StdErr)
   }
@@ -182,10 +182,10 @@ try {
     $certificatePath,
     $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
   )
-  Invoke-CertUtil -Arguments @("-user", "-addstore", "-f", "Root", $certificatePath) -Operation "Install temporary CI root certificate" | Out-Null
+  Invoke-CertUtil -Arguments @("-f", "-user", "-addstore", "Root", $certificatePath) -Operation "Install temporary CI root certificate" | Out-Null
   $rootInstalled = $true
   Write-Output "Edition bundle smoke: temporary root certificate installed."
-  Invoke-CertUtil -Arguments @("-user", "-addstore", "-f", "TrustedPublisher", $certificatePath) -Operation "Install temporary CI publisher certificate" | Out-Null
+  Invoke-CertUtil -Arguments @("-f", "-user", "-addstore", "TrustedPublisher", $certificatePath) -Operation "Install temporary CI publisher certificate" | Out-Null
   $publisherInstalled = $true
   Write-Output "Edition bundle smoke: ephemeral publisher installed in CurrentUser trust stores."
 
@@ -278,7 +278,7 @@ try {
   }
   if ($certificate -and $rootInstalled) {
     try {
-      Invoke-CertUtil -Arguments @("-user", "-delstore", "Root", $certificate.Thumbprint) -Operation "Remove temporary CI root certificate" | Out-Null
+      Invoke-CertUtil -Arguments @("-user", "-silent", "-delstore", "Root", $certificate.Thumbprint) -Operation "Remove temporary CI root certificate" | Out-Null
       $rootInstalled = $false
       Write-Output "Edition bundle smoke: temporary root certificate removed."
     } catch {
@@ -287,7 +287,7 @@ try {
   }
   if ($certificate -and $publisherInstalled) {
     try {
-      Invoke-CertUtil -Arguments @("-user", "-delstore", "TrustedPublisher", $certificate.Thumbprint) -Operation "Remove temporary CI publisher certificate" | Out-Null
+      Invoke-CertUtil -Arguments @("-user", "-silent", "-delstore", "TrustedPublisher", $certificate.Thumbprint) -Operation "Remove temporary CI publisher certificate" | Out-Null
       $publisherInstalled = $false
       Write-Output "Edition bundle smoke: temporary publisher certificate removed."
     } catch {
