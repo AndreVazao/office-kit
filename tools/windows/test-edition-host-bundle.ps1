@@ -151,9 +151,8 @@ try {
   # Do not inspect SignerCertificate or Status on the returned Authenticode
   # object: PowerShell may lazily invoke the Windows chain/revocation provider,
   # which can hang on an untrusted ephemeral certificate in hosted CI.
-  # The production launcher is the authoritative verifier below: first it must
-  # reject this signer while untrusted, then accept it only after the test adds
-  # this exact ephemeral certificate to the disposable runner's trust stores.
+  # The production launcher is the authoritative verifier below. The test trusts
+  # this exact ephemeral publisher only in the disposable runner before invoking it.
   Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
   Write-Output "Edition bundle smoke: signing command completed; launcher will verify signature and trust."
 
