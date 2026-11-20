@@ -57,8 +57,8 @@ export function createAvatarRig(parent) {
     }
     const thumbBase = [wristPosition[0] + (side === "L" ? 0.045 : -0.045), wristPosition[1] + 0.005, wristPosition[2] + 0.005];
     const thumb = makeBone("Thumb_" + side, thumbBase, handBone);
-    const thumbMiddle = makeBone("Thumb_Mid_" + side, [thumbBase[0] + (side === "L" ? -0.018 : 0.018), thumbBase[1] - 0.025, thumbBase[2] + 0.01], thumb);
-    makeBone("Thumb_Tip_" + side, [thumbBase[0] + (side === "L" ? -0.033 : 0.033), thumbBase[1] - 0.047, thumbBase[2] + 0.017], thumbMiddle);
+    const thumbMiddle = makeBone("Thumb_Mid_" + side, [thumbBase[0] + (side === "L" ? 0.018 : -0.018), thumbBase[1] - 0.025, thumbBase[2] + 0.01], thumb);
+    makeBone("Thumb_Tip_" + side, [thumbBase[0] + (side === "L" ? 0.033 : -0.033), thumbBase[1] - 0.047, thumbBase[2] + 0.017], thumbMiddle);
     const upperLeg = makeBone("UpperLeg_" + side, hipPosition, hips);
     const lowerLeg = makeBone("LowerLeg_" + side, anklePosition, upperLeg);
     makeBone("Foot_" + side, [anklePosition[0], 0.10, anklePosition[2] + 0.10], lowerLeg);
