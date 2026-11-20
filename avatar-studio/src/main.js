@@ -139,7 +139,9 @@ function buildHuman(config) {
   // Legs and footwear
   for (const side of [-1, 1]) {
     const x = side * 0.115 * build;
-    makeLimb(root, trousers, [x, 0.91, 0], [x * 1.08, 0.16, 0], 0.105 * build, side < 0 ? "Leg_L" : "Leg_R");
+    const kneeX = x * 1.04;
+    makeLimb(root, trousers, [x, 0.91, 0], [kneeX, 0.53, 0.005], 0.105 * build, side < 0 ? "UpperLeg_L" : "UpperLeg_R");
+    makeLimb(root, trousers, [kneeX, 0.53, 0.005], [x * 1.08, 0.16, 0], 0.082 * build, side < 0 ? "LowerLeg_L" : "LowerLeg_R");
     const shoe = ellipsoid(root, shoes, [x * 1.08, 0.105, 0.075], [0.12 * build, 0.075, 0.22], "Shoe");
     shoe.userData.rigBoneName = side < 0 ? "Foot_L" : "Foot_R";
   }
@@ -306,7 +308,8 @@ function buildRobot(config) {
 
   for (const side of [-1, 1]) {
     const x = side * 0.13 * build;
-    makeLimb(root, dark, [x, 0.95, 0], [x, 0.18, 0], 0.105 * build, side < 0 ? "Leg_L" : "Leg_R");
+    makeLimb(root, dark, [x, 0.95, 0], [x, 0.55, 0.005], 0.105 * build, side < 0 ? "UpperLeg_L" : "UpperLeg_R");
+    makeLimb(root, dark, [x, 0.55, 0.005], [x, 0.18, 0], 0.082 * build, side < 0 ? "LowerLeg_L" : "LowerLeg_R");
     const metalFoot = ellipsoid(root, alloy, [x, 0.1, 0.05], [0.13, 0.075, 0.21], "Metal_Foot");
     metalFoot.userData.rigBoneName = side < 0 ? "Foot_L" : "Foot_R";
     const sx = side * 0.39 * shoulder * build;
