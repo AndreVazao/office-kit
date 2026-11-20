@@ -90,6 +90,18 @@ function makeLimb(parent, mat, start, end, radius, name) {
   const direction = new THREE.Vector3().subVectors(b, a);
   const mesh = addMesh(parent, new THREE.CylinderGeometry(radius * 0.82, radius, direction.length(), 16), mat, a.clone().add(b).multiplyScalar(0.5).toArray(), [1, 1, 1], name);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  // Rounded joint caps soften the primitive blockout at elbows, wrists and knees.
+  const jointGeometry = new THREE.SphereGeometry(radius * 0.94, 16, 12);
+  const jointStart = new THREE.Mesh(jointGeometry, mat);
+  jointStart.position.copy(a);
+  jointStart.castShadow = true;
+  jointStart.name = name + "_Joint_A";
+  parent.add(jointStart);
+  const jointEnd = new THREE.Mesh(jointGeometry, mat);
+  jointEnd.position.copy(b);
+  jointEnd.castShadow = true;
+  jointEnd.name = name + "_Joint_B";
+  parent.add(jointEnd);
   return mesh;
 }
 
@@ -219,6 +231,12 @@ function buildHuman(config) {
     left.rotation.z = -0.22;
     right.rotation.z = 0.22;
     cylinder(root, material("#9a3038"), [0, 1.38, 0.19], 0.018, 0.012, 0.27, "Tie");
+    const buttonMetal = material("#b7c3d3", 0.35, 0.55);
+    for (const y of [1.31, 1.19]) {
+      ellipsoid(root, buttonMetal, [0.105, y, 0.176], [0.012, 0.012, 0.008], "Jacket_Button");
+    }
+    const pocket = material("#dce4ee");
+    addMesh(root, new THREE.BoxGeometry(0.075, 0.012, 0.012), pocket, [0.225, 1.48, 0.145], [1, 1, 1], "Pocket_Square");
   }
 
   root.scale.y = Number(config.height);
@@ -244,6 +262,8 @@ function buildRobot(config) {
     makeLimb(root, dark, [sx, 1.17, 0], [sx * 1.1, 0.88, 0.04], 0.075, "Arm_Lower");
     ellipsoid(root, alloy, [sx * 1.1, 0.84, 0.04], [0.09, 0.1, 0.08], "Manipulator");
     ellipsoid(root, accent, [sx * 0.82, 1.55, 0], [0.14, 0.14, 0.14], "Shoulder_Joint");
+    ellipsoid(root, accent, [sx, 1.17, 0.015], [0.09, 0.09, 0.09], "Elbow_Joint");
+    ellipsoid(root, dark, [sx * 1.1, 0.88, 0.04], [0.055, 0.055, 0.055], "Wrist_Joint");
   }
   ellipsoid(root, dark, [0, 1.0, 0], [0.25 * build, 0.19, 0.16], "Hip_Core");
   ellipsoid(root, alloy, [0, 1.35, 0], [0.34 * build, 0.36, 0.19], "Chest_Armor");
@@ -357,8 +377,10 @@ $("export-glb").addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = url;
     link.download = "office-kit-avatar-" + currentPreset + ".glb";
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   }, (error) => {
     console.error("GLB export failed", error);
     alert("Não foi possível exportar o modelo GLB. Consulte a consola do navegador.");
