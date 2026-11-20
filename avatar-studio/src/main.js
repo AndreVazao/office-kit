@@ -149,7 +149,8 @@ function buildHuman(config) {
   pelvis.userData.rigBodySegment = "pelvis";
   const torso = ellipsoid(root, jacket, [0, 1.34, 0], [torsoWidth, 0.38, 0.17], "Jacket_Torso");
   torso.userData.rigBodySegment = "torso";
-  ellipsoid(root, shirt, [0, 1.39, 0.145], [0.13, 0.30, 0.045], "Shirt");
+  const shirtMesh = ellipsoid(root, shirt, [0, 1.39, 0.145], [0.13, 0.30, 0.045], "Shirt");
+  shirtMesh.userData.rigBoneName = "Chest";
   cylinder(root, skin, [0, 1.72, 0], 0.09, 0.10, 0.16, "Neck");
 
   // Arms
@@ -157,7 +158,8 @@ function buildHuman(config) {
     const shoulderX = side * shoulderWidth * 0.78;
     const elbowX = side * (shoulderWidth * 0.98);
     const handX = side * (shoulderWidth * 1.05);
-    ellipsoid(root, jacket, [shoulderX, 1.56, 0], [0.14 * shoulder, 0.15, 0.14], "Shoulder");
+    const shoulderMesh = ellipsoid(root, jacket, [shoulderX, 1.56, 0], [0.14 * shoulder, 0.15, 0.14], "Shoulder");
+    shoulderMesh.userData.rigBoneName = "UpperArm_" + (side < 0 ? "L" : "R");
     makeLimb(root, jacket, [shoulderX, 1.53, 0], [elbowX, 1.18, 0.015], 0.105, "UpperArm_" + (side < 0 ? "L" : "R"));
     makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm_" + (side < 0 ? "L" : "R"));
     const hand = new THREE.Group();
@@ -241,13 +243,18 @@ function buildHuman(config) {
     const right = addMesh(root, new THREE.BoxGeometry(0.09, 0.29, 0.025), lapel, [0.075, 1.48, 0.178], [1, 1, 1], "Lapel_R");
     left.rotation.z = -0.22;
     right.rotation.z = 0.22;
-    cylinder(root, material("#9a3038"), [0, 1.38, 0.19], 0.018, 0.012, 0.27, "Tie");
+    left.userData.rigBoneName = "Chest";
+    right.userData.rigBoneName = "Chest";
+    const tie = cylinder(root, material("#9a3038"), [0, 1.38, 0.19], 0.018, 0.012, 0.27, "Tie");
+    tie.userData.rigBoneName = "Chest";
     const buttonMetal = material("#b7c3d3", 0.35, 0.55);
     for (const y of [1.31, 1.19]) {
-      ellipsoid(root, buttonMetal, [0.105, y, 0.176], [0.012, 0.012, 0.008], "Jacket_Button");
+      const button = ellipsoid(root, buttonMetal, [0.105, y, 0.176], [0.012, 0.012, 0.008], "Jacket_Button");
+      button.userData.rigBoneName = "Chest";
     }
     const pocket = material("#dce4ee");
-    addMesh(root, new THREE.BoxGeometry(0.075, 0.012, 0.012), pocket, [0.225, 1.48, 0.145], [1, 1, 1], "Pocket_Square");
+    const pocketSquare = addMesh(root, new THREE.BoxGeometry(0.075, 0.012, 0.012), pocket, [0.225, 1.48, 0.145], [1, 1, 1], "Pocket_Square");
+    pocketSquare.userData.rigBoneName = "Chest";
   }
 
   root.scale.y = Number(config.height);
@@ -272,10 +279,14 @@ function buildRobot(config) {
     const sx = side * 0.39 * shoulder * build;
     makeLimb(root, alloy, [sx * 0.82, 1.55, 0], [sx, 1.17, 0], 0.105, "UpperArm_" + (side < 0 ? "L" : "R"));
     makeLimb(root, dark, [sx, 1.17, 0], [sx * 1.1, 0.88, 0.04], 0.075, "Forearm_" + (side < 0 ? "L" : "R"));
-    ellipsoid(root, alloy, [sx * 1.1, 0.84, 0.04], [0.09, 0.1, 0.08], "Manipulator");
-    ellipsoid(root, accent, [sx * 0.82, 1.55, 0], [0.14, 0.14, 0.14], "Shoulder_Joint");
-    ellipsoid(root, accent, [sx, 1.17, 0.015], [0.09, 0.09, 0.09], "Elbow_Joint");
-    ellipsoid(root, dark, [sx * 1.1, 0.88, 0.04], [0.055, 0.055, 0.055], "Wrist_Joint");
+    const manipulator = ellipsoid(root, alloy, [sx * 1.1, 0.84, 0.04], [0.09, 0.1, 0.08], "Manipulator");
+    manipulator.userData.rigBoneName = "Hand_" + (side < 0 ? "L" : "R");
+    const shoulderJoint = ellipsoid(root, accent, [sx * 0.82, 1.55, 0], [0.14, 0.14, 0.14], "Shoulder_Joint");
+    shoulderJoint.userData.rigBoneName = "UpperArm_" + (side < 0 ? "L" : "R");
+    const elbowJoint = ellipsoid(root, accent, [sx, 1.17, 0.015], [0.09, 0.09, 0.09], "Elbow_Joint");
+    elbowJoint.userData.rigBoneName = "Forearm_" + (side < 0 ? "L" : "R");
+    const wristJoint = ellipsoid(root, dark, [sx * 1.1, 0.88, 0.04], [0.055, 0.055, 0.055], "Wrist_Joint");
+    wristJoint.userData.rigBoneName = "Hand_" + (side < 0 ? "L" : "R");
   }
   const hipCore = ellipsoid(root, dark, [0, 1.0, 0], [0.25 * build, 0.19, 0.16], "Hip_Core");
   hipCore.userData.rigBodySegment = "pelvis";
