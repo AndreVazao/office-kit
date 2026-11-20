@@ -39,7 +39,9 @@ export function createAvatarRig(parent) {
     const legData = byName.get("Leg_" + side);
     const shoulderPosition = upperArmData?.start || [side === "L" ? -0.34 : 0.34, 1.56, 0];
     const elbowPosition = upperArmData?.end || [side === "L" ? -0.43 : 0.43, 1.18, 0];
-    const wristPosition = forearmData?.end || [side === "L" ? -0.47 : 0.47, 0.88, 0.05];
+    const forearmEnd = forearmData?.end || [side === "L" ? -0.47 : 0.47, 0.88, 0.05];
+    // Match the hand group origin in main.js so rigid hand/finger meshes bind without an offset.
+    const wristPosition = [forearmEnd[0], 0.84, 0.055];
     const hipPosition = legData?.start || [side === "L" ? -0.115 : 0.115, 0.91, 0];
     const anklePosition = legData?.end || [side === "L" ? -0.12 : 0.12, 0.16, 0];
 
