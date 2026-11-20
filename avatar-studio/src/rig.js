@@ -2,8 +2,8 @@ import * as THREE from "three";
 
 /**
  * Runtime avatar rig. Limb cylinders tagged by main.js are converted into
- * SkinnedMesh segments with two-bone linear-blend skinning. The rest of the
- * procedural body remains separate meshes until torso/head skinning is added.
+ * SkinnedMesh segments with linear-blend weights. Head and hand assemblies
+ * are converted as rigid skinned groups; facial parts and fingers retain shape.
  */
 export function createAvatarRig(parent) {
   const segments = [];
@@ -62,6 +62,52 @@ export function createAvatarRig(parent) {
     if (name.startsWith("Leg_")) return ["UpperLeg_" + side, "LowerLeg_" + side];
     return null;
   };
+
+  // Convert head and hand assemblies to rigidly weighted skinned meshes.
+  // Geometry is moved into avatar-root space before binding so nested group
+  // transforms (head scale, hand offsets) are preserved without double transforms.
+  parent.updateMatrixWorld(true);
+  const inverseRootWorld = parent.matrixWorld.clone().invert();
+  const assemblies = [];
+  parent.traverse((object) => {
+    if (object.isGroup && (object.userData.rigHeadGroup || object.userData.rigHandSide)) {
+      assemblies.push(object);
+    }
+  });
+  for (const assembly of assemblies) {
+    const boneName = assembly.userData.rigHeadGroup ? "Head" : "Hand_" + assembly.userData.rigHandSide;
+    const boneId = boneIndex.get(boneName);
+    if (boneId === undefined) continue;
+    const sourceMeshes = [];
+    assembly.traverse((object) => {
+      if (object.isMesh && !object.isSkinnedMesh) sourceMeshes.push(object);
+    });
+    for (const sourceMesh of sourceMeshes) {
+      sourceMesh.updateWorldMatrix(true, false);
+      const transform = inverseRootWorld.clone().multiply(sourceMesh.matrixWorld);
+      const geometry = sourceMesh.geometry.clone();
+      geometry.applyMatrix4(transform);
+      const positions = geometry.getAttribute("position");
+      const indices = new Uint16Array(positions.count * 4);
+      const weights = new Float32Array(positions.count * 4);
+      for (let i = 0; i < positions.count; i += 1) {
+        indices[i * 4] = boneId;
+        weights[i * 4] = 1;
+      }
+      geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+      geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+      const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+      skinned.name = sourceMesh.name + "_Skinned";
+      skinned.castShadow = true;
+      skinned.receiveShadow = true;
+      skinned.frustumCulled = false;
+      parent.add(skinned);
+      skinnedMeshes.push(skinned);
+      sourceMesh.visible = false;
+      sourceMesh.userData.skinnedReplacement = skinned.name;
+      skinned.normalizeSkinWeights();
+    }
+  }
 
   // Bind the pelvis and torso shells to the central spine chain. Weights
   // are distributed vertically between adjacent bones for smooth bending.
