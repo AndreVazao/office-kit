@@ -24,6 +24,12 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 - Orbit camera, neutral studio lighting, and GLB export.
 - All character parameters are local to this app; no backend calls or credential access.
 
+## CEO identity-reference workflow
+
+The right-hand identity panel accepts a local JPEG, PNG, or WebP reference image (maximum 15 MB). The image is decoded and drawn in the browser only; it is not uploaded, committed, persisted, or transmitted by this module. The user can mark ten facial reference points on the image to create a manual landmark guide. Only the current browser session holds the selected image and points.
+
+These landmarks are a modeling aid, not an automatic face-recognition or 3D reconstruction system. A single frontal photo cannot reveal the true side, rear, skull depth, or hidden geometry. A faithful likeness requires additional user-supplied views (front, both profiles, and 3/4), consistent lighting where possible, and iterative manual sculpting. Do not claim a likeness is complete until it has been compared against the user's reference views.
+
 ## Deliberate limitations
 
 This is a first procedural blockout, not a photogrammetric reconstruction or production-ready anatomical mesh. The current body is assembled from separate primitive meshes and does not yet have a deformable skeleton, skin weights, facial blendshapes, cloth simulation, or animation rig. GLB export exports the visible assembled geometry. Those capabilities must be implemented and tested in this isolated module before claiming production readiness.
