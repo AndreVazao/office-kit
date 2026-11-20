@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
 
+const verifiedSignatures = new Map();
+
 function verifyTestOnlyAuthenticode(helperPath, expectedThumbprint) {
   if (typeof expectedThumbprint !== "string" || !/^[A-Fa-f0-9]{40}$/.test(expectedThumbprint)) {
     throw new Error("edition_bundle_test_signer_thumbprint_missing");
   }
+  const cacheKey = helperPath + "|" + expectedThumbprint.toUpperCase();
+  if (verifiedSignatures.has(cacheKey)) return verifiedSignatures.get(cacheKey);
+
   const escapedPath = helperPath.replace(/'/g, "''");
   const expected = expectedThumbprint.toUpperCase();
   const script = String.raw`$moduleRoot = Join-Path $env:WINDIR 'System32\\WindowsPowerShell\\v1.0\\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $signature = Get-AuthenticodeSignature -LiteralPath '${escapedPath}'; [pscustomobject]@{ status = [string]$signature.Status; thumbprint = [string]$signature.SignerCertificate.Thumbprint; message = [string]$signature.StatusMessage } | ConvertTo-Json -Compress`;
@@ -34,11 +39,13 @@ function verifyTestOnlyAuthenticode(helperPath, expectedThumbprint) {
   if (!thumbprintMatches || !acceptableTrustState) {
     throw new Error("edition_bundle_test_signature_invalid:" + signature.status);
   }
-  return Object.freeze({
+  const resultValue = Object.freeze({
     signatureIntegrity: true,
     signerThumbprintMatches: true,
     chainTrust: "intentionally-not-established-in-test"
   });
+  verifiedSignatures.set(cacheKey, resultValue);
+  return resultValue;
 }
 
 function createOutput() {
@@ -69,7 +76,7 @@ async function invokeEditionCli({ runEditionCli, edition, createHost, argv, inpu
 }
 
 function parseJsonLines(output, label) {
-  const lines = output.split(/\\r?\\n/).filter(line => line.length > 0);
+  const lines = output.split(/\r?\n/).filter(line => line.length > 0);
   assert.ok(lines.length > 0, label + "_empty_output");
   return lines.map(line => JSON.parse(line));
 }
@@ -80,7 +87,7 @@ async function main() {
     "usage: node edition-host-bundle-test-runner.mjs <bundle-directory> <DGM-MAT|VST>");
 
   const bundleRoot = resolve(bundleArgument);
-  const manifest = JSON.parse(await (await import("node:fs/promises")).readFile(join(bundleRoot, "bundle-manifest.json"), "utf8"));
+  const manifest = JSON.parse(await readFile(join(bundleRoot, "bundle-manifest.json"), "utf8"));
   const expectedKey = edition === "DGM-MAT" ? "dgmat" : "vst";
   const expectedEntrypoint = edition === "DGM-MAT"
     ? "packages/windows-host/src/dgmat-cli.mjs"
@@ -91,7 +98,6 @@ async function main() {
   assert.equal(manifest.backendAutoConnect, false, "bundle_must_not_auto_connect");
   assert.equal(manifest.backendMode, "read-only", "bundle_must_be_read_only");
 
-  const nodePath = join(bundleRoot, "node.exe");
   const helperPath = join(bundleRoot, "OfficeKit.CngHost.exe");
   const hostIndexPath = join(bundleRoot, "packages", "windows-host", "src", "index.mjs");
   const editionCliPath = join(bundleRoot, "packages", "windows-host", "src", "edition-cli.mjs");
@@ -158,11 +164,13 @@ async function main() {
 
     const secretSentinel = "OFFICE_KIT_CI_SECRET_MUST_NOT_BE_ECHOED";
     const invalidArgsOutput = createOutput();
+    const invalidArgsInput = new PassThrough();
+    invalidArgsInput.end();
     const invalidArgsCode = await runEditionCli({
       edition: expectedKey,
       createHost: () => { throw new Error("invalid_arguments_must_not_start_host"); },
       argv: ["serve", "--token=" + secretSentinel],
-      input: new PassThrough(),
+      input: invalidArgsInput,
       output: invalidArgsOutput.stream
     });
     invalidArgsOutput.stream.end();
