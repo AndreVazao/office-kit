@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Office Kit — Avatar Studio</title>
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">OFFICE KIT DIGITAL / LABORATÓRIO INDEPENDENTE</p>
+        <h1>Avatar Studio</h1>
+      </div>
+      <div class="top-actions">
+        <span class="status"><i></i> Editor local</span>
+        <button id="export-glb" class="primary">Exportar GLB</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="panel controls">
+        <div class="panel-heading">
+          <div><p class="eyebrow">PERSONAGEM</p><h2>Construtor</h2></div>
+        </div>
+
+        <label class="field">Base
+          <select id="preset">
+            <option value="andre">André · CEO</option>
+            <option value="man">Homem</option>
+            <option value="woman">Mulher</option>
+            <option value="robot">Robô</option>
+          </select>
+        </label>
+
+        <label class="field">Vestuário
+          <select id="outfit">
+            <option value="suit">Fato social azul</option>
+            <option value="casual">Casual</option>
+            <option value="tactical">Tático</option>
+          </select>
+        </label>
+
+        <div class="control-group">
+          <div class="group-title"><h3>Morfologia</h3><span>01</span></div>
+          <label class="slider-field">Altura <output id="height-value">1,00</output>
+            <input id="height" type="range" min="0.82" max="1.18" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Constituição <output id="build-value">1,00</output>
+            <input id="build" type="range" min="0.72" max="1.38" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Cabeça <output id="head-value">1,00</output>
+            <input id="head" type="range" min="0.88" max="1.16" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Largura dos ombros <output id="shoulders-value">1,00</output>
+            <input id="shoulders" type="range" min="0.78" max="1.25" value="1" step="0.01">
+          </label>
+        </div>
+
+        <div class="control-group">
+          <div class="group-title"><h3>Aparência</h3><span>02</span></div>
+          <label class="field">Tom de pele
+            <select id="skin">
+              <option value="#c98f70">Médio quente</option>
+              <option value="#f0c7a7">Claro</option>
+              <option value="#986348">Escuro</option>
+              <option value="#d7a783">Médio claro</option>
+            </select>
+          </label>
+          <label class="field">Cabelo
+            <select id="hair">
+              <option value="silver">Grisalho</option>
+              <option value="dark">Castanho escuro</option>
+              <option value="black">Preto</option>
+              <option value="blond">Loiro</option>
+              <option value="none">Sem cabelo</option>
+            </select>
+          </label>
+          <label class="field">Barba
+            <select id="beard">
+              <option value="full">Barba completa grisalha</option>
+              <option value="short">Barba curta</option>
+              <option value="none">Sem barba</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="notice">Protótipo independente. As alterações ficam no navegador e não comunicam com os motores do Office Kit.</p>
+      </aside>
+
+      <section class="viewport-panel">
+        <div class="viewport-toolbar">
+          <div><span class="live-dot"></span> PRÉ-VISUALIZAÇÃO 3D</div>
+          <span>Arrastar: rodar · Scroll: zoom</span>
+        </div>
+        <div id="viewport" aria-label="Pré-visualização tridimensional do personagem"></div>
+        <div class="viewport-footer">
+          <span id="character-name">ANDRÉ / CEO MASTER</span>
+          <span>BLOCKOUT 01 · GLB</span>
+        </div>
+      </section>
+
+      <aside class="panel details">
+        <p class="eyebrow">FICHA DO MODELO</p>
+        <h2 id="model-title">André · CEO</h2>
+        <p id="model-description">Base masculina com cabelo grisalho, barba completa e fato azul.</p>
+        <div class="stat"><span>Tipo</span><strong id="stat-type">Humano</strong></div>
+        <div class="stat"><span>Escala</span><strong id="stat-height">1,00×</strong></div>
+        <div class="stat"><span>Geometria</span><strong id="stat-geometry">Procedural</strong></div>
+        <div class="stat"><span>Exportação</span><strong>glTF Binary</strong></div>
+        <div class="detail-note">
+          <strong>Próximo marco</strong>
+          <p>Malha orgânica unificada, rig esquelético, pesos de deformação e expressões faciais.</p>
+        </div>
+      </aside>
+    </section>
+    <footer class="app-footer">AVATAR STUDIO · MÓDULO AUTÓNOMO · NÃO ALTERA O RUNTIME</footer>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
