@@ -164,16 +164,26 @@ function buildHuman(config) {
     makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm_" + (side < 0 ? "L" : "R"));
     const hand = new THREE.Group();
     hand.position.set(handX, 0.84, 0.055);
-    hand.userData.rigHandSide = side < 0 ? "L" : "R";
     root.add(hand);
-    ellipsoid(hand, skin, [0, 0, 0], [0.064, 0.075, 0.045], "Palm");
+    const palm = ellipsoid(hand, skin, [0, 0, 0], [0.064, 0.075, 0.045], "Palm");
+    palm.userData.rigBoneName = "Hand_" + (side < 0 ? "L" : "R");
     for (let finger = 0; finger < 4; finger += 1) {
       const offset = (finger - 1.5) * 0.027;
       const length = 0.075 - Math.abs(finger - 1.5) * 0.008;
-      makeLimb(hand, skin, [offset, -0.035, 0.005], [offset, -0.035 - length, 0.012], 0.012, "Finger_" + (finger + 1));
-      ellipsoid(hand, skin, [offset, -0.035 - length, 0.012], [0.012, 0.014, 0.012], "Fingertip");
+      const fingerGroup = new THREE.Group();
+      fingerGroup.position.set(offset, -0.035, 0.005);
+      fingerGroup.userData.rigFingerName = "Finger_" + (finger + 1);
+      fingerGroup.userData.rigHandSide = side < 0 ? "L" : "R";
+      hand.add(fingerGroup);
+      makeLimb(fingerGroup, skin, [0, 0, 0], [0, -length, 0.007], 0.012, "Finger_" + (finger + 1));
+      ellipsoid(fingerGroup, skin, [0, -length, 0.007], [0.012, 0.014, 0.012], "Fingertip");
     }
-    makeLimb(hand, skin, [side * -0.045, 0.005, 0.005], [side * -0.085, -0.055, 0.025], 0.016, "Thumb");
+    const thumbGroup = new THREE.Group();
+    thumbGroup.position.set(side * -0.045, 0.005, 0.005);
+    thumbGroup.userData.rigFingerName = "Thumb";
+    thumbGroup.userData.rigHandSide = side < 0 ? "L" : "R";
+    hand.add(thumbGroup);
+    makeLimb(thumbGroup, skin, [0, 0, 0], [side * -0.04, -0.06, 0.02], 0.016, "Thumb");
   }
 
   // Head, ears and facial features
