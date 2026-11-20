@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+import { createAvatarRig } from "./rig.js";
 
 const $ = (id) => document.getElementById(id);
 const viewport = $("viewport");
@@ -50,6 +51,8 @@ scene.add(grid);
 let character = new THREE.Group();
 scene.add(character);
 let currentPreset = "andre";
+let avatarRig = null;
+let rigStartTime = 0;
 
 const presets = {
   andre: { title: "André · CEO", description: "Referência CEO: cabelo grisalho, barba completa e fato azul.", type: "Humano", skin: "#c98f70", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1, faceWidth: 1.04, jawWidth: 1.05, noseSize: 1, eyeSpacing: 1, hairLength: 1.45, hairStyle: "classic", gender: "male" },
@@ -322,6 +325,9 @@ function renderCharacter() {
   materials.forEach((mat) => mat.dispose());
   character = config.preset === "robot" ? buildRobot(config) : buildHuman(config);
   scene.add(character);
+  avatarRig = createAvatarRig(character);
+  avatarRig.setMode($("pose-mode")?.value || "idle");
+  avatarRig.setVisible(Boolean($("show-rig")?.checked));
 
   const preset = presets[config.preset];
   $("model-title").textContent = preset.title;
@@ -353,6 +359,14 @@ const cameraViews = {
   back: { position: [0, 2.1, -6.4], target: [0, 1.05, 0] },
   top: { position: [0, 7.5, 0.01], target: [0, 1.05, 0] }
 };
+const poseMode = $("pose-mode");
+if (poseMode) poseMode.addEventListener("change", () => {
+  rigStartTime = performance.now() / 1000;
+  avatarRig?.setMode(poseMode.value);
+});
+const showRig = $("show-rig");
+if (showRig) showRig.addEventListener("change", () => avatarRig?.setVisible(showRig.checked));
+
 for (const [id, view] of Object.entries(cameraViews)) {
   const button = $("view-" + id);
   if (!button) continue;
@@ -402,6 +416,7 @@ applyPreset();
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  avatarRig?.update(performance.now() / 1000 - rigStartTime);
   renderer.render(scene, camera);
 }
 animate();
