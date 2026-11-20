@@ -51,14 +51,16 @@ export function createAvatarRig(parent) {
   for (const side of ["L", "R"]) {
     const upperArmData = byName.get("UpperArm_" + side);
     const forearmData = byName.get("Forearm_" + side);
-    const legData = byName.get("Leg_" + side);
+    const upperLegData = byName.get("UpperLeg_" + side);
+    const lowerLegData = byName.get("LowerLeg_" + side);
     const shoulderPosition = upperArmData?.start || [side === "L" ? -0.34 : 0.34, 1.56, 0];
     const elbowPosition = upperArmData?.end || [side === "L" ? -0.43 : 0.43, 1.18, 0];
     const forearmEnd = forearmData?.end || [side === "L" ? -0.47 : 0.47, 0.88, 0.05];
     // Match the hand group origin in main.js so rigid hand/finger meshes bind without an offset.
     const wristPosition = [forearmEnd[0], 0.84, 0.055];
-    const hipPosition = legData?.start || [side === "L" ? -0.115 : 0.115, 0.91, 0];
-    const anklePosition = legData?.end || [side === "L" ? -0.12 : 0.12, 0.16, 0];
+    const hipPosition = upperLegData?.start || [side === "L" ? -0.115 : 0.115, 0.91, 0];
+    const kneePosition = upperLegData?.end || [side === "L" ? -0.12 : 0.12, 0.53, 0.005];
+    const anklePosition = lowerLegData?.end || [side === "L" ? -0.12 : 0.12, 0.16, 0];
 
     const upperArm = makeBone("UpperArm_" + side, shoulderPosition, chest);
     const forearm = makeBone("Forearm_" + side, elbowPosition, upperArm);
@@ -75,7 +77,7 @@ export function createAvatarRig(parent) {
     const thumbMiddle = makeBone("Thumb_Mid_" + side, [thumbBase[0] + (side === "L" ? 0.018 : -0.018), thumbBase[1] - 0.025, thumbBase[2] + 0.01], thumb);
     makeBone("Thumb_Tip_" + side, [thumbBase[0] + (side === "L" ? 0.033 : -0.033), thumbBase[1] - 0.047, thumbBase[2] + 0.017], thumbMiddle);
     const upperLeg = makeBone("UpperLeg_" + side, hipPosition, hips);
-    const lowerLeg = makeBone("LowerLeg_" + side, anklePosition, upperLeg);
+    const lowerLeg = makeBone("LowerLeg_" + side, kneePosition, upperLeg);
     makeBone("Foot_" + side, [anklePosition[0], 0.10, anklePosition[2] + 0.10], lowerLeg);
   }
 
@@ -87,7 +89,8 @@ export function createAvatarRig(parent) {
     const side = name.endsWith("_L") ? "L" : "R";
     if (name.startsWith("UpperArm_")) return ["UpperArm_" + side, "Forearm_" + side];
     if (name.startsWith("Forearm_")) return ["Forearm_" + side, "Hand_" + side];
-    if (name.startsWith("Leg_")) return ["UpperLeg_" + side, "LowerLeg_" + side];
+    if (name.startsWith("UpperLeg_")) return ["UpperLeg_" + side, "LowerLeg_" + side];
+    if (name.startsWith("LowerLeg_")) return ["LowerLeg_" + side, "Foot_" + side];
     return null;
   };
 
