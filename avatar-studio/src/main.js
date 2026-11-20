@@ -167,23 +167,41 @@ function buildHuman(config) {
     root.add(hand);
     const palm = ellipsoid(hand, skin, [0, 0, 0], [0.064, 0.075, 0.045], "Palm");
     palm.userData.rigBoneName = "Hand_" + (side < 0 ? "L" : "R");
+    const handSide = side < 0 ? "L" : "R";
     for (let finger = 0; finger < 4; finger += 1) {
+      const fingerNumber = finger + 1;
       const offset = (finger - 1.5) * 0.027;
       const length = 0.075 - Math.abs(finger - 1.5) * 0.008;
       const fingerGroup = new THREE.Group();
       fingerGroup.position.set(offset, -0.035, 0.005);
-      fingerGroup.userData.rigFingerName = "Finger_" + (finger + 1);
-      fingerGroup.userData.rigHandSide = side < 0 ? "L" : "R";
+      fingerGroup.userData.rigFingerName = "Finger_" + fingerNumber;
+      fingerGroup.userData.rigHandSide = handSide;
       hand.add(fingerGroup);
-      makeLimb(fingerGroup, skin, [0, 0, 0], [0, -length, 0.007], 0.012, "Finger_" + (finger + 1));
-      ellipsoid(fingerGroup, skin, [0, -length, 0.007], [0.012, 0.014, 0.012], "Fingertip");
+      const middleY = -length * 0.42;
+      const tipY = -length * 0.76;
+      const proximal = makeLimb(fingerGroup, skin, [0, 0, 0], [0, middleY, 0.003], 0.012, "Finger_" + fingerNumber + "_Proximal");
+      proximal.userData.rigBoneName = "Finger_" + fingerNumber + "_" + handSide;
+      const middle = makeLimb(fingerGroup, skin, [0, middleY, 0.003], [0, tipY, 0.006], 0.0105, "Finger_" + fingerNumber + "_Middle");
+      middle.userData.rigBoneName = "Finger_" + fingerNumber + "_Mid_" + handSide;
+      const distal = makeLimb(fingerGroup, skin, [0, tipY, 0.006], [0, -length, 0.007], 0.009, "Finger_" + fingerNumber + "_Distal");
+      distal.userData.rigBoneName = "Finger_" + fingerNumber + "_Tip_" + handSide;
+      const fingertip = ellipsoid(fingerGroup, skin, [0, -length, 0.007], [0.012, 0.014, 0.012], "Fingertip");
+      fingertip.userData.rigBoneName = "Finger_" + fingerNumber + "_Tip_" + handSide;
     }
     const thumbGroup = new THREE.Group();
     thumbGroup.position.set(side * -0.045, 0.005, 0.005);
     thumbGroup.userData.rigFingerName = "Thumb";
-    thumbGroup.userData.rigHandSide = side < 0 ? "L" : "R";
+    thumbGroup.userData.rigHandSide = handSide;
     hand.add(thumbGroup);
-    makeLimb(thumbGroup, skin, [0, 0, 0], [side * -0.04, -0.06, 0.02], 0.016, "Thumb");
+    const thumbMiddle = [side * -0.018, -0.025, 0.01];
+    const thumbTip = [side * -0.033, -0.047, 0.017];
+    const thumbEnd = [side * -0.04, -0.06, 0.02];
+    const thumbProximal = makeLimb(thumbGroup, skin, [0, 0, 0], thumbMiddle, 0.016, "Thumb_Proximal");
+    thumbProximal.userData.rigBoneName = "Thumb_" + handSide;
+    const thumbIntermediate = makeLimb(thumbGroup, skin, thumbMiddle, thumbTip, 0.013, "Thumb_Middle");
+    thumbIntermediate.userData.rigBoneName = "Thumb_Mid_" + handSide;
+    const thumbDistal = makeLimb(thumbGroup, skin, thumbTip, thumbEnd, 0.011, "Thumb_Distal");
+    thumbDistal.userData.rigBoneName = "Thumb_Tip_" + handSide;
   }
 
   // Head, ears and facial features
