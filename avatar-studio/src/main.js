@@ -287,6 +287,8 @@ for (const [id, view] of Object.entries(cameraViews)) {
   const button = $("view-" + id);
   if (!button) continue;
   button.addEventListener("click", () => {
+    camera.up.set(0, 1, 0);
+    if (id === "top") camera.up.set(0, 0, -1);
     camera.position.set(...view.position);
     controls.target.set(...view.target);
     controls.update();
