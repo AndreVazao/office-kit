@@ -50,9 +50,15 @@ export function createAvatarRig(parent) {
     const handBone = makeBone("Hand_" + side, wristPosition, forearm);
     for (let finger = 1; finger <= 4; finger += 1) {
       const x = (finger - 2.5) * 0.027;
-      makeBone("Finger_" + finger + "_" + side, [wristPosition[0] + x, wristPosition[1] - 0.035, wristPosition[2] + 0.005], handBone);
+      const base = [wristPosition[0] + x, wristPosition[1] - 0.035, wristPosition[2] + 0.005];
+      const proximal = makeBone("Finger_" + finger + "_" + side, base, handBone);
+      const middle = makeBone("Finger_" + finger + "_Mid_" + side, [base[0], base[1] - 0.032, base[2] + 0.003], proximal);
+      makeBone("Finger_" + finger + "_Tip_" + side, [base[0], base[1] - 0.058, base[2] + 0.006], middle);
     }
-    makeBone("Thumb_" + side, [wristPosition[0] + (side === "L" ? 0.045 : -0.045), wristPosition[1] + 0.005, wristPosition[2] + 0.005], handBone);
+    const thumbBase = [wristPosition[0] + (side === "L" ? 0.045 : -0.045), wristPosition[1] + 0.005, wristPosition[2] + 0.005];
+    const thumb = makeBone("Thumb_" + side, thumbBase, handBone);
+    const thumbMiddle = makeBone("Thumb_Mid_" + side, [thumbBase[0] + (side === "L" ? -0.018 : 0.018), thumbBase[1] - 0.025, thumbBase[2] + 0.01], thumb);
+    makeBone("Thumb_Tip_" + side, [thumbBase[0] + (side === "L" ? -0.033 : 0.033), thumbBase[1] - 0.047, thumbBase[2] + 0.017], thumbMiddle);
     const upperLeg = makeBone("UpperLeg_" + side, hipPosition, hips);
     const lowerLeg = makeBone("LowerLeg_" + side, anklePosition, upperLeg);
     makeBone("Foot_" + side, [anklePosition[0], 0.10, anklePosition[2] + 0.10], lowerLeg);
@@ -95,7 +101,7 @@ export function createAvatarRig(parent) {
     if (boneId === undefined) continue;
     const sourceMeshes = [];
     assembly.traverse((object) => {
-      if (object.isMesh && !object.isSkinnedMesh) sourceMeshes.push(object);
+      if (object.isMesh && !object.isSkinnedMesh && !object.userData.rigBoneName) sourceMeshes.push(object);
     });
     for (const sourceMesh of sourceMeshes) {
       sourceMesh.updateWorldMatrix(true, false);
@@ -298,14 +304,23 @@ export function createAvatarRig(parent) {
       const phase = side === "L" ? 0 : 0.35;
       const curl = mode === "work" ? 0.34 : mode === "talk" ? 0.20 : mode === "walk" ? 0.12 + Math.sin(t * 6 + phase) * 0.08 : mode === "sit" ? 0.16 : 0.10;
       for (let finger = 1; finger <= 4; finger += 1) {
-        const bone = bones["Finger_" + finger + "_" + side];
-        if (bone) bone.rotation.x = curl * (finger === 1 || finger === 4 ? 0.82 : 1);
+        const spread = finger === 1 || finger === 4 ? 0.82 : 1;
+        const proximal = bones["Finger_" + finger + "_" + side];
+        const middle = bones["Finger_" + finger + "_Mid_" + side];
+        const distal = bones["Finger_" + finger + "_Tip_" + side];
+        if (proximal) proximal.rotation.x = curl * 0.48 * spread;
+        if (middle) middle.rotation.x = curl * 0.78 * spread;
+        if (distal) distal.rotation.x = curl * 0.42 * spread;
       }
       const thumb = bones["Thumb_" + side];
+      const thumbMiddle = bones["Thumb_Mid_" + side];
+      const thumbTip = bones["Thumb_Tip_" + side];
       if (thumb) {
-        thumb.rotation.x = curl * 0.55;
+        thumb.rotation.x = curl * 0.30;
         thumb.rotation.z = (side === "L" ? -1 : 1) * (0.16 + curl * 0.25);
       }
+      if (thumbMiddle) thumbMiddle.rotation.x = curl * 0.62;
+      if (thumbTip) thumbTip.rotation.x = curl * 0.38;
     }
 
     parent.updateMatrixWorld(true);
