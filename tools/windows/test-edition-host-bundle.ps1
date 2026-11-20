@@ -148,17 +148,14 @@ try {
   $certificate = New-SelfSignedCertificate -Subject ("CN=Office Kit Edition Bundle CI " + [guid]::NewGuid().ToString("N")) -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
 
   Write-Output "Edition bundle smoke: signing native CNG helper."
-  $signature = Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256
-  Write-Output "Edition bundle smoke: verifying signer identity from the signing operation."
-  # Set-AuthenticodeSignature already returns the embedded signer identity and
-  # trust status. Avoid Get-AuthenticodeSignature here: its chain/revocation
-  # provider can block indefinitely on an untrusted certificate in hosted CI.
-  if ($signature.SignerCertificate.Thumbprint -ne $certificate.Thumbprint) {
-    throw "The temporary CI publisher thumbprint does not match the signed helper."
-  }
-  if ($signature.Status -ne "UnknownError") {
-    throw ("Expected the ephemeral CI certificate to remain untrusted; got signature status " + $signature.Status)
-  }
+  # Do not inspect SignerCertificate or Status on the returned Authenticode
+  # object: PowerShell may lazily invoke the Windows chain/revocation provider,
+  # which can hang on an untrusted ephemeral certificate in hosted CI.
+  # The production launcher is the authoritative verifier below: first it must
+  # reject this signer while untrusted, then accept it only after the test adds
+  # this exact ephemeral certificate to the disposable runner's trust stores.
+  Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
+  Write-Output "Edition bundle smoke: signing command completed; launcher will verify signature and trust."
 
   if ($env:GITHUB_ACTIONS -ne "true") {
     throw "Trusted-publisher smoke tests may only modify the disposable GitHub Actions runner user stores."
