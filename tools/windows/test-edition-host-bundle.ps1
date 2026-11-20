@@ -187,11 +187,13 @@ try {
     throw ("Edition bundle CLI smoke test failed (exit " + $runnerRun.ExitCode + "). stdout: " + $runnerRun.StdOut + " stderr: " + $runnerRun.StdErr)
   }
   $runnerResult = ($runnerRun.StdOut.Trim() | ConvertFrom-Json)
-  if ($runnerResult.status -ne "passed" -or $runnerResult.edition -ne $Edition
-    -or $runnerResult.helperSignatureIntegrity -ne $true
-    -or $runnerResult.helperPublisherThumbprintPinned -ne $true
-    -or $runnerResult.certificateChainTrust -ne "not-established-by-this-test"
-    -or $runnerResult.productionAuthenticodePolicyExercised -ne $false) {
+  $runnerResultMismatch = ($runnerResult.status -ne "passed") -or
+    ($runnerResult.edition -ne $Edition) -or
+    ($runnerResult.helperSignatureIntegrity -ne $true) -or
+    ($runnerResult.helperPublisherThumbprintPinned -ne $true) -or
+    ($runnerResult.certificateChainTrust -ne "not-established-by-this-test") -or
+    ($runnerResult.productionAuthenticodePolicyExercised -ne $false)
+  if ($runnerResultMismatch) {
     throw "Edition bundle test runner did not report the explicit test-only signature boundary."
   }
 
