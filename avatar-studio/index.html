@@ -37,9 +37,13 @@
         <label class="field">Base
           <select id="preset">
             <option value="andre">André · CEO</option>
-            <option value="man">Homem</option>
-            <option value="woman">Mulher</option>
-            <option value="robot">Robô</option>
+            <option value="man">Homem · médio</option>
+            <option value="manSlim">Homem · magro e alto</option>
+            <option value="manStocky">Homem · robusto</option>
+            <option value="woman">Mulher · média</option>
+            <option value="womanTall">Mulher · alta</option>
+            <option value="womanCurvy">Mulher · robusta</option>
+            <option value="robot">Robô humanoide</option>
           </select>
         </label>
 
@@ -122,6 +126,14 @@
           <div><span class="live-dot"></span> PRÉ-VISUALIZAÇÃO 3D</div>
           <span>Arrastar: rodar · Scroll: zoom</span>
         </div>
+        <nav class="view-toolbar" aria-label="Vistas predefinidas do avatar">
+          <button id="view-front" type="button">Frente</button>
+          <button id="view-threeQuarter" type="button">3/4</button>
+          <button id="view-left" type="button">Esquerda</button>
+          <button id="view-right" type="button">Direita</button>
+          <button id="view-back" type="button">Costas</button>
+          <button id="view-top" type="button">Topo</button>
+        </nav>
         <div id="viewport" aria-label="Pré-visualização tridimensional do personagem"></div>
         <div class="viewport-footer">
           <span id="character-name">ANDRÉ / CEO MASTER</span>
