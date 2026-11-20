@@ -56,7 +56,7 @@ function Invoke-CertUtil {
     [string]$Operation
   )
   $certUtilPath = Join-Path $env:SystemRoot "System32\certutil.exe"
-  $result = Invoke-BoundedProcess -FilePath $certUtilPath -Arguments $Arguments -TimeoutMilliseconds 30000
+  $result = Invoke-BoundedProcess -FilePath $certUtilPath -Arguments (@("-silent") + $Arguments) -TimeoutMilliseconds 30000
   if ($result.ExitCode -ne 0) {
     throw ($Operation + " failed. stdout: " + $result.StdOut + " stderr: " + $result.StdErr)
   }
