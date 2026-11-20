@@ -142,6 +142,7 @@ $oldLocalAppData = $env:LOCALAPPDATA
 $launcherDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionLauncher-" + [guid]::NewGuid().ToString("N"))
 $untrustedDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionUntrusted-" + [guid]::NewGuid().ToString("N"))
 $pinnedMismatchDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionPinnedMismatch-" + [guid]::NewGuid().ToString("N"))
+$cleanupVerificationDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionCleanupVerify-" + [guid]::NewGuid().ToString("N"))
 $runnerPath = Join-Path $PSScriptRoot "edition-host-bundle-test-runner.mjs"
 
 try {
@@ -185,7 +186,7 @@ try {
     $certificatePath,
     $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
   )
-  Write-Output "Edition bundle smoke: adding the ephemeral public certificate to CurrentUser trust stores."
+  Write-Output "Edition bundle smoke: adding the ephemeral public certificate to the CurrentUser TrustedPublisher store."
   $trustAddRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
     "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
     "-Action", "Add", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint
@@ -248,6 +249,9 @@ try {
   if (Test-Path -LiteralPath $pinnedMismatchDataRoot) {
     Remove-Item -LiteralPath $pinnedMismatchDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
+  if (Test-Path -LiteralPath $cleanupVerificationDataRoot) {
+    Remove-Item -LiteralPath $cleanupVerificationDataRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
   if ($certificate) {
     try {
       if (Test-Path -LiteralPath $certificatePath -PathType Leaf) {
@@ -258,7 +262,29 @@ try {
         if ($trustCleanupRun.ExitCode -ne 0) {
           throw ("Temporary CI publisher trust cleanup failed. stdout: " + $trustCleanupRun.StdOut + " stderr: " + $trustCleanupRun.StdErr)
         }
-        Write-Output "Edition bundle smoke: temporary CurrentUser trust entries removed and verified."
+        Write-Output "Edition bundle smoke: temporary CurrentUser TrustedPublisher entry removed and verified."
+        $cleanupOldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
+        $cleanupOldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
+        $cleanupOldLocalAppData = $env:LOCALAPPDATA
+        try {
+          $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
+          $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
+          New-Item -ItemType Directory -Path $cleanupVerificationDataRoot -Force | Out-Null
+          $env:LOCALAPPDATA = $cleanupVerificationDataRoot
+          $cleanupVerificationRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
+          if ($cleanupVerificationRun.ExitCode -eq 0) {
+            throw "Edition launcher still trusts the ephemeral publisher after cleanup."
+          }
+          $cleanupVerificationResult = ($cleanupVerificationRun.StdOut.Trim() | ConvertFrom-Json)
+          if ($cleanupVerificationResult.ok -ne $false -or $cleanupVerificationResult.error -ne "host_start_failed") {
+            throw "Publisher cleanup was not reflected by the production launcher."
+          }
+          Write-Output "Edition bundle smoke: launcher rejected the publisher again after trust cleanup."
+        } finally {
+          $env:OFFICE_KIT_CNG_HOST_PATH = $cleanupOldHelperPath
+          $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $cleanupOldThumbprint
+          $env:LOCALAPPDATA = $cleanupOldLocalAppData
+        }
       }
     } catch {
       $cleanupErrors.Add($_.Exception.Message)
