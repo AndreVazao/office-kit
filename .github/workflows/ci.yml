@@ -37,8 +37,7 @@ jobs:
             "tools/windows/build-host-bundle.ps1",
             "tools/windows/test-host-bundle.ps1",
             "tools/windows/build-edition-host-bundle.ps1",
-            "tools/windows/test-edition-host-bundle.ps1",
-            "tools/windows/manage-ci-publisher-trust.ps1"
+            "tools/windows/test-edition-host-bundle.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
