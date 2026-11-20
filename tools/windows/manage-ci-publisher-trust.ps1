@@ -18,35 +18,13 @@ if ($env:GITHUB_ACTIONS -ne "true") {
   throw "Temporary publisher trust may only be changed inside a disposable GitHub Actions runner."
 }
 
-function Get-CurrentUserCertificates {
-  param([Parameter(Mandatory = $true)][string]$StoreName)
-  $parsedStoreName = [System.Enum]::Parse(
-    [System.Security.Cryptography.X509Certificates.StoreName],
-    $StoreName,
-    $false
-  )
-  $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-    $parsedStoreName,
-    [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-  )
-  try {
-    $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
-    return $store.Certificates.Find(
-      [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
-      $Thumbprint,
-      $false
-    )
-  } finally {
-    $store.Close()
-  }
-}
-
 $certificate = $null
 try {
   if ($Action -eq "Add") {
     if (-not (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
       throw "Temporary public certificate file is missing."
     }
+
     $certificateBytes = [System.IO.File]::ReadAllBytes($CertificatePath)
     $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificateBytes)
     if ($certificate.Thumbprint -ne $Thumbprint) {
@@ -54,71 +32,79 @@ try {
     }
 
     foreach ($storeName in @("Root", "TrustedPublisher")) {
-      if ((Get-CurrentUserCertificates -StoreName $storeName).Count -ne 0) {
-        throw ("Refusing to overwrite an existing CurrentUser " + $storeName + " certificate.")
-      }
-    }
-
-    # Use the documented CryptoAPI system-store function directly. This adds
-    # the encoded public certificate without invoking an interactive import
-    # wizard or changing any LocalMachine store.
-    $source = @'
-using System;
-using System.Runtime.InteropServices;
-public static class OfficeKitCurrentUserRootStore {
-  [DllImport("crypt32.dll", EntryPoint = "CertAddEncodedCertificateToSystemStoreW", CharSet = CharSet.Unicode, SetLastError = true)]
-  public static extern bool Add(string storeName, byte[] encodedCertificate, UInt32 encodedLength);
-}
-'@
-    Add-Type -TypeDefinition $source -ErrorAction Stop
-    $rootAdded = [OfficeKitCurrentUserRootStore]::Add("ROOT", $certificateBytes, [UInt32]$certificateBytes.Length)
-    if (-not $rootAdded) {
-      $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-      throw ("CertAddEncodedCertificateToSystemStoreW failed with Win32 error " + $errorCode + ".")
-    }
-    if ((Get-CurrentUserCertificates -StoreName "Root").Count -ne 1) {
-      throw "Temporary publisher root was not present after installation."
-    }
-
-    $publisherStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-      [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPublisher,
-      [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-    )
-    try {
-      $publisherStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-      $publisherStore.Add($certificate)
-    } finally {
-      $publisherStore.Close()
-    }
-    if ((Get-CurrentUserCertificates -StoreName "TrustedPublisher").Count -ne 1) {
-      throw "Temporary publisher was not uniquely present in CurrentUser TrustedPublisher."
-    }
-    Write-Output "Added ephemeral publisher to CurrentUser Root and TrustedPublisher."
-  } else {
-    foreach ($storeName in @("Root", "TrustedPublisher")) {
-      $matches = Get-CurrentUserCertificates -StoreName $storeName
-      if ($matches.Count -gt 0) {
-        $parsedStoreName = [System.Enum]::Parse(
-          [System.Security.Cryptography.X509Certificates.StoreName],
-          $storeName,
+      Write-Output ("Opening CurrentUser " + $storeName + " store for isolated CI trust.")
+      $parsedStoreName = [System.Enum]::Parse(
+        [System.Security.Cryptography.X509Certificates.StoreName],
+        $storeName,
+        $false
+      )
+      $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+        $parsedStoreName,
+        [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+      )
+      try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $existing = $store.Certificates.Find(
+          [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+          $Thumbprint,
           $false
         )
-        $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
-          $parsedStoreName,
-          [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
-        )
-        try {
-          $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-          foreach ($entry in $matches) { $store.Remove($entry) }
-        } finally {
-          $store.Close()
+        if ($existing.Count -ne 0) {
+          throw ("Refusing to overwrite an existing CurrentUser " + $storeName + " certificate.")
         }
+        Write-Output ("Adding ephemeral certificate to CurrentUser " + $storeName + ".")
+        $store.Add($certificate)
+        $matches = $store.Certificates.Find(
+          [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+          $Thumbprint,
+          $false
+        )
+        if ($matches.Count -ne 1) {
+          throw ("Temporary publisher was not uniquely present in CurrentUser " + $storeName + ".")
+        }
+        foreach ($entry in $matches) { $entry.Dispose() }
+      } finally {
+        $store.Close()
       }
-      if ((Get-CurrentUserCertificates -StoreName $storeName).Count -ne 0) {
-        throw ("Temporary publisher cleanup failed in CurrentUser " + $storeName + ".")
-      }
+      Write-Output ("CurrentUser " + $storeName + " trust entry installed.")
     }
-    Write-Output "Removed ephemeral publisher from CurrentUser Root and TrustedPublisher."
+  } else {
+    foreach ($storeName in @("Root", "TrustedPublisher")) {
+      Write-Output ("Opening CurrentUser " + $storeName + " store for cleanup.")
+      $parsedStoreName = [System.Enum]::Parse(
+        [System.Security.Cryptography.X509Certificates.StoreName],
+        $storeName,
+        $false
+      )
+      $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+        $parsedStoreName,
+        [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
+      )
+      try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $matches = $store.Certificates.Find(
+          [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+          $Thumbprint,
+          $false
+        )
+        foreach ($entry in $matches) {
+          $store.Remove($entry)
+          $entry.Dispose()
+        }
+        $remaining = $store.Certificates.Find(
+          [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+          $Thumbprint,
+          $false
+        )
+        if ($remaining.Count -ne 0) {
+          throw ("Temporary publisher cleanup failed in CurrentUser " + $storeName + ".")
+        }
+        foreach ($entry in $remaining) { $entry.Dispose() }
+      } finally {
+        $store.Close()
+      }
+      Write-Output ("CurrentUser " + $storeName + " trust entry removed and verified.")
+    }
   }
 } finally {
   if ($certificate) {
