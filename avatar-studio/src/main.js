@@ -211,7 +211,8 @@ function buildHuman(config) {
   head.userData.rigHeadGroup = true;
   root.add(head);
   ellipsoid(head, skin, [0, 0, 0], [0.205 * faceWidth, 0.265, 0.19], "Head");
-  ellipsoid(head, skin, [0, -0.155, 0.035], [0.155 * jawWidth, 0.105, 0.145], "Jaw");
+  const jawMesh = ellipsoid(head, skin, [0, -0.155, 0.035], [0.155 * jawWidth, 0.105, 0.145], "Jaw");
+  jawMesh.userData.rigBoneName = "Jaw";
   const earInner = material(female ? "#a96f61" : "#9b6657");
   const iris = material("#657b86", 0.38);
   const pupil = material("#151b24", 0.28);
@@ -224,8 +225,10 @@ function buildHuman(config) {
     ellipsoid(head, eye, [eyeX, 0.035, 0.188], [0.026, 0.017, 0.012], "Eye");
     ellipsoid(head, iris, [eyeX, 0.035, 0.199], [0.010, 0.011, 0.006], "Iris");
     ellipsoid(head, pupil, [eyeX, 0.035, 0.204], [0.0055, 0.007, 0.003], "Pupil");
-    ellipsoid(head, skin, [eyeX, 0.057, 0.185], [0.036, 0.009, 0.012], "Upper_Eyelid");
-    ellipsoid(head, hair, [eyeX, 0.081, 0.17], [0.046, 0.012, 0.012], "Eyebrow");
+    const eyelid = ellipsoid(head, skin, [eyeX, 0.057, 0.185], [0.036, 0.009, 0.012], "Upper_Eyelid");
+    eyelid.userData.rigBoneName = "Eyelid_" + (side < 0 ? "L" : "R");
+    const eyebrow = ellipsoid(head, hair, [eyeX, 0.081, 0.17], [0.046, 0.012, 0.012], "Eyebrow");
+    eyebrow.userData.rigBoneName = "Brow_" + (side < 0 ? "L" : "R");
     ellipsoid(head, skin, [side * 0.118, -0.075, 0.145], [0.064, 0.055, 0.045], "Cheek");
   }
   // Nose bridge, tip and nostril wings are separate sculptable forms.
@@ -234,8 +237,10 @@ function buildHuman(config) {
   for (const side of [-1, 1]) {
     ellipsoid(head, skin, [side * 0.029 * noseSize, -0.087 * noseSize, 0.185], [0.018 * noseSize, 0.014 * noseSize, 0.019 * noseSize], "Nostril_Wing");
   }
-  ellipsoid(head, lip, [0, -0.145, 0.174], [0.055, 0.012, 0.014], "Mouth");
-  ellipsoid(head, skin, [0, -0.177, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
+  const mouth = ellipsoid(head, lip, [0, -0.145, 0.174], [0.055, 0.012, 0.014], "Mouth");
+  mouth.userData.rigBoneName = "Jaw";
+  const chin = ellipsoid(head, skin, [0, -0.177, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
+  chin.userData.rigBoneName = "Jaw";
 
   // Short hair cap and side sections
   if (config.hair !== "none") {
