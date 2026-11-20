@@ -1,41 +1,113 @@
 import * as THREE from "three";
 
 /**
- * Bone hierarchy and preview poses for the Avatar Studio.
- * This is a real THREE.Bone hierarchy and THREE.Skeleton, but the current
- * primitive body meshes are not yet SkinnedMesh-bound to it.
+ * Runtime avatar rig. Limb cylinders tagged by main.js are converted into
+ * SkinnedMesh segments with two-bone linear-blend skinning. The rest of the
+ * procedural body remains separate meshes until torso/head skinning is added.
  */
 export function createAvatarRig(parent) {
+  const segments = [];
+  parent.traverse((object) => {
+    if (object.isMesh && object.userData.rigSegment) segments.push(object);
+  });
+
   const bones = {};
-  const makeBone = (name, position, parentBone) => {
+  const worldPositions = {};
+  const makeBone = (name, worldPosition, parentBone) => {
     const bone = new THREE.Bone();
     bone.name = name;
-    bone.position.set(...position);
+    const p = new THREE.Vector3(...worldPosition);
+    const parentPosition = parentBone ? worldPositions[parentBone.name] : [0, 0, 0];
+    bone.position.copy(p.sub(new THREE.Vector3(...parentPosition)));
     (parentBone || parent).add(bone);
     bones[name] = bone;
+    worldPositions[name] = worldPosition.slice();
     return bone;
   };
 
-  const hips = makeBone("Hips", [0, 0.96, 0]);
-  const spine = makeBone("Spine", [0, 0.12, 0], hips);
-  const chest = makeBone("Chest", [0, 0.32, 0], spine);
-  const neck = makeBone("Neck", [0, 0.34, 0], chest);
-  makeBone("Head", [0, 0.16, 0], neck);
+  const hips = makeBone("Hips", [0, 0.99, 0]);
+  const spine = makeBone("Spine", [0, 1.34, 0], hips);
+  const chest = makeBone("Chest", [0, 1.56, 0], spine);
+  const neck = makeBone("Neck", [0, 1.72, 0], chest);
+  makeBone("Head", [0, 1.94, 0], neck);
 
-  for (const side of [-1, 1]) {
-    const suffix = side < 0 ? "L" : "R";
-    const shoulder = makeBone("Shoulder_" + suffix, [side * 0.34, 0.27, 0], chest);
-    const upperArm = makeBone("UpperArm_" + suffix, [side * 0.12, -0.04, 0], shoulder);
-    const forearm = makeBone("Forearm_" + suffix, [side * 0.30, -0.34, 0.015], upperArm);
-    makeBone("Hand_" + suffix, [side * 0.25, -0.28, 0.02], forearm);
+  const byName = new Map(segments.map((mesh) => [mesh.userData.rigSegment.name, mesh.userData.rigSegment]));
+  for (const side of ["L", "R"]) {
+    const upperArmData = byName.get("UpperArm_" + side);
+    const forearmData = byName.get("Forearm_" + side);
+    const legData = byName.get("Leg_" + side);
+    const shoulderPosition = upperArmData?.start || [side === "L" ? -0.34 : 0.34, 1.56, 0];
+    const elbowPosition = upperArmData?.end || [side === "L" ? -0.43 : 0.43, 1.18, 0];
+    const wristPosition = forearmData?.end || [side === "L" ? -0.47 : 0.47, 0.88, 0.05];
+    const hipPosition = legData?.start || [side === "L" ? -0.115 : 0.115, 0.91, 0];
+    const anklePosition = legData?.end || [side === "L" ? -0.12 : 0.12, 0.16, 0];
 
-    const upperLeg = makeBone("UpperLeg_" + suffix, [side * 0.12, -0.12, 0], hips);
-    const lowerLeg = makeBone("LowerLeg_" + suffix, [0, -0.40, 0], upperLeg);
-    makeBone("Foot_" + suffix, [0, -0.38, 0.10], lowerLeg);
+    const upperArm = makeBone("UpperArm_" + side, shoulderPosition, chest);
+    const forearm = makeBone("Forearm_" + side, elbowPosition, upperArm);
+    makeBone("Hand_" + side, wristPosition, forearm);
+    const upperLeg = makeBone("UpperLeg_" + side, hipPosition, hips);
+    const lowerLeg = makeBone("LowerLeg_" + side, anklePosition, upperLeg);
+    makeBone("Foot_" + side, [anklePosition[0], 0.10, anklePosition[2] + 0.10], lowerLeg);
   }
 
   const orderedBones = Object.values(bones);
+  const boneIndex = new Map(orderedBones.map((bone, index) => [bone.name, index]));
   const skeleton = new THREE.Skeleton(orderedBones);
+
+  const segmentBones = (name) => {
+    const side = name.endsWith("_L") ? "L" : "R";
+    if (name.startsWith("UpperArm_")) return ["UpperArm_" + side, "Forearm_" + side];
+    if (name.startsWith("Forearm_")) return ["Forearm_" + side, "Hand_" + side];
+    if (name.startsWith("Leg_")) return ["UpperLeg_" + side, "LowerLeg_" + side];
+    return null;
+  };
+
+  for (const sourceMesh of segments) {
+    const info = sourceMesh.userData.rigSegment;
+    const names = segmentBones(info.name);
+    if (!names || !bones[names[0]] || !bones[names[1]]) continue;
+
+    sourceMesh.updateMatrix();
+    const geometry = sourceMesh.geometry.clone();
+    geometry.applyMatrix4(sourceMesh.matrix);
+    const positions = geometry.getAttribute("position");
+    const indices = [];
+    const weights = [];
+    const start = new THREE.Vector3(...info.start);
+    const end = new THREE.Vector3(...info.end);
+    const axis = new THREE.Vector3().subVectors(end, start);
+    const lengthSquared = Math.max(axis.lengthSq(), 1e-8);
+
+    for (let i = 0; i < positions.count; i += 1) {
+      const point = new THREE.Vector3().fromBufferAttribute(positions, i);
+      const t = THREE.MathUtils.clamp(new THREE.Vector3().subVectors(point, start).dot(axis) / lengthSquared, 0, 1);
+      indices.push(boneIndex.get(names[0]), boneIndex.get(names[1]), 0, 0);
+      weights.push(1 - t, t, 0, 0);
+    }
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+
+    const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+    skinned.name = info.name + "_Skinned";
+    skinned.castShadow = true;
+    skinned.receiveShadow = true;
+    skinned.frustumCulled = false;
+    parent.add(skinned);
+    sourceMesh.visible = false;
+    sourceMesh.userData.skinnedReplacement = skinned.name;
+    skinned.normalizeSkinWeights();
+  }
+
+  parent.traverse((object) => {
+    if (object.isMesh && object.userData.rigJointSegment) object.visible = false;
+  });
+
+  parent.updateMatrixWorld(true);
+  skeleton.calculateInverses();
+  parent.traverse((object) => {
+    if (object.isSkinnedMesh) object.bind(skeleton);
+  });
+
   const helper = new THREE.SkeletonHelper(parent);
   helper.name = "Avatar_Rig_Debug";
   helper.material = new THREE.LineBasicMaterial({ color: 0x65c7ff, depthTest: true });
@@ -43,10 +115,7 @@ export function createAvatarRig(parent) {
   parent.add(helper);
 
   const rest = {};
-  for (const [name, bone] of Object.entries(bones)) {
-    rest[name] = bone.rotation.clone();
-  }
-
+  for (const [name, bone] of Object.entries(bones)) rest[name] = bone.rotation.clone();
   let mode = "idle";
   const reset = () => {
     for (const [name, bone] of Object.entries(bones)) bone.rotation.copy(rest[name]);
@@ -59,12 +128,12 @@ export function createAvatarRig(parent) {
     const slow = Math.sin(t * 2.1);
 
     if (mode === "walk") {
-      for (const side of [-1, 1]) {
-        const sign = side < 0 ? 1 : -1;
-        bones["UpperLeg_" + (side < 0 ? "L" : "R")].rotation.x = Math.sin(t * 6) * 0.42 * sign;
-        bones["LowerLeg_" + (side < 0 ? "L" : "R")].rotation.x = Math.max(0, -Math.sin(t * 6) * 0.58);
-        bones["UpperArm_" + (side < 0 ? "L" : "R")].rotation.x = -Math.sin(t * 6) * 0.28 * sign;
-        bones["Forearm_" + (side < 0 ? "L" : "R")].rotation.x = -0.12;
+      for (const side of ["L", "R"]) {
+        const sign = side === "L" ? 1 : -1;
+        bones["UpperLeg_" + side].rotation.x = Math.sin(t * 6) * 0.42 * sign;
+        bones["LowerLeg_" + side].rotation.x = Math.max(0, -Math.sin(t * 6) * 0.58);
+        bones["UpperArm_" + side].rotation.x = -Math.sin(t * 6) * 0.28 * sign;
+        bones["Forearm_" + side].rotation.x = -0.12;
       }
       bones.Spine.rotation.z = Math.sin(t * 6) * 0.035;
     } else if (mode === "sit") {
@@ -96,6 +165,7 @@ export function createAvatarRig(parent) {
       bones.Head.rotation.y = Math.sin(t * 0.7) * 0.025;
     }
 
+    parent.updateMatrixWorld(true);
     skeleton.update();
     helper.update();
   }
@@ -104,6 +174,7 @@ export function createAvatarRig(parent) {
     bones,
     skeleton,
     helper,
+    skinnedSegmentCount: parent.getObjectsByProperty("isSkinnedMesh", true).length,
     setMode(nextMode) {
       if (["idle", "walk", "sit", "talk", "work"].includes(nextMode)) mode = nextMode;
       reset();
