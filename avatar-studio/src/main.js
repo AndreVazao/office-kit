@@ -52,14 +52,14 @@ scene.add(character);
 let currentPreset = "andre";
 
 const presets = {
-  andre: { title: "André · CEO", description: "Referência CEO: cabelo grisalho, barba completa e fato azul.", type: "Humano", skin: "#c98f70", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1, faceWidth: 1.04, jawWidth: 1.05, noseSize: 1, eyeSpacing: 1, hairLength: 1.45, gender: "male" },
-  man: { title: "Homem · médio", description: "Personagem masculino de proporções médias.", type: "Humano", skin: "#c98f70", hair: "dark", beard: "short", outfit: "casual", build: 1, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, gender: "male" },
-  manSlim: { title: "Homem · magro e alto", description: "Silhueta masculina alta e esguia.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.78, shoulders: 0.88, height: 1.14, head: 0.98, faceWidth: 0.94, jawWidth: 0.92, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.2, gender: "male" },
-  manStocky: { title: "Homem · robusto", description: "Silhueta masculina baixa e robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "full", outfit: "casual", build: 1.3, shoulders: 1.2, height: 0.9, head: 1.05, faceWidth: 1.12, jawWidth: 1.15, noseSize: 1.08, eyeSpacing: 1, hairLength: 0.9, gender: "male" },
-  woman: { title: "Mulher · média", description: "Personagem feminina de proporções médias.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.94, shoulders: 0.9, height: 1, head: 1, faceWidth: 0.98, jawWidth: 0.94, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.8, gender: "female" },
-  womanTall: { title: "Mulher · alta", description: "Silhueta feminina alta e esguia.", type: "Humano", skin: "#f0c7a7", hair: "blond", beard: "none", outfit: "suit", build: 0.9, shoulders: 0.92, height: 1.15, head: 1, faceWidth: 0.96, jawWidth: 0.92, noseSize: 0.92, eyeSpacing: 1.02, hairLength: 2.2, gender: "female" },
-  womanCurvy: { title: "Mulher · robusta", description: "Silhueta feminina de constituição robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "none", outfit: "casual", build: 1.25, shoulders: 1, height: 0.94, head: 1.03, faceWidth: 1.08, jawWidth: 1.04, noseSize: 1.05, eyeSpacing: 1, hairLength: 1.7, gender: "female" },
-  robot: { title: "Robô humanoide", description: "Base robótica modular com placas e articulações metálicas.", type: "Robô", skin: "#9aa9bc", hair: "none", beard: "none", outfit: "tactical", build: 1.02, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, gender: "robot" }
+  andre: { title: "André · CEO", description: "Referência CEO: cabelo grisalho, barba completa e fato azul.", type: "Humano", skin: "#c98f70", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1, faceWidth: 1.04, jawWidth: 1.05, noseSize: 1, eyeSpacing: 1, hairLength: 1.45, hairStyle: "classic", gender: "male" },
+  man: { title: "Homem · médio", description: "Personagem masculino de proporções médias.", type: "Humano", skin: "#c98f70", hair: "dark", beard: "short", outfit: "casual", build: 1, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, hairStyle: "short", gender: "male" },
+  manSlim: { title: "Homem · magro e alto", description: "Silhueta masculina alta e esguia.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.78, shoulders: 0.88, height: 1.14, head: 0.98, faceWidth: 0.94, jawWidth: 0.92, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.2, hairStyle: "classic", gender: "male" },
+  manStocky: { title: "Homem · robusto", description: "Silhueta masculina baixa e robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "full", outfit: "casual", build: 1.3, shoulders: 1.2, height: 0.9, head: 1.05, faceWidth: 1.12, jawWidth: 1.15, noseSize: 1.08, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
+  woman: { title: "Mulher · média", description: "Personagem feminina de proporções médias.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.94, shoulders: 0.9, height: 1, head: 1, faceWidth: 0.98, jawWidth: 0.94, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.8, hairStyle: "long", gender: "female" },
+  womanTall: { title: "Mulher · alta", description: "Silhueta feminina alta e esguia.", type: "Humano", skin: "#f0c7a7", hair: "blond", beard: "none", outfit: "suit", build: 0.9, shoulders: 0.92, height: 1.15, head: 1, faceWidth: 0.96, jawWidth: 0.92, noseSize: 0.92, eyeSpacing: 1.02, hairLength: 2.2, hairStyle: "long", gender: "female" },
+  womanCurvy: { title: "Mulher · robusta", description: "Silhueta feminina de constituição robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "none", outfit: "casual", build: 1.25, shoulders: 1, height: 0.94, head: 1.03, faceWidth: 1.08, jawWidth: 1.04, noseSize: 1.05, eyeSpacing: 1, hairLength: 1.7, hairStyle: "bun", gender: "female" },
+  robot: { title: "Robô humanoide", description: "Base robótica modular com placas e articulações metálicas.", type: "Robô", skin: "#9aa9bc", hair: "none", beard: "none", outfit: "tactical", build: 1.02, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, hairStyle: "short", gender: "robot" }
 };
 
 const material = (color, roughness = 0.72, metalness = 0) =>
@@ -187,8 +187,19 @@ function buildHuman(config) {
   // Short hair cap and side sections
   if (config.hair !== "none") {
     ellipsoid(head, hair, [0, 0.19 + (hairLength - 1) * 0.045, -0.005], [0.207, 0.09 + (hairLength - 1) * 0.07, 0.19], "Hair_Cap");
+    const sideLength = config.hairStyle === "long" ? 1.85 : config.hairStyle === "bun" ? 1.15 : config.hairStyle === "short" ? 0.62 : 1;
     for (const side of [-1, 1]) {
-      ellipsoid(head, hair, [side * 0.175, 0.075, -0.005], [0.045, 0.12 * hairLength, 0.17], "Hair_Side");
+      ellipsoid(head, hair, [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005], [0.045, 0.12 * hairLength * sideLength, 0.17], "Hair_Side");
+    }
+    if (config.hairStyle === "long") {
+      ellipsoid(head, hair, [0, -0.13, -0.12], [0.19, 0.23 * hairLength, 0.075], "Hair_Back");
+    }
+    if (config.hairStyle === "bun") {
+      ellipsoid(head, hair, [0, 0.18, -0.19], [0.095, 0.105, 0.09], "Hair_Bun");
+      ellipsoid(head, hair, [0, -0.005, 0.17], [0.14, 0.065, 0.045], "Hair_Front");
+    }
+    if (config.hairStyle === "classic") {
+      ellipsoid(head, hair, [0, 0.105, 0.165], [0.13, 0.055, 0.045], "Hairline_Front");
     }
   }
 
@@ -268,6 +279,7 @@ function readConfig() {
     noseSize: $("nose-size").value,
     eyeSpacing: $("eye-spacing").value,
     hairLength: $("hair-length").value,
+    hairStyle: $("hair-style").value,
     gender: presets[$("preset").value].gender
   };
 }
@@ -304,7 +316,7 @@ function renderCharacter() {
 
 function applyPreset() {
   const preset = presets[$("preset").value];
-  for (const key of ["skin", "hair", "beard", "outfit", "build", "shoulders", "height", "head", "face-width", "jaw-width", "nose-size", "eye-spacing", "hair-length"]) {
+  for (const key of ["skin", "hair", "hair-style", "beard", "outfit", "build", "shoulders", "height", "head", "face-width", "jaw-width", "nose-size", "eye-spacing", "hair-length"]) {
     const configKey = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     if (preset[configKey] !== undefined) $(key).value = preset[configKey];
   }
@@ -332,7 +344,7 @@ for (const [id, view] of Object.entries(cameraViews)) {
     controls.update();
   });
 }
-for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hair", "beard", "face-width", "jaw-width", "nose-size", "eye-spacing", "hair-length"]) {
+for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hair", "hair-style", "beard", "face-width", "jaw-width", "nose-size", "eye-spacing", "hair-length"]) {
   $(id).addEventListener("input", renderCharacter);
   $(id).addEventListener("change", renderCharacter);
 }
