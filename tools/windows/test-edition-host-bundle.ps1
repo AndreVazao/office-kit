@@ -161,23 +161,10 @@ try {
     throw "Trusted-publisher smoke tests may only modify the disposable GitHub Actions runner user stores."
   }
 
-  # Prove that the production host rejects this signer before any trust is granted.
-  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
-  $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
-  New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
-  $env:LOCALAPPDATA = $untrustedDataRoot
-  $untrustedRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
-  if ($untrustedRun.ExitCode -eq 0) {
-    throw "Edition launcher accepted an untrusted publisher."
-  }
-  $untrustedResult = ($untrustedRun.StdOut.Trim() | ConvertFrom-Json)
-  if ($untrustedResult.ok -ne $false -or $untrustedResult.error -ne "host_start_failed") {
-    throw "Untrusted publisher rejection did not produce the expected sanitized startup failure."
-  }
-
-  # The production host must reject an untrusted signer. After proving that boundary,
-  # trust this one ephemeral certificate in CurrentUser stores only so the host can
-  # complete its real CNG/SQLite startup path. The certificate is removed in finally.
+  # Trust only this ephemeral certificate in the disposable Actions runner before
+  # invoking the production Authenticode verifier. Windows chain/revocation lookup
+  # for an intentionally untrusted self-signed certificate can block on network
+  # retrieval in hosted CI; the production verifier itself remains unchanged.
   $rootStore = [System.Security.Cryptography.X509Certificates.X509Store]::new(
     [System.Security.Cryptography.X509Certificates.StoreName]::Root,
     [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
@@ -192,10 +179,22 @@ try {
   $publisherStoreOpened = $true
   $rootStore.Add($certificate)
   $publisherStore.Add($certificate)
-  # The next real launcher invocation is the authoritative trust check.
-  # It exercises the same production verification path without an unbounded
-  # PowerShell Authenticode provider call in the test harness.
   Write-Output "Edition bundle smoke: ephemeral publisher installed in CurrentUser trust stores."
+
+  # Verify that the production launcher rejects a correctly trusted signature
+  # when its signer does not match the explicitly pinned publisher thumbprint.
+  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
+  $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = ("0" * 40)
+  New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
+  $env:LOCALAPPDATA = $untrustedDataRoot
+  $pinnedMismatchRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
+  if ($pinnedMismatchRun.ExitCode -eq 0) {
+    throw "Edition launcher accepted a signer that does not match the pinned publisher thumbprint."
+  }
+  $pinnedMismatchResult = ($pinnedMismatchRun.StdOut.Trim() | ConvertFrom-Json)
+  if ($pinnedMismatchResult.ok -ne $false -or $pinnedMismatchResult.error -ne "host_start_failed") {
+    throw "Pinned publisher mismatch did not produce the expected sanitized startup failure."
+  }
 
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
