@@ -114,6 +114,22 @@
         <p class="eyebrow">FICHA DO MODELO</p>
         <h2 id="model-title">André · CEO</h2>
         <p id="model-description">Base masculina com cabelo grisalho, barba completa e fato azul.</p>
+        <section class="identity-card" aria-labelledby="identity-title">
+          <div class="identity-heading"><strong id="identity-title">Referência de identidade · André</strong><span id="identity-state">Sem fotografia</span></div>
+          <p class="identity-help">Carrega a tua fotografia original. A imagem é processada apenas neste navegador e não é enviada para o GitHub nem para um servidor.</p>
+          <label class="upload-button" for="identity-photo">Escolher fotografia original</label>
+          <input id="identity-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <div id="identity-drop" class="identity-drop">
+            <canvas id="identity-canvas" width="640" height="640" aria-label="Fotografia de referência com pontos faciais ajustáveis"></canvas>
+            <span id="identity-empty">A fotografia aparecerá aqui</span>
+          </div>
+          <div class="identity-actions">
+            <button id="identity-reset" type="button">Limpar pontos</button>
+            <button id="identity-remove" type="button">Remover fotografia</button>
+          </div>
+          <p id="identity-progress" class="identity-progress">0/10 referências faciais assinaladas</p>
+          <p class="identity-disclaimer">Os pontos são referências manuais para orientar a modelação. Uma única fotografia 2D não permite reconstruir automaticamente todos os ângulos nem garantir semelhança 3D. Para isso serão necessárias fotografias adicionais e validação manual.</p>
+        </section>
         <div class="stat"><span>Tipo</span><strong id="stat-type">Humano</strong></div>
         <div class="stat"><span>Escala</span><strong id="stat-height">1,00×</strong></div>
         <div class="stat"><span>Geometria</span><strong id="stat-geometry">Procedural</strong></div>
@@ -127,5 +143,6 @@
     <footer class="app-footer">AVATAR STUDIO · MÓDULO AUTÓNOMO · NÃO ALTERA O RUNTIME</footer>
   </main>
   <script type="module" src="./src/main.js"></script>
+  <script type="module" src="./src/identity-reference.js"></script>
 </body>
 </html>
