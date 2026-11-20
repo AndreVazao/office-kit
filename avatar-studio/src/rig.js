@@ -69,9 +69,12 @@ export function createAvatarRig(parent) {
   parent.updateMatrixWorld(true);
   const inverseRootWorld = parent.matrixWorld.clone().invert();
   const assemblies = [];
+  const rigidMeshes = [];
   parent.traverse((object) => {
     if (object.isGroup && (object.userData.rigHeadGroup || object.userData.rigHandSide)) {
       assemblies.push(object);
+    } else if (object.isMesh && object.userData.rigBoneName) {
+      rigidMeshes.push(object);
     }
   });
   for (const assembly of assemblies) {
@@ -107,6 +110,33 @@ export function createAvatarRig(parent) {
       sourceMesh.userData.skinnedReplacement = skinned.name;
       skinned.normalizeSkinWeights();
     }
+  }
+  for (const sourceMesh of rigidMeshes) {
+    const boneId = boneIndex.get(sourceMesh.userData.rigBoneName);
+    if (boneId === undefined) continue;
+    sourceMesh.updateWorldMatrix(true, false);
+    const transform = inverseRootWorld.clone().multiply(sourceMesh.matrixWorld);
+    const geometry = sourceMesh.geometry.clone();
+    geometry.applyMatrix4(transform);
+    const positions = geometry.getAttribute("position");
+    const indices = new Uint16Array(positions.count * 4);
+    const weights = new Float32Array(positions.count * 4);
+    for (let i = 0; i < positions.count; i += 1) {
+      indices[i * 4] = boneId;
+      weights[i * 4] = 1;
+    }
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+    const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+    skinned.name = sourceMesh.name + "_Skinned";
+    skinned.castShadow = true;
+    skinned.receiveShadow = true;
+    skinned.frustumCulled = false;
+    parent.add(skinned);
+    skinnedMeshes.push(skinned);
+    sourceMesh.visible = false;
+    sourceMesh.userData.skinnedReplacement = skinned.name;
+    skinned.normalizeSkinWeights();
   }
 
   // Bind the pelvis and torso shells to the central spine chain. Weights
