@@ -24,7 +24,7 @@ controls.target.set(0, 1.05, 0);
 controls.enableDamping = true;
 controls.minDistance = 2.7;
 controls.maxDistance = 10;
-controls.maxPolarAngle = Math.PI * 0.49;
+controls.maxPolarAngle = Math.PI * 0.995; // Permit the explicit top-down inspection view.
 
 scene.add(new THREE.HemisphereLight(0xdce9ff, 0x293347, 2.1));
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.0);
@@ -139,7 +139,17 @@ function buildHuman(config) {
     ellipsoid(root, jacket, [shoulderX, 1.56, 0], [0.14 * shoulder, 0.15, 0.14], "Shoulder");
     makeLimb(root, jacket, [shoulderX, 1.53, 0], [elbowX, 1.18, 0.015], 0.105, "UpperArm");
     makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm");
-    ellipsoid(root, skin, [handX, 0.84, 0.055], [0.075, 0.105, 0.06], "Hand");
+    const hand = new THREE.Group();
+    hand.position.set(handX, 0.84, 0.055);
+    root.add(hand);
+    ellipsoid(hand, skin, [0, 0, 0], [0.064, 0.075, 0.045], "Palm");
+    for (let finger = 0; finger < 4; finger += 1) {
+      const offset = (finger - 1.5) * 0.027;
+      const length = 0.075 - Math.abs(finger - 1.5) * 0.008;
+      makeLimb(hand, skin, [offset, -0.035, 0.005], [offset, -0.035 - length, 0.012], 0.012, "Finger_" + (finger + 1));
+      ellipsoid(hand, skin, [offset, -0.035 - length, 0.012], [0.012, 0.014, 0.012], "Fingertip");
+    }
+    makeLimb(hand, skin, [side * -0.045, 0.005, 0.005], [side * -0.085, -0.055, 0.025], 0.016, "Thumb");
   }
 
   // Head, ears and facial features
@@ -149,13 +159,30 @@ function buildHuman(config) {
   root.add(head);
   ellipsoid(head, skin, [0, 0, 0], [0.205 * faceWidth, 0.265, 0.19], "Head");
   ellipsoid(head, skin, [0, -0.155, 0.035], [0.155 * jawWidth, 0.105, 0.145], "Jaw");
+  const earInner = material(female ? "#a96f61" : "#9b6657");
+  const iris = material("#657b86", 0.38);
+  const pupil = material("#151b24", 0.28);
+  const lip = material("#754c4c");
   for (const side of [-1, 1]) {
     ellipsoid(head, skin, [side * 0.205 * faceWidth, -0.005, 0], [0.045, 0.075, 0.045], "Ear");
-    ellipsoid(head, eye, [side * 0.083 * eyeSpacing, 0.035, 0.171], [0.025, 0.018, 0.012], "Eye");
-    ellipsoid(head, hair, [side * 0.083 * eyeSpacing, 0.075, 0.17], [0.045, 0.012, 0.012], "Eyebrow");
+    ellipsoid(head, earInner, [side * 0.211 * faceWidth, -0.005, 0.034], [0.018, 0.042, 0.012], "Ear_Inner");
+    const eyeX = side * 0.083 * eyeSpacing;
+    ellipsoid(head, skin, [eyeX, 0.035, 0.171], [0.038, 0.026, 0.018], "Eye_Socket");
+    ellipsoid(head, eye, [eyeX, 0.035, 0.188], [0.026, 0.017, 0.012], "Eye");
+    ellipsoid(head, iris, [eyeX, 0.035, 0.199], [0.010, 0.011, 0.006], "Iris");
+    ellipsoid(head, pupil, [eyeX, 0.035, 0.204], [0.0055, 0.007, 0.003], "Pupil");
+    ellipsoid(head, skin, [eyeX, 0.057, 0.185], [0.036, 0.009, 0.012], "Upper_Eyelid");
+    ellipsoid(head, hair, [eyeX, 0.081, 0.17], [0.046, 0.012, 0.012], "Eyebrow");
+    ellipsoid(head, skin, [side * 0.118, -0.075, 0.145], [0.064, 0.055, 0.045], "Cheek");
   }
-  ellipsoid(head, skin, [0, -0.055, 0.183], [0.045 * noseSize, 0.075 * noseSize, 0.045 * noseSize], "Nose");
-  ellipsoid(head, material("#754c4c"), [0, -0.145, 0.17], [0.055, 0.012, 0.012], "Mouth");
+  // Nose bridge, tip and nostril wings are separate sculptable forms.
+  ellipsoid(head, skin, [0, -0.018, 0.177], [0.025 * noseSize, 0.064 * noseSize, 0.027 * noseSize], "Nose_Bridge");
+  ellipsoid(head, skin, [0, -0.073 * noseSize, 0.198], [0.039 * noseSize, 0.034 * noseSize, 0.035 * noseSize], "Nose_Tip");
+  for (const side of [-1, 1]) {
+    ellipsoid(head, skin, [side * 0.029 * noseSize, -0.087 * noseSize, 0.185], [0.018 * noseSize, 0.014 * noseSize, 0.019 * noseSize], "Nostril_Wing");
+  }
+  ellipsoid(head, lip, [0, -0.145, 0.174], [0.055, 0.012, 0.014], "Mouth");
+  ellipsoid(head, skin, [0, -0.177, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
 
   // Short hair cap and side sections
   if (config.hair !== "none") {
@@ -168,6 +195,8 @@ function buildHuman(config) {
   if (config.beard !== "none") {
     const beardScale = config.beard === "full" ? [0.17, 0.15, 0.095] : [0.145, 0.085, 0.075];
     ellipsoid(head, beard, [0, -0.205, 0.09], beardScale, "Beard");
+    ellipsoid(head, beard, [-0.105, -0.155, 0.095], [0.075, 0.09, 0.075], "Beard_Cheek_L");
+    ellipsoid(head, beard, [0.105, -0.155, 0.095], [0.075, 0.09, 0.075], "Beard_Cheek_R");
     ellipsoid(head, beard, [0, -0.105, 0.155], [0.15, 0.055, 0.055], "Mustache");
   }
 
@@ -247,9 +276,18 @@ function renderCharacter() {
   const config = readConfig();
   currentPreset = config.preset;
   scene.remove(character);
+  const geometries = new Set();
+  const materials = new Set();
   character.traverse((item) => {
-    if (item.geometry) item.geometry.dispose();
+    if (item.geometry) geometries.add(item.geometry);
+    if (item.material) {
+      for (const mat of Array.isArray(item.material) ? item.material : [item.material]) {
+        materials.add(mat);
+      }
+    }
   });
+  geometries.forEach((geometry) => geometry.dispose());
+  materials.forEach((mat) => mat.dispose());
   character = config.preset === "robot" ? buildRobot(config) : buildHuman(config);
   scene.add(character);
 
