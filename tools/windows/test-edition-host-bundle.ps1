@@ -16,8 +16,7 @@ function Invoke-BoundedProcess {
     [Parameter(Mandatory = $true)]
     [string[]]$Arguments,
     [Parameter(Mandatory = $true)]
-    [int]$TimeoutMilliseconds,
-    [string]$DiagnosticFile
+    [int]$TimeoutMilliseconds
   )
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
   $startInfo.FileName = $FilePath
@@ -36,11 +35,7 @@ function Invoke-BoundedProcess {
     if (-not $process.WaitForExit($TimeoutMilliseconds)) {
       try { $process.Kill($true) } catch { }
       $process.WaitForExit()
-      $diagnostic = ""
-      if (-not [string]::IsNullOrWhiteSpace($DiagnosticFile) -and (Test-Path -LiteralPath $DiagnosticFile -PathType Leaf)) {
-        $diagnostic = Get-Content -LiteralPath $DiagnosticFile -Raw
-      }
-      throw ("Edition bundle process timed out after " + $TimeoutMilliseconds + " ms. diagnostics: " + $diagnostic)
+      throw ("Edition bundle process timed out after " + $TimeoutMilliseconds + " ms.")
     }
     $process.WaitForExit()
     return [pscustomobject]@{
@@ -137,18 +132,12 @@ if ($Edition -eq "VST" -and $containsDgmatModules) {
 }
 
 $certificate = $null
-$certificatePath = Join-Path $env:TEMP ("OfficeKit-EditionPublisher-" + [guid]::NewGuid().ToString("N") + ".cer")
-$trustLogPath = Join-Path $env:TEMP ("OfficeKit-EditionPublisherTrust-" + [guid]::NewGuid().ToString("N") + ".log")
-$trustManagerPath = Join-Path $PSScriptRoot "manage-ci-publisher-trust.ps1"
-$powerShellPath = Join-Path $PSHOME "pwsh.exe"
-$cleanupErrors = [System.Collections.Generic.List[string]]::new()
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
 $oldLocalAppData = $env:LOCALAPPDATA
-$launcherDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionLauncher-" + [guid]::NewGuid().ToString("N"))
 $untrustedDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionUntrusted-" + [guid]::NewGuid().ToString("N"))
 $pinnedMismatchDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionPinnedMismatch-" + [guid]::NewGuid().ToString("N"))
-$cleanupVerificationDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionCleanupVerify-" + [guid]::NewGuid().ToString("N"))
+$postTestDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionPostTest-" + [guid]::NewGuid().ToString("N"))
 $runnerPath = Join-Path $PSScriptRoot "edition-host-bundle-test-runner.mjs"
 
 try {
@@ -156,27 +145,19 @@ try {
   $certificate = New-SelfSignedCertificate -Subject ("CN=Office Kit Edition Bundle CI " + [guid]::NewGuid().ToString("N")) -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
 
   Write-Output "Edition bundle smoke: signing native CNG helper."
-  # Do not inspect SignerCertificate or Status on the returned Authenticode
-  # object: PowerShell may lazily invoke the Windows chain/revocation provider,
-  # which can hang on an untrusted ephemeral certificate in hosted CI.
-  # The production launcher is the authoritative verifier below. The test trusts
-  # this exact ephemeral publisher only in the disposable runner before invoking it.
   Set-AuthenticodeSignature -FilePath $helperPath -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
-  Write-Output "Edition bundle smoke: signing command completed; launcher will verify signature and trust."
+  Write-Output "Edition bundle smoke: signature created; no Windows trust store will be modified."
 
   if ($env:GITHUB_ACTIONS -ne "true") {
-    throw "Trusted-publisher smoke tests may only modify the disposable GitHub Actions runner user stores."
+    throw "Edition bundle signature smoke tests may only run in the disposable GitHub Actions runner."
   }
 
-  # Prove that the shipped launcher rejects the signed helper while its
-  # ephemeral publisher is still untrusted. The launcher uses its bounded
-  # native WinVerifyTrust path; PowerShell chain inspection is intentionally
-  # avoided because it can trigger online revocation/AIA work in hosted CI.
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
+
   New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $untrustedDataRoot
-  Write-Output "Edition bundle smoke: verifying rejection of the untrusted ephemeral publisher."
+  Write-Output "Edition bundle smoke: production launcher must reject the untrusted ephemeral publisher."
   $untrustedRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($untrustedRun.ExitCode -eq 0) {
     throw "Edition launcher accepted an untrusted publisher."
@@ -186,29 +167,10 @@ try {
     throw "Untrusted publisher rejection did not produce the expected sanitized startup failure."
   }
 
-  # Export only the public certificate. Store mutation runs in a separate,
-  # bounded PowerShell process and is restricted to the disposable Actions user.
-  [System.IO.File]::WriteAllBytes(
-    $certificatePath,
-    $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-  )
-  Write-Output "Edition bundle smoke: adding the ephemeral public certificate to CurrentUser Root and TrustedPublisher stores."
-  Set-Content -LiteralPath $trustLogPath -Value "" -Encoding utf8
-  $trustAddRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
-    "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
-    "-Action", "Add", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint,
-    "-LogPath", $trustLogPath
-  ) -TimeoutMilliseconds 30000 -DiagnosticFile $trustLogPath
-  if ($trustAddRun.ExitCode -ne 0) {
-    throw ("Temporary CI publisher trust setup failed. stdout: " + $trustAddRun.StdOut + " stderr: " + $trustAddRun.StdErr)
-  }
-
-  # Verify that the production launcher rejects a correctly trusted signature
-  # when its signer does not match the explicitly pinned publisher thumbprint.
-  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = ("0" * 40)
   New-Item -ItemType Directory -Path $pinnedMismatchDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $pinnedMismatchDataRoot
+  Write-Output "Edition bundle smoke: production launcher must reject a signer thumbprint mismatch."
   $pinnedMismatchRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($pinnedMismatchRun.ExitCode -eq 0) {
     throw "Edition launcher accepted a signer that does not match the pinned publisher thumbprint."
@@ -218,101 +180,51 @@ try {
     throw "Pinned publisher mismatch did not produce the expected sanitized startup failure."
   }
 
-  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
-  New-Item -ItemType Directory -Path $launcherDataRoot -Force | Out-Null
-  $env:LOCALAPPDATA = $launcherDataRoot
-  Write-Output "Edition bundle smoke: executing shipped launcher health check."
-  $launcherRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
-  if ($launcherRun.ExitCode -ne 0) {
-    throw ("Edition launcher health smoke test failed (exit " + $launcherRun.ExitCode + "). stdout: " + $launcherRun.StdOut + " stderr: " + $launcherRun.StdErr)
-  }
-  $launcherResult = ($launcherRun.StdOut.Trim() | ConvertFrom-Json)
-  $launcherMismatch = ($launcherResult.ok -ne $true) -or ($launcherResult.health.edition -ne $expectedKey) -or ($launcherResult.health.adapterConnected -ne $false)
-  if ($launcherMismatch) {
-    throw "Edition launcher did not start disconnected with the expected edition identity."
-  }
-  Write-Output "Edition bundle smoke: executing JSON-lines test runner."
+  Write-Output "Edition bundle smoke: exercising the bundled host and JSON-lines CLI with test-only signature-integrity verification."
   $runnerRun = Invoke-BoundedProcess -FilePath $nodePath -Arguments @($runnerPath, $bundleRoot, $Edition) -TimeoutMilliseconds 90000
   if ($runnerRun.ExitCode -ne 0) {
     throw ("Edition bundle CLI smoke test failed (exit " + $runnerRun.ExitCode + "). stdout: " + $runnerRun.StdOut + " stderr: " + $runnerRun.StdErr)
   }
   $runnerResult = ($runnerRun.StdOut.Trim() | ConvertFrom-Json)
-  if ($runnerResult.status -ne "passed" -or $runnerResult.edition -ne $Edition) {
-    throw "Edition bundle CLI smoke test did not report the expected product."
+  if ($runnerResult.status -ne "passed" -or $runnerResult.edition -ne $Edition
+    -or $runnerResult.helperSignatureIntegrity -ne $true
+    -or $runnerResult.helperPublisherThumbprintPinned -ne $true
+    -or $runnerResult.certificateChainTrust -ne "not-established-by-this-test"
+    -or $runnerResult.productionAuthenticodePolicyExercised -ne $false) {
+    throw "Edition bundle test runner did not report the explicit test-only signature boundary."
   }
 
-  Write-Output ("Portable " + $Edition + " Windows bundle passed content-isolation and disconnected CLI smoke tests.")
+  New-Item -ItemType Directory -Path $postTestDataRoot -Force | Out-Null
+  $env:LOCALAPPDATA = $postTestDataRoot
+  Write-Output "Edition bundle smoke: production launcher must still reject the publisher; test did not add root trust."
+  $postTestRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
+  if ($postTestRun.ExitCode -eq 0) {
+    throw "Production launcher accepted the ephemeral publisher after the test-only host run."
+  }
+  $postTestResult = ($postTestRun.StdOut.Trim() | ConvertFrom-Json)
+  if ($postTestResult.ok -ne $false -or $postTestResult.error -ne "host_start_failed") {
+    throw "Production launcher rejection after the test-only run was not sanitized."
+  }
+
+  Write-Output ("Portable " + $Edition + " Windows bundle passed content-isolation and test-only host/CLI integration.")
 } finally {
   $env:OFFICE_KIT_CNG_HOST_PATH = $oldHelperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $oldThumbprint
   $env:LOCALAPPDATA = $oldLocalAppData
-  if (Test-Path -LiteralPath $launcherDataRoot) {
-    Remove-Item -LiteralPath $launcherDataRoot -Recurse -Force -ErrorAction SilentlyContinue
-  }
-  Write-Output "Edition bundle smoke: removing temporary profile and CI signing certificate."
-  if (Test-Path -LiteralPath $untrustedDataRoot) {
-    Remove-Item -LiteralPath $untrustedDataRoot -Recurse -Force -ErrorAction SilentlyContinue
-  }
-  if (Test-Path -LiteralPath $pinnedMismatchDataRoot) {
-    Remove-Item -LiteralPath $pinnedMismatchDataRoot -Recurse -Force -ErrorAction SilentlyContinue
-  }
-  if (Test-Path -LiteralPath $cleanupVerificationDataRoot) {
-    Remove-Item -LiteralPath $cleanupVerificationDataRoot -Recurse -Force -ErrorAction SilentlyContinue
+  foreach ($dataRoot in @($untrustedDataRoot, $pinnedMismatchDataRoot, $postTestDataRoot)) {
+    if (Test-Path -LiteralPath $dataRoot) {
+      Remove-Item -LiteralPath $dataRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
   }
   if ($certificate) {
     try {
-      if (Test-Path -LiteralPath $certificatePath -PathType Leaf) {
-        Set-Content -LiteralPath $trustLogPath -Value "" -Encoding utf8
-        $trustCleanupRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
-          "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
-          "-Action", "Remove", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint,
-          "-LogPath", $trustLogPath
-        ) -TimeoutMilliseconds 30000 -DiagnosticFile $trustLogPath
-        if ($trustCleanupRun.ExitCode -ne 0) {
-          throw ("Temporary CI publisher trust cleanup failed. stdout: " + $trustCleanupRun.StdOut + " stderr: " + $trustCleanupRun.StdErr)
-        }
-        Write-Output "Edition bundle smoke: temporary CurrentUser Root and TrustedPublisher entries removed and verified."
-        $cleanupOldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
-        $cleanupOldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
-        $cleanupOldLocalAppData = $env:LOCALAPPDATA
-        try {
-          $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
-          $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
-          New-Item -ItemType Directory -Path $cleanupVerificationDataRoot -Force | Out-Null
-          $env:LOCALAPPDATA = $cleanupVerificationDataRoot
-          $cleanupVerificationRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
-          if ($cleanupVerificationRun.ExitCode -eq 0) {
-            throw "Edition launcher still trusts the ephemeral publisher after cleanup."
-          }
-          $cleanupVerificationResult = ($cleanupVerificationRun.StdOut.Trim() | ConvertFrom-Json)
-          if ($cleanupVerificationResult.ok -ne $false -or $cleanupVerificationResult.error -ne "host_start_failed") {
-            throw "Publisher cleanup was not reflected by the production launcher."
-          }
-          Write-Output "Edition bundle smoke: launcher rejected the publisher again after trust cleanup."
-        } finally {
-          $env:OFFICE_KIT_CNG_HOST_PATH = $cleanupOldHelperPath
-          $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $cleanupOldThumbprint
-          $env:LOCALAPPDATA = $cleanupOldLocalAppData
-        }
-      }
-    } catch {
-      $cleanupErrors.Add($_.Exception.Message)
-    }
-    try {
       Remove-Item -LiteralPath ("Cert:\CurrentUser\My\" + $certificate.Thumbprint) -Force -ErrorAction Stop
-    } catch {
-      $cleanupErrors.Add("Remove temporary CI signing certificate failed: " + $_.Exception.Message)
+      if (Test-Path -LiteralPath ("Cert:\CurrentUser\My\" + $certificate.Thumbprint)) {
+        throw "Temporary CI signing certificate remains in CurrentUser My."
+      }
+    } finally {
+      $certificate.Dispose()
     }
-    $certificate.Dispose()
-  }
-  if (Test-Path -LiteralPath $certificatePath) {
-    Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
-  }
-  if (Test-Path -LiteralPath $trustLogPath) {
-    Remove-Item -LiteralPath $trustLogPath -Force -ErrorAction SilentlyContinue
-  }
-  if ($cleanupErrors.Count -gt 0) {
-    throw ("Temporary CI certificate cleanup failed: " + ($cleanupErrors -join "; "))
   }
 }
