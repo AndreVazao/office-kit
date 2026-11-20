@@ -161,7 +161,7 @@ function buildHuman(config) {
     const elbowX = side * (shoulderWidth * 0.98);
     const handX = side * (shoulderWidth * 1.05);
     const shoulderMesh = ellipsoid(root, jacket, [shoulderX, 1.56, 0], [0.14 * shoulder, 0.15, 0.14], "Shoulder");
-    shoulderMesh.userData.rigBoneName = "UpperArm_" + (side < 0 ? "L" : "R");
+    shoulderMesh.userData.rigBlendBones = ["Chest", "UpperArm_" + (side < 0 ? "L" : "R")];
     makeLimb(root, jacket, [shoulderX, 1.53, 0], [elbowX, 1.18, 0.015], 0.105, "UpperArm_" + (side < 0 ? "L" : "R"));
     makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm_" + (side < 0 ? "L" : "R"));
     const hand = new THREE.Group();
@@ -318,7 +318,7 @@ function buildRobot(config) {
     const manipulator = ellipsoid(root, alloy, [sx * 1.1, 0.84, 0.04], [0.09, 0.1, 0.08], "Manipulator");
     manipulator.userData.rigBoneName = "Hand_" + (side < 0 ? "L" : "R");
     const shoulderJoint = ellipsoid(root, accent, [sx * 0.82, 1.55, 0], [0.14, 0.14, 0.14], "Shoulder_Joint");
-    shoulderJoint.userData.rigBoneName = "UpperArm_" + (side < 0 ? "L" : "R");
+    shoulderJoint.userData.rigBlendBones = ["Chest", "UpperArm_" + (side < 0 ? "L" : "R")];
     const elbowJoint = ellipsoid(root, accent, [sx, 1.17, 0.015], [0.09, 0.09, 0.09], "Elbow_Joint");
     elbowJoint.userData.rigBoneName = "Forearm_" + (side < 0 ? "L" : "R");
     const wristJoint = ellipsoid(root, dark, [sx * 1.1, 0.88, 0.04], [0.055, 0.055, 0.055], "Wrist_Joint");
