@@ -69,3 +69,12 @@ input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #5689ee; }
 .identity-progress { margin: 9px 0 0; color: #c3d5f1; font-size: 10px; font-variant-numeric: tabular-nums; }
 .identity-disclaimer { margin-bottom: 0; }
 @media (max-width: 1050px) { .identity-card { grid-column: 1 / -1; } }
+
+/* Facial sculpt controls */
+.control-group .slider-field { line-height: 1.35; }
+.identity-card { overflow: hidden; }
+@media (max-width: 680px) {
+  .controls { order: 2; }
+  .details { order: 3; }
+  .identity-card { margin-top: 14px; }
+}
