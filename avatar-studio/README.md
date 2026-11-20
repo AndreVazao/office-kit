@@ -22,6 +22,7 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 - Height, body build, head size, shoulder width, face width, jaw width, nose volume, eye spacing, and hair length controls.
 - Hair colour and four procedural hairstyles (short, classic, long, tied), beard variants, suit, casual, and tactical clothing variants.
 - Rounded visual joint caps at limb endpoints, suit detailing, orbit camera, six preset camera angles (front, 3/4, both profiles, back, top), neutral studio lighting, and GLB export.
+- An isolated THREE.Bone hierarchy and THREE.Skeleton with procedural idle, walk, sit, talk, and work pose previews. The optional skeleton helper is a visual inspection overlay.
 - All character parameters are local to this app; no backend calls or credential access.
 
 ## CEO identity-reference workflow
@@ -32,7 +33,7 @@ The isolated editor also exposes manual facial proportion controls for face widt
 
 ## Deliberate limitations
 
-This is a first procedural blockout, not a photogrammetric reconstruction or production-ready anatomical mesh. The current body is assembled from separate primitive meshes. Rounded joint caps improve the visual transitions but do not constitute a deformable skeleton, skin weights, facial blendshapes, cloth simulation, or animation rig. GLB export exports the visible assembled geometry. Those capabilities must be implemented and tested in this isolated module before claiming production readiness.
+This is a first procedural blockout, not a photogrammetric reconstruction or production-ready anatomical mesh. The current body is assembled from separate primitive meshes. The new bone hierarchy is a real THREE.Bone / THREE.Skeleton structure and drives pose-preview bones, but the body primitives are not yet bound to it as SkinnedMesh objects. Therefore the current walk/sit/talk/work previews animate the skeleton overlay, not the visible body mesh. Skin weights, deformable mesh binding, facial blendshapes, cloth simulation, and production animation remain future work. GLB export currently exports the visible assembled geometry and rig helper only when enabled. Do not describe this milestone as completed skinning or production-ready character animation.
 
 ## Isolation contract
 
