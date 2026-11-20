@@ -75,3 +75,16 @@ Tests must assert both acceptance and rejection outcomes. Synthetic unit tests d
 The existing CI smoke test proves that edition bundles start through their test-only injected signature-integrity verifier and that the production launcher rejects the untrusted ephemeral signer. It does not prove a trusted production chain, positive production verifier acceptance, revocation behavior, multiple-signature binding, commercial signing, or physical-PC behavior.
 
 Issue #110 remains open until the production implementation and native test matrix above pass on Windows Node 22 and 26. PR #107 must remain unmerged while this gate is open.
+
+
+## 7. Native API compatibility notes
+
+The Windows API references clarify several implementation details that must be reflected in the native tests:
+
+- `WINTRUST_SIGNATURE_SETTINGS` supports `WSS_VERIFY_SPECIFIC`, `WSS_GET_SECONDARY_SIG_COUNT`, and returns `dwVerifiedSigIndex`. The implementation must check the returned verified index rather than assuming the requested index was used. See [WINTRUST_SIGNATURE_SETTINGS](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-wintrust_signature_settings).
+- `WTD_REVOCATION_CHECK_CHAIN_EXCLUDE_ROOT` is the explicit chain-revocation flag; `WTD_CACHE_ONLY_URL_RETRIEVAL` restricts retrieval to local cache. They are separate flags and must be combined only for the offline-startup policy. `WTD_REVOCATION_CHECK_NONE` must not be set. See [WINTRUST_DATA](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-wintrust_data).
+- Use `INVALID_HANDLE_VALUE` as the WinVerifyTrust window handle for a non-interactive verification context, alongside `WTD_UI_NONE`. See [WinVerifyTrust](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust).
+- Microsoft documents `WTHelperProvDataFromStateData`, `WTHelperGetProvSignerFromChain` and `WTHelperGetProvCertFromChain` as the route from WinTrust state to the verified signer certificate, but explicitly warns that these helper APIs may be altered or unavailable in later Windows versions. Their use therefore requires compatibility tests on every supported Windows baseline. If that compatibility risk is unacceptable, use a supported Authenticode/.NET verification path that can cryptographically bind the parsed signer to the signature index and separately validate the certificate chain; do not silently fall back to the first certificate in the file.
+- WinTrust returns a `LONG`; only exact zero is success. Do not use generic HRESULT success macros or treat warning statuses as success. See [WinVerifyTrust return values](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust).
+
+The WinTrust helper API caveat is a design risk, not a reason to omit signer binding. The selected implementation must document its compatibility strategy and fail closed if the signer cannot be extracted unambiguously.
