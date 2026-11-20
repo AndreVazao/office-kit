@@ -23,7 +23,8 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 - Hair colour and four procedural hairstyles (short, classic, long, tied), beard variants, suit, casual, and tactical clothing variants.
 - Rounded visual joint caps at limb endpoints, suit detailing, orbit camera, six preset camera angles (front, 3/4, both profiles, back, top), neutral studio lighting, and GLB export.
 - A THREE.Bone / THREE.Skeleton rig with linear-blend skinning on the upper arms, forearms, leg segments, pelvis, and torso shells. The visible limb cylinders are replaced by SkinnedMesh objects weighted between their corresponding joint bones.
-- Procedural idle, walk, sit, talk, and work poses deform those skinned limb segments. The optional skeleton helper is a visual inspection overlay.
+- Outfit attachment: shirt, lapels, tie, buttons, and pocket square follow the chest bone; shoulder shells follow their upper-arm bones. Robot manipulators and shoulder, elbow, and wrist details follow their corresponding arm/hand bones.
+- Procedural idle, walk, sit, talk, and work poses deform the skinned limb segments and body shells while the attached outfit details and robot joints follow their assigned bones. The optional skeleton helper is a visual inspection overlay.
 - All character parameters are local to this app; no backend calls or credential access.
 
 ## CEO identity-reference workflow
@@ -34,7 +35,7 @@ The isolated editor also exposes manual facial proportion controls for face widt
 
 ## Deliberate limitations
 
-This is a first procedural blockout, not a photogrammetric reconstruction or production-ready anatomical mesh. Upper arms, forearms, leg segments, pelvis, and torso shells are converted to SkinnedMesh objects with two-bone linear-blend weights. The walk/sit/talk/work poses deform the limbs and central body shells. Head and hand assemblies are converted into rigidly weighted SkinnedMesh parts, preserving their nested transforms and facial/finger geometry. Feet are now rigidly weighted to their ankle/foot bones. Facial expressions and clothing still need further rig integration. Shoulder/hip transitions therefore still need refinement. Facial blendshapes, cloth simulation, full-body skinning, animation clips, and production animation remain future work. GLB export includes the visible skinned limb segments and the assembled static parts; the debug helper is hidden by default. Do not describe the model as a complete production-ready character.
+This is a first procedural blockout, not a photogrammetric reconstruction or production-ready anatomical mesh. Upper arms, forearms, leg segments, pelvis, and torso shells are converted to SkinnedMesh objects with two-bone linear-blend weights. The walk/sit/talk/work poses deform the limbs and central body shells. Head and hand assemblies are converted into rigidly weighted SkinnedMesh parts, preserving their nested transforms and facial/finger geometry. Feet are rigidly weighted to their ankle/foot bones. Major suit details and selected robot joint components are now rigidly weighted to the chest, upper-arm, forearm, or hand bones. This is attachment, not full cloth deformation: jacket/shirt surfaces, trousers, shoulder/hip transitions, and casual/tactical garment details still need proper continuous skin weights and seam refinement. Facial blendshapes, cloth simulation, full-body skinning, animation clips, and production animation remain future work. GLB export includes the visible skinned limb segments and the assembled static parts; the debug helper is hidden by default. Do not describe the model as a complete production-ready character.
 
 ## Isolation contract
 
