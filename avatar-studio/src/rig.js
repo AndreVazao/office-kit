@@ -7,6 +7,7 @@ import * as THREE from "three";
  */
 export function createAvatarRig(parent) {
   const segments = [];
+  const skinnedMeshes = [];
   parent.traverse((object) => {
     if (object.isMesh && object.userData.rigSegment) segments.push(object);
   });
@@ -93,6 +94,7 @@ export function createAvatarRig(parent) {
     skinned.receiveShadow = true;
     skinned.frustumCulled = false;
     parent.add(skinned);
+    skinnedMeshes.push(skinned);
     sourceMesh.visible = false;
     sourceMesh.userData.skinnedReplacement = skinned.name;
     skinned.normalizeSkinWeights();
@@ -174,7 +176,7 @@ export function createAvatarRig(parent) {
     bones,
     skeleton,
     helper,
-    skinnedSegmentCount: parent.getObjectsByProperty("isSkinnedMesh", true).length,
+    skinnedSegmentCount: skinnedMeshes.length,
     setMode(nextMode) {
       if (["idle", "walk", "sit", "talk", "work"].includes(nextMode)) mode = nextMode;
       reset();
