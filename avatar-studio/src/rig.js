@@ -45,7 +45,12 @@ export function createAvatarRig(parent) {
 
     const upperArm = makeBone("UpperArm_" + side, shoulderPosition, chest);
     const forearm = makeBone("Forearm_" + side, elbowPosition, upperArm);
-    makeBone("Hand_" + side, wristPosition, forearm);
+    const handBone = makeBone("Hand_" + side, wristPosition, forearm);
+    for (let finger = 1; finger <= 4; finger += 1) {
+      const x = (finger - 2.5) * 0.027;
+      makeBone("Finger_" + finger + "_" + side, [wristPosition[0] + x, wristPosition[1] - 0.035, wristPosition[2] + 0.005], handBone);
+    }
+    makeBone("Thumb_" + side, [wristPosition[0] + (side === "L" ? 0.045 : -0.045), wristPosition[1] + 0.005, wristPosition[2] + 0.005], handBone);
     const upperLeg = makeBone("UpperLeg_" + side, hipPosition, hips);
     const lowerLeg = makeBone("LowerLeg_" + side, anklePosition, upperLeg);
     makeBone("Foot_" + side, [anklePosition[0], 0.10, anklePosition[2] + 0.10], lowerLeg);
@@ -71,14 +76,19 @@ export function createAvatarRig(parent) {
   const assemblies = [];
   const rigidMeshes = [];
   parent.traverse((object) => {
-    if (object.isGroup && (object.userData.rigHeadGroup || object.userData.rigHandSide)) {
+    if (object.isGroup && (object.userData.rigHeadGroup || object.userData.rigFingerName)) {
       assemblies.push(object);
     } else if (object.isMesh && object.userData.rigBoneName) {
       rigidMeshes.push(object);
     }
   });
   for (const assembly of assemblies) {
-    const boneName = assembly.userData.rigHeadGroup ? "Head" : "Hand_" + assembly.userData.rigHandSide;
+    const side = assembly.userData.rigHandSide;
+    const boneName = assembly.userData.rigHeadGroup
+      ? "Head"
+      : assembly.userData.rigFingerName === "Thumb"
+        ? "Thumb_" + side
+        : assembly.userData.rigFingerName + "_" + side;
     const boneId = boneIndex.get(boneName);
     if (boneId === undefined) continue;
     const sourceMeshes = [];
@@ -278,6 +288,22 @@ export function createAvatarRig(parent) {
     } else {
       bones.Chest.rotation.z = Math.sin(t * 1.4) * 0.012;
       bones.Head.rotation.y = Math.sin(t * 0.7) * 0.025;
+    }
+
+    // Finger articulation: subtle relaxed curl in idle, stronger curl while
+    // working/talking, with a small alternating motion during walk.
+    for (const side of ["L", "R"]) {
+      const phase = side === "L" ? 0 : 0.35;
+      const curl = mode === "work" ? 0.34 : mode === "talk" ? 0.20 : mode === "walk" ? 0.12 + Math.sin(t * 6 + phase) * 0.08 : mode === "sit" ? 0.16 : 0.10;
+      for (let finger = 1; finger <= 4; finger += 1) {
+        const bone = bones["Finger_" + finger + "_" + side];
+        if (bone) bone.rotation.x = curl * (finger === 1 || finger === 4 ? 0.82 : 1);
+      }
+      const thumb = bones["Thumb_" + side];
+      if (thumb) {
+        thumb.rotation.x = curl * 0.55;
+        thumb.rotation.z = (side === "L" ? -1 : 1) * (0.16 + curl * 0.25);
+      }
     }
 
     parent.updateMatrixWorld(true);
