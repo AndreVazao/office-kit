@@ -92,18 +92,21 @@ function makeLimb(parent, mat, start, end, radius, name) {
   const b = new THREE.Vector3(...end);
   const direction = new THREE.Vector3().subVectors(b, a);
   const mesh = addMesh(parent, new THREE.CylinderGeometry(radius * 0.82, radius, direction.length(), 16), mat, a.clone().add(b).multiplyScalar(0.5).toArray(), [1, 1, 1], name);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  mesh.userData.rigSegment = { name, start: a.toArray(), end: b.toArray(), radius };
   // Rounded joint caps soften the primitive blockout at elbows, wrists and knees.
   const jointGeometry = new THREE.SphereGeometry(radius * 0.94, 16, 12);
   const jointStart = new THREE.Mesh(jointGeometry, mat);
   jointStart.position.copy(a);
   jointStart.castShadow = true;
   jointStart.name = name + "_Joint_A";
+  jointStart.userData.rigJointSegment = name;
   parent.add(jointStart);
   const jointEnd = new THREE.Mesh(jointGeometry, mat);
   jointEnd.position.copy(b);
   jointEnd.castShadow = true;
   jointEnd.name = name + "_Joint_B";
+  jointEnd.userData.rigJointSegment = name;
   parent.add(jointEnd);
   return mesh;
 }
@@ -152,8 +155,8 @@ function buildHuman(config) {
     const elbowX = side * (shoulderWidth * 0.98);
     const handX = side * (shoulderWidth * 1.05);
     ellipsoid(root, jacket, [shoulderX, 1.56, 0], [0.14 * shoulder, 0.15, 0.14], "Shoulder");
-    makeLimb(root, jacket, [shoulderX, 1.53, 0], [elbowX, 1.18, 0.015], 0.105, "UpperArm");
-    makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm");
+    makeLimb(root, jacket, [shoulderX, 1.53, 0], [elbowX, 1.18, 0.015], 0.105, "UpperArm_" + (side < 0 ? "L" : "R"));
+    makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm_" + (side < 0 ? "L" : "R"));
     const hand = new THREE.Group();
     hand.position.set(handX, 0.84, 0.055);
     root.add(hand);
@@ -258,11 +261,11 @@ function buildRobot(config) {
 
   for (const side of [-1, 1]) {
     const x = side * 0.13 * build;
-    makeLimb(root, dark, [x, 0.95, 0], [x, 0.18, 0], 0.105 * build, "Servo_Leg");
+    makeLimb(root, dark, [x, 0.95, 0], [x, 0.18, 0], 0.105 * build, side < 0 ? "Leg_L" : "Leg_R");
     ellipsoid(root, alloy, [x, 0.1, 0.05], [0.13, 0.075, 0.21], "Metal_Foot");
     const sx = side * 0.39 * shoulder * build;
-    makeLimb(root, alloy, [sx * 0.82, 1.55, 0], [sx, 1.17, 0], 0.105, "Arm_Upper");
-    makeLimb(root, dark, [sx, 1.17, 0], [sx * 1.1, 0.88, 0.04], 0.075, "Arm_Lower");
+    makeLimb(root, alloy, [sx * 0.82, 1.55, 0], [sx, 1.17, 0], 0.105, "UpperArm_" + (side < 0 ? "L" : "R"));
+    makeLimb(root, dark, [sx, 1.17, 0], [sx * 1.1, 0.88, 0.04], 0.075, "Forearm_" + (side < 0 ? "L" : "R"));
     ellipsoid(root, alloy, [sx * 1.1, 0.84, 0.04], [0.09, 0.1, 0.08], "Manipulator");
     ellipsoid(root, accent, [sx * 0.82, 1.55, 0], [0.14, 0.14, 0.14], "Shoulder_Joint");
     ellipsoid(root, accent, [sx, 1.17, 0.015], [0.09, 0.09, 0.09], "Elbow_Joint");
