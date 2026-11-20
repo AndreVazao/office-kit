@@ -186,7 +186,7 @@ try {
     $certificatePath,
     $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
   )
-  Write-Output "Edition bundle smoke: adding the ephemeral public certificate to the CurrentUser TrustedPublisher store."
+  Write-Output "Edition bundle smoke: adding the ephemeral public certificate to CurrentUser Root and TrustedPublisher stores."
   $trustAddRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
     "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
     "-Action", "Add", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint
@@ -262,7 +262,7 @@ try {
         if ($trustCleanupRun.ExitCode -ne 0) {
           throw ("Temporary CI publisher trust cleanup failed. stdout: " + $trustCleanupRun.StdOut + " stderr: " + $trustCleanupRun.StdErr)
         }
-        Write-Output "Edition bundle smoke: temporary CurrentUser TrustedPublisher entry removed and verified."
+        Write-Output "Edition bundle smoke: temporary CurrentUser Root and TrustedPublisher entries removed and verified."
         $cleanupOldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
         $cleanupOldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
         $cleanupOldLocalAppData = $env:LOCALAPPDATA
