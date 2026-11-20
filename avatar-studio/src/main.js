@@ -144,8 +144,10 @@ function buildHuman(config) {
   }
 
   // Torso, waist, neck
-  ellipsoid(root, trousers, [0, 0.99, 0], [0.245 * build, 0.19, 0.15], "Pelvis");
-  ellipsoid(root, jacket, [0, 1.34, 0], [torsoWidth, 0.38, 0.17], "Jacket_Torso");
+  const pelvis = ellipsoid(root, trousers, [0, 0.99, 0], [0.245 * build, 0.19, 0.15], "Pelvis");
+  pelvis.userData.rigBodySegment = "pelvis";
+  const torso = ellipsoid(root, jacket, [0, 1.34, 0], [torsoWidth, 0.38, 0.17], "Jacket_Torso");
+  torso.userData.rigBodySegment = "torso";
   ellipsoid(root, shirt, [0, 1.39, 0.145], [0.13, 0.30, 0.045], "Shirt");
   cylinder(root, skin, [0, 1.72, 0], 0.09, 0.10, 0.16, "Neck");
 
@@ -271,8 +273,10 @@ function buildRobot(config) {
     ellipsoid(root, accent, [sx, 1.17, 0.015], [0.09, 0.09, 0.09], "Elbow_Joint");
     ellipsoid(root, dark, [sx * 1.1, 0.88, 0.04], [0.055, 0.055, 0.055], "Wrist_Joint");
   }
-  ellipsoid(root, dark, [0, 1.0, 0], [0.25 * build, 0.19, 0.16], "Hip_Core");
-  ellipsoid(root, alloy, [0, 1.35, 0], [0.34 * build, 0.36, 0.19], "Chest_Armor");
+  const hipCore = ellipsoid(root, dark, [0, 1.0, 0], [0.25 * build, 0.19, 0.16], "Hip_Core");
+  hipCore.userData.rigBodySegment = "pelvis";
+  const chestArmor = ellipsoid(root, alloy, [0, 1.35, 0], [0.34 * build, 0.36, 0.19], "Chest_Armor");
+  chestArmor.userData.rigBodySegment = "torso";
   ellipsoid(root, accent, [0, 1.38, 0.195], [0.09, 0.09, 0.025], "Power_Core");
   cylinder(root, dark, [0, 1.74, 0], 0.1, 0.1, 0.14, "Neck_Joint");
   const head = new THREE.Group();
