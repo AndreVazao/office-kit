@@ -100,26 +100,41 @@ async function main() {
 
   const helperPath = join(bundleRoot, "OfficeKit.CngHost.exe");
   const hostIndexPath = join(bundleRoot, "packages", "windows-host", "src", "index.mjs");
+  const editionHostPath = join(
+    bundleRoot,
+    "packages",
+    "scene-engine",
+    "src",
+    expectedKey === "dgmat" ? "dgmat-windows-host.mjs" : "vst-windows-host.mjs"
+  );
   const editionCliPath = join(bundleRoot, "packages", "windows-host", "src", "edition-cli.mjs");
   const localAppData = await mkdtemp(join(tmpdir(), "OfficeKit-EditionBundle-"));
   const signerThumbprint = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
   assert.match(signerThumbprint ?? "", /^[A-Fa-f0-9]{40}$/, "bundle_signer_thumbprint_required");
 
   try {
-    const [{ createWindowsHost }, { runEditionCli, resolveEditionHostOptions }] = await Promise.all([
+    const [{ createWindowsHost }, editionHostModule, { runEditionCli, resolveEditionHostOptions }] = await Promise.all([
       import(pathToFileURL(hostIndexPath).href),
+      import(pathToFileURL(editionHostPath).href),
       import(pathToFileURL(editionCliPath).href)
     ]);
+    const createEditionHost = expectedKey === "dgmat"
+      ? editionHostModule.createWindowsDgmMatHost
+      : editionHostModule.createWindowsVstHost;
+    assert.equal(typeof createEditionHost, "function", "edition_host_composition_missing");
     const hostOptions = resolveEditionHostOptions(expectedKey, {
       LOCALAPPDATA: localAppData
     });
-    const createHost = () => createWindowsHost({
-      ...hostOptions,
-      helperPath,
-      verifyHelper: path => {
-        verifyTestOnlyAuthenticode(path, signerThumbprint);
-        return true;
-      }
+    const createHost = ({ hostOptions: suppliedHostOptions } = {}) => createEditionHost({
+      hostOptions: suppliedHostOptions ?? hostOptions,
+      hostFactory: nativeHostOptions => createWindowsHost({
+        ...nativeHostOptions,
+        helperPath,
+        verifyHelper: path => {
+          verifyTestOnlyAuthenticode(path, signerThumbprint);
+          return true;
+        }
+      })
     });
 
     const healthRun = await invokeEditionCli({
