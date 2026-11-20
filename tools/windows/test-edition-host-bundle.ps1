@@ -16,7 +16,8 @@ function Invoke-BoundedProcess {
     [Parameter(Mandatory = $true)]
     [string[]]$Arguments,
     [Parameter(Mandatory = $true)]
-    [int]$TimeoutMilliseconds
+    [int]$TimeoutMilliseconds,
+    [string]$DiagnosticFile
   )
   $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
   $startInfo.FileName = $FilePath
@@ -35,7 +36,11 @@ function Invoke-BoundedProcess {
     if (-not $process.WaitForExit($TimeoutMilliseconds)) {
       try { $process.Kill($true) } catch { }
       $process.WaitForExit()
-      throw ("Edition bundle process timed out after " + $TimeoutMilliseconds + " ms.")
+      $diagnostic = ""
+      if (-not [string]::IsNullOrWhiteSpace($DiagnosticFile) -and (Test-Path -LiteralPath $DiagnosticFile -PathType Leaf)) {
+        $diagnostic = Get-Content -LiteralPath $DiagnosticFile -Raw
+      }
+      throw ("Edition bundle process timed out after " + $TimeoutMilliseconds + " ms. diagnostics: " + $diagnostic)
     }
     $process.WaitForExit()
     return [pscustomobject]@{
@@ -133,6 +138,7 @@ if ($Edition -eq "VST" -and $containsDgmatModules) {
 
 $certificate = $null
 $certificatePath = Join-Path $env:TEMP ("OfficeKit-EditionPublisher-" + [guid]::NewGuid().ToString("N") + ".cer")
+$trustLogPath = Join-Path $env:TEMP ("OfficeKit-EditionPublisherTrust-" + [guid]::NewGuid().ToString("N") + ".log")
 $trustManagerPath = Join-Path $PSScriptRoot "manage-ci-publisher-trust.ps1"
 $powerShellPath = Join-Path $PSHOME "pwsh.exe"
 $cleanupErrors = [System.Collections.Generic.List[string]]::new()
@@ -187,10 +193,12 @@ try {
     $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
   )
   Write-Output "Edition bundle smoke: adding the ephemeral public certificate to CurrentUser Root and TrustedPublisher stores."
+  Set-Content -LiteralPath $trustLogPath -Value "" -Encoding utf8
   $trustAddRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
     "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
-    "-Action", "Add", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint
-  ) -TimeoutMilliseconds 30000
+    "-Action", "Add", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint,
+    "-LogPath", $trustLogPath
+  ) -TimeoutMilliseconds 30000 -DiagnosticFile $trustLogPath
   if ($trustAddRun.ExitCode -ne 0) {
     throw ("Temporary CI publisher trust setup failed. stdout: " + $trustAddRun.StdOut + " stderr: " + $trustAddRun.StdErr)
   }
@@ -255,10 +263,12 @@ try {
   if ($certificate) {
     try {
       if (Test-Path -LiteralPath $certificatePath -PathType Leaf) {
+        Set-Content -LiteralPath $trustLogPath -Value "" -Encoding utf8
         $trustCleanupRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
           "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
-          "-Action", "Remove", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint
-        ) -TimeoutMilliseconds 30000
+          "-Action", "Remove", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint,
+          "-LogPath", $trustLogPath
+        ) -TimeoutMilliseconds 30000 -DiagnosticFile $trustLogPath
         if ($trustCleanupRun.ExitCode -ne 0) {
           throw ("Temporary CI publisher trust cleanup failed. stdout: " + $trustCleanupRun.StdOut + " stderr: " + $trustCleanupRun.StdErr)
         }
@@ -298,6 +308,9 @@ try {
   }
   if (Test-Path -LiteralPath $certificatePath) {
     Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
+  }
+  if (Test-Path -LiteralPath $trustLogPath) {
+    Remove-Item -LiteralPath $trustLogPath -Force -ErrorAction SilentlyContinue
   }
   if ($cleanupErrors.Count -gt 0) {
     throw ("Temporary CI certificate cleanup failed: " + ($cleanupErrors -join "; "))
