@@ -63,6 +63,43 @@ export function createAvatarRig(parent) {
     return null;
   };
 
+  // Bind the pelvis and torso shells to the central spine chain. Weights
+  // are distributed vertically between adjacent bones for smooth bending.
+  const bodyMeshes = [];
+  parent.traverse((object) => {
+    if (object.isMesh && object.userData.rigBodySegment) bodyMeshes.push(object);
+  });
+  for (const sourceMesh of bodyMeshes) {
+    const segment = sourceMesh.userData.rigBodySegment;
+    const pair = segment === "pelvis" ? ["Hips", "Spine"] : ["Spine", "Chest"];
+    sourceMesh.updateMatrix();
+    const geometry = sourceMesh.geometry.clone();
+    geometry.applyMatrix4(sourceMesh.matrix);
+    const positions = geometry.getAttribute("position");
+    const indices = [];
+    const weights = [];
+    const lower = segment === "pelvis" ? 0.78 : 1.05;
+    const upper = segment === "pelvis" ? 1.20 : 1.66;
+    for (let i = 0; i < positions.count; i += 1) {
+      const y = positions.getY(i);
+      const t = THREE.MathUtils.clamp((y - lower) / (upper - lower), 0, 1);
+      indices.push(boneIndex.get(pair[0]), boneIndex.get(pair[1]), 0, 0);
+      weights.push(1 - t, t, 0, 0);
+    }
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+    const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+    skinned.name = sourceMesh.name + "_Skinned";
+    skinned.castShadow = true;
+    skinned.receiveShadow = true;
+    skinned.frustumCulled = false;
+    parent.add(skinned);
+    skinnedMeshes.push(skinned);
+    sourceMesh.visible = false;
+    sourceMesh.userData.skinnedReplacement = skinned.name;
+    skinned.normalizeSkinWeights();
+  }
+
   for (const sourceMesh of segments) {
     const info = sourceMesh.userData.rigSegment;
     const names = segmentBones(info.name);
