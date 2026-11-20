@@ -48,21 +48,6 @@ function Invoke-BoundedProcess {
   }
 }
 
-function Invoke-CertUtil {
-  param(
-    [Parameter(Mandatory = $true)]
-    [string[]]$Arguments,
-    [Parameter(Mandatory = $true)]
-    [string]$Operation
-  )
-  $certUtilPath = Join-Path $env:SystemRoot "System32\certutil.exe"
-  $result = Invoke-BoundedProcess -FilePath $certUtilPath -Arguments $Arguments -TimeoutMilliseconds 30000
-  if ($result.ExitCode -ne 0) {
-    throw ($Operation + " failed. stdout: " + $result.StdOut + " stderr: " + $result.StdErr)
-  }
-  return $result
-}
-
 $bundleRoot = (Resolve-Path $BundleDirectory).Path
 $manifestPath = Join-Path $bundleRoot "bundle-manifest.json"
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -148,14 +133,15 @@ if ($Edition -eq "VST" -and $containsDgmatModules) {
 
 $certificate = $null
 $certificatePath = Join-Path $env:TEMP ("OfficeKit-EditionPublisher-" + [guid]::NewGuid().ToString("N") + ".cer")
-$rootInstalled = $false
-$publisherInstalled = $false
+$trustManagerPath = Join-Path $PSScriptRoot "manage-ci-publisher-trust.ps1"
+$powerShellPath = Join-Path $PSHOME "pwsh.exe"
 $cleanupErrors = [System.Collections.Generic.List[string]]::new()
 $oldHelperPath = $env:OFFICE_KIT_CNG_HOST_PATH
 $oldThumbprint = $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT
 $oldLocalAppData = $env:LOCALAPPDATA
 $launcherDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionLauncher-" + [guid]::NewGuid().ToString("N"))
 $untrustedDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionUntrusted-" + [guid]::NewGuid().ToString("N"))
+$pinnedMismatchDataRoot = Join-Path $env:TEMP ("OfficeKit-EditionPinnedMismatch-" + [guid]::NewGuid().ToString("N"))
 $runnerPath = Join-Path $PSScriptRoot "edition-host-bundle-test-runner.mjs"
 
 try {
@@ -175,26 +161,45 @@ try {
     throw "Trusted-publisher smoke tests may only modify the disposable GitHub Actions runner user stores."
   }
 
-  # Install only this ephemeral public certificate in the disposable Actions
-  # runner. Use bounded certutil child processes instead of an unbounded X509Store
-  # API call so a stalled certificate-store provider cannot hang the CI job.
+  # Prove that the shipped launcher rejects the signed helper while its
+  # ephemeral publisher is still untrusted. The launcher uses its bounded
+  # native WinVerifyTrust path; PowerShell chain inspection is intentionally
+  # avoided because it can trigger online revocation/AIA work in hosted CI.
+  $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
+  $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
+  New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
+  $env:LOCALAPPDATA = $untrustedDataRoot
+  Write-Output "Edition bundle smoke: verifying rejection of the untrusted ephemeral publisher."
+  $untrustedRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
+  if ($untrustedRun.ExitCode -eq 0) {
+    throw "Edition launcher accepted an untrusted publisher."
+  }
+  $untrustedResult = ($untrustedRun.StdOut.Trim() | ConvertFrom-Json)
+  if ($untrustedResult.ok -ne $false -or $untrustedResult.error -ne "host_start_failed") {
+    throw "Untrusted publisher rejection did not produce the expected sanitized startup failure."
+  }
+
+  # Export only the public certificate. Store mutation runs in a separate,
+  # bounded PowerShell process and is restricted to the disposable Actions user.
   [System.IO.File]::WriteAllBytes(
     $certificatePath,
     $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
   )
-  Invoke-CertUtil -Arguments @("-f", "-user", "-addstore", "Root", $certificatePath) -Operation "Install temporary CI root certificate" | Out-Null
-  $rootInstalled = $true
-  Write-Output "Edition bundle smoke: temporary root certificate installed."
-  Invoke-CertUtil -Arguments @("-f", "-user", "-addstore", "TrustedPublisher", $certificatePath) -Operation "Install temporary CI publisher certificate" | Out-Null
-  $publisherInstalled = $true
-  Write-Output "Edition bundle smoke: ephemeral publisher installed in CurrentUser trust stores."
+  Write-Output "Edition bundle smoke: adding the ephemeral public certificate to CurrentUser trust stores."
+  $trustAddRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
+    "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
+    "-Action", "Add", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint
+  ) -TimeoutMilliseconds 30000
+  if ($trustAddRun.ExitCode -ne 0) {
+    throw ("Temporary CI publisher trust setup failed. stdout: " + $trustAddRun.StdOut + " stderr: " + $trustAddRun.StdErr)
+  }
 
   # Verify that the production launcher rejects a correctly trusted signature
   # when its signer does not match the explicitly pinned publisher thumbprint.
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = ("0" * 40)
-  New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
-  $env:LOCALAPPDATA = $untrustedDataRoot
+  New-Item -ItemType Directory -Path $pinnedMismatchDataRoot -Force | Out-Null
+  $env:LOCALAPPDATA = $pinnedMismatchDataRoot
   $pinnedMismatchRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($pinnedMismatchRun.ExitCode -eq 0) {
     throw "Edition launcher accepted a signer that does not match the pinned publisher thumbprint."
@@ -240,66 +245,30 @@ try {
   if (Test-Path -LiteralPath $untrustedDataRoot) {
     Remove-Item -LiteralPath $untrustedDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
-  if ($certificate -and $rootStore -and $rootStoreOpened) {
-    try {
-      $trustedRoots = $rootStore.Certificates.Find(
-        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
-        $certificate.Thumbprint,
-        $false
-      )
-      foreach ($trustedCertificate in $trustedRoots) { $rootStore.Remove($trustedCertificate) }
-      $remainingRoots = $rootStore.Certificates.Find(
-        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
-        $certificate.Thumbprint,
-        $false
-      )
-      if ($remainingRoots.Count -ne 0) { throw "Temporary CI root certificate cleanup failed." }
-    } finally {
-      $rootStore.Close()
-    }
-  }
-  if ($certificate -and $publisherStore -and $publisherStoreOpened) {
-    try {
-      $trustedPublishers = $publisherStore.Certificates.Find(
-        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
-        $certificate.Thumbprint,
-        $false
-      )
-      foreach ($trustedCertificate in $trustedPublishers) { $publisherStore.Remove($trustedCertificate) }
-      $remainingPublishers = $publisherStore.Certificates.Find(
-        [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
-        $certificate.Thumbprint,
-        $false
-      )
-      if ($remainingPublishers.Count -ne 0) { throw "Temporary CI publisher certificate cleanup failed." }
-    } finally {
-      $publisherStore.Close()
-    }
-  }
-  if ($certificate -and $rootInstalled) {
-    try {
-      Invoke-CertUtil -Arguments @("-user", "-silent", "-delstore", "Root", $certificate.Thumbprint) -Operation "Remove temporary CI root certificate" | Out-Null
-      $rootInstalled = $false
-      Write-Output "Edition bundle smoke: temporary root certificate removed."
-    } catch {
-      $cleanupErrors.Add($_.Exception.Message)
-    }
-  }
-  if ($certificate -and $publisherInstalled) {
-    try {
-      Invoke-CertUtil -Arguments @("-user", "-silent", "-delstore", "TrustedPublisher", $certificate.Thumbprint) -Operation "Remove temporary CI publisher certificate" | Out-Null
-      $publisherInstalled = $false
-      Write-Output "Edition bundle smoke: temporary publisher certificate removed."
-    } catch {
-      $cleanupErrors.Add($_.Exception.Message)
-    }
+  if (Test-Path -LiteralPath $pinnedMismatchDataRoot) {
+    Remove-Item -LiteralPath $pinnedMismatchDataRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
   if ($certificate) {
+    try {
+      if (Test-Path -LiteralPath $certificatePath -PathType Leaf) {
+        $trustCleanupRun = Invoke-BoundedProcess -FilePath $powerShellPath -Arguments @(
+          "-NoLogo", "-NoProfile", "-NonInteractive", "-File", $trustManagerPath,
+          "-Action", "Remove", "-CertificatePath", $certificatePath, "-Thumbprint", $certificate.Thumbprint
+        ) -TimeoutMilliseconds 30000
+        if ($trustCleanupRun.ExitCode -ne 0) {
+          throw ("Temporary CI publisher trust cleanup failed. stdout: " + $trustCleanupRun.StdOut + " stderr: " + $trustCleanupRun.StdErr)
+        }
+        Write-Output "Edition bundle smoke: temporary CurrentUser trust entries removed and verified."
+      }
+    } catch {
+      $cleanupErrors.Add($_.Exception.Message)
+    }
     try {
       Remove-Item -LiteralPath ("Cert:\CurrentUser\My\" + $certificate.Thumbprint) -Force -ErrorAction Stop
     } catch {
       $cleanupErrors.Add("Remove temporary CI signing certificate failed: " + $_.Exception.Message)
     }
+    $certificate.Dispose()
   }
   if (Test-Path -LiteralPath $certificatePath) {
     Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
