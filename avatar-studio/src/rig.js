@@ -11,6 +11,15 @@ export function createAvatarRig(parent) {
   parent.traverse((object) => {
     if (object.isMesh && object.userData.rigSegment) segments.push(object);
   });
+  parent.updateMatrixWorld(true);
+  const inverseParentWorld = parent.matrixWorld.clone().invert();
+  const taggedBonePositions = new Map();
+  parent.traverse((object) => {
+    if (!object.isMesh || !object.userData.rigBoneName) return;
+    object.updateWorldMatrix(true, false);
+    const position = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).applyMatrix4(inverseParentWorld);
+    if (!taggedBonePositions.has(object.userData.rigBoneName)) taggedBonePositions.set(object.userData.rigBoneName, position.toArray());
+  });
 
   const bones = {};
   const worldPositions = {};
@@ -30,7 +39,13 @@ export function createAvatarRig(parent) {
   const spine = makeBone("Spine", [0, 1.34, 0], hips);
   const chest = makeBone("Chest", [0, 1.56, 0], spine);
   const neck = makeBone("Neck", [0, 1.72, 0], chest);
-  makeBone("Head", [0, 1.94, 0], neck);
+  const headBone = makeBone("Head", [0, 1.94, 0], neck);
+  makeBone("Jaw", [0, 1.785, 0.13], headBone);
+  for (const side of ["L", "R"]) {
+    const fallbackX = side === "L" ? -0.083 : 0.083;
+    makeBone("Eyelid_" + side, taggedBonePositions.get("Eyelid_" + side) || [fallbackX, 1.997, 0.185], headBone);
+    makeBone("Brow_" + side, taggedBonePositions.get("Brow_" + side) || [fallbackX, 2.021, 0.17], headBone);
+  }
 
   const byName = new Map(segments.map((mesh) => [mesh.userData.rigSegment.name, mesh.userData.rigSegment]));
   for (const side of ["L", "R"]) {
@@ -248,10 +263,17 @@ export function createAvatarRig(parent) {
   parent.add(helper);
 
   const rest = {};
-  for (const [name, bone] of Object.entries(bones)) rest[name] = bone.rotation.clone();
+  const restScale = {};
+  for (const [name, bone] of Object.entries(bones)) {
+    rest[name] = bone.rotation.clone();
+    restScale[name] = bone.scale.clone();
+  }
   let mode = "idle";
   const reset = () => {
-    for (const [name, bone] of Object.entries(bones)) bone.rotation.copy(rest[name]);
+    for (const [name, bone] of Object.entries(bones)) {
+      bone.rotation.copy(rest[name]);
+      bone.scale.copy(restScale[name]);
+    }
   };
 
   function update(timeSeconds) {
@@ -296,6 +318,21 @@ export function createAvatarRig(parent) {
     } else {
       bones.Chest.rotation.z = Math.sin(t * 1.4) * 0.012;
       bones.Head.rotation.y = Math.sin(t * 0.7) * 0.025;
+    }
+
+    // Facial controls: jaw movement follows speech, eyelids blink together,
+    // and brows add a restrained emphasis during conversation.
+    const jaw = bones.Jaw;
+    if (jaw) jaw.rotation.x = mode === "talk" ? 0.08 + Math.max(0, wave) * 0.16 : mode === "work" ? 0.012 : 0;
+    const blink = Math.pow(Math.max(0, Math.sin(t * 1.85 + 0.7)), 28);
+    for (const side of ["L", "R"]) {
+      const eyelid = bones["Eyelid_" + side];
+      const brow = bones["Brow_" + side];
+      if (eyelid) eyelid.scale.y = 1 - blink * 0.94;
+      if (brow) {
+        const direction = side === "L" ? -1 : 1;
+        brow.rotation.z = mode === "talk" ? direction * (0.025 + Math.max(0, wave) * 0.035) : mode === "work" ? direction * 0.012 : 0;
+      }
     }
 
     // Finger articulation: subtle relaxed curl in idle, stronger curl while
