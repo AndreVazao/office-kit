@@ -161,6 +161,7 @@ function buildHuman(config) {
     makeLimb(root, jacket, [elbowX, 1.18, 0.015], [handX, 0.88, 0.05], 0.078, "Forearm_" + (side < 0 ? "L" : "R"));
     const hand = new THREE.Group();
     hand.position.set(handX, 0.84, 0.055);
+    hand.userData.rigHandSide = side < 0 ? "L" : "R";
     root.add(hand);
     ellipsoid(hand, skin, [0, 0, 0], [0.064, 0.075, 0.045], "Palm");
     for (let finger = 0; finger < 4; finger += 1) {
@@ -176,6 +177,7 @@ function buildHuman(config) {
   const head = new THREE.Group();
   head.position.set(0, 1.94, 0);
   head.scale.setScalar(headScale);
+  head.userData.rigHeadGroup = true;
   root.add(head);
   ellipsoid(head, skin, [0, 0, 0], [0.205 * faceWidth, 0.265, 0.19], "Head");
   ellipsoid(head, skin, [0, -0.155, 0.035], [0.155 * jawWidth, 0.105, 0.145], "Jaw");
@@ -282,6 +284,7 @@ function buildRobot(config) {
   const head = new THREE.Group();
   head.position.y = 1.96;
   head.scale.setScalar(headScale);
+  head.userData.rigHeadGroup = true;
   root.add(head);
   ellipsoid(head, alloy, [0, 0, 0], [0.22, 0.25, 0.19], "Robot_Head");
   ellipsoid(head, dark, [0, 0.005, 0.18], [0.17, 0.075, 0.045], "Face_Plate");
