@@ -11,6 +11,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($Thumbprint -notmatch "^[A-Fa-f0-9]{40}$") {
+  throw "Temporary publisher thumbprint is invalid."
+}
+
 if ($env:GITHUB_ACTIONS -ne "true") {
   throw "Temporary publisher trust may only be changed inside a disposable GitHub Actions runner."
 }
@@ -29,21 +33,26 @@ try {
     }
   }
 
-  foreach ($storeName in @("Root", "TrustedPublisher")) {
-    $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+  foreach ($storeName in @("TrustedPublisher")) {
+    $parsedStoreName = [System.Enum]::Parse(
+      [System.Security.Cryptography.X509Certificates.StoreName],
       $storeName,
+      $false
+    )
+    $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+      $parsedStoreName,
       [System.Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser
     )
     try {
       $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-      $matches = $store.Certificates.Find(
+      $existingCertificates = $store.Certificates.Find(
         [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
         $Thumbprint,
         $false
       )
 
       if ($Action -eq "Add") {
-        if ($matches.Count -ne 0) {
+        if ($existingCertificates.Count -ne 0) {
           throw ("Refusing to overwrite an existing CurrentUser " + $storeName + " certificate.")
         }
         $store.Add($certificate)
@@ -57,7 +66,7 @@ try {
         }
         Write-Output ("Added ephemeral publisher to CurrentUser " + $storeName + ".")
       } else {
-        foreach ($entry in $matches) {
+        foreach ($entry in $existingCertificates) {
           $store.Remove($entry)
         }
         $remaining = $store.Certificates.Find(
