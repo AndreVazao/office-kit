@@ -104,7 +104,7 @@ export function createAvatarRig(parent) {
   parent.traverse((object) => {
     if (object.isGroup && (object.userData.rigHeadGroup || object.userData.rigFingerName)) {
       assemblies.push(object);
-    } else if (object.isMesh && object.userData.rigBoneName) {
+    } else if (object.isMesh && (object.userData.rigBoneName || object.userData.rigBlendBones)) {
       rigidMeshes.push(object);
     }
   });
@@ -148,8 +148,12 @@ export function createAvatarRig(parent) {
     }
   }
   for (const sourceMesh of rigidMeshes) {
-    const boneId = boneIndex.get(sourceMesh.userData.rigBoneName);
-    if (boneId === undefined) continue;
+    const blendNames = sourceMesh.userData.rigBlendBones;
+    const primaryBone = sourceMesh.userData.rigBoneName;
+    const blendIds = blendNames?.map((name) => boneIndex.get(name));
+    const boneId = primaryBone ? boneIndex.get(primaryBone) : undefined;
+    if (blendNames && blendIds.some((id) => id === undefined)) continue;
+    if (!blendNames && boneId === undefined) continue;
     sourceMesh.updateWorldMatrix(true, false);
     const transform = inverseRootWorld.clone().multiply(sourceMesh.matrixWorld);
     const geometry = sourceMesh.geometry.clone();
@@ -158,8 +162,15 @@ export function createAvatarRig(parent) {
     const indices = new Uint16Array(positions.count * 4);
     const weights = new Float32Array(positions.count * 4);
     for (let i = 0; i < positions.count; i += 1) {
-      indices[i * 4] = boneId;
-      weights[i * 4] = 1;
+      if (blendNames) {
+        indices[i * 4] = blendIds[0];
+        indices[i * 4 + 1] = blendIds[1];
+        weights[i * 4] = 0.35;
+        weights[i * 4 + 1] = 0.65;
+      } else {
+        indices[i * 4] = boneId;
+        weights[i * 4] = 1;
+      }
     }
     geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
     geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
@@ -231,8 +242,15 @@ export function createAvatarRig(parent) {
     for (let i = 0; i < positions.count; i += 1) {
       const point = new THREE.Vector3().fromBufferAttribute(positions, i);
       const t = THREE.MathUtils.clamp(new THREE.Vector3().subVectors(point, start).dot(axis) / lengthSquared, 0, 1);
-      indices.push(boneIndex.get(names[0]), boneIndex.get(names[1]), 0, 0);
-      weights.push(1 - t, t, 0, 0);
+      if (info.name.startsWith("UpperLeg_")) {
+        const hipBlend = THREE.MathUtils.clamp(t / 0.22, 0, 1);
+        const kneeBlend = THREE.MathUtils.clamp((t - 0.78) / 0.22, 0, 1);
+        indices.push(boneIndex.get("Hips"), boneIndex.get("UpperLeg_" + (info.name.endsWith("_L") ? "L" : "R")), boneIndex.get("LowerLeg_" + (info.name.endsWith("_L") ? "L" : "R")), 0);
+        weights.push((1 - hipBlend), hipBlend * (1 - kneeBlend), kneeBlend, 0);
+      } else {
+        indices.push(boneIndex.get(names[0]), boneIndex.get(names[1]), 0, 0);
+        weights.push(1 - t, t, 0, 0);
+      }
     }
     geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
     geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
