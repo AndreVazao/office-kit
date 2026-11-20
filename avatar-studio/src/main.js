@@ -105,6 +105,11 @@ function buildHuman(config) {
   const build = Number(config.build);
   const shoulder = Number(config.shoulders);
   const headScale = Number(config.head);
+  const faceWidth = Number(config.faceWidth || 1);
+  const jawWidth = Number(config.jawWidth || 1);
+  const noseSize = Number(config.noseSize || 1);
+  const eyeSpacing = Number(config.eyeSpacing || 1);
+  const hairLength = Number(config.hairLength || 1);
   const female = currentPreset === "woman";
   const torsoWidth = (female ? 0.31 : 0.35) * build;
   const shoulderWidth = 0.43 * shoulder * build;
@@ -138,20 +143,21 @@ function buildHuman(config) {
   head.position.set(0, 1.94, 0);
   head.scale.setScalar(headScale);
   root.add(head);
-  ellipsoid(head, skin, [0, 0, 0], [0.205, 0.265, 0.19], "Head");
+  ellipsoid(head, skin, [0, 0, 0], [0.205 * faceWidth, 0.265, 0.19], "Head");
+  ellipsoid(head, skin, [0, -0.155, 0.035], [0.155 * jawWidth, 0.105, 0.145], "Jaw");
   for (const side of [-1, 1]) {
-    ellipsoid(head, skin, [side * 0.205, -0.005, 0], [0.045, 0.075, 0.045], "Ear");
-    ellipsoid(head, eye, [side * 0.083, 0.035, 0.171], [0.025, 0.018, 0.012], "Eye");
-    ellipsoid(head, hair, [side * 0.083, 0.075, 0.17], [0.045, 0.012, 0.012], "Eyebrow");
+    ellipsoid(head, skin, [side * 0.205 * faceWidth, -0.005, 0], [0.045, 0.075, 0.045], "Ear");
+    ellipsoid(head, eye, [side * 0.083 * eyeSpacing, 0.035, 0.171], [0.025, 0.018, 0.012], "Eye");
+    ellipsoid(head, hair, [side * 0.083 * eyeSpacing, 0.075, 0.17], [0.045, 0.012, 0.012], "Eyebrow");
   }
-  ellipsoid(head, skin, [0, -0.055, 0.183], [0.045, 0.075, 0.045], "Nose");
+  ellipsoid(head, skin, [0, -0.055, 0.183], [0.045 * noseSize, 0.075 * noseSize, 0.045 * noseSize], "Nose");
   ellipsoid(head, material("#754c4c"), [0, -0.145, 0.17], [0.055, 0.012, 0.012], "Mouth");
 
   // Short hair cap and side sections
   if (config.hair !== "none") {
-    ellipsoid(head, hair, [0, 0.19, -0.005], [0.207, 0.09, 0.19], "Hair_Cap");
+    ellipsoid(head, hair, [0, 0.19 + (hairLength - 1) * 0.045, -0.005], [0.207, 0.09 + (hairLength - 1) * 0.07, 0.19], "Hair_Cap");
     for (const side of [-1, 1]) {
-      ellipsoid(head, hair, [side * 0.175, 0.075, -0.005], [0.045, 0.12, 0.17], "Hair_Side");
+      ellipsoid(head, hair, [side * 0.175, 0.075, -0.005], [0.045, 0.12 * hairLength, 0.17], "Hair_Side");
     }
   }
 
@@ -223,7 +229,12 @@ function readConfig() {
     shoulders: $("shoulders").value,
     skin: $("skin").value,
     hair: $("hair").value,
-    beard: $("beard").value
+    beard: $("beard").value,
+    faceWidth: $("face-width").value,
+    jawWidth: $("jaw-width").value,
+    noseSize: $("nose-size").value,
+    eyeSpacing: $("eye-spacing").value,
+    hairLength: $("hair-length").value
   };
 }
 
@@ -243,7 +254,7 @@ function renderCharacter() {
   $("stat-type").textContent = preset.type;
   $("stat-height").textContent = Number(config.height).toFixed(2) + "×";
   $("character-name").textContent = config.preset === "andre" ? "ANDRÉ / CEO MASTER" : preset.title.toUpperCase();
-  for (const key of ["height", "build", "head", "shoulders"]) {
+  for (const key of ["height", "build", "head", "shoulders", "face-width", "jaw-width", "nose-size", "eye-spacing", "hair-length"]) {
     $(key + "-value").textContent = Number(config[key]).toFixed(2).replace(".", ",");
   }
 }
@@ -260,7 +271,7 @@ function applyPreset() {
 }
 
 $("preset").addEventListener("change", applyPreset);
-for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hair", "beard"]) {
+for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hair", "beard", "face-width", "jaw-width", "nose-size", "eye-spacing", "hair-length"]) {
   $(id).addEventListener("input", renderCharacter);
   $(id).addEventListener("change", renderCharacter);
 }
