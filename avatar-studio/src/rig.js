@@ -40,7 +40,7 @@ export function createAvatarRig(parent) {
   const chest = makeBone("Chest", [0, 1.56, 0], spine);
   const neck = makeBone("Neck", [0, 1.72, 0], chest);
   const headBone = makeBone("Head", [0, 1.94, 0], neck);
-  makeBone("Jaw", [0, 1.785, 0.13], headBone);
+  makeBone("Jaw", taggedBonePositions.get("Jaw") || [0, 1.785, 0.035], headBone);
   for (const side of ["L", "R"]) {
     const fallbackX = side === "L" ? -0.083 : 0.083;
     makeBone("Eyelid_" + side, taggedBonePositions.get("Eyelid_" + side) || [fallbackX, 1.997, 0.185], headBone);
