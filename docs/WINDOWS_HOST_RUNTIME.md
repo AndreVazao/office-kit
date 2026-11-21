@@ -16,7 +16,7 @@ O host não inicia rede, descoberta, telemetria, federation, backend adapter, en
 
 ## Uso de desenvolvimento
 
-Requer Windows, Node.js 22.5+ com `node:sqlite`, helper CNG publicado e assinado por um certificado confiável no computador. O publisher é fixado por `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` (thumbprint SHA-1 de 40 caracteres):
+Este procedimento é legado e exclusivamente de desenvolvimento/teste. O código atual ainda lê `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` como pin SHA-1, mas essa variável é controlável pelo ambiente do processo e não constitui uma identidade de publisher provisionada e protegida pelo instalador. Não usar este mecanismo como fronteira de confiança em instalações de utilizadores nem distribuir bundles com esta configuração. A issue #110 bloqueia a aprovação de produção até existir política autenticada provisionada pelo instalador, pin SHA-256 SPKI, associação ao índice exato da assinatura WinTrust e verificação de revogação fail-closed.
 
 ```powershell
 $env:OFFICE_KIT_CNG_HOST_PATH = "C:\Program Files\Office Kit\OfficeKit.CngHost.exe"
@@ -31,7 +31,7 @@ A criação de identidade é sempre explícita. `health` num primeiro arranque a
 
 ## Limites e validação
 
-- A integração de assinatura é real: o CLI usa `Get-AuthenticodeSignature` e rejeita qualquer helper cujo estado não seja `Valid` ou cujo thumbprint não corresponda ao publisher configurado.
+- A verificação atual usa WinVerifyTrust nativo, mas ainda não é uma fronteira de confiança de produção: a identidade esperada continua a vir de `OFFICE_KIT_CNG_SIGNER_THUMBPRINT`, o certificado é extraído separadamente com `X509Certificate.CreateFromSignedFile` sem associação explícita ao índice validado por WinTrust e a revogação está desativada (`fdwRevocationChecks = 0`, `dwProvFlags = 0x1010`). A política-alvo e os gates estão em `docs/security/WINDOWS_AUTHENTICODE_POLICY.md` e issue #110; o documento de política ainda não está implementado.
 - Os testes automatizados injetam o verificador de assinatura e as operações ACL; validam a composição, isolamento do processo, persistência do installation ID, health e rejeição de helper não confiável. Isto não valida as ACLs ou a cadeia de certificados de uma instalação física.
 - O helper CNG atualmente publicado no CI não é assinado por um certificado de distribuição. Portanto, o CLI de produção não arranca com esse artefacto até existir assinatura e trust chain válidas.
 - Ainda não existe instalador MSI/MSIX, assinatura de release, serviço Windows, UI, atualização/rollback, backup/restore ou teste num PC físico.
@@ -57,7 +57,7 @@ O host inicia uma promessa `ready` que reconcilia a identidade persistida antes 
 Estados de reconciliação que não sejam `empty`, `active` ou `revoked` são considerados incompletos: health reporta `degraded`, a identidade persistida não é exposta e create/rotate/revoke ficam bloqueados. Um erro de reconciliação também bloqueia as operações.
 
 ## Portable Windows bundle
-Os scripts `tools/windows/build-host-bundle.ps1` e `tools/windows/test-host-bundle.ps1` criam e exercitam uma distribuição portátil com `node.exe`, os módulos de runtime e o helper CNG. O teste CI gera um certificado Code Signing efémero, confia nele apenas no perfil do runner, assina o helper e executa health/create/reopen/rotate/revoke em processos Node separados. O certificado efémero é removido no fim.
+Os scripts `tools/windows/build-host-bundle.ps1` e `tools/windows/test-host-bundle.ps1` criam e exercitam uma distribuição portátil com `node.exe`, os módulos de runtime e o helper CNG. O teste CI cria um certificado Code Signing efémero e assina o helper, mas deixa a cadeia desse certificado sem confiança. O launcher de produção tem de rejeitá-lo. Um runner de teste separado, explicitamente injetado, aceita apenas a assinatura criptograficamente íntegra com o thumbprint efémero exato e executa o host/CLI, SQLite e CNG em processos separados. Não são modificadas as stores Root ou TrustedPublisher. Este teste prova integridade da assinatura e o ciclo de runtime com um verificador de teste; não prova aceitação positiva pelo verificador de produção nem uma cadeia comercial.
 
 Isto valida o empacotamento e o fluxo local com um trust publisher de teste. Não produz um certificado de release confiável nos PCs dos utilizadores, não cria MSI/MSIX nem serviço Windows e não substitui assinatura comercial, upgrade/uninstall ou validação física. O bundle não deve ser distribuído como release.
 
@@ -140,3 +140,12 @@ The launcher starts disconnected. `health` does not connect. `serve` accepts new
 Credential values are not accepted in command-line arguments or control messages, and are never printed. Provisioning/removal remains available only through the edition host API with explicit owner consent; a future onboarding UI must collect secrets through a protected input path. The CLI opens no network listener and does not perform backend discovery or auto-connect.
 
 This increment adds source-package entrypoints and deterministic command-loop tests. It does **not** yet add DGM-MAT/VST portable Windows bundles, MSI/MSIX installers, service registration, live backend proof or physical-PC installation validation. The existing portable bundle builder remains Universal-only until its own edition-specific allowlist and smoke-test work is completed.
+
+
+## 2026-11-21 — Authenticode status correction
+
+PR #107 portable bundles passed GitHub-hosted CI and browser visual regression on PR HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486; visual run 44889811413). Both Windows Node 22 and Node 26.13.1 jobs completed the Universal, DGM-MAT and VST portable bundle tests. This is runner evidence only; it is not a signed commercial installation or physical-PC validation.
+
+After synchronizing the implementation/roadmap/project-memory/architecture checkpoints, the PR branch advanced to cbb885c67e9cc29f92e693d36d5a186fde26e8ae. CI run 44911090291 and visual run 44911090393 were still running at the time of this document update; their results must be checked on that exact new HEAD.
+
+The environment-variable pin and current WinTrust implementation remain a security blocker. Do not treat the legacy command example above as production onboarding. Issue #110 must be implemented and its native Windows test matrix must pass before PR #107 can merge or any bundle can be described as production-ready.
