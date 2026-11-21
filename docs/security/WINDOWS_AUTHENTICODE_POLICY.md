@@ -103,3 +103,8 @@ The Windows API references clarify several implementation details that must be r
 - WinTrust returns a `LONG`; only exact zero is success. Do not use generic HRESULT success macros or treat warning statuses as success. See [WinVerifyTrust return values](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust).
 
 The WinTrust helper API caveat is a design risk, not a reason to omit signer binding. The selected implementation must document its compatibility strategy and fail closed if the signer cannot be extracted unambiguously.
+
+
+## 2026-11-21 — interim baseline restoration
+
+The native WinVerifyTrust rewrite previously present in PR #107 was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded PowerShell Get-AuthenticodeSignature verifier already present on main. This removes the PR-introduced WTD_REVOCATION_CHECK_NONE path and the separate X509Certificate.CreateFromSignedFile signer extraction. The restored verifier requires Authenticode Status Valid and a matching process-environment SHA-1 thumbprint; runChecked bounds the PowerShell child process to 15 seconds and rejects timeout/nonzero exit. This is an interim reviewed compatibility baseline, not the target production design. Installer-authenticated publisher policy, SHA-256 SPKI pinning, explicit revocation policy and native Windows test coverage remain outstanding; issue #110 stays open.
