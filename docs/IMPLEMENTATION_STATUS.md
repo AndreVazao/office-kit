@@ -758,7 +758,7 @@ This branch is not yet validated. Its CI must complete on the final branch/PR HE
 
 ## 2026-11-21 — Current repository checkpoint after PR #107 and PR #111
 
-- Main HEAD: `b8cff02dd9f74886df6c39895213cc03e31a4bbf`.
+- Main HEAD: `e4800a76747f84b35e0f14fa4babf071c2d30de2`.
 - PR #107 delivered portable Windows bundles for Universal, DGM-MAT and VST. Final PR HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4`; squash merge `b27136a974d25bb1f3572a5bdb8700f359ac2627`. CI [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409) passed Linux/Windows Node 22/26.13.1, including all three bundle E2E steps; visual regression [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342) passed on the same PR HEAD.
 - The bundle result is GitHub-hosted runner evidence only. It does not establish MSI/MSIX lifecycle, commercial signing/trust, live backend compatibility or physical-PC installation.
 - Issue #110 remains open. The current bounded PowerShell verifier still reads a SHA-1 thumbprint from the process environment; authenticated installer-provisioned publisher policy, SHA-256 SPKI pinning, exact signer/signature binding and explicit revocation behavior remain unimplemented.
@@ -767,3 +767,10 @@ This branch is not yet validated. Its CI must complete on the final branch/PR HE
 - Post-merge main CI [44913217716](https://github.com/AndreVazao/office-kit/actions/runs/44913217716) passed all four Linux/Windows Node 22/26.13.1 jobs; post-merge visual regression [44913217681](https://github.com/AndreVazao/office-kit/actions/runs/44913217681) passed on the merge commit.
 - PR #108 remains a separate draft limited to `avatar-studio/`; it was not modified by this runtime pass.
 - Open production gates remain: #110 Authenticode and publisher provisioning; #104 MSI/MSIX and native host lifecycle; #109 durable licensing/activation; #58 real TPM, power-loss and recovery validation; #57 live DGM-MAT session validation.
+
+
+## 2026-11-21 — lifecycle store installation identity binding
+
+PR #113 was squash-merged as `e4800a76747f84b35e0f14fa4babf071c2d30de2` from final PR HEAD `6c2295d569ed8b64170dcd3dcb641987b0399445`. On the exact PR HEAD, CI [44914347607](https://github.com/AndreVazao/office-kit/actions/runs/44914347607) passed Linux and Windows on Node 22 and Node 26.13.1; the two new partition-binding regressions were observed passing in all four job logs. Visual regression [44914336936](https://github.com/AndreVazao/office-kit/actions/runs/44914336936) passed on that same HEAD. Post-merge main CI [44914574477](https://github.com/AndreVazao/office-kit/actions/runs/44914574477) passed all four jobs and visual regression [44914574487](https://github.com/AndreVazao/office-kit/actions/runs/44914574487) passed on the merge commit.
+
+The store now rejects a record whose `installationId` differs from its SQLite partition on both save and load. This prevents a mismatched persisted JSON record from making the lifecycle controller pass another installation ID to the injected driver. The new store regression uses a real `node:sqlite` connection with an in-memory test database. The separate host-composition test persists through the host's real SQLite file across close/reopen, but its OS/package driver remains injected/fake. This is a partition-consistency fix, not authenticated-record tamper protection, an MSI/MSIX installer, a native Windows service driver or physical-PC validation.
