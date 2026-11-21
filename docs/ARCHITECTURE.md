@@ -483,3 +483,23 @@ PR #103's strict TPM response parser and synthetic protocol harness were squash-
 A separate distribution gap is tracked by [issue #104](https://github.com/AndreVazao/office-kit/issues/104): the current portable Windows host bundle is Universal-only. The three edition source allowlists are built independently, but DGM-MAT and VST do not yet have their own installable desktop bundles/installers. Future packaging must preserve the existing adapter and credential isolation.
 
 The PR #103 squash merge commit `51d5db49309e02f2e42594194ab778651e26d2ae` passed post-merge CI `44096288229` and visual regression `44096287944` on the same main SHA. Windows CI executed the deterministic parser harness, native CNG integration and portable bundle E2E. No physical TPM provisioning or TPM-backed rollback test was performed.
+
+
+## 2026-11-17 — edition-specific Windows launch and bundle boundary
+
+DGM-MAT and VST have separate Windows CLI entrypoints and persistent roots (`%LOCALAPPDATA%\\OfficeKit\\DGM-MAT` and `%LOCALAPPDATA%\\OfficeKit\\VST`). Each composition imports only its own adapter/session or token provider. Universal retains its existing generic launcher and data root.
+
+The portable DGM-MAT/VST bundle builder derives files from the corresponding source-package allowlist instead of copying a hand-maintained cross-edition tree. Each bundle manifest declares its edition, adapter allowlist, excluded adapter, CLI entrypoint, runtime and safe defaults. The test gate compares the actual files with that manifest and exercises the shipped launcher with an empty temporary profile. A CI-only self-signed publisher is trusted only during the disposable test and removed afterward; this is not commercial publisher signing.
+
+All editions start disconnected. DGM-MAT bootstrap credentials and VST observer tokens are not accepted on command lines or JSON control messages; provisioning remains an explicit owner-consented host API operation. The adapters expose read-only state only. Portable bundles do not provide installer lifecycle, upgrade/rollback/uninstall, live backend validation or physical-machine installation evidence.
+
+
+## 2026-11-21 — Exact-head validation checkpoint — Windows publisher trust boundary
+
+PR #107's portable Universal/DGM-MAT/VST bundles passed GitHub-hosted Windows Node 22 and Node 26.13.1 smoke tests at HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486); browser visual regression also passed at that same HEAD (run 44889811413).
+
+This does not close the Windows publisher trust boundary. PR #107's WinVerifyTrust rewrite was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded PowerShell Get-AuthenticodeSignature implementation already present on main. The restored baseline requires Authenticode Status Valid and a matching OFFICE_KIT_CNG_SIGNER_THUMBPRINT, and its child PowerShell process is bounded by the 15-second runChecked timeout. This removes the PR-introduced disabled-revocation and detached-certificate behavior. The baseline still uses a process-environment SHA-1 pin rather than an authenticated installer-provisioned SHA-256 SPKI policy, so it is not the final production publisher architecture.
+
+docs/security/WINDOWS_AUTHENTICODE_POLICY.md is a normative design contract only. Production acceptance still requires installer-provisioned authenticated publisher policy, SHA-256 SPKI pinning, exact signature-index/signer binding, separate install/update and offline-startup revocation policies, bounded non-interactive verification, and native Windows tests for valid, untrusted, expired, revoked/unknown, tampered, wrong-publisher and multi-signature cases. The implementation must fail closed when policy or revocation evidence is unavailable.
+
+Until issue #110 is implemented and its native Windows matrix passes, the portable bundle CI result must not be described as production Authenticode validation, and PR #107 must remain unmerged.

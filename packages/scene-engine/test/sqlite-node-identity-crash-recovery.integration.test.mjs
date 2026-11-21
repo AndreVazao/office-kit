@@ -40,6 +40,9 @@ const transaction = callback => {
     const result = callback();
     // The UPDATE has executed, but COMMIT has deliberately not happened.
     process.stdout.write("READY\\n");
+    // A pending Promise alone does not keep Node alive; retain an active handle
+    // so the parent can terminate the child inside the uncommitted transaction.
+    setInterval(() => {}, 60_000);
     await new Promise(() => {});
     return result;
   };

@@ -27,7 +27,7 @@ The canonical product contract lives in [docs/PRODUCT_CONTRACT.md](docs/PRODUCT_
 
 The browser preview is an early CSS prototype, not the final Diorama-quality renderer. Quality profiles are currently policy data and are not yet wired to a production rendering pipeline. The project is not yet packaged as an Android application or a commercial desktop installer.
 
-The current portable Windows host bundle is the Universal edition only. DGM-MAT and VST source packages are built and checked independently, but their edition-specific desktop bundles/installers are not yet delivered.
+The validated portable Windows host bundle is currently Universal-only. A separate DGM-MAT/VST portable-bundle pipeline is under CI validation; neither edition is yet a signed commercial installer. MSI/MSIX lifecycle, publisher signing, live backend validation and physical-PC installation remain pending.
 
 ## Core principles
 

@@ -2,9 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
-import { buildEditionPackage } from "./build-edition.mjs";
+import { buildEditionPackage, getEditionFileAllowlist } from "./build-edition.mjs";
+
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function tarEntryText(gzipPath, bytes, wantedPath) {
   const archive = gunzipSync(bytes);
@@ -129,5 +132,25 @@ test("every edition tarball declares the Node 22.5 runtime floor", async () => {
     assert.ok(entries.includes("package/package.json"));
     assert.equal(manifest.nodeRuntime.minimumVersion, "22.5.0");
     assert.equal(manifest.nodeRuntime.range, ">=22.5.0");
+  }
+});
+
+
+test("every edition package includes the complete relative ESM import closure", async () => {
+  for (const edition of ["universal", "dgmat", "vst"]) {
+    const allowlist = getEditionFileAllowlist(edition);
+    const included = new Set(allowlist);
+    assert.equal(included.size, allowlist.length, edition + " allowlist must not contain duplicate paths");
+
+    for (const file of allowlist.filter(value => value.endsWith(".mjs"))) {
+      const absoluteFile = join(REPOSITORY_ROOT, file);
+      const source = await readFile(absoluteFile, "utf8");
+      const specifiers = [...source.matchAll(/(?:\bfrom\s*|\bimport\s*)["']([^"']+)["']/g)].map(match => match[1]);
+      for (const specifier of specifiers) {
+        if (!specifier.startsWith("./") && !specifier.startsWith("../")) continue;
+        const dependency = relative(REPOSITORY_ROOT, resolve(dirname(absoluteFile), specifier)).replace(/\\/g, "/");
+        assert.ok(included.has(dependency), edition + " package omits " + dependency + " imported by " + file);
+      }
+    }
   }
 });

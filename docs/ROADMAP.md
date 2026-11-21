@@ -775,6 +775,34 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 
 ### Windows edition host entrypoints — 2026-11-17
 
-- [ ] Validate isolated DGM-MAT/VST Windows CLI entrypoints with explicit connect/disconnect and no credential transport through argv or logs (implementation branch: `feat/edition-specific-windows-cli-2026-11-17`).
+- [x] Integrate isolated DGM-MAT/VST Windows CLI entrypoints with explicit connect/disconnect and no credential transport through argv or logs (PR #106; final PR HEAD `14c9e8d9e3863042fa1eba51db7133433df359ba`; CI #44102217430 and visual #44102217301 passed on that SHA).
 - [ ] Extend the Windows portable bundle builder to three independent allowlists and run artifact-content plus per-edition install/start/health/uninstall smoke tests.
 - [ ] Deliver signed MSI/MSIX installers with upgrade, rollback, recovery and uninstall validation. Source-package CLI entrypoints do not satisfy this gate.
+
+
+### 2026-11-17 — Windows edition bundle increment (pending validation)
+
+- [ ] Validate the DGM-MAT and VST portable Windows bundle builder derived from the exact source-package allowlists.
+- [ ] Validate artifact-content exclusion, trusted CI-only helper signing, shipped launcher startup, disconnected JSON-lines control and edition-scoped data roots on Windows Node 22 and Node 26.
+- [ ] Keep Universal's existing launcher/data root unchanged.
+- [ ] After this portable-bundle gate, implement MSI/MSIX installation, upgrade, rollback/recovery, complete uninstall and production publisher signing. Portable bundles do not satisfy the installer gate.
+- [ ] Continue Linux/macOS/Android native hosts and platform-native keystores separately.
+
+
+## 2026-11-21 — Exact-head validation checkpoint
+
+- [x] Validate the Universal, DGM-MAT and VST portable Windows bundles on GitHub-hosted Windows Node 22 and Node 26.13.1 at PR #107 HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486).
+- [x] Validate browser visual regression at the same HEAD (run 44889811413).
+- [ ] Implement issue #110: authenticated installer-provisioned publisher policy, SPKI pinning, exact WinTrust signature-index/signer binding, strict revocation behavior and bounded verification. Current document is design-only.
+- [ ] Re-run CI and visual regression after the Authenticode implementation; only then revalidate PR #107 and consider squash merge.
+- [ ] Deliver MSI/MSIX install, upgrade, rollback/recovery, uninstall and signed publisher distribution for each Windows edition.
+- [ ] Deliver native Linux/macOS/Android hosts and platform-native keystore/install lifecycle.
+- [ ] Complete real DGM-MAT/VST read-only live E2E and physical-PC lifecycle validation.
+- [ ] Complete production licensing/activation, TPM-backed rollback protection and cross-platform backup/recovery gates tracked by issues #109 and #58.
+
+
+## 2026-11-21 — Authenticode interim decision
+
+- [x] Revert PR #107's WinVerifyTrust rewrite to the previously reviewed, bounded Get-AuthenticodeSignature baseline (commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f). This removes the PR-introduced revocation-disabled path; it does not complete production publisher provisioning.
+- [ ] Replace the legacy process-environment SHA-1 thumbprint with an authenticated installer-provisioned publisher policy and SHA-256 SPKI pin.
+- [ ] Implement explicit install/update and offline-startup revocation policies, exact signature/signer binding, and native Windows positive/negative tests before commercial release.

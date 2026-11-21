@@ -743,3 +743,25 @@ A new implementation slice adds `packages/windows-host/src/edition-cli.mjs`, `dg
 The JSON-lines command loop starts disconnected and supports explicit `connect`/`disconnect`, read-only `snapshot`, `health`, non-secret `credential-status` and `shutdown`. Requests with any extra field are rejected, so credentials cannot be supplied through CLI arguments or control messages. The DGM-MAT host now reports only whether its bootstrap credential is configured, never the credential itself.
 
 This is a source-package CLI increment. It is not an edition-specific portable bundle or installer. CI and visual regression on the final PR HEAD are required before integration; no live DGM-MAT/VST backend or physical-PC validation is claimed.
+
+
+## 2026-11-17 — DGM-MAT/VST portable Windows bundle pipeline (validation pending)
+
+PR #106 was squash-merged as `43f59f4f200041877c2cee6bbb7eb96096ce9fb8`. Its final PR HEAD `14c9e8d9e3863042fa1eba51db7133433df359ba` passed CI run [44102217430](https://github.com/AndreVazao/office-kit/actions/runs/44102217430) and visual run [44102217301](https://github.com/AndreVazao/office-kit/actions/runs/44102217301) on the same SHA. The merge commit passed push CI [44102956139](https://github.com/AndreVazao/office-kit/actions/runs/44102956139) and visual regression [44102956070](https://github.com/AndreVazao/office-kit/actions/runs/44102956070).
+
+A follow-up branch, `feat/windows-edition-portable-bundles-2026-11-17`, adds a Windows portable bundle builder for DGM-MAT and VST. It obtains the exact source-file allowlist from `scripts/build-edition.mjs`, emits an edition-specific manifest and launcher, and rejects inclusion of the other adapter's source modules. Universal keeps its existing builder and data root.
+
+The proposed Windows CI increment checks actual bundle contents against the source allowlist, signs the native CNG helper with a temporary CI-only code-signing certificate trusted only for the test, launches each shipped command file, and exercises the JSON-lines CLI in a clean temporary profile. The smoke tests require disconnected startup, no credential configured, explicit connect failure without an owner-provisioned credential, rejection of snapshots while disconnected, and an edition-scoped data directory. No backend is contacted because the temporary profiles contain no credentials.
+
+This branch is not yet validated. Its CI must complete on the final branch/PR HEAD before integration. The resulting artifacts are portable runtime bundles, not MSI/MSIX installers or commercially signed releases. Live DGM-MAT/VST backend validation and physical-PC installation remain separate gates.
+
+
+## 2026-11-21 — Exact-head validation checkpoint (PR #107)
+
+- Main remains at 43f59f4f200041877c2cee6bbb7eb96096ce9fb8; no direct main commit was made.
+- PR #107 branch feat/windows-edition-portable-bundles-2026-11-17 was at HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73, open and mergeable, with 65 commits ahead and zero behind at inspection.
+- GitHub Actions CI run 44889811486 completed successfully on this exact PR HEAD: Linux Node 22 and 26.13.1; Windows Node 22 and 26.13.1. Both Windows jobs completed CNG persistence/isolation, DGM-MAT vault, VST vault, incident-journal, Windows identity, Universal bundle, DGM-MAT bundle and VST bundle steps.
+- Browser visual regression run 44889811413 also completed successfully on this exact PR HEAD.
+- This validates GitHub-hosted CI and portable bundle smoke tests only. It is not evidence of MSI/MSIX installation, commercial publisher signing, live backend integration, or physical-PC installation.
+- Issue #110 remains an explicit merge blocker. PR #107's WinVerifyTrust rewrite was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded PowerShell Get-AuthenticodeSignature verifier already present on main. This removes the PR-introduced revocation-disabled and detached-certificate path. The restored baseline still reads OFFICE_KIT_CNG_SIGNER_THUMBPRINT (SHA-1) from the process environment and does not yet consume an installer-authenticated SPKI policy; it is a reviewed compatibility baseline, not production publisher provisioning. The child PowerShell process is bounded by runChecked (15 seconds); timeout or nonzero exit rejects. Issue #110 remains open for installer-owned authenticated publisher policy, SPKI pinning, explicit install/update and offline-startup revocation semantics, and native Windows tests.
+- PR #107 remains unmerged. Do not merge until issue #110 implementation and native Windows tests pass, then revalidate the final HEAD and all applicable checks.
