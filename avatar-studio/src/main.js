@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { createAvatarRig } from "./rig.js";
+import { createAvatarAnimationClips } from "./animation-export.js";
 
 const $ = (id) => document.getElementById(id);
 const viewport = $("viewport");
@@ -457,7 +458,7 @@ $("export-glb").addEventListener("click", () => {
   }, (error) => {
     console.error("GLB export failed", error);
     alert("Não foi possível exportar o modelo GLB. Consulte a consola do navegador.");
-  }, { binary: true, onlyVisible: true });
+  }, { binary: true, onlyVisible: true, animations: createAvatarAnimationClips(avatarRig, poseMode?.value || "idle") });
 });
 
 function resize() {
