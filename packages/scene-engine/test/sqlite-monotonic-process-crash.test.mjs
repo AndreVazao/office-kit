@@ -184,7 +184,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
     "    try { writeFileSync(descriptor, JSON.stringify(nextState)); fsyncSync(descriptor); } finally { closeSync(descriptor); }",
     "    renameSync(temporaryPath, anchorPath);",
     "    process.stdout.write(\"ANCHOR_ADVANCED\\\\n\");",
-    "if (phase !== \"during-finalize\") await new Promise(() => {});",
+    "    if (phase !== \"during-finalize\") await new Promise(() => {});",
     "  }",
     "};",
     "const coordinator = new SqliteMonotonicCheckpointCoordinator({ provider: anchor, journal, installationId });",
