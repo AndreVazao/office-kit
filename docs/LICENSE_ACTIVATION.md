@@ -24,4 +24,6 @@ The transaction guarantee must hold across all processes and machines that share
 
 ## Current implementation boundary
 
-The module defines the registry logic and a strict store contract. Tests use a process-local in-memory atomic test double only. No production database, Windows DPAPI/CNG provider, Android Keystore provider, remote licensing service, activation UI, billing, or customer portal is included. Do not ship volume-license enforcement until a production store and host identity provider are implemented and security-reviewed.
+The core registry and SQLite store are implemented. The SQLite store has real file-backed `node:sqlite` tests, including a two-child-process race for a single seat (PR #115, final HEAD `0b4bbcf12716ef856f1c66e89ebdd9a07de5f590`; CI [44916584036](https://github.com/AndreVazao/office-kit/actions/runs/44916584036) and visual [44916584062](https://github.com/AndreVazao/office-kit/actions/runs/44916584062) passed on that SHA). The race test injects a deterministic fake license-envelope verifier; it does not establish trust in production license signatures.
+
+No native host activation composition, trusted production issuer keyring, platform activation-identity provider, remote registry, activation UI, billing, or customer portal is included. The local SQLite store coordinates only processes sharing the same local database; it is not a multi-PC offline authority. Do not ship volume-license enforcement until host integration, signer/key management, backup/recovery, and security review are complete.
