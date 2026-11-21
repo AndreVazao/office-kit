@@ -787,3 +787,15 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Keep Universal's existing launcher/data root unchanged.
 - [ ] After this portable-bundle gate, implement MSI/MSIX installation, upgrade, rollback/recovery, complete uninstall and production publisher signing. Portable bundles do not satisfy the installer gate.
 - [ ] Continue Linux/macOS/Android native hosts and platform-native keystores separately.
+
+
+## 2026-11-21 — Exact-head validation checkpoint
+
+- [x] Validate the Universal, DGM-MAT and VST portable Windows bundles on GitHub-hosted Windows Node 22 and Node 26.13.1 at PR #107 HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486).
+- [x] Validate browser visual regression at the same HEAD (run 44889811413).
+- [ ] Implement issue #110: authenticated installer-provisioned publisher policy, SPKI pinning, exact WinTrust signature-index/signer binding, strict revocation behavior and bounded verification. Current document is design-only.
+- [ ] Re-run CI and visual regression after the Authenticode implementation; only then revalidate PR #107 and consider squash merge.
+- [ ] Deliver MSI/MSIX install, upgrade, rollback/recovery, uninstall and signed publisher distribution for each Windows edition.
+- [ ] Deliver native Linux/macOS/Android hosts and platform-native keystore/install lifecycle.
+- [ ] Complete real DGM-MAT/VST read-only live E2E and physical-PC lifecycle validation.
+- [ ] Complete production licensing/activation, TPM-backed rollback protection and cross-platform backup/recovery gates tracked by issues #109 and #58.
