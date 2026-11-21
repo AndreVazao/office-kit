@@ -25,6 +25,7 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 - A THREE.Bone / THREE.Skeleton rig with linear-blend skinning on the upper arms, forearms, separate thigh/shin segments, pelvis, and torso shells. The visible limb cylinders are replaced by SkinnedMesh objects weighted between their corresponding joint bones. Thigh and shin are separate meshes with a dedicated knee bone and ankle/foot bone; upper-thigh weights transition from the pelvis into the thigh and knee.
 - Outfit attachment: shirt, lapels, tie, buttons, and pocket square follow the chest bone; shoulder shells blend between the chest and upper-arm bones. Robot manipulators and shoulder, elbow, and wrist details follow their corresponding arm/hand bones.
 - Procedural idle, walk, sit, talk, and work poses deform the skinned limb segments and body shells while the attached outfit details and robot joints follow their assigned bones. Human hands now use three-bone chains for each finger and thumb; each phalanx is independently weighted and pose modes drive progressive joint flexion. The optional skeleton helper is a visual inspection overlay.
+- GLB export samples the five procedural modes into skeletal animation clips (30 FPS by default), including bone rotation and facial eyelid scale tracks. The editor restores the selected preview mode after sampling. These are reusable basic clips, not motion-capture or production animation.
 - All character parameters are local to this app; no backend calls or credential access.
 
 ## CEO identity-reference workflow
