@@ -792,7 +792,7 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 ## 2026-11-21 — Exact-head validation checkpoint
 
 - [x] Validate the Universal, DGM-MAT and VST portable Windows bundles at final PR #107 HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4` (CI run [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409)); squash merge `b27136a974d25bb1f3572a5bdb8700f359ac2627`.
-- [x] Validate browser visual regression at the same HEAD (run 44889811413).
+- [x] Validate browser visual regression at the same final PR HEAD (run [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342)).
 - [ ] Implement issue #110: authenticated installer-provisioned publisher policy, SPKI pinning, exact WinTrust signature-index/signer binding, strict revocation behavior and bounded verification. Current document is design-only.
 - [ ] Implement issue #110 and validate the production publisher policy on native Windows before commercial distribution. PR #107 is already merged as a portable-bundle increment; this security gate now blocks signed commercial release, not that merge.
 - [ ] Deliver MSI/MSIX install, upgrade, rollback/recovery, uninstall and signed publisher distribution for each Windows edition.
