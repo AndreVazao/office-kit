@@ -492,3 +492,14 @@ DGM-MAT and VST have separate Windows CLI entrypoints and persistent roots (`%LO
 The portable DGM-MAT/VST bundle builder derives files from the corresponding source-package allowlist instead of copying a hand-maintained cross-edition tree. Each bundle manifest declares its edition, adapter allowlist, excluded adapter, CLI entrypoint, runtime and safe defaults. The test gate compares the actual files with that manifest and exercises the shipped launcher with an empty temporary profile. A CI-only self-signed publisher is trusted only during the disposable test and removed afterward; this is not commercial publisher signing.
 
 All editions start disconnected. DGM-MAT bootstrap credentials and VST observer tokens are not accepted on command lines or JSON control messages; provisioning remains an explicit owner-consented host API operation. The adapters expose read-only state only. Portable bundles do not provide installer lifecycle, upgrade/rollback/uninstall, live backend validation or physical-machine installation evidence.
+
+
+## 2026-11-21 — Exact-head validation checkpoint — Windows publisher trust boundary
+
+PR #107's portable Universal/DGM-MAT/VST bundles passed GitHub-hosted Windows Node 22 and Node 26.13.1 smoke tests at HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486); browser visual regression also passed at that same HEAD (run 44889811413).
+
+This does not close the Windows publisher trust boundary. The current verifyAuthenticodeHelper implementation in packages/windows-host/src/index.mjs still: (1) obtains the expected SHA-1 thumbprint from OFFICE_KIT_CNG_SIGNER_THUMBPRINT; (2) extracts a certificate with X509Certificate.CreateFromSignedFile before calling WinVerifyTrust, without binding it to the exact signature index selected by WinTrust; and (3) sets fdwRevocationChecks = 0 and dwProvFlags = 0x1010, which disables revocation checking.
+
+docs/security/WINDOWS_AUTHENTICODE_POLICY.md is a normative design contract only. Production acceptance still requires installer-provisioned authenticated publisher policy, SHA-256 SPKI pinning, exact signature-index/signer binding, separate install/update and offline-startup revocation policies, bounded non-interactive verification, and native Windows tests for valid, untrusted, expired, revoked/unknown, tampered, wrong-publisher and multi-signature cases. The implementation must fail closed when policy or revocation evidence is unavailable.
+
+Until issue #110 is implemented and its native Windows matrix passes, the portable bundle CI result must not be described as production Authenticode validation, and PR #107 must remain unmerged.
