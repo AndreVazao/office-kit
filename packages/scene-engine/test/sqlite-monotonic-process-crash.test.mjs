@@ -144,7 +144,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
   return [
     'import { DatabaseSync } from "node:sqlite";',
     'import { createHash, createHmac, randomUUID } from "node:crypto";',
-    'import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";',
+    'import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync, writeSync } from "node:fs";',
     "import { createInProcessExclusiveLockProvider } from " + JSON.stringify(lockUrl) + ";",
     "import { SqliteOfficeIncidentStore } from " + JSON.stringify(storeUrl) + ";",
     "import { SqliteMonotonicCheckpointJournal } from " + JSON.stringify(journalUrl) + ";",
@@ -164,7 +164,12 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
     "const lock = createInProcessExclusiveLockProvider();",
     "const store = new SqliteOfficeIncidentStore({ database: db, installationId, cryptoProvider, requireMac: true, writeLockProvider: lock });",
     "store.configureMacProvider(macProvider);",
-    "const journal = new SqliteMonotonicCheckpointJournal({ database: db, installationId, lockProvider: lock, makeId: randomUUID, applyPreparedPayload: (payload, checkpoint) => store.applyPreparedMonotonicPayload(payload, checkpoint) });",
+    "const applyPreparedPayload = (payload, checkpoint) => {",
+    "  const applied = store.applyPreparedMonotonicPayload(payload, checkpoint);",
+    "  if (phase === \"during-finalize\") { writeSync(1, \"PAYLOAD_APPLIED_BEFORE_CHECKPOINT\\n\"); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0); }",
+    "  return applied;",
+    "};",
+    "const journal = new SqliteMonotonicCheckpointJournal({ database: db, installationId, lockProvider: lock, makeId: randomUUID, applyPreparedPayload });",
     "const anchor = {",
     "  async capabilities() { return { hardwareBacked: true, rollbackResistant: true, atomicCompareAndAdvance: true, durableAcrossRestart: true, scope: \"test-only-file-backed-fake\" }; },",
     "  async read() { return JSON.parse(readFileSync(anchorPath, \"utf8\")); },",
@@ -179,7 +184,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
     "    try { writeFileSync(descriptor, JSON.stringify(nextState)); fsyncSync(descriptor); } finally { closeSync(descriptor); }",
     "    renameSync(temporaryPath, anchorPath);",
     "    process.stdout.write(\"ANCHOR_ADVANCED\\\\n\");",
-    "    await new Promise(() => {});",
+    "    if (phase !== \"during-finalize\") await new Promise(() => {});",
     "  }",
     "};",
     "const coordinator = new SqliteMonotonicCheckpointCoordinator({ provider: anchor, journal, installationId });",
@@ -289,8 +294,25 @@ async function runCrashScenario(phase) {
       databasePath: filename,
       anchorPath,
       phase,
-      marker: phase === "before-anchor" ? "ANCHOR_ADVANCE_ENTERED" : "ANCHOR_ADVANCED"
+      marker: phase === "before-anchor" ? "ANCHOR_ADVANCE_ENTERED" : phase === "during-finalize" ? "PAYLOAD_APPLIED_BEFORE_CHECKPOINT" : "ANCHOR_ADVANCED"
     });
+    if (phase === "during-finalize") {
+      const inspection = openDatabase(filename);
+      const inspectionLock = createInProcessExclusiveLockProvider();
+      try {
+        const inspectionStore = createStore(inspection.adapter, inspectionLock);
+        const inspectionJournal = createJournal(inspection.adapter, inspectionLock, inspectionStore);
+        const id = "incident-process-crash-" + phase;
+        assert.equal(await inspectionStore.get(id), null);
+        assert.equal(inspectionStore.verifyIntegrity().eventCount, 0);
+        assert.equal((await inspectionJournal.readCheckpoint()).sequence, 0);
+        const pending = await inspectionJournal.readPreparedCheckpoint();
+        assert.equal(pending?.next.sequence, 1);
+      } finally {
+        await inspectionLock.close();
+        inspection.database.close();
+      }
+    }
     const recovered = await recoverFromDisk(filename, anchorPath);
     try {
       const id = "incident-process-crash-" + phase;
@@ -320,4 +342,9 @@ sqliteTest("recovers by discarding the durable prepare after a real child-proces
 
 sqliteTest("recovers by finalizing the durable incident after a real child-process termination following anchor advancement", async () => {
   await runCrashScenario("after-anchor");
+});
+
+
+sqliteTest("rolls back partial incident finalization after real child-process termination inside the SQLite transaction", async () => {
+  await runCrashScenario("during-finalize");
 });
