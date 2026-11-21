@@ -799,3 +799,10 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Deliver native Linux/macOS/Android hosts and platform-native keystore/install lifecycle.
 - [ ] Complete real DGM-MAT/VST read-only live E2E and physical-PC lifecycle validation.
 - [ ] Complete production licensing/activation, TPM-backed rollback protection and cross-platform backup/recovery gates tracked by issues #109 and #58.
+
+
+## 2026-11-21 — Authenticode interim decision
+
+- [x] Revert PR #107's WinVerifyTrust rewrite to the previously reviewed, bounded Get-AuthenticodeSignature baseline (commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f). This removes the PR-introduced revocation-disabled path; it does not complete production publisher provisioning.
+- [ ] Replace the legacy process-environment SHA-1 thumbprint with an authenticated installer-provisioned publisher policy and SHA-256 SPKI pin.
+- [ ] Implement explicit install/update and offline-startup revocation policies, exact signature/signer binding, and native Windows positive/negative tests before commercial release.
