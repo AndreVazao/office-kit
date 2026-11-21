@@ -142,15 +142,14 @@ Credential values are not accepted in command-line arguments or control messages
 This increment adds source-package entrypoints and deterministic command-loop tests. It does **not** yet add DGM-MAT/VST portable Windows bundles, MSI/MSIX installers, service registration, live backend proof or physical-PC installation validation. The existing portable bundle builder remains Universal-only until its own edition-specific allowlist and smoke-test work is completed.
 
 
-## 2026-11-21 — Authenticode status correction
+## 2026-11-21 — Portable edition bundles merged; publisher trust remains open
 
-PR #107 portable bundles passed GitHub-hosted CI and browser visual regression on PR HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486; visual run 44889811413). Both Windows Node 22 and Node 26.13.1 jobs completed the Universal, DGM-MAT and VST portable bundle tests. This is runner evidence only; it is not a signed commercial installation or physical-PC validation.
+PR #107 was squash-merged as `b27136a974d25bb1f3572a5bdb8700f359ac2627` from final PR HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4`. CI [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409) passed Linux/Windows Node 22/26.13.1, including the Universal, DGM-MAT and VST portable bundle E2E tests; visual regression [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342) passed on that exact PR HEAD.
 
-After synchronizing the implementation/roadmap/project-memory/architecture checkpoints, the PR branch advanced to cbb885c67e9cc29f92e693d36d5a186fde26e8ae. CI run 44911090291 and visual run 44911090393 were still running at the time of this document update; their results must be checked on that exact new HEAD.
+The bundles are portable runtime distributions, not MSI/MSIX installers. They do not prove commercial publisher trust, install/upgrade/rollback/uninstall, live backend integration or physical-PC installation. Issue #110 remains open. The current bounded `Get-AuthenticodeSignature` baseline requires Status `Valid` and a SHA-1 thumbprint supplied through the process environment, with a 15-second child-process timeout. It is a reviewed compatibility baseline, not installer-authenticated production publisher policy.
 
-The environment-variable pin and current WinTrust implementation remain a security blocker. Do not treat the legacy command example above as production onboarding. Issue #110 must be implemented and its native Windows test matrix must pass before PR #107 can merge or any bundle can be described as production-ready.
+## 2026-11-21 — SQLite finalization process-crash boundary
 
+PR #111 was squash-merged as `b8cff02dd9f74886df6c39895213cc03e31a4bbf` from final PR HEAD `362ac780cb7f9c31b7111ac6b7384a2179357abb`. CI [44912644014](https://github.com/AndreVazao/office-kit/actions/runs/44912644014) and visual regression [44912644019](https://github.com/AndreVazao/office-kit/actions/runs/44912644019) passed on that exact PR HEAD. Post-merge CI [44913217716](https://github.com/AndreVazao/office-kit/actions/runs/44913217716) and visual [44913217681](https://github.com/AndreVazao/office-kit/actions/runs/44913217681) passed on main.
 
-## 2026-11-21 — verifier baseline restored
-
-The PR #107 WinVerifyTrust rewrite was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded Get-AuthenticodeSignature implementation already present on main. The restored path requires Status Valid and the configured SHA-1 thumbprint, with the PowerShell child process bounded to 15 seconds. A timeout or nonzero exit rejects the helper. This removes the PR-introduced disabled-revocation and detached-certificate behavior, but the environment-provided thumbprint remains a legacy baseline, not an installer-authenticated publisher policy. Issue #110 remains open; do not describe the runtime as production publisher trust.
+The test uses a real SQLite/WAL file, `synchronous=FULL`, immediate transactions and a real child process terminated after domain rows are applied but before checkpoint update and prepare deletion. Reopen/recovery confirms atomic rollback and exactly-once finalization. Its monotonic anchor is explicitly a file-backed test fake; this does not prove TPM, hardware rollback resistance, power-loss durability or physical-PC behavior.

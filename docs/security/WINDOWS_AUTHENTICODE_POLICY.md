@@ -89,7 +89,7 @@ Tests must assert both acceptance and rejection outcomes. Synthetic unit tests d
 
 The existing CI smoke test proves that edition bundles start through their test-only injected signature-integrity verifier and that the production launcher rejects the untrusted ephemeral signer. It does not prove a trusted production chain, positive production verifier acceptance, revocation behavior, multiple-signature binding, commercial signing, or physical-PC behavior.
 
-Issue #110 remains open until the production implementation and native test matrix above pass on Windows Node 22 and 26. PR #107 must remain unmerged while this gate is open.
+Issue #110 remains open until the production implementation and native test matrix above pass on Windows Node 22 and 26. PR #107 was merged as a portable-bundle increment; that merge does not close this publisher-trust gate or authorize commercial distribution.
 
 
 ## 7. Native API compatibility notes

@@ -687,12 +687,13 @@ The current packaging gap is tracked by issue #104. The next implementation slic
 - Issue #104 remains open for MSI/MSIX, lifecycle, publisher signing, native Linux/macOS/Android hosts, artifact distribution and per-edition installation/uninstallation validation.
 
 
-## 2026-11-21 — Exact-head validation checkpoint
+## 2026-11-21 — Current Office Kit checkpoint
 
-- Repository: AndreVazao/office-kit; main HEAD at inspection: 43f59f4f200041877c2cee6bbb7eb96096ce9fb8.
-- PR #107 (Windows portable bundles) HEAD: 655c8f5c2cc7651473ca3e78327cb5d5d5512e73; open, mergeable, 65 commits ahead / 0 behind. CI run 44889811486 and visual regression run 44889811413 both passed on this exact SHA. Windows jobs executed the three portable bundle E2E paths, including DGM-MAT and VST.
-- The evidence is GitHub-hosted runner evidence. It does not establish commercial signing, MSI/MSIX lifecycle, live backend compatibility or physical-machine behavior.
-- Security blocker #110 remains open. PR #107's WinVerifyTrust rewrite was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded PowerShell Get-AuthenticodeSignature verifier already present on main. This removes the PR-introduced revocation-disabled and detached-certificate path. The restored baseline still reads OFFICE_KIT_CNG_SIGNER_THUMBPRINT (SHA-1) from the process environment; authenticated installer-provisioned SPKI pinning and explicit revocation policy remain unimplemented. Issue #110 remains open.
-- PR #107 was intentionally not merged. The main branch was not changed.
-- PR #108 is a separate draft confined to avatar-studio/; this Office Kit runtime pass did not modify it.
-- Open production gates remain: #110 Authenticode, #104 installers/hosts, #109 licensing/activation, #58 SQLite/anti-rollback/physical recovery and #57 live DGM-MAT session validation.
+- Main HEAD: `b8cff02dd9f74886df6c39895213cc03e31a4bbf`.
+- PR #107 was squash-merged as `b27136a974d25bb1f3572a5bdb8700f359ac2627` from final PR HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4`. It adds portable Windows bundles for Universal, DGM-MAT and VST. CI [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409) and visual regression [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342) passed on the same final PR HEAD.
+- Portable bundles are not MSI/MSIX installers or commercial signed releases. No live backend or physical-PC installation is claimed.
+- Issue #110 remains open: the bounded Get-AuthenticodeSignature baseline still uses a process-environment SHA-1 thumbprint. Installer-authenticated publisher policy, SHA-256 SPKI pinning, exact signature/signer binding and explicit install/update/offline-startup revocation behavior remain production gates.
+- PR #111 added a third real child-process crash boundary inside SQLite incident finalization. It was squash-merged as `b8cff02dd9f74886df6c39895213cc03e31a4bbf` from final PR HEAD `362ac780cb7f9c31b7111ac6b7384a2179357abb`. CI [44912644014](https://github.com/AndreVazao/office-kit/actions/runs/44912644014) and visual [44912644019](https://github.com/AndreVazao/office-kit/actions/runs/44912644019) passed on that exact PR HEAD; the new test was observed passing in all four CI matrix jobs. Post-merge CI [44913217716](https://github.com/AndreVazao/office-kit/actions/runs/44913217716) and visual [44913217681](https://github.com/AndreVazao/office-kit/actions/runs/44913217681) passed on main.
+- Evidence boundary: SQLite/WAL and child-process termination are real in CI; the monotonic anchor is a file-backed test fake. This does not prove TPM, hardware rollback resistance, power-loss durability or physical-PC behavior.
+- PR #108 is a separate Avatar Studio draft under `avatar-studio/`; this Office Kit runtime pass did not modify it.
+- Open production gates: #110 Authenticode; #104 installers/native hosts; #109 licensing/activation; #58 TPM and physical recovery; #57 live DGM-MAT session validation.
