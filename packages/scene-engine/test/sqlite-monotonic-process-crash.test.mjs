@@ -144,7 +144,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
   return [
     'import { DatabaseSync } from "node:sqlite";',
     'import { createHash, createHmac, randomUUID } from "node:crypto";',
-    'import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";',
+    'import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync, writeSync } from "node:fs";',
     "import { createInProcessExclusiveLockProvider } from " + JSON.stringify(lockUrl) + ";",
     "import { SqliteOfficeIncidentStore } from " + JSON.stringify(storeUrl) + ";",
     "import { SqliteMonotonicCheckpointJournal } from " + JSON.stringify(journalUrl) + ";",
@@ -166,7 +166,7 @@ function childProgram(lockUrl, storeUrl, journalUrl, coordinatorUrl, writerUrl) 
     "store.configureMacProvider(macProvider);",
     "const applyPreparedPayload = (payload, checkpoint) => {",
     "  const applied = store.applyPreparedMonotonicPayload(payload, checkpoint);",
-    "  if (phase === \"during-finalize\") { process.stdout.write(\"PAYLOAD_APPLIED_BEFORE_CHECKPOINT\\n\"); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0); }",
+    "  if (phase === \"during-finalize\") { writeSync(1, \"PAYLOAD_APPLIED_BEFORE_CHECKPOINT\\n\"); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0); }",
     "  return applied;",
     "};",
     "const journal = new SqliteMonotonicCheckpointJournal({ database: db, installationId, lockProvider: lock, makeId: randomUUID, applyPreparedPayload });",
