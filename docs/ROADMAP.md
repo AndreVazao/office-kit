@@ -791,10 +791,10 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 
 ## 2026-11-21 — Exact-head validation checkpoint
 
-- [x] Validate the Universal, DGM-MAT and VST portable Windows bundles on GitHub-hosted Windows Node 22 and Node 26.13.1 at PR #107 HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73 (CI run 44889811486).
-- [x] Validate browser visual regression at the same HEAD (run 44889811413).
+- [x] Validate the Universal, DGM-MAT and VST portable Windows bundles at final PR #107 HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4` (CI run [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409)); squash merge `b27136a974d25bb1f3572a5bdb8700f359ac2627`.
+- [x] Validate browser visual regression at the same final PR HEAD (run [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342)).
 - [ ] Implement issue #110: authenticated installer-provisioned publisher policy, SPKI pinning, exact WinTrust signature-index/signer binding, strict revocation behavior and bounded verification. Current document is design-only.
-- [ ] Re-run CI and visual regression after the Authenticode implementation; only then revalidate PR #107 and consider squash merge.
+- [ ] Implement issue #110 and validate the production publisher policy on native Windows before commercial distribution. PR #107 is already merged as a portable-bundle increment; this security gate now blocks signed commercial release, not that merge.
 - [ ] Deliver MSI/MSIX install, upgrade, rollback/recovery, uninstall and signed publisher distribution for each Windows edition.
 - [ ] Deliver native Linux/macOS/Android hosts and platform-native keystore/install lifecycle.
 - [ ] Complete real DGM-MAT/VST read-only live E2E and physical-PC lifecycle validation.
@@ -806,3 +806,11 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [x] Revert PR #107's WinVerifyTrust rewrite to the previously reviewed, bounded Get-AuthenticodeSignature baseline (commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f). This removes the PR-introduced revocation-disabled path; it does not complete production publisher provisioning.
 - [ ] Replace the legacy process-environment SHA-1 thumbprint with an authenticated installer-provisioned publisher policy and SHA-256 SPKI pin.
 - [ ] Implement explicit install/update and offline-startup revocation policies, exact signature/signer binding, and native Windows positive/negative tests before commercial release.
+
+
+## 2026-11-21 — SQLite finalization crash boundary
+
+- [x] Add a real child-process termination test inside the SQLite finalization transaction (PR #111; final PR HEAD `362ac780cb7f9c31b7111ac6b7384a2179357abb`; squash merge `b8cff02dd9f74886df6c39895213cc03e31a4bbf`).
+- [x] Validate CI [44912644014](https://github.com/AndreVazao/office-kit/actions/runs/44912644014) and visual regression [44912644019](https://github.com/AndreVazao/office-kit/actions/runs/44912644019) on the exact PR HEAD; post-merge CI [44913217716](https://github.com/AndreVazao/office-kit/actions/runs/44913217716) and visual [44913217681](https://github.com/AndreVazao/office-kit/actions/runs/44913217681) passed on the merge commit.
+- [ ] Implement and validate a real Windows TPM 2.0 monotonic provider; keep writes fail-closed until provider and physical TPM validation pass.
+- [ ] Validate power-loss, TPM clear/reprovision, backup/restore and recovery on physical Windows hardware; fake-anchor process-kill tests do not satisfy these gates.
