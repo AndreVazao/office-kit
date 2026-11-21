@@ -13,6 +13,21 @@ This document defines the security properties required before the Windows helper
 - Missing, malformed, unsigned, untrusted, expired, or ACL-insecure policy is a hard startup failure. There is no environment-variable fallback in production mode.
 - Development/test injection remains possible only through explicit dependency injection in tests; it must not be reachable through production configuration.
 
+### 1.1 Bootstrap and policy lifecycle
+
+The publisher policy must have a non-circular trust bootstrap:
+
+1. The elevated installer first verifies the installer/package signature through the operating system Authenticode trust chain. It records the signer public-key identity from the exact verified installer signature; it must not accept a publisher value supplied by the launching user's environment.
+2. The installer provisions the helper publisher policy and protects its directory/file with machine-scoped ACLs that deny modification by standard users. The policy records the expected SHA-256 SPKI digest, the accepted signature-selection rule, and a policy schema/version.
+3. The policy's integrity must be authenticated independently of the file's ACL. Preferred implementation: a machine-scoped, non-exportable CNG key created/provisioned by the elevated installer authenticates the canonical policy bytes; the helper verifies that authenticator before consuming any policy field. If the chosen CNG key is unavailable, replaced, or has an invalid scope, startup fails closed.
+4. The installer must not silently regenerate a missing policy or key during ordinary startup. Recovery/re-provisioning is an explicit elevated install/repair operation that re-verifies the signed package and records a new authenticated policy.
+5. Upgrade may rotate the expected publisher only when the new signed installer is accepted under the currently installed publisher policy or an explicit, authenticated publisher-transition policy. A new unrelated publisher must never replace the pin merely because Windows trusts its certificate chain.
+6. The policy and CNG key are installation-scoped; uninstall removes them only after explicit uninstall confirmation and must not remove unrelated user data or keys.
+
+This makes the OS trust chain the initial installer gate and the installer-provisioned CNG-authenticated policy the runtime pin. It avoids the circular design in which a mutable manifest is allowed to nominate its own trusted publisher. Exact CNG key ACL/scope, canonical serialization, key recovery and publisher-transition behavior require implementation tests before production approval.
+
+The existing environment-variable thumbprint remains a test harness input only. Production launchers must not read it, and CI must prove that changing or removing it cannot change the installed publisher identity.
+
 ## 2. Signature selection and signer binding
 
 - Verification must identify the exact Authenticode signature index selected for acceptance.
