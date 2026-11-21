@@ -814,3 +814,11 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [x] Validate CI [44912644014](https://github.com/AndreVazao/office-kit/actions/runs/44912644014) and visual regression [44912644019](https://github.com/AndreVazao/office-kit/actions/runs/44912644019) on the exact PR HEAD; post-merge CI [44913217716](https://github.com/AndreVazao/office-kit/actions/runs/44913217716) and visual [44913217681](https://github.com/AndreVazao/office-kit/actions/runs/44913217681) passed on the merge commit.
 - [ ] Implement and validate a real Windows TPM 2.0 monotonic provider; keep writes fail-closed until provider and physical TPM validation pass.
 - [ ] Validate power-loss, TPM clear/reprovision, backup/restore and recovery on physical Windows hardware; fake-anchor process-kill tests do not satisfy these gates.
+
+
+## 2026-11-21 — lifecycle installation identity integrity
+
+- [x] Bind SQLite lifecycle records to the installation ID used as their partition on both save and load (PR #113; final PR HEAD `6c2295d569ed8b64170dcd3dcb641987b0399445`; squash merge `e4800a76747f84b35e0f14fa4babf071c2d30de2`).
+- [x] Validate Linux/Windows Node 22/26 and visual regression on the exact PR HEAD; post-merge main CI and visual regression passed on `e4800a76747f84b35e0f14fa4babf071c2d30de2`.
+- [ ] Implement a concrete least-privilege Windows installation/package driver and MSI/MSIX lifecycle; injected-driver controller tests do not prove Windows Installer or SCM behavior.
+- [ ] Validate clean install, upgrade, rollback, recovery, uninstall/data retention and reinstall on disposable Windows runners and physical PCs.

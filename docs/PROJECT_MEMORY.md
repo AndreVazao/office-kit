@@ -689,7 +689,7 @@ The current packaging gap is tracked by issue #104. The next implementation slic
 
 ## 2026-11-21 — Current Office Kit checkpoint
 
-- Main HEAD: `b8cff02dd9f74886df6c39895213cc03e31a4bbf`.
+- Main HEAD: `e4800a76747f84b35e0f14fa4babf071c2d30de2`.
 - PR #107 was squash-merged as `b27136a974d25bb1f3572a5bdb8700f359ac2627` from final PR HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4`. It adds portable Windows bundles for Universal, DGM-MAT and VST. CI [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409) and visual regression [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342) passed on the same final PR HEAD.
 - Portable bundles are not MSI/MSIX installers or commercial signed releases. No live backend or physical-PC installation is claimed.
 - Issue #110 remains open: the bounded Get-AuthenticodeSignature baseline still uses a process-environment SHA-1 thumbprint. Installer-authenticated publisher policy, SHA-256 SPKI pinning, exact signature/signer binding and explicit install/update/offline-startup revocation behavior remain production gates.
@@ -697,3 +697,10 @@ The current packaging gap is tracked by issue #104. The next implementation slic
 - Evidence boundary: SQLite/WAL and child-process termination are real in CI; the monotonic anchor is a file-backed test fake. This does not prove TPM, hardware rollback resistance, power-loss durability or physical-PC behavior.
 - PR #108 is a separate Avatar Studio draft under `avatar-studio/`; this Office Kit runtime pass did not modify it.
 - Open production gates: #110 Authenticode; #104 installers/native hosts; #109 licensing/activation; #58 TPM and physical recovery; #57 live DGM-MAT session validation.
+
+
+## 2026-11-21 — lifecycle store installation identity binding
+
+PR #113 was squash-merged as `e4800a76747f84b35e0f14fa4babf071c2d30de2` from final PR HEAD `6c2295d569ed8b64170dcd3dcb641987b0399445`. On the exact PR HEAD, CI [44914347607](https://github.com/AndreVazao/office-kit/actions/runs/44914347607) passed Linux and Windows on Node 22 and Node 26.13.1; the two new partition-binding regressions were observed passing in all four job logs. Visual regression [44914336936](https://github.com/AndreVazao/office-kit/actions/runs/44914336936) passed on that same HEAD. Post-merge main CI [44914574477](https://github.com/AndreVazao/office-kit/actions/runs/44914574477) passed all four jobs and visual regression [44914574487](https://github.com/AndreVazao/office-kit/actions/runs/44914574487) passed on the merge commit.
+
+The store now rejects a record whose `installationId` differs from its SQLite partition on both save and load. This prevents a mismatched persisted JSON record from making the lifecycle controller pass another installation ID to the injected driver. The new store regression uses a real `node:sqlite` connection with an in-memory test database. The separate host-composition test persists through the host's real SQLite file across close/reopen, but its OS/package driver remains injected/fake. This is a partition-consistency fix, not authenticated-record tamper protection, an MSI/MSIX installer, a native Windows service driver or physical-PC validation.
