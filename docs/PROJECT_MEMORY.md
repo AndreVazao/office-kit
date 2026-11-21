@@ -685,3 +685,14 @@ The current packaging gap is tracked by issue #104. The next implementation slic
 - Branch `feat/windows-edition-portable-bundles-2026-11-17` adds DGM-MAT/VST portable bundle construction from `getEditionFileAllowlist()`, exact artifact-content checks, a temporary CI-only trusted publisher for CNG helper smoke tests, launcher startup checks and JSON-lines command-loop tests.
 - The branch is pending CI/visual validation. Its output is a portable runtime bundle, not a commercial installer. No live backend or physical-PC installation is claimed.
 - Issue #104 remains open for MSI/MSIX, lifecycle, publisher signing, native Linux/macOS/Android hosts, artifact distribution and per-edition installation/uninstallation validation.
+
+
+## 2026-11-21 — Exact-head validation checkpoint
+
+- Repository: AndreVazao/office-kit; main HEAD at inspection: 43f59f4f200041877c2cee6bbb7eb96096ce9fb8.
+- PR #107 (Windows portable bundles) HEAD: 655c8f5c2cc7651473ca3e78327cb5d5d5512e73; open, mergeable, 65 commits ahead / 0 behind. CI run 44889811486 and visual regression run 44889811413 both passed on this exact SHA. Windows jobs executed the three portable bundle E2E paths, including DGM-MAT and VST.
+- The evidence is GitHub-hosted runner evidence. It does not establish commercial signing, MSI/MSIX lifecycle, live backend compatibility or physical-machine behavior.
+- Security blocker #110 remains open. The source verifier still relies on OFFICE_KIT_CNG_SIGNER_THUMBPRINT, calls X509Certificate.CreateFromSignedFile separately from WinTrust, and disables revocation. The new Authenticode policy document defines the target design only; implementation and native Windows positive/negative tests are not complete.
+- PR #107 was intentionally not merged. The main branch was not changed.
+- PR #108 is a separate draft confined to avatar-studio/; this Office Kit runtime pass did not modify it.
+- Open production gates remain: #110 Authenticode, #104 installers/hosts, #109 licensing/activation, #58 SQLite/anti-rollback/physical recovery and #57 live DGM-MAT session validation.
