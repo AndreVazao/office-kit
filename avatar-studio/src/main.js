@@ -444,21 +444,47 @@ for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hai
 }
 
 $("export-glb").addEventListener("click", () => {
-  const exporter = new GLTFExporter();
-  exporter.parse(character, (result) => {
-    const blob = new Blob([result], { type: "model/gltf-binary" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "office-kit-avatar-" + currentPreset + ".glb";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-  }, (error) => {
-    console.error("GLB export failed", error);
-    alert("Não foi possível exportar o modelo GLB. Consulte a consola do navegador.");
-  }, { binary: true, onlyVisible: true, animations: createAvatarAnimationClips(avatarRig, poseMode?.value || "idle") });
+  const button = $("export-glb");
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = "A preparar…";
+
+  const restoreButton = () => {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  };
+
+  try {
+    const exporter = new GLTFExporter();
+    const animations = createAvatarAnimationClips(avatarRig, poseMode?.value || "idle");
+    button.textContent = "A exportar…";
+    exporter.parse(character, (result) => {
+      try {
+        const blob = new Blob([result], { type: "model/gltf-binary" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "office-kit-avatar-" + currentPreset + ".glb";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      } catch (error) {
+        console.error("GLB download preparation failed", error);
+        alert("O modelo foi gerado, mas não foi possível preparar a transferência do ficheiro.");
+      } finally {
+        restoreButton();
+      }
+    }, (error) => {
+      console.error("GLB export failed", error);
+      restoreButton();
+      alert("Não foi possível exportar o modelo GLB. Consulte a consola do navegador.");
+    }, { binary: true, onlyVisible: true, animations });
+  } catch (error) {
+    console.error("GLB export setup failed", error);
+    restoreButton();
+    alert("Não foi possível preparar a exportação GLB. Consulte a consola do navegador.");
+  }
 });
 
 function resize() {
