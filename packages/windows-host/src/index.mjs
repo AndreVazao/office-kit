@@ -129,38 +129,16 @@ export function verifyAuthenticodeHelper(helperPath, {
   }
   const escaped = helperPath.replace(/'/g, "''");
   const thumbprint = expectedThumbprint.toUpperCase();
-  // Validate Authenticode locally; avoid online revocation/AIA waits on offline PCs.
-  const script = String.raw`$ErrorActionPreference = 'Stop'
-$source = @'
-using System;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
-public static class OfficeKitAuthenticode {
-  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-  private struct WINTRUST_FILE_INFO { public UInt32 cbStruct; public IntPtr pcwszFilePath; public IntPtr hFile; public IntPtr pgKnownSubject; }
-  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-  private struct WINTRUST_DATA { public UInt32 cbStruct; public IntPtr pPolicyCallbackData; public IntPtr pSIPClientData; public UInt32 dwUIChoice; public UInt32 fdwRevocationChecks; public UInt32 dwUnionChoice; public IntPtr pFile; public UInt32 dwStateAction; public IntPtr hWVTStateData; public IntPtr pwszURLReference; public UInt32 dwProvFlags; public UInt32 dwUIContext; public IntPtr pSignatureSettings; }
-  [DllImport("wintrust.dll", ExactSpelling = true, PreserveSig = true)]
-  private static extern Int32 WinVerifyTrust(IntPtr hwnd, ref Guid action, ref WINTRUST_DATA data);
-  public static Int32 Verify(String path, String expectedThumbprint) {
-    using (X509Certificate2 cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(path))) {
-      if (!String.Equals(cert.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase)) return unchecked((Int32)0x800B0109);
-    }
-    IntPtr pathPtr = Marshal.StringToCoTaskMemUni(path); IntPtr filePtr = IntPtr.Zero;
-    try {
-      WINTRUST_FILE_INFO file = new WINTRUST_FILE_INFO(); file.cbStruct = (UInt32)Marshal.SizeOf(typeof(WINTRUST_FILE_INFO)); file.pcwszFilePath = pathPtr;
-      filePtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_FILE_INFO))); Marshal.StructureToPtr(file, filePtr, false);
-      WINTRUST_DATA data = new WINTRUST_DATA(); data.cbStruct = (UInt32)Marshal.SizeOf(typeof(WINTRUST_DATA)); data.dwUIChoice = 2; data.fdwRevocationChecks = 0; data.dwUnionChoice = 1; data.pFile = filePtr; data.dwStateAction = 1; data.dwProvFlags = 0x1010;
-      Guid action = new Guid("00AAC56B-CD44-11D0-8CC2-00C04FC295EE"); Int32 result = WinVerifyTrust(IntPtr.Zero, ref action, ref data);
-      data.dwStateAction = 2; WinVerifyTrust(IntPtr.Zero, ref action, ref data); return result;
-    } finally { if (filePtr != IntPtr.Zero) Marshal.FreeHGlobal(filePtr); Marshal.FreeCoTaskMem(pathPtr); }
-  }
-}
-'@
-Add-Type -TypeDefinition $source -ErrorAction Stop
-$result = [OfficeKitAuthenticode]::Verify('${escaped}', '${thumbprint}')
-if ($result -ne 0) { exit 3 }`;
-  runChecked("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "AllSigned", "-Command", script], spawnImpl);
+  const script = String.raw`$moduleRoot = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $s = Get-AuthenticodeSignature -LiteralPath '${escaped}'; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Thumbprint -ne '${thumbprint}') { exit 3 }`;
+  runChecked("powershell.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "AllSigned",
+    "-Command",
+    script
+  ], spawnImpl);
   return true;
 }
 
