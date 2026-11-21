@@ -163,7 +163,7 @@ test("enforces a one-installation license seat across two concurrent Node.js pro
     lockDatabase = new DatabaseSync(filename);
     lockDatabase.exec("PRAGMA busy_timeout = 1000");
     lockDatabase.exec("BEGIN IMMEDIATE");
-    for (const worker of workers) worker.child.stdin.write("GO\\n");
+    for (const worker of workers) worker.child.stdin.write("GO");
     for (const worker of workers) {
       assert.equal(await worker.nextLine(), "ATTEMPTING", worker.stderr || "worker did not attempt activation");
     }
@@ -191,7 +191,6 @@ test("enforces a one-installation license seat across two concurrent Node.js pro
       const active = Object.values(state.activations).filter(item => item.status === "active");
       assert.equal(active.length, 1);
       assert.ok(["installation-alpha", "installation-beta"].includes(active[0].installationId));
-      assert.equal(active[0].machineFingerprint, "a".repeat(64).slice(0, 0) + active[0].machineFingerprint);
       assert.ok(["a".repeat(64), "b".repeat(64)].includes(active[0].machineFingerprint));
     } finally {
       verificationDatabase.close();
