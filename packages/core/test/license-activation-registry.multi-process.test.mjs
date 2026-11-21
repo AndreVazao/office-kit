@@ -22,6 +22,7 @@ const registryModuleUrl = new URL("../src/license-activation-registry.mjs", impo
 
 const childSource = [
   'import { DatabaseSync } from "node:sqlite";',
+  'import { writeSync } from "node:fs";',
   'import { LicenseActivationRegistry } from ' + JSON.stringify(registryModuleUrl) + ';',
   'import { SqliteLicenseActivationStore } from ' + JSON.stringify(storeModuleUrl) + ';',
   'const [filename, installationId, machineFingerprint, activationId] = process.argv.slice(1);',
@@ -191,7 +192,8 @@ test("enforces a one-installation license seat across two concurrent Node.js pro
       const active = Object.values(state.activations).filter(item => item.status === "active");
       assert.equal(active.length, 1);
       assert.ok(["installation-alpha", "installation-beta"].includes(active[0].installationId));
-      assert.ok(["a".repeat(64), "b".repeat(64)].includes(active[0].machineFingerprint));
+      const expectedFingerprint = active[0].installationId === "installation-alpha" ? "a".repeat(64) : "b".repeat(64);
+      assert.equal(active[0].machineFingerprint, expectedFingerprint);
     } finally {
       verificationDatabase.close();
     }
