@@ -164,7 +164,7 @@ test("enforces a one-installation license seat across two concurrent Node.js pro
     lockDatabase = new DatabaseSync(filename);
     lockDatabase.exec("PRAGMA busy_timeout = 1000");
     lockDatabase.exec("BEGIN IMMEDIATE");
-    for (const worker of workers) worker.child.stdin.write("GO");
+    for (const worker of workers) worker.child.stdin.end("GO");
     for (const worker of workers) {
       assert.equal(await worker.nextLine(), "ATTEMPTING", worker.stderr || "worker did not attempt activation");
     }
