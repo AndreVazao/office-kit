@@ -56,12 +56,18 @@ export class SqliteInstallationLifecycleStore {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new Error("installation_lifecycle_sqlite_state_invalid");
     }
+    if (value.installationId !== this.installationId) {
+      throw new Error("installation_lifecycle_installation_id_mismatch");
+    }
     return value;
   }
 
   save(record) {
     if (!record || typeof record !== "object" || Array.isArray(record)) {
       throw new TypeError("installation_lifecycle_record_required");
+    }
+    if (record.installationId !== this.installationId) {
+      throw new Error("installation_lifecycle_installation_id_mismatch");
     }
     const serialized = JSON.stringify(record);
     if (typeof serialized !== "string") throw new TypeError("installation_lifecycle_record_not_serializable");
