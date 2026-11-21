@@ -149,3 +149,8 @@ PR #107 portable bundles passed GitHub-hosted CI and browser visual regression o
 After synchronizing the implementation/roadmap/project-memory/architecture checkpoints, the PR branch advanced to cbb885c67e9cc29f92e693d36d5a186fde26e8ae. CI run 44911090291 and visual run 44911090393 were still running at the time of this document update; their results must be checked on that exact new HEAD.
 
 The environment-variable pin and current WinTrust implementation remain a security blocker. Do not treat the legacy command example above as production onboarding. Issue #110 must be implemented and its native Windows test matrix must pass before PR #107 can merge or any bundle can be described as production-ready.
+
+
+## 2026-11-21 — verifier baseline restored
+
+The PR #107 WinVerifyTrust rewrite was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded Get-AuthenticodeSignature implementation already present on main. The restored path requires Status Valid and the configured SHA-1 thumbprint, with the PowerShell child process bounded to 15 seconds. A timeout or nonzero exit rejects the helper. This removes the PR-introduced disabled-revocation and detached-certificate behavior, but the environment-provided thumbprint remains a legacy baseline, not an installer-authenticated publisher policy. Issue #110 remains open; do not describe the runtime as production publisher trust.
