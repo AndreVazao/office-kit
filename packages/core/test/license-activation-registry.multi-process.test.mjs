@@ -151,13 +151,12 @@ test("enforces a one-installation license seat across two concurrent Node.js pro
     assert.equal(await initialStore.read(storeKey), null);
     initialDatabase.close();
 
-    workers.push(
-      startWorker(filename, "installation-alpha", "a".repeat(64), "activation-alpha"),
-      startWorker(filename, "installation-beta", "b".repeat(64), "activation-beta")
-    );
-    for (const worker of workers) {
-      assert.equal(await worker.nextLine(), "READY", worker.stderr || "worker did not initialize");
-    }
+    // Initialize each process before starting the race. WAL mode and the
+    // schema were created by the parent; child connections only set local PRAGMAs.
+    workers.push(startWorker(filename, "installation-alpha", "a".repeat(64), "activation-alpha"));
+    assert.equal(await workers[0].nextLine(), "READY", workers[0].stderr || "first worker did not initialize");
+    workers.push(startWorker(filename, "installation-beta", "b".repeat(64), "activation-beta"));
+    assert.equal(await workers[1].nextLine(), "READY", workers[1].stderr || "second worker did not initialize");
 
     // Hold SQLite's real write reservation until both independent processes
     // have reached the registry's transaction boundary.
