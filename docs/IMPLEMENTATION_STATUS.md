@@ -754,3 +754,14 @@ A follow-up branch, `feat/windows-edition-portable-bundles-2026-11-17`, adds a W
 The proposed Windows CI increment checks actual bundle contents against the source allowlist, signs the native CNG helper with a temporary CI-only code-signing certificate trusted only for the test, launches each shipped command file, and exercises the JSON-lines CLI in a clean temporary profile. The smoke tests require disconnected startup, no credential configured, explicit connect failure without an owner-provisioned credential, rejection of snapshots while disconnected, and an edition-scoped data directory. No backend is contacted because the temporary profiles contain no credentials.
 
 This branch is not yet validated. Its CI must complete on the final branch/PR HEAD before integration. The resulting artifacts are portable runtime bundles, not MSI/MSIX installers or commercially signed releases. Live DGM-MAT/VST backend validation and physical-PC installation remain separate gates.
+
+
+## 2026-11-21 — Exact-head validation checkpoint (PR #107)
+
+- Main remains at 43f59f4f200041877c2cee6bbb7eb96096ce9fb8; no direct main commit was made.
+- PR #107 branch feat/windows-edition-portable-bundles-2026-11-17 was at HEAD 655c8f5c2cc7651473ca3e78327cb5d5d5512e73, open and mergeable, with 65 commits ahead and zero behind at inspection.
+- GitHub Actions CI run 44889811486 completed successfully on this exact PR HEAD: Linux Node 22 and 26.13.1; Windows Node 22 and 26.13.1. Both Windows jobs completed CNG persistence/isolation, DGM-MAT vault, VST vault, incident-journal, Windows identity, Universal bundle, DGM-MAT bundle and VST bundle steps.
+- Browser visual regression run 44889811413 also completed successfully on this exact PR HEAD.
+- This validates GitHub-hosted CI and portable bundle smoke tests only. It is not evidence of MSI/MSIX installation, commercial publisher signing, live backend integration, or physical-PC installation.
+- Issue #110 remains an explicit merge blocker. The current production verifier still uses an environment-provided SHA-1 thumbprint, extracts a certificate with X509Certificate.CreateFromSignedFile before WinTrust verification, and disables revocation checking (fdwRevocationChecks = 0, dwProvFlags = 0x1010). The policy document is a design contract, not an implemented verifier.
+- PR #107 remains unmerged. Do not merge until issue #110 implementation and native Windows tests pass, then revalidate the final HEAD and all applicable checks.
