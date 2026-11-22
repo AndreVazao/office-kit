@@ -128,7 +128,18 @@ export function createWindowsVstHost({
               return { ok: true, code: "ok", evidence: "Authenticated VST observer endpoint returned a valid response." };
             } catch (error) {
               lastProbeError = error instanceof Error ? error.message : "vst_transport_error";
-              if (lastProbeError === "vst_auth_rejected" || /^vst_http_/.test(lastProbeError)) {
+              if (lastProbeError === "vst_auth_rejected") {
+                lastConnectionFailure = "authentication_rejected";
+                sessionToken = null;
+                await adapter.disconnect();
+                return { ok: true, code: "reachable", evidence: "VST returned HTTP 401; the endpoint is reachable but the owner session was rejected." };
+              }
+              if (lastProbeError === "vst_http_403") {
+                lastConnectionFailure = "authorization_denied";
+                lastAuthorizationFailure = "read_private_state";
+                return { ok: true, code: "reachable", evidence: "VST returned HTTP 403; the endpoint is reachable but the requested scope is denied." };
+              }
+              if (/^vst_http_/.test(lastProbeError)) {
                 return { ok: true, code: "reachable", evidence: "VST returned an HTTP response; the transport reached the backend." };
               }
               return {
@@ -276,7 +287,14 @@ export function createWindowsVstHost({
             return { ok: true, fresh: true, consistent: true, code: "fresh_snapshot_verified" };
           }
           return { ok: false, fresh, consistent, code: "snapshot_not_fresh_or_consistent" };
-        } catch {
+        } catch (error) {
+          if (error?.message === "vst_auth_rejected") {
+            lastConnectionFailure = "authentication_rejected";
+            sessionToken = null;
+            await adapter.disconnect();
+          } else {
+            lastConnectionFailure = classifyConnectionFailure(error);
+          }
           return { ok: false, fresh: false, consistent: false, code: "snapshot_verification_failed" };
         }
       }
