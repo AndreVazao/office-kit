@@ -253,7 +253,11 @@ export function createWindowsVstHost({
       || /^vst_http_5/.test(lastProbeError ?? "")) {
       return Object.freeze({ recovered: false, blocked: true, reason: "owner_or_backend_action_required", diagnosis });
     }
-    if (!adapter.connected && !["vst_request_timeout", "vst_transport_error"].includes(lastProbeError ?? "")) {
+    const recoverableTransportFailure = ["vst_request_timeout", "vst_transport_error"].includes(lastProbeError ?? "");
+    if (adapter.connected && !recoverableTransportFailure) {
+      return Object.freeze({ recovered: false, blocked: true, reason: "recovery_scope_not_established", diagnosis });
+    }
+    if (!adapter.connected && lastProbeError && !recoverableTransportFailure) {
       return Object.freeze({ recovered: false, blocked: true, reason: "recovery_scope_not_established", diagnosis });
     }
     const engine = getDiagnosticsEngine();
@@ -369,6 +373,8 @@ export function createWindowsVstHost({
       }
       return snapshot;
     } catch (error) {
+      lastConnectionFailure = classifyConnectionFailure(error);
+      if (lastConnectionFailure === "authorization_denied") lastAuthorizationFailure = "read_private_state";
       return clearRejectedSession(error);
     }
   }
