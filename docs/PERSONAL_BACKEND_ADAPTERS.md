@@ -42,6 +42,7 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 | Observer summary | `GET /observer/summary` | Authenticated synchronization probe |
 | Liveness | `GET /health` | Public liveness only; not proof of private access |
 | CEO / overview | `GET /status` | Authenticated engine snapshot |
+| Central Memory | `GET /learning-memory/health`, `GET /learning-memory/runtime` | Authenticated storage and worker diagnostics |
 | Recovery / diagnostics | `GET /diagnostics` | Authenticated diagnostics snapshot |
 | Radar / freshness | `GET /market-data-health` | Authenticated data freshness state |
 | Markets | `GET /venue-health` | Authenticated venue state |
