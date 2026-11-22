@@ -164,6 +164,8 @@ export function createWindowsVstHost({
       const result = await adapter.sendAssistantMessage(input);
       if (result.intent === "PERMISSION_DENIED") {
         lastAuthorizationFailure = result.requiredScope ?? "assistant_message";
+      } else if (result.reconciliation === "permission_denied") {
+        lastAuthorizationFailure = result.reconciliationRequiredScope ?? "read_private_state";
       }
       return result;
     } catch (error) {
