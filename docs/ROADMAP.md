@@ -831,3 +831,13 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Add a production trusted issuer keyring, authenticated key rotation and signed-license verification; the current concurrency test uses a test-only verifier.
 - [ ] Add platform identity, activation/deactivation UX, backup/recovery and security review.
 - [ ] Do not claim multi-PC/offline seat enforcement: separate disconnected installations still require a central/private registry or explicit online activation policy.
+
+## 2026-11-22 — Authenticode fail-closed hardening
+
+- [x] Remove the implicit `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` environment fallback from the production Windows host verifier.
+- [x] Remove the environment-variable prerequisite from DGM-MAT/VST portable launchers; missing authenticated publisher policy blocks host startup before SQLite opens.
+- [ ] Provision and authenticate publisher policy through the elevated installer; use SHA-256 SPKI identity and protected machine-scope configuration.
+- [ ] Bind the publisher identity to the exact Authenticode signature accepted by the verifier.
+- [ ] Implement explicit install/update and offline-startup revocation policies with bounded non-interactive verification.
+- [ ] Add native Windows tests for trusted positive chain, untrusted/wrong/expired/revoked/unknown signers, tampering, multi-signature selection and policy ACL/integrity failures.
+- [ ] Keep issue #110 open and block production distribution until all remaining gates pass.
