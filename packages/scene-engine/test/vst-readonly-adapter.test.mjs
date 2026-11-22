@@ -92,9 +92,38 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
     fetchImpl: async (url, init) => {
       calls.push({ url, init });
       const path = new URL(url).pathname;
-      return path === "/observer/summary"
-        ? response(state())
-        : response({ ok: true, source_path: path });
+      if (path === "/observer/summary") return response(state());
+      if (path === "/research") return response({
+        pending: 1,
+        active: 1,
+        failed: 1,
+        requests: [
+          {
+            request_id: "research-market-123",
+            message: "[Departamento solicitado: Market Radar] Investiga a volatilidade entre venues",
+            status: "IN_PROGRESS",
+            created_at: 1_795_370_000,
+            updated_at: 1_795_370_010,
+            attempt_count: 1,
+            lease_owner: "PRIVATE_WORKER_OWNER"
+          },
+          {
+            request_id: "research-failed-456",
+            message: "Investiga a divergência de preços",
+            status: "FAILED",
+            created_at: 1_795_369_000,
+            updated_at: 1_795_369_030,
+            result: "Fonte de dados indisponível",
+            progress: 25
+          },
+          {
+            request_id: "invalid-status-789",
+            message: "Não deve ser tratado como tarefa",
+            status: "RUNNING"
+          }
+        ]
+      });
+      return response({ ok: true, source_path: path });
     }
   });
   await adapter.connect();
@@ -132,6 +161,20 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.sections.status.data.ok, true);
   assert.equal(snapshot.sections.research.state, "available");
   assert.equal(snapshot.sections.humanInteractionPending.state, "available");
+  assert.equal(snapshot.taskFeed.state, "available");
+  assert.equal(snapshot.taskFeed.count, 2);
+  assert.deepEqual(snapshot.agents, []);
+  assert.equal(snapshot.agentState, "not_exposed_by_backend");
+  assert.deepEqual(snapshot.tasks.map(task => task.id), ["research-market-123", "research-failed-456"]);
+  assert.equal(snapshot.tasks[0].department, "research");
+  assert.equal(snapshot.tasks[0].requestedDepartment, "radar");
+  assert.equal(snapshot.tasks[0].status, "IN_PROGRESS");
+  assert.equal(snapshot.tasks[0].progress, undefined, "progress is not invented");
+  assert.equal(snapshot.tasks[0].updatedAt, new Date(1_795_370_010 * 1_000).toISOString());
+  assert.equal(snapshot.tasks[1].status, "FAILED");
+  assert.equal(snapshot.tasks[1].blocker, "Fonte de dados indisponível");
+  assert.equal(snapshot.tasks[1].progress, 25);
+  assert.equal(JSON.stringify(snapshot).includes("PRIVATE_WORKER_OWNER"), false);
   assert.deepEqual(adapter.capabilities, ["read_state", "assistant_message"]);
   assert.deepEqual(vstAdapterContract.cockpitReadPaths, expectedPaths);
   await adapter.disconnect();
@@ -143,6 +186,7 @@ test("cockpit snapshot preserves partial endpoint failures without fabricating d
       const path = new URL(url).pathname;
       if (path === "/observer/summary") return response(state());
       if (path === "/diagnostics") return response({ error: "internal detail must not be copied" }, 503);
+      if (path === "/research") return response({ error: "private storage path" }, 503);
       return response({ ok: true, source_path: path });
     }
   });
@@ -151,6 +195,9 @@ test("cockpit snapshot preserves partial endpoint failures without fabricating d
   assert.equal(snapshot.sections.diagnostics.state, "unavailable");
   assert.equal(snapshot.sections.diagnostics.error, "vst_http_503");
   assert.equal(snapshot.sections.status.state, "available");
+  assert.equal(snapshot.taskFeed.state, "unavailable");
+  assert.equal(snapshot.taskFeed.error, "vst_http_503");
+  assert.deepEqual(snapshot.tasks, []);
   assert.equal(JSON.stringify(snapshot).includes("internal detail must not be copied"), false);
   await adapter.disconnect();
 });
