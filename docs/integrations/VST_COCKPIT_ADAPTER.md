@@ -1,6 +1,6 @@
 # VST cockpit adapter — Fases 1, 2 e 3 (incremento de tarefas)
 
-**Estado:** Fases 1 e 2 integradas (PRs #118 e #119); normalização de tarefas reais da Fase 3 em validação. E2E live com VST em execução continua pendente.  
+**Estado:** Fases 1–3 integradas (PRs #118–#120); Fase 4 bloqueada pela issue #121; diagnósticos locais e recuperação limitada da Fase 5 em validação. E2E live com VST em execução continua pendente.  
 **Âmbito:** apenas Office Kit. Este documento não altera nem estende o backend VST.
 
 ## Fronteira de autoridade
@@ -9,7 +9,7 @@
 - O snapshot operacional é read-only. A única escrita permitida nesta fase é a rota fixa `POST /assistant/message`, limitada a conversa, consulta de estado e submissão de investigação.
 - Office Kit não executa lógica de trading, não possui Risk Engine, não guarda credenciais de exchanges, não aprende nem persiste memória operacional e não controla o ciclo de vida do backend.
 - O adaptador declara `read_state` e `assistant_message`; não expõe métodos HTTP, rotas, comandos ou payloads arbitrários.
-- Os controlos PAPER, ações de intervenção humana e operações financeiras continuam bloqueados.
+- Os controlos PAPER, ações de intervenção humana e operações financeiras continuam bloqueados. A issue #121 documenta por que razão as rotas atuais não garantem PAPER-only.
 - Não são inventados agentes, tarefas, progresso ou estados. A lista `tasks` deriva exclusivamente dos pedidos devolvidos por `GET /research`; `QUEUED`/`PENDING` não significa trabalho concluído. `agents` permanece vazia porque o backend ainda não expõe um inventário autoritativo de agentes.
 
 ## Rotas VST verificadas
@@ -58,6 +58,18 @@ Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e
 - `departmentEvidence` expõe apenas disponibilidade das fontes reais associadas a cada área (por exemplo `/venue-health` para Markets e `/research` para Research). O campo `evidenceState` significa disponibilidade de dados, nunca que um agente/departamento está a executar trabalho.
 - A área `analysis` é apenas contexto encaminhado para Research; não é apresentada como equipa independente.
 
+## Fase 5a — diagnóstico local e recuperação limitada
+
+- O host VST integra o `OfficeHealthRecoveryEngine` do core através do armazenamento de incidentes persistente fornecido pelo host Windows.
+- As probes distinguem runtime Office Kit, sessão/adaptador, transporte autenticado e snapshot autoritativo do VST.
+- Timeouts e erros de transporte sem resposta são classificados como indeterminados; HTTP 401/403 e erros HTTP do backend são distinguidos sem os tratar como falhas de rede.
+- Sem token ou antes da primeira tentativa de ligação, o estado é `not_configured`/`not_connected`; não é criado um incidente falso.
+- A recuperação só é iniciada por pedido explícito `recover`. A única ação permitida é reconnect do adaptador local; não reinicia o processo VST, não renova tokens e não escreve no backend.
+- Depois do reconnect, o host exige um novo `GET /observer/summary` com snapshot aceite, sincronizado e fresco. Sem essa prova, o resultado permanece não recuperado.
+- Um token rejeitado é limpo e nunca é reenviado automaticamente. HTTP 403, HTTP 404 e 5xx bloqueiam o reconnect automático e exigem ação do proprietário/backend.
+- As subscrições do host são restauradas após reconnect local; desligar o Office Kit não interrompe o VST.
+- Os comandos CLI `diagnose` e `recover` são fixos e exclusivos da edição VST.
+
 ## Redação e proteção de dados
 
 - Todos os payloads passam por redator recursivo limitado: remove claim tokens, credenciais, identificadores privados, campos de caminhos, valores de formulários de intervenção humana e query/fragment/user-info de URLs; redige atribuições de tokens em texto.
@@ -67,14 +79,14 @@ Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e
 
 ## Interface do host
 
-Após consentimento explícito e autenticação, o host expõe `getCockpitSnapshot()` e `sendAssistantMessage({ message, department })`. O CLI aceita apenas os comandos fixos `authenticate`, `connect`, `cockpit-snapshot`, `assistant-message`, `disconnect` e `health`; o comando `assistant-message` é exclusivo da edição VST. Não existe entrada para rota, método ou comando arbitrário.
+Após consentimento explícito e autenticação, o host expõe `getCockpitSnapshot()`, `sendAssistantMessage({ message, department })`, `diagnose()` e `attemptRecovery()` com probes em camadas e uma única ação local de reconnect. O CLI aceita apenas comandos fixos; `assistant-message`, `diagnose` e `recover` são exclusivos da edição VST. Não existe entrada para rota, método ou comando arbitrário.
 
 ## Ainda não implementado
 
 - Fase 3 restante: ciclo de vida de outras tarefas/departamentos, progresso verificável quando o backend o publicar e E2E de reconciliação contra uma instância VST real.
-- Fase 4: controlos PAPER exclusivamente pelas rotas VST existentes e respetivas autorizações.
+- Fase 4: bloqueada pela issue #121 até existir garantia PAPER-only atómica no backend. Não chamar `/start`, `/pause`, `/resume`, `/stop` nem usar `assistant/message` como via de controlo.
 - Resposta/cancelamento de intervenções humanas.
-- Ligação LAN/Tailscale e identidade remota.
+- Ligação LAN/Tailscale e identidade remota; a base atual permanece loopback exato.
 - UI final dos painéis, Android e distribuição.
 - Histórico completo do evidence ledger enquanto o backend não oferecer paginação/limites.
 - E2E live contra uma instância VST e validação no PC físico.
@@ -85,4 +97,4 @@ Após consentimento explícito e autenticação, o host expõe `getCockpitSnapsh
 2. Testes de 401 vs 403, falta de `submit_research`, recusa REAL, bloqueio PAPER e timeout com resultado desconhecido.
 3. Teste E2E autenticado com instância VST real, sem alterar o repositório VST.
 4. Manter o host Windows fail-closed até à política Authenticode autenticada pelo instalador; esta integração não contorna a issue #110.
-5. Implementar estados de tarefas na Fase 3 e controlos PAPER na Fase 4, em PRs separadas.
+5. Completar E2E e diagnósticos locais; só iniciar Fase 4 depois de fechar a issue #121 com contrato e testes do lado do backend.

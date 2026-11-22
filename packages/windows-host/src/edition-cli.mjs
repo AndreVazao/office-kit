@@ -8,7 +8,7 @@ const EDITION_DATA_DIRECTORIES = Object.freeze({
 const MAX_REQUEST_BYTES = 4_096;
 const CLI_COMMANDS = new Set(["health", "serve"]);
 const REQUEST_COMMANDS = new Set([
-  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "assistant-message", "disconnect", "shutdown"
+  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "assistant-message", "diagnose", "recover", "disconnect", "shutdown"
 ]);
 
 function writeJson(output, value) {
@@ -121,6 +121,14 @@ async function executeRequest(host, request) {
       })
     };
   }
+  if (command === "diagnose") {
+    if (typeof host.diagnose !== "function") return { ok: false, command, error: "diagnostics_unavailable" };
+    return { ok: true, command, diagnostics: await host.diagnose() };
+  }
+  if (command === "recover") {
+    if (typeof host.attemptRecovery !== "function") return { ok: false, command, error: "recovery_unavailable" };
+    return { ok: true, command, recovery: await host.attemptRecovery() };
+  }
   if (command === "disconnect") {
     const result = await host.disconnect();
     return {
@@ -142,7 +150,7 @@ async function runServe(host, { input, output, edition }) {
         writeJson(output, { ok: false, error: request.error });
         continue;
       }
-      if ((request.command === "cockpit-snapshot" || request.command === "authenticate" || request.command === "assistant-message") && edition !== "vst") {
+      if ((request.command === "cockpit-snapshot" || request.command === "authenticate" || request.command === "assistant-message" || request.command === "diagnose" || request.command === "recover") && edition !== "vst") {
         writeJson(output, { ok: false, error: "invalid_request" });
         continue;
       }
@@ -165,9 +173,11 @@ async function runServe(host, { input, output, edition }) {
                       : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
                         : request.command === "authenticate" ? "authentication_failed"
                           : request.command === "assistant-message" ? "assistant_message_failed"
-                            : request.command === "disconnect" ? "disconnect_failed"
-                              : request.command === "credential-status" ? "credential_status_failed"
-                                : "health_failed";
+                            : request.command === "diagnose" ? "diagnostics_failed"
+                              : request.command === "recover" ? "recovery_failed"
+                                : request.command === "disconnect" ? "disconnect_failed"
+                                  : request.command === "credential-status" ? "credential_status_failed"
+                                    : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
       }
     }

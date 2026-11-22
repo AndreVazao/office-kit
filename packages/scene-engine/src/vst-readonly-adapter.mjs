@@ -837,6 +837,11 @@ export class VstReadOnlyAdapter {
     }
   }
 
+  async probeConnectivity() {
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
+    return this.#toSnapshot(await this.#get("/observer/summary"));
+  }
+
   async getSnapshot() {
     if (!this.connected) throw new Error("vst_adapter_not_connected");
     if (this.authenticationRejected) throw new Error("vst_auth_rejected");

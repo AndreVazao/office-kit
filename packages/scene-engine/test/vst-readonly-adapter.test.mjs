@@ -86,6 +86,40 @@ test("uses only authenticated loopback GET /observer/summary with X-Token", asyn
   await adapter.disconnect();
 });
 
+test("connectivity probe is an authenticated observer GET and does not start an adapter session", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response(state());
+    }
+  });
+  const snapshot = await adapter.probeConnectivity();
+  assert.equal(snapshot.backend.observerResponseAccepted, true);
+  assert.equal(snapshot.synchronized, true);
+  assert.equal(adapter.connected, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "http://127.0.0.1:8765/observer/summary");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers["X-Token"], "vst-local-token-0123456789");
+  assert.equal(calls[0].init.cache, "no-store");
+  assert.equal(calls[0].init.credentials, "omit");
+  assert.equal(calls[0].init.redirect, "error");
+});
+
+test("connectivity probe stops after authentication rejection", async () => {
+  let calls = 0;
+  const adapter = createAdapter({
+    fetchImpl: async () => {
+      calls += 1;
+      return response({ ok: false }, 401);
+    }
+  });
+  await assert.rejects(adapter.probeConnectivity(), /vst_auth_rejected/);
+  await assert.rejects(adapter.probeConnectivity(), /vst_auth_rejected/);
+  assert.equal(calls, 1);
+});
+
 test("cockpit snapshot reads only the authenticated read-only VST route allowlist", async () => {
   const calls = [];
   const adapter = createAdapter({

@@ -1,15 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWindowsVstHost } from "../src/vst-windows-host.mjs";
+import { InMemoryIncidentStore, OfficeHealthRecoveryEngine } from "../src/office-health.mjs";
 
 const fixedNow = Date.parse("2026-11-22T12:00:00.000Z");
 const ownerToken = "vst-session-token-" + "0123456789".repeat(4);
 
 function makeHost() {
   let closed = false;
+  const incidentStore = new InMemoryIncidentStore();
   return {
+    incidentStore,
     ready: Promise.resolve({ status: "ready" }),
-    async health() { return { status: "ready" }; },
+    async health() { return { status: "ready", version: "test" }; },
+    createDiagnostics(options) {
+      return new OfficeHealthRecoveryEngine({
+        ...options,
+        incidentStore,
+        clock: () => fixedNow
+      });
+    },
     async close() { closed = true; },
     get closed() { return closed; }
   };
@@ -57,6 +67,117 @@ function response(path) {
     json: async () => data
   };
 }
+
+test("an authenticated but not-yet-connected VST session is not recorded as an incident", async () => {
+  const host = makeHost();
+  const composed = createWindowsVstHost({ hostFactory: () => host });
+  try {
+    await composed.ready;
+    await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
+    const diagnosis = await composed.diagnose();
+    assert.equal(diagnosis.state, "not_connected");
+    assert.equal(diagnosis.incidentId, null);
+    assert.deepEqual(await host.incidentStore.list(), []);
+    const recovery = await composed.attemptRecovery();
+    assert.equal(recovery.blocked, true);
+    assert.equal(recovery.reason, "connection_not_attempted");
+  } finally {
+    await composed.close();
+  }
+});
+
+test("VST diagnostics classify a disconnected adapter and recover only the local adapter", async () => {
+  const host = makeHost();
+  const requests = [];
+  const events = [];
+  let unsubscribe = () => {};
+  let transportAvailable = false;
+  const composed = createWindowsVstHost({
+    hostFactory: () => host,
+    adapterOptions: {
+      now: () => fixedNow,
+      timeoutMs: 1_000,
+      pollIntervalMs: 1_000,
+      fetchImpl: async (url, init) => {
+        requests.push({ path: new URL(url).pathname, method: init.method });
+        if (!transportAvailable) throw new Error("socket unavailable");
+        return response(new URL(url).pathname);
+      }
+    }
+  });
+  try {
+    await composed.ready;
+    unsubscribe = composed.subscribe(event => events.push(event));
+    await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
+    await assert.rejects(composed.connect(), /vst_transport_error/);
+    assert.equal(composed.getCredentialState().configured, true);
+    assert.equal(requests.length, 1, "failed connect must not start an automatic retry loop");
+
+    transportAvailable = true;
+    const diagnosis = await composed.diagnose();
+    assert.equal(diagnosis.state, "degraded");
+    assert.equal(diagnosis.diagnostics.origin, "adapter");
+    assert.equal(diagnosis.diagnostics.confidence, "probable");
+    assert.ok(diagnosis.incidentId);
+
+    const recovery = await composed.attemptRecovery();
+    assert.equal(recovery.recovered, true);
+    assert.equal(recovery.status, "recovered");
+    assert.equal(composed.getCredentialState().configured, true);
+
+    const verified = await composed.diagnose();
+    assert.equal(verified.state, "healthy");
+    await new Promise(resolve => setTimeout(resolve, 1_100));
+    assert.ok(events.some(event => event.type === "snapshot"), "host subscriptions survive local reconnect");
+    const incidents = await host.incidentStore.list();
+    assert.equal(incidents.length, 1);
+    assert.equal(incidents[0].status, "healthy");
+    assert.equal(incidents[0].outcome, "recovered");
+    assert.ok(requests.every(item => item.method === "GET"));
+    assert.equal(requests.some(item => item.path !== "/observer/summary"), false);
+  } finally {
+    unsubscribe();
+    await composed.close();
+  }
+});
+
+test("VST diagnostics never retry an authentication-rejected token", async () => {
+  const host = makeHost();
+  let calls = 0;
+  const composed = createWindowsVstHost({
+    hostFactory: () => host,
+    adapterOptions: {
+      now: () => fixedNow,
+      timeoutMs: 1_000,
+      pollIntervalMs: 60_000,
+      fetchImpl: async (_url, init) => {
+        calls += 1;
+        assert.equal(init.method, "GET");
+        return {
+          ok: false,
+          status: 401,
+          headers: { get: () => "application/json" },
+          json: async () => ({ ok: false })
+        };
+      }
+    }
+  });
+  try {
+    await composed.ready;
+    await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
+    await assert.rejects(composed.connect(), /vst_auth_rejected/);
+    assert.equal(composed.getCredentialState().configured, false);
+    const diagnosis = await composed.diagnose();
+    assert.equal(diagnosis.state, "degraded");
+    const recovery = await composed.attemptRecovery();
+    assert.equal(recovery.recovered, false);
+    assert.equal(recovery.blocked, true);
+    assert.equal(recovery.reason, "owner_reauthentication_required");
+    assert.equal(calls, 1, "diagnostics/recovery must not resend a rejected token");
+  } finally {
+    await composed.close();
+  }
+});
 
 test("VST session token stays ephemeral across cockpit GETs and restricted assistant POST", async () => {
   const host = makeHost();
