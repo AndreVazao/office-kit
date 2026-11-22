@@ -115,7 +115,10 @@ test("VST host keeps the owner token in session memory and exposes read-only coc
     assert.equal(health.credentialsConfigured, true);
     assert.equal(health.credentialStorage, "memory-session");
     assert.equal(health.backendOperationalState, "unverified");
-    assert.equal(health.backendReadOnly, true);
+    assert.equal(health.backendReadOnly, false);
+    assert.equal(health.backendWriteScope, "assistant_message_only");
+    assert.equal(health.financialActionsAllowed, false);
+    assert.equal(health.paperControlsEnabled, false);
     assert.equal(JSON.stringify(health).includes(ownerToken), false);
 
     const disconnected = await composed.disconnect();
