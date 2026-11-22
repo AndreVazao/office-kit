@@ -102,6 +102,8 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   const expectedPaths = [
     "/health",
     "/status",
+    "/learning-memory/health",
+    "/learning-memory/runtime",
     "/diagnostics",
     "/market-data-health",
     "/venue-health",
@@ -583,6 +585,8 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
     "/observer/summary",
     "/health",
     "/status",
+    "/learning-memory/health",
+    "/learning-memory/runtime",
     "/diagnostics",
     "/market-data-health",
     "/venue-health",
@@ -594,6 +598,8 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
   assert.deepEqual(vstAdapterContract.cockpitReadPaths, [
     "/health",
     "/status",
+    "/learning-memory/health",
+    "/learning-memory/runtime",
     "/diagnostics",
     "/market-data-health",
     "/venue-health",
