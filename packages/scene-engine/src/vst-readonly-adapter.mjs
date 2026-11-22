@@ -315,6 +315,41 @@ function normalizeResearchTasks(researchSection) {
   });
 }
 
+const DEPARTMENT_EVIDENCE_SOURCES = Object.freeze({
+  brain: ["status"],
+  markets: ["venueHealth"],
+  radar: ["marketDataHealth"],
+  research: ["research"],
+  paper: ["paperCollectorResources"],
+  recovery: ["diagnostics"],
+  audit: ["evidenceLedgerAudit"],
+  human: ["humanInteractionPending"],
+  central_memory: ["learningMemoryHealth", "learningMemoryRuntime"],
+  analysis: ["evidenceScorecard"]
+});
+
+function normalizeDepartmentEvidence(sectionMap) {
+  return Object.freeze(Object.entries(DEPARTMENT_EVIDENCE_SOURCES).map(([department, keys]) => {
+    const sources = keys.map(key => {
+      const section = sectionMap[key];
+      return Object.freeze({
+        path: section?.path ?? null,
+        state: section?.state === "available" ? "available" : "unavailable",
+        ...(section?.state === "unavailable" ? { error: section.error } : {})
+      });
+    });
+    const available = sources.filter(source => source.state === "available").length;
+    return Object.freeze({
+      department,
+      evidenceState: available === sources.length ? "available" : available > 0 ? "partial" : "unavailable",
+      availableSources: available,
+      totalSources: sources.length,
+      sources: Object.freeze(sources),
+      agentState: "not_exposed_by_backend"
+    });
+  }));
+}
+
 function freshnessFor(timestampMs, now, ttlMs) {
   if (timestampMs === null) return { state: "unavailable", ageMs: null };
   const ageMs = now - timestampMs;
@@ -940,6 +975,7 @@ export class VstReadOnlyAdapter {
       generatedAt: new Date(generatedAt).toISOString(),
       readOnly: true,
       sections: Object.freeze(sectionMap),
+      departmentEvidence: normalizeDepartmentEvidence(sectionMap),
       taskFeed,
       tasks: taskFeed.tasks,
       agents: Object.freeze([]),
