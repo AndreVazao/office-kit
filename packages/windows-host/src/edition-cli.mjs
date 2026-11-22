@@ -79,7 +79,7 @@ async function executeRequest(host, request) {
   }
   if (command === "connect") {
     await host.connect();
-    return { ok: true, command, connected: true, readOnly: true, backendOperationalState: "unverified" };
+    return { ok: true, command, connected: true, readOnlySnapshot: true, assistantMessageEnabled: true, financialActionsAllowed: false, paperControlsEnabled: false, backendOperationalState: "unverified" };
   }
   if (command === "snapshot") {
     const health = await host.health();
