@@ -35,17 +35,18 @@ export function createWindowsVstHost({
   }
 
   let tokenVault = null;
+  const getAccessToken = async ({ signal } = {}) => {
+    if (!tokenVault) throw new Error("vst_local_token_vault_unavailable");
+    const token = await tokenVault.getSecret(SECRET_NAME, { signal });
+    if (typeof token !== "string" || token.length < 16) {
+      throw new Error("vst_local_token_unavailable");
+    }
+    return token;
+  };
   const adapter = new VstReadOnlyAdapter({
     ...adapterOptions,
     baseUrl,
-    getAccessToken: async ({ signal } = {}) => {
-      if (!tokenVault) throw new Error("vst_local_token_vault_unavailable");
-      const token = await tokenVault.getSecret(SECRET_NAME, { signal });
-      if (typeof token !== "string" || token.length < 16) {
-        throw new Error("vst_local_token_unavailable");
-      }
-      return token;
-    }
+    getAccessToken
   });
 
   const host = hostFactory(hostOptions);
@@ -112,6 +113,12 @@ export function createWindowsVstHost({
     return adapter.getSnapshot();
   }
 
+  async function getCockpitSnapshot() {
+    await ensureOpen();
+    if (!adapter.connected) throw new Error("vst_adapter_not_connected");
+    return adapter.getCockpitSnapshot();
+  }
+
   function subscribe(listener) {
     if (closed) throw new Error("vst_windows_host_closed");
     return adapter.subscribe(listener);
@@ -164,6 +171,7 @@ export function createWindowsVstHost({
     removeLocalApiToken,
     connect,
     getSnapshot,
+    getCockpitSnapshot,
     subscribe,
     disconnect,
     health,
