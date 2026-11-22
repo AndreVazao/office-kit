@@ -67,8 +67,11 @@ export function createWindowsVstHost({
     const code = error instanceof Error ? error.message : "";
     if (code === "vst_auth_rejected") return "authentication_rejected";
     if (code === "vst_http_403") return "authorization_denied";
-    if (code === "vst_request_timeout" || code === "vst_transport_error"
-      || /^vst_http_(?:0|5[0-9]{2})$/.test(code)) return "connectivity_unavailable";
+    if (code === "vst_request_timeout" || code === "vst_transport_error" || code === "vst_http_0") {
+      return "connectivity_unavailable";
+    }
+    if (/^vst_http_5[0-9]{2}$/.test(code)) return "backend_unavailable";
+    if (code === "vst_http_404") return "backend_contract_mismatch";
     return "connection_failed";
   }
 
@@ -208,7 +211,7 @@ export function createWindowsVstHost({
           : adapter.connected ? "read_private_state_granted" : "not_checked",
       connectivityState: adapter.connected
         ? "connected" : lastConnectionFailure === "connectivity_unavailable" ? "unavailable"
-          : ["authentication_rejected", "authorization_denied"].includes(lastConnectionFailure)
+          : ["authentication_rejected", "authorization_denied", "backend_unavailable", "backend_contract_mismatch"].includes(lastConnectionFailure)
             ? "reachable" : "disconnected",
       lastConnectionFailure,
       lastAuthorizationFailure,
