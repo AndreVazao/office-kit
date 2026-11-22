@@ -26,6 +26,11 @@ function makeHost(edition) {
       if (!connected) throw new Error("not_connected");
       return { connectionState: "synchronizing", synchronized: false, agents: [], tasks: [] };
     },
+    async getCockpitSnapshot() {
+      calls.push("cockpit-snapshot");
+      if (!connected) throw new Error("not_connected");
+      return { readOnly: true, authority: { executionAuthorized: false } };
+    },
     async disconnect() { calls.push("disconnect"); connected = false; return { disconnected: true }; },
     async close() { calls.push("close"); connected = false; }
   };
@@ -52,6 +57,7 @@ test("edition CLI starts disconnected and accepts only explicit read-only sessio
     '{"command":"snapshot"}',
     '{"command":"connect"}',
     '{"command":"snapshot"}',
+    '{"command":"cockpit-snapshot"}',
     '{"command":"disconnect"}',
     '{"command":"shutdown"}'
   ]);
@@ -61,10 +67,14 @@ test("edition CLI starts disconnected and accepts only explicit read-only sessio
   assert.equal(result.responses[2].error, "not_connected");
   assert.equal(result.responses[3].connected, true);
   assert.equal(result.responses[4].snapshot.synchronized, false);
-  assert.equal(result.responses[5].connected, false);
-  assert.equal(result.responses[6].shutdown, true);
+  assert.equal(result.responses[5].command, "cockpit-snapshot");
+  assert.equal(result.responses[5].readOnly, true);
+  assert.equal(result.responses[5].cockpit.authority.executionAuthorized, false);
+  assert.equal(result.responses[6].connected, false);
+  assert.equal(result.responses[7].shutdown, true);
   assert.equal(host.calls.filter(call => call === "connect").length, 1);
   assert.equal(host.calls.filter(call => call === "disconnect").length, 1);
+  assert.equal(host.calls.filter(call => call === "cockpit-snapshot").length, 1);
   assert.equal(host.calls.at(-1), "close");
 });
 
