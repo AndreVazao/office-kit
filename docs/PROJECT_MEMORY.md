@@ -1,6 +1,15 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-15
+Última atualização: 2026-11-22
+
+## VST cockpit integration — 2026-11-22
+- Main HEAD: `e864532170a7fbbe3a1255fe36ac9191b772a8c2`.
+- PR #118 integrated authenticated read-only cockpit endpoints and memory-only VST session token.
+- PR #119 integrated the restricted authenticated `POST /assistant/message` bridge, backend request IDs, permission distinction and unknown-outcome reconciliation.
+- PR #120 integrated real research queue task normalization and department evidence availability. Task progress is shown only if supplied by VST; agent inventory remains explicitly unavailable.
+- Issue #121 blocks PAPER controls: the current VST API does not guarantee an atomic PAPER-only boundary for all start/pause/resume/stop operations. Office Kit must not invoke these routes or route controls through assistant messages.
+- Current branch `feat/vst-local-diagnostics-recovery-2026-11-22` integrates layered local diagnostics and explicit adapter-only reconnect. It must not restart VST, renew credentials, write to backend or retry after authentication rejection.
+- VST backend, DGM-MAT, Universal and Avatar Studio are not modified by this integration. LAN/Tailscale and live E2E remain pending.
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.
