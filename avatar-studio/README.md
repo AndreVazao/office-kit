@@ -28,6 +28,14 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 - GLB export samples the five procedural modes into skeletal animation clips (30 FPS by default), including bone rotation and facial eyelid scale tracks. The editor restores the selected preview mode after sampling. These are reusable basic clips, not motion-capture or production animation.
 - All character parameters are local to this app; no backend calls or credential access.
 
+## Multi-device graphics quality contract
+
+Avatar Studio defines four delivery profiles in `src/quality-profiles.js`: Ultra, High, Medium, and Low. Each profile declares target hardware, triangle/material/texture budgets, facial/hair/hand detail, shadow level, animation support, and a suggested preview pixel ratio. The selected profile is deliberately **not** chosen by Avatar Studio: the Office Kit runtime must inspect the actual device/session and select the best supported profile, with a safe fallback.
+
+The GLB root carries this contract in standard glTF `extras` metadata (`officeKitAvatar`), including schema version, profile definitions, and the `runtime-owned` selection policy. This lets a future reviewed adapter read the available tiers without coupling the standalone editor to runtime packages.
+
+**Important status:** the current prototype still exports its source geometry; the four triangle budgets are authoring targets, not four already-decimated mesh files. Tier-specific geometry reduction, material/texture variants, and automated visual-equivalence checks remain implementation work. Do not treat the profile metadata as proof that four optimized assets already exist. The Office Kit engines remain untouched and own device capability detection, runtime selection, and fallback.
+
 ## CEO identity-reference workflow
 
 The right-hand identity panel accepts a local JPEG, PNG, or WebP reference image (maximum 15 MB). The image is decoded and drawn in the browser only; it is not uploaded, committed, persisted, or transmitted by this module. The user can mark ten facial reference points on the image to create a manual landmark guide. Only the current browser session holds the selected image and points.
