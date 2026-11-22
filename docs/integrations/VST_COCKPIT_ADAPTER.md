@@ -1,6 +1,6 @@
-# VST cockpit adapter — Fases 1 e 2
+# VST cockpit adapter — Fases 1, 2 e 3 (incremento de tarefas)
 
-**Estado:** implementação em validação; CI e integração live com um VST em execução ainda pendentes.  
+**Estado:** Fases 1 e 2 integradas (PRs #118 e #119); normalização de tarefas reais da Fase 3 em validação. E2E live com VST em execução continua pendente.  
 **Âmbito:** apenas Office Kit. Este documento não altera nem estende o backend VST.
 
 ## Fronteira de autoridade
@@ -10,7 +10,7 @@
 - Office Kit não executa lógica de trading, não possui Risk Engine, não guarda credenciais de exchanges, não aprende nem persiste memória operacional e não controla o ciclo de vida do backend.
 - O adaptador declara `read_state` e `assistant_message`; não expõe métodos HTTP, rotas, comandos ou payloads arbitrários.
 - Os controlos PAPER, ações de intervenção humana e operações financeiras continuam bloqueados.
-- Não são inventados agentes, tarefas, progresso ou estados. Um pedido de investigação com estado `QUEUED` não é apresentado como trabalho concluído.
+- Não são inventados agentes, tarefas, progresso ou estados. A lista `tasks` deriva exclusivamente dos pedidos devolvidos por `GET /research`; `QUEUED`/`PENDING` não significa trabalho concluído. `agents` permanece vazia porque o backend ainda não expõe um inventário autoritativo de agentes.
 
 ## Rotas VST verificadas
 
@@ -47,6 +47,16 @@ Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e
 - Pedidos REAL são enviados ao gateway existente e a recusa do VST é apresentada sem tentar contornar a decisão.
 - `request_id` devolvido pelo backend é preservado. `QUEUED` significa aceite na fila, não execução nem conclusão. A conclusão só pode vir de estado posterior confirmado pelo backend.
 
+## Fase 3 — estado real de tarefas
+
+- O snapshot normaliza os pedidos do endpoint autenticado `GET /research` numa lista limitada de tarefas.
+- Cada tarefa preserva o `request_id` do VST, a fila responsável (`research`), o departamento solicitado quando existe marca explícita no pedido, o estado real, timestamps, descrição, resultado e bloqueador quando o estado é `FAILED`.
+- O progresso só é exposto se o backend enviar um valor numérico entre 0 e 100. A fila atual não fornece percentagem; portanto, nenhuma barra/progresso é calculada localmente.
+- A lista é limitada aos 30 pedidos mais recentes fornecidos pelo VST. Estados desconhecidos e registos sem identificador válido são omitidos, sem serem convertidos em estados inventados.
+- Se `/research` falhar ou devolver um formato inválido, `taskFeed.state` passa a `unavailable`/ `invalid`; lista vazia não significa fila vazia.
+- `agents` continua `[]` e `agentState=not_exposed_by_backend`. O VST não oferece neste contrato uma lista de agentes individuais com identidade e estado de execução verificável.
+- A área `analysis` é apenas contexto encaminhado para Research; não é apresentada como equipa independente.
+
 ## Redação e proteção de dados
 
 - Todos os payloads passam por redator recursivo limitado: remove claim tokens, credenciais, identificadores privados, campos de caminhos, valores de formulários de intervenção humana e query/fragment/user-info de URLs; redige atribuições de tokens em texto.
@@ -60,7 +70,7 @@ Após consentimento explícito e autenticação, o host expõe `getCockpitSnapsh
 
 ## Ainda não implementado
 
-- Fase 3: ciclo de vida completo das tarefas e estados reais dos departamentos, reconciliados por IDs do backend.
+- Fase 3 restante: ciclo de vida de outras tarefas/departamentos, progresso verificável quando o backend o publicar e E2E de reconciliação contra uma instância VST real.
 - Fase 4: controlos PAPER exclusivamente pelas rotas VST existentes e respetivas autorizações.
 - Resposta/cancelamento de intervenções humanas.
 - Ligação LAN/Tailscale e identidade remota.
@@ -70,7 +80,7 @@ Após consentimento explícito e autenticação, o host expõe `getCockpitSnapsh
 
 ## Próximos gates
 
-1. Linux/Windows Node 22/26 e regressão visual Chromium no SHA exato da PR.
+1. Linux/Windows Node 22/26 e regressão visual Chromium no SHA exato da PR ativa.
 2. Testes de 401 vs 403, falta de `submit_research`, recusa REAL, bloqueio PAPER e timeout com resultado desconhecido.
 3. Teste E2E autenticado com instância VST real, sem alterar o repositório VST.
 4. Manter o host Windows fail-closed até à política Authenticode autenticada pelo instalador; esta integração não contorna a issue #110.
