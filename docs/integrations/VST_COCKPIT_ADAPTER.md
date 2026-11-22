@@ -55,6 +55,7 @@ Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e
 - A lista é limitada aos 30 pedidos mais recentes fornecidos pelo VST. Estados desconhecidos e registos sem identificador válido são omitidos, sem serem convertidos em estados inventados.
 - Se `/research` falhar ou devolver um formato inválido, `taskFeed.state` passa a `unavailable`/ `invalid`; lista vazia não significa fila vazia.
 - `agents` continua `[]` e `agentState=not_exposed_by_backend`. O VST não oferece neste contrato uma lista de agentes individuais com identidade e estado de execução verificável.
+- `departmentEvidence` expõe apenas disponibilidade das fontes reais associadas a cada área (por exemplo `/venue-health` para Markets e `/research` para Research). O campo `evidenceState` significa disponibilidade de dados, nunca que um agente/departamento está a executar trabalho.
 - A área `analysis` é apenas contexto encaminhado para Research; não é apresentada como equipa independente.
 
 ## Redação e proteção de dados
