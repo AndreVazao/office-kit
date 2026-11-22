@@ -365,11 +365,17 @@ test("assistant message preserves REAL refusal from VST and never retries unknow
   assert.equal(refused.accepted, false);
   await blocked.disconnect();
 
-  let attempts = 0;
+  let postAttempts = 0;
+  let reconciliationReads = 0;
   const unknown = createAdapter({
     fetchImpl: async url => {
-      if (new URL(url).pathname === "/observer/summary") return response(state());
-      attempts += 1;
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/research") {
+        reconciliationReads += 1;
+        return response({ requests: [] });
+      }
+      postAttempts += 1;
       throw new Error("network lost after request dispatch");
     }
   });
@@ -378,8 +384,57 @@ test("assistant message preserves REAL refusal from VST and never retries unknow
   assert.equal(outcome.intent, "OUTCOME_UNKNOWN");
   assert.equal(outcome.status, "UNKNOWN");
   assert.equal(outcome.retryAllowed, false);
-  assert.equal(attempts, 1);
+  assert.equal(outcome.reconciliation, "not_found");
+  assert.equal(postAttempts, 1);
+  assert.equal(reconciliationReads, 1);
   await unknown.disconnect();
+});
+
+test("assistant timeout reconciles the backend research queue before any retry can be allowed", async () => {
+  let postAttempts = 0;
+  let researchReads = 0;
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/assistant/message") {
+        postAttempts += 1;
+        throw new Error("connection dropped after server dispatch");
+      }
+      if (path === "/research") {
+        researchReads += 1;
+        return response({
+          requests: [{
+            request_id: "reconciled-research-456",
+            message: "[Departamento solicitado: Investigação] Investiga esta hipótese",
+            status: "IN_PROGRESS",
+            created_at: Date.now() / 1_000,
+            updated_at: Date.now() / 1_000,
+            lease_owner: "private-worker-id",
+            attempt_count: 1
+          }]
+        });
+      }
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Investiga esta hipótese",
+    department: "research"
+  });
+  assert.equal(postAttempts, 1);
+  assert.equal(researchReads, 1);
+  assert.equal(result.intent, "RESEARCH_RECONCILED");
+  assert.equal(result.status, "IN_PROGRESS");
+  assert.equal(result.accepted, true);
+  assert.equal(result.completed, false);
+  assert.equal(result.requestId, "reconciled-research-456");
+  assert.equal(result.reconciliation, "matched");
+  assert.equal(result.retryAllowed, false);
+  assert.equal(result.request.lease_owner, undefined);
+  assert.equal(JSON.stringify(result).includes("private-worker-id"), false);
+  await adapter.disconnect();
 });
 
 test("assistant message 401 invalidates authentication while 403 remains an authorization refusal", async () => {
