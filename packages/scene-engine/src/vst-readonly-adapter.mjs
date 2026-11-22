@@ -260,9 +260,9 @@ function departmentFromResearchMessage(message) {
 
 function displayResearchMessage(message) {
   if (typeof message !== "string") return "";
-  return message
-    .replace(/^\\[Departamento solicitado: [^\\]]+\\]\\s*/i, "")
-    .replace(/^\\[Área do cockpit: [^\\]]+\\]\\s*/i, "")
+    .replace(/^\[Departamento solicitado: [^\]]+\]\s*/i, "")
+    .replace(/^\[Área do cockpit: [^\]]+\]\s*/i, "")
+    .replace(/^Analisa:\s*/i, "");
     .replace(/^Analisa:\\s*/i, "");
 }
 
