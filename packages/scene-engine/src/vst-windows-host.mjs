@@ -67,6 +67,7 @@ export function createWindowsVstHost({
   let lastProbeSnapshot = null;
   let lastProbeError = null;
   let lastConfirmedAt = null;
+  let lastRecoveryOutcome = "not_attempted";
   const listeners = new Set();
 
   function attachListeners() {
@@ -148,8 +149,10 @@ export function createWindowsVstHost({
                 return { ok: true, code: "reachable", evidence: "VST returned HTTP 403; the endpoint is reachable but the requested scope is denied." };
               }
               if (/^vst_http_/.test(lastProbeError)) {
+                lastConnectionFailure = classifyConnectionFailure(new Error(lastProbeError));
                 return { ok: true, code: "reachable", evidence: "VST returned an HTTP response; the transport reached the backend." };
               }
+              lastConnectionFailure = classifyConnectionFailure(new Error(lastProbeError));
               return {
                 ok: false,
                 code: lastProbeError === "vst_request_timeout" ? "timeout" : "probe_error",
@@ -308,6 +311,7 @@ export function createWindowsVstHost({
         }
       }
     });
+    lastRecoveryOutcome = outcome.status;
     if (outcome.recovered) {
       lastConnectionFailure = null;
       lastAuthorizationFailure = null;
@@ -485,6 +489,7 @@ export function createWindowsVstHost({
       lastAuthorizationFailure,
       diagnosticsAvailable: typeof host.createDiagnostics === "function",
       diagnosticsState: lastDiagnosticReport?.status ?? "not_run",
+      recoveryState: lastRecoveryOutcome,
       lastIncidentId: lastDiagnosticReport?.incidentId ?? null,
       lastConfirmedAt,
       backendOperationalState: "unverified",
