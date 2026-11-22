@@ -525,7 +525,8 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Wire the DGM-MAT session provider into a DGM-MAT-only Windows host composition root.
 - [ ] Verify the live `/runtime/state` and `/auth/session` contracts against the running local DGM-MAT instance without enabling writes.
 - [ ] Run the full DGM-MAT edition workflow and validate on a physical PC. Unit/fake tests are not live integration.
-- [ ] Implement the VST adapter separately; keep VST credentials and code out of Universal and DGM-MAT.
+- [x] Implement the VST adapter separately; keep VST credentials and code out of Universal and DGM-MAT.
+- [ ] Validate live E2E for the read-only cockpit endpoints and implement assistant messaging, task lifecycle, authorized PAPER controls and LAN/Tailscale in separate reviewed phases.
 
 ## PR #61 — merged validation record (2026-11-10)
 - [x] Linux CI passed on final PR HEAD `ded5a449b452fdf56048ff547279fe3b06ddda23`.
@@ -533,7 +534,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [x] Visual regression passed on that exact HEAD.
 - [x] PR #61 merged; merge commit `43adb778b8e03d85c1766f5f1bc68ca15ecea027`.
 - [ ] Integrate OfficeConnectionSupervisor with the installed host lifecycle.
-- [ ] Implement and validate real DGM-MAT and VST adapters in their isolated editions; VST adapter remains unimplemented.
+- [ ] Validate real DGM-MAT and VST backend sessions and physical-PC installation in their isolated editions.
 - [ ] Complete physical-PC install/lifecycle tests; do not treat CI bundle tests as physical validation.
 - [ ] Complete production signing and MSI/MSIX installer, upgrade/rollback and explicit uninstall/data-retention behavior.
 
@@ -647,11 +648,11 @@ O coordenador atual é uma camada de orquestração com driver/store injetados; 
 
 - [x] Implementar entrypoint VST separado e manter o entrypoint genérico independente.
 - [x] Limitar o adapter a loopback autenticado `GET /observer/summary` com `X-Token`, sem redirects, rede remota ou rotas de escrita.
-- [x] Compor host Windows VST com namespace CNG `vst.local-api`; provisioning/removal exigem consentimento explícito e ligação é manual.
+- [x] Compor host Windows VST com token de controlo apenas em memória durante a sessão; definir/limpar exige consentimento explícito e a ligação é manual.
 - [x] Não inventar agentes/tarefas; manter `executionAuthorized=false`, `allowRiskBearingActions=false` e readiness `unverified`.
 - [x] Adicionar testes de contrato/frescor, segredo, sessão, cancelamento, reconnect e isolamento dos tarballs das três edições.
 - [x] Checkpoint de implementação `3aff126095e4af10d16ea65fccaeb58be983eb43`: CI #43230962819 e regressão visual #43230962934 passaram no mesmo HEAD; Linux/Windows Node 22 e Node 26.13.1 aprovados.
-- [x] Teste VST CNG/SQLite passou em Windows Node 22 e Node 26.13.1, incluindo persistência cifrada, não exportabilidade, close/reopen, GET autenticado e remoção explícita; o teste usa host factory injetada e resposta observer simulada.
+- [x] Teste VST de sessão efémera passou em CI quando adicionado: token não persistido, GET autenticado e limpeza em disconnect/close; a resposta HTTP é simulada, não prova compatibilidade live.
 - [x] Bundle Windows portátil E2E passou nos dois runtimes Windows; launcher rejeitou publisher CI não confiável e os testes locais SQLite/CNG de identidade passaram.
 - [x] PR #78 squash-merged em `28e52d500490501a2a9a6d08cd3ca6ddad8ce8d5`; HEAD final `df35a02098cce866deada73bd5c42ec4e3361811` passou Linux/Windows Node 22/26.13.1 (CI #43231720295) e Chromium visual ( #43231720515).
 - [ ] Executar live E2E read-only contra uma instância VST real; verificar o contrato de rota, autenticação, campos e semântica do timestamp.

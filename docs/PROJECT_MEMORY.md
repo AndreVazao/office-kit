@@ -409,7 +409,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - `DgmMatLocalSessionProvider` now applies one deadline to bootstrap keystore retrieval, loopback `POST /auth/session`, and response-body parsing; caller cancellation propagates. Bootstrap credentials are not retained and access tokens remain memory-only.
 - Added unit/fake tests for hanging providers, fetch/body deadlines, cancellation, secret-safe events, source mutation timestamps, reconnect identity and late-poll suppression. CI is pending on this branch.
 - Após a PR #72, o bootstrap DGM-MAT já tem armazenamento CNG dedicado e composição isolada no host Windows. Restam live contract tests contra DGM-MAT ativo, validação no PC físico e backup/recuperação do perfil CNG. Nunca reutilizar a chave privada de identidade do nó como credencial de backend.
-- VST adapter remains unimplemented. Universal must remain free of both personal adapters and credentials.
+- VST has a separate read-only adapter/host preview; live endpoint compatibility and production distribution remain pending. Universal must remain free of both personal adapters and credentials.
 
 ## Validação integrada — PR #61
 - Atualização: 2026-11-10. PR #61 `feat(health): supervise backend connection outages and recovery` foi integrada em `main`.
@@ -514,13 +514,13 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 
 - A branch `feat/vst-readonly-adapter-2026-11-12` adds a VST-only adapter and Windows host composition. The generic `scene-engine/src/index.mjs` remains backend-neutral.
 - The only VST route is authenticated loopback `GET /observer/summary` on port 8765 with `X-Token`; redirects are rejected and remote connection is disabled. Capability is limited to `read_state`.
-- `createWindowsVstHost` uses the generic Windows CNG secret vault with the VST-only namespace `vst.local-api`. Provisioning/removal require `ownerConsent: true`; connection is manual and credential provisioning never auto-connects.
+- `createWindowsVstHost` keeps the VST control token only in memory for the active owner-approved session. `setSessionToken`/`clearSessionToken` require `ownerConsent: true`; disconnect, authentication rejection and close clear the reference. No CNG persistence is used.
 - The adapter accepts fields only from an observer envelope with `ok === true`; failed envelopes suppress state/count/health values and remain synchronizing. It never copies observer-supplied agent/task arrays; both remain empty. `REAL` is informational, not authorization: `executionAuthorized=false`, `allowRiskBearingActions=false`, and `runtimeReadiness=unverified`.
 - `updated_at_ms` is treated as last observer publication time, not proof of engine readiness. Missing, stale and future timestamps do not produce authoritative state.
 - Each connection has a fresh UUID and generation. A bounded deadline covers token retrieval, fetch and JSON parsing. Disconnect and a newer connection attempt abort the old provider/fetch signal; late generation events are discarded.
-- Unit/fake tests cover the adapter and fake-host composition; tarball tests inspect actual edition contents. They do not prove live VST compatibility, native CNG through this exact VST composition, or physical-PC installation.
+- Unit/fake tests cover the adapter, memory-only host composition and fixed cockpit route allowlist; tarball tests inspect actual edition contents. They do not prove live VST compatibility, signed Windows host startup, or physical-PC installation.
 - Universal excludes both personal adapter compositions; DGM-MAT excludes VST; VST includes only its own adapter/host files plus generic core and generic Windows vault. The VST package manifest marks the adapter `read-only-preview`, not production.
-- Implementation checkpoint HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43` passed CI #43230962819 and visual regression #43230962934. Linux and Windows passed on Node 22 and Node 26.13.1; the VST CNG/SQLite integration test and portable Windows bundle E2E passed on both Windows runtimes. The VST integration uses the real CNG helper and SQLite vault through an injected host factory, with a fake observer response.
+- Historical checkpoint `3aff126095e4af10d16ea65fccaeb58be983eb43` validated the then-current CNG-persisted token design. That design is retired by the current cockpit integration: the control token is now memory-only and no longer uses the VST CNG namespace.
 - The documentation-only synchronization commits after that implementation checkpoint are being revalidated on the current PR HEAD before merge.
 - Remaining VST gates: live read-only E2E against an actual VST instance, full signed Windows host lifecycle, trusted-publisher acceptance, and physical-PC provisioning/reconnect/disconnect/restart. Do not enable trading/write routes.
 

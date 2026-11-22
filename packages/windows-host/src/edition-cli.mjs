@@ -8,7 +8,7 @@ const EDITION_DATA_DIRECTORIES = Object.freeze({
 const MAX_REQUEST_BYTES = 4_096;
 const CLI_COMMANDS = new Set(["health", "serve"]);
 const REQUEST_COMMANDS = new Set([
-  "health", "credential-status", "connect", "snapshot", "disconnect", "shutdown"
+  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "disconnect", "shutdown"
 ]);
 
 function writeJson(output, value) {
@@ -31,14 +31,23 @@ function parseRequest(line) {
   try { value = JSON.parse(line); }
   catch { return { error: "invalid_json" }; }
   if (!value || typeof value !== "object" || Array.isArray(value)
-    || Object.keys(value).length !== 1 || Object.keys(value)[0] !== "command"
     || typeof value.command !== "string" || !REQUEST_COMMANDS.has(value.command)) {
     return { error: "invalid_request" };
   }
+  const keys = Object.keys(value).sort();
+  if (value.command === "authenticate") {
+    if (keys.join(",") !== "command,ownerConsent,token"
+      || typeof value.token !== "string" || value.ownerConsent !== true) {
+      return { error: "invalid_request" };
+    }
+    return { command: value.command, token: value.token, ownerConsent: true };
+  }
+  if (keys.length !== 1 || keys[0] !== "command") return { error: "invalid_request" };
   return { command: value.command };
 }
 
-async function executeRequest(host, command) {
+async function executeRequest(host, request) {
+  const { command } = request;
   if (command === "health") {
     return { ok: true, command, health: await host.health() };
   }
@@ -47,6 +56,19 @@ async function executeRequest(host, command) {
       return { ok: false, command, error: "credential_status_unavailable" };
     }
     return { ok: true, command, credentials: host.getCredentialState() };
+  }
+  if (command === "authenticate") {
+    if (typeof host.setSessionToken !== "function") {
+      return { ok: false, command, error: "session_authentication_unavailable" };
+    }
+    await host.setSessionToken({ token: request.token, ownerConsent: request.ownerConsent });
+    return {
+      ok: true,
+      command,
+      sessionConfigured: true,
+      storage: "memory-session",
+      tokenExposed: false
+    };
   }
   if (command === "connect") {
     await host.connect();
@@ -57,14 +79,27 @@ async function executeRequest(host, command) {
     if (health?.adapterConnected !== true) return { ok: false, command, error: "not_connected" };
     return { ok: true, command, snapshot: await host.getSnapshot() };
   }
+  if (command === "cockpit-snapshot") {
+    const health = await host.health();
+    if (health?.adapterConnected !== true) return { ok: false, command, error: "not_connected" };
+    if (typeof host.getCockpitSnapshot !== "function") {
+      return { ok: false, command, error: "cockpit_snapshot_unavailable" };
+    }
+    return { ok: true, command, readOnly: true, cockpit: await host.getCockpitSnapshot() };
+  }
   if (command === "disconnect") {
-    await host.disconnect();
-    return { ok: true, command, connected: false };
+    const result = await host.disconnect();
+    return {
+      ok: true,
+      command,
+      connected: false,
+      tokenCleared: result?.tokenCleared === true
+    };
   }
   return { ok: true, command, shutdown: true };
 }
 
-async function runServe(host, { input, output }) {
+async function runServe(host, { input, output, edition }) {
   const reader = createInterface({ input, crlfDelay: Infinity, terminal: false });
   try {
     for await (const line of reader) {
@@ -73,14 +108,20 @@ async function runServe(host, { input, output }) {
         writeJson(output, { ok: false, error: request.error });
         continue;
       }
+      if ((request.command === "cockpit-snapshot" || request.command === "authenticate") && edition !== "vst") {
+        writeJson(output, { ok: false, error: "invalid_request" });
+        continue;
+      }
       try {
-        const result = await executeRequest(host, request.command);
+        const result = await executeRequest(host, request);
         writeJson(output, result);
         if (request.command === "shutdown") break;
       } catch {
         const error = request.command === "connect" ? "connection_failed"
           : request.command === "snapshot" ? "snapshot_failed"
-            : request.command === "disconnect" ? "disconnect_failed"
+            : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
+              : request.command === "authenticate" ? "authentication_failed"
+                : request.command === "disconnect" ? "disconnect_failed"
               : request.command === "credential-status" ? "credential_status_failed"
                 : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
@@ -129,7 +170,7 @@ export async function runEditionCli({
         return 1;
       }
     }
-    await runServe(host, { input, output });
+    await runServe(host, { input, output, edition });
     return 0;
   } finally {
     await host.close();

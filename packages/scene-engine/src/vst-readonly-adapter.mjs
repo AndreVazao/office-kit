@@ -2,7 +2,82 @@ import { randomUUID } from "node:crypto";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8765";
 const SOURCE_ID = "vazao-sovereign-trader";
-const ALLOWED_PATHS = new Set(["/observer/summary"]);
+const COCKPIT_ENDPOINTS = Object.freeze({
+  health: "/health",
+  status: "/status",
+  learningMemoryHealth: "/learning-memory/health",
+  learningMemoryRuntime: "/learning-memory/runtime",
+  diagnostics: "/diagnostics",
+  marketDataHealth: "/market-data-health",
+  venueHealth: "/venue-health",
+  evidenceScorecard: "/evidence-scorecard",
+  evidenceLedgerAudit: "/evidence-ledger/audit",
+  paperCollectorResources: "/paper-collector/resources",
+  research: "/research",
+  humanInteractionPending: "/human-interaction/pending"
+});
+const ALLOWED_PATHS = new Set(["/observer/summary", ...Object.values(COCKPIT_ENDPOINTS)]);
+const PRIVATE_FIELD_NAMES = new Set([
+  "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
+  "privatenamespace", "screenshotpath", "password", "secret",
+  "apikey", "privatekey", "accesstoken", "refreshtoken",
+  "authorization", "credential", "credentials"
+]);
+
+function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 }, section = "") {
+  if (budget.nodes++ >= 20_000 || depth > 8) return null;
+  const normalizedKey = String(key).replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const containsSecretMarker = [
+    "token", "secret", "password", "credential", "apikey",
+    "privatekey", "authorization", "passphrase"
+  ].some(marker => normalizedKey.includes(marker));
+  const humanInputValue = section === "humanInteractionPending"
+    && ["value", "defaultvalue", "initialvalue", "inputvalue", "response", "responsevalue"].includes(normalizedKey);
+  if (humanInputValue
+    || PRIVATE_FIELD_NAMES.has(normalizedKey)
+    || containsSecretMarker
+    || normalizedKey.endsWith("path")
+    || normalizedKey.endsWith("directory")
+    || normalizedKey === "dir"
+    || normalizedKey === "root") {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    if (normalizedKey === "url") {
+      try {
+        const parsed = new URL(value);
+        parsed.username = "";
+        parsed.password = "";
+        parsed.search = "";
+        parsed.hash = "";
+        return parsed.toString().slice(0, 2_048);
+      } catch {
+        return value.split(/[?#]/, 1)[0].slice(0, 2_048);
+      }
+    }
+    return value.slice(0, 4_096).replace(
+      /\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\s*[:=]\s*["']?[^\s"'&,;]+/gi,
+      "$1=[redacted]"
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 200)
+      .map(item => sanitizeCockpitPayload(item, "", depth + 1, budget, section))
+      .filter(item => item !== undefined);
+  }
+  if (value && typeof value === "object") {
+    const output = Object.create(null);
+    for (const [childKey, childValue] of Object.entries(value).slice(0, 200)) {
+      if (childKey === "__proto__" || childKey === "prototype" || childKey === "constructor") continue;
+      const sanitized = sanitizeCockpitPayload(childValue, childKey, depth + 1, budget, section);
+      if (sanitized !== undefined) output[childKey] = sanitized;
+    }
+    return output;
+  }
+  return value;
+}
+
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ENGINE_STATUSES = new Set([
   "OFF", "STARTING", "RUNNING", "PAUSED", "STOPPING",
@@ -340,6 +415,83 @@ export class VstReadOnlyAdapter {
     return this.#toSnapshot(await this.#get("/observer/summary", { signal: controller.signal }));
   }
 
+  async getCockpitSnapshot() {
+    if (!this.connected) throw new Error("vst_adapter_not_connected");
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
+    const controller = this.connectionAbortController;
+    if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
+
+    const endpoints = Object.entries(COCKPIT_ENDPOINTS);
+    const sections = new Array(endpoints.length);
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        if (this.authenticationRejected || controller.signal.aborted) return;
+        const index = cursor++;
+        if (index >= endpoints.length) return;
+        const [key, path] = endpoints[index];
+        try {
+          const data = await this.#get(path, { signal: controller.signal });
+          const sanitizedData = sanitizeCockpitPayload(data, "", 0, { nodes: 0 }, key);
+          sections[index] = Object.freeze({
+            state: "available",
+            path,
+            receivedAt: new Date(this.now()).toISOString(),
+            data: sanitizedData
+          });
+        } catch (error) {
+          if (this.authenticationRejected || controller.signal.aborted) throw error;
+          sections[index] = Object.freeze({
+            state: "unavailable",
+            path,
+            receivedAt: new Date(this.now()).toISOString(),
+            error: safeErrorCode(error, "vst_endpoint_unavailable")
+          });
+        }
+      }
+    };
+
+    const workerCount = Math.min(3, endpoints.length);
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: workerCount }, () => worker())
+    );
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
+    if (controller.signal.aborted) throw new Error("vst_adapter_not_connected");
+    const rejected = outcomes.find(outcome => outcome.status === "rejected");
+    if (rejected) throw rejected.reason instanceof Error
+      ? rejected.reason
+      : new Error("vst_cockpit_snapshot_failed");
+
+    const generatedAt = this.now();
+    if (!Number.isFinite(generatedAt) || generatedAt <= 0
+      || generatedAt > 8_640_000_000_000_000) {
+      throw new Error("vst_clock_invalid");
+    }
+    const sectionMap = Object.fromEntries(
+      endpoints.map(([key], index) => [key, sections[index]])
+    );
+    const mode = sectionMap.status?.state === "available"
+      && typeof sectionMap.status.data?.mode === "string"
+      ? sectionMap.status.data.mode.trim().toUpperCase()
+      : "UNKNOWN";
+
+    return Object.freeze({
+      schemaVersion: 1,
+      sourceId: SOURCE_ID,
+      generatedAt: new Date(generatedAt).toISOString(),
+      readOnly: true,
+      sections: Object.freeze(sectionMap),
+      authority: Object.freeze({
+        mode,
+        paperOnly: mode === "PAPER",
+        ordersSubmitted: false,
+        executionAuthorized: false,
+        riskBearingActionsAllowed: false
+      }),
+      capabilities: Object.freeze(["read_state"])
+    });
+  }
+
   subscribe(listener) {
     if (typeof listener !== "function") throw new TypeError("listener must be a function");
     if (!this.connected) throw new Error("vst_adapter_not_connected");
@@ -412,6 +564,7 @@ export const vstAdapterContract = Object.freeze({
   defaultBaseUrl: DEFAULT_BASE_URL,
   allowedMethods: Object.freeze(["GET"]),
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
+  cockpitReadPaths: Object.freeze(Object.values(COCKPIT_ENDPOINTS)),
   authenticationHeader: "X-Token",
   requiredScope: "read_private_state",
   responseSuccessField: "ok",

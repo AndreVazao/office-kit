@@ -113,13 +113,14 @@ The SQLite store now accepts a bounded keyring (1–32 providers), rejects dupli
 PR #75 was squash-merged as `99ecc7048ae235e89a6fa18fa62eb66f1f7a63ab`; final PR HEAD `2444e1f0af660cc46a12b43669a3b058c221b256`, CI run #506 and Chromium visual regression #426 both passed on that exact HEAD. This validates the storage-layer contract, not a complete host rotation workflow. CNG provisioning of a new version, explicit owner authorization, rollback/recovery, old-key retirement and cross-profile backup remain unimplemented.
 
 
-## VST local API token — isolated Windows CNG namespace (2026-11-12)
+## VST control token — memory-only session
 
-The VST-only `createWindowsVstHost` composition stores the owner-supplied local API token through the generic `WindowsCngSecretVault` under namespace `vst.local-api`, secret name `owner-token`. It does not reuse the DGM-MAT `dgmat.bootstrap` namespace or node-identity key. The VST adapter receives the token on demand through an injected provider and sends it only in the `X-Token` request header to the exact loopback observer endpoint; it does not place the token in URLs, snapshots, logs or browser storage.
+The earlier VST CNG-persisted owner-token design is retired. The VST cockpit control token is supplied explicitly by the owner for the active session and held only as an in-memory reference by the VST host. It is never written to SQLite, the generic CNG vault, configuration files, browser storage, URLs, or logs.
 
-Provisioning and removal require `ownerConsent: true`; provisioning does not connect automatically. Connection is an explicit owner action. The token is fetched per request and is not cached between requests or exposed by status APIs. Plaintext necessarily exists transiently in the JavaScript process during an authenticated request; JavaScript strings cannot be reliably zeroized. Disconnect aborts the in-flight token retrieval/fetch signal. The current Windows vault is user-profile/installation/namespace scoped, uses the CNG Software KSP and reports `hardwareBacked=false`; it is not a TPM claim. Loss of the matching profile/key still requires explicit token re-enrolment.
+Setting the session token requires explicit owner consent and does not connect automatically. The token is sent only in the `X-Token` request header to the exact loopback VST API. Disconnect, authentication rejection, and host close clear the in-memory reference and abort active adapter requests. The host does not retain a token across process restarts or reconnects; the owner must supply it again.
 
-The VST-specific Windows integration test passed on Windows Node 22 and Node 26.13.1 in CI #43230962819 on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`. It uses the real CNG helper and SQLite vault through the VST host composition to verify encrypted persistence, non-exportability, close/reopen, authenticated GET and explicit removal. The test injects a host factory and fake observer response; it is not a live VST contract test or full physical Windows host installation. The documentation-only synchronization commit after this implementation checkpoint is being revalidated on its own PR HEAD before merge.
+JavaScript strings cannot be reliably zeroized. Clearing the reference and aborting requests is best-effort process-memory cleanup, not a claim of secure erasure from RAM, crash dumps, or operating-system memory.
+
 
 
 ## Atomic incident/checkpoint finalization — PR #86 (2026-11-13)

@@ -39,26 +39,35 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 
 | Office Kit view | VST route | Interpretation |
 |---|---|---|
-| Observer summary | `GET /observer/summary` | Current adapter route; bounded state fields only |
-| Liveness | `GET /health` | Candidate only; not consumed by the adapter |
-| Other diagnostics/readiness | `GET /status`, `GET /diagnostics`, `GET /market-data-health`, `GET /venue-health`, `GET /evidence-scorecard` | Candidate routes only; not consumed by the current adapter |
+| Observer summary | `GET /observer/summary` | Authenticated synchronization probe |
+| Liveness | `GET /health` | Public liveness only; not proof of private access |
+| CEO / overview | `GET /status` | Authenticated engine snapshot |
+| Central Memory | `GET /learning-memory/health`, `GET /learning-memory/runtime` | Authenticated storage and worker diagnostics |
+| Recovery / diagnostics | `GET /diagnostics` | Authenticated diagnostics snapshot |
+| Radar / freshness | `GET /market-data-health` | Authenticated data freshness state |
+| Markets | `GET /venue-health` | Authenticated venue state |
+| Evidence | `GET /evidence-scorecard` | Authenticated evidence summary |
+| Audit integrity | `GET /evidence-ledger/audit` | Authenticated ledger audit summary; full unpaginated ledger excluded |
+| PAPER collector | `GET /paper-collector/resources` | Authenticated resource diagnostics |
+| Research | `GET /research` | Authenticated research queue snapshot |
+| Human interaction | `GET /human-interaction/pending` | Authenticated pending intervention snapshot |
 
-The current adapter uses only `GET http://127.0.0.1:8765/observer/summary`. The implementation has not yet been verified against a running VST instance; confirm the exact route, port, response schema and timestamp semantics during live E2E before production.
+The adapter uses authenticated loopback `GET /observer/summary` for synchronization plus the nine cockpit GET routes in the table above. The route paths and scopes were checked against VST `main` at `ac88989caeff86198339de38e241b3e52560e791`. Live response compatibility remains pending.
 
 ### Authentication and safety
 
-- The local API token is supplied by the owner and sent only in the `X-Token` header. The current adapter requires a token provider; the Windows host stores it through the generic CNG vault in namespace `vst.local-api`.
-- The current adapter permits only HTTP loopback `GET /observer/summary` on port 8765, rejects redirects and remote endpoints, and declares only `read_state`.
+- The owner supplies the VST control token for one active session. It is held only in process memory and sent only in the `X-Token` header; disconnect, authentication rejection and close clear the reference. It is never persisted by the Office Kit.
+- The adapter permits only HTTP loopback GETs from the fixed allowlist on port 8765, rejects redirects and remote endpoints, and declares only `read_state`. The twelve cockpit endpoints are read with a maximum of three concurrent requests; no write method is exposed. The unpaginated evidence-ledger record list is excluded. Responses pass a bounded recursive redactor that removes claim tokens, credential fields, owner identifiers, local paths, URL query data and pending human-interaction form values before reaching the renderer.
 - The observer envelope must contain `ok === true` before state/count/health fields are accepted. `updated_at_ms` is treated as the last observer publication time, not proof of engine readiness. Missing, stale or future timestamps do not produce authoritative state.
 - The adapter does not copy observer-provided agents/tasks; both arrays remain empty. `REAL` is informational only; `executionAuthorized=false` and `allowRiskBearingActions=false`. No order, mode, start/stop, pairing, file-upload or execution-surface mutation route is exposed.
-- The Windows host requires `ownerConsent: true` for token provisioning/removal and does not auto-connect. Connection is explicit. The token is fetched per request, not cached between requests or exposed by status APIs; plaintext exists transiently in process memory during each request and JavaScript cannot guarantee zeroization. The CNG key is user-profile/installation/namespace scoped and software-backed, not TPM-backed.
+- The Windows host requires `ownerConsent: true` to set/clear the session token and does not auto-connect. Connection is explicit. The token is memory-only, is not retained across restarts or disconnects, and is never exposed by status APIs. JavaScript cannot guarantee zeroization of strings; only references and active requests are cleared.
 - A successful fake response or local transport handshake is not proof that VST is ready, authorized or trading. Live observer contract validation and physical-PC testing remain required.
 
 ## Shared implementation requirements
 
 - Implement two separate adapters behind the same versioned Office Kit adapter contract; do not add either backend's imports or models to the generic core.
 - Keep DGM-MAT and VST endpoint bases, credentials, sessions and caches in separate installation namespaces.
-- Credentials must be supplied through a secure owner-controlled pairing/configuration flow and stored only in the platform keystore. Never place credentials in profile JSON, logs, URLs or browser local storage.
+- DGM-MAT bootstrap credentials use the platform keystore. The VST cockpit control token is memory-only for the active session and is never persisted. Never place credentials in profile JSON, logs, URLs or browser local storage.
 - Use bounded timeouts, cancellation, polling backoff, sequence/freshness metadata and strict response allowlists. Do not copy arbitrary backend payloads into the visual model.
 - If authentication, authorization, endpoint identity or data freshness cannot be verified, show disconnected/unverified and suppress operational claims.
 - Do not create missions, send chat messages, approve actions, execute repairs, start/stop engines or submit trading commands in this read-only phase.
@@ -92,7 +101,7 @@ The current adapter uses only `GET http://127.0.0.1:8765/observer/summary`. The 
 ## VST Windows host composition — PR #78 preview (2026-11-12)
 
 - `createWindowsVstHost` is exposed only through the VST edition's `./windows-host/vst` entrypoint. Universal and DGM-MAT do not include the VST composition or its token flow.
-- The host stores the owner token through the generic CNG vault in namespace `vst.local-api`; provisioning/removal require explicit owner consent. Provisioning never auto-connects.
-- The adapter uses only loopback `GET /observer/summary` with `X-Token`; it rejects redirects and remote endpoints. The response must have `ok === true`; failed envelopes suppress state values.
+- The host keeps the owner-approved control token only in process memory for one session; set/clear require explicit owner consent. Disconnect, authentication rejection and close clear the reference. No CNG persistence is used.
+- The adapter uses loopback GETs from a fixed read-only allowlist with `X-Token`; it rejects redirects and remote endpoints. `/observer/summary` must have `ok === true`; cockpit sections preserve individual unavailable states without inventing data.
 - No command or trading route is exposed. Agent/task arrays remain empty, REAL is informational only and backend readiness stays unverified.
-- Unit tests use fake HTTP and a fake host. A dedicated Windows integration test uses the real CNG helper and SQLite vault through the VST host composition; it passed on Node 22 and Node 26.13.1 in CI #43230962819 on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`. It uses a fake observer response and does not prove live VST compatibility or physical-PC installation.
+- Unit tests use fake HTTP and a fake host. The dedicated integration test verifies memory-only token lifecycle and read-only endpoint aggregation with fake HTTP responses. It does not prove live VST compatibility, signed Windows host startup or physical-PC installation.
