@@ -138,15 +138,21 @@ async function runServe(host, { input, output, edition }) {
         const result = await executeRequest(host, request);
         writeJson(output, result);
         if (request.command === "shutdown") break;
-      } catch {
-        const error = request.command === "connect" ? "connection_failed"
-          : request.command === "snapshot" ? "snapshot_failed"
-            : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
-              : request.command === "authenticate" ? "authentication_failed"
-                : request.command === "assistant-message" ? "assistant_message_failed"
-                  : request.command === "disconnect" ? "disconnect_failed"
-              : request.command === "credential-status" ? "credential_status_failed"
-                : "health_failed";
+      } catch (caught) {
+        const code = caught instanceof Error ? caught.message : "";
+        const error = code === "vst_auth_rejected" ? "authentication_failed"
+          : code === "vst_http_403" ? "authorization_denied"
+            : code === "vst_request_timeout" || code === "vst_transport_error"
+              || /^vst_http_(?:0|5[0-9]{2})$/.test(code) ? "connectivity_unavailable"
+                : code === "vst_adapter_not_connected" ? "not_connected"
+                  : request.command === "connect" ? "connection_failed"
+                    : request.command === "snapshot" ? "snapshot_failed"
+                      : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
+                        : request.command === "authenticate" ? "authentication_failed"
+                          : request.command === "assistant-message" ? "assistant_message_failed"
+                            : request.command === "disconnect" ? "disconnect_failed"
+                              : request.command === "credential-status" ? "credential_status_failed"
+                                : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
       }
     }
