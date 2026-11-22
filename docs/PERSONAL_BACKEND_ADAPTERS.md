@@ -1,6 +1,6 @@
 # Personal backend adapter integration map
 
-Reviewed and updated on 2026-11-12. The VST adapter contract below contains read-only cockpit snapshots and a restricted assistant-message bridge; live VST compatibility is not yet verified. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
+Reviewed and updated on 2026-11-22. The VST adapter contract below contains read-only cockpit snapshots and a restricted assistant-message bridge; live VST compatibility is not yet verified. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
 
 ## Universal edition
 
@@ -35,7 +35,7 @@ Repository: `AndreVazao/DGM-MAT`.
 
 Repository: `AndreVazao/VazaoSovereignTrader`.
 
-### Current Office Kit read-only preview contract
+### Current Office Kit cockpit contract — Phases 1 and 2
 
 | Office Kit view | VST route | Interpretation |
 |---|---|---|
