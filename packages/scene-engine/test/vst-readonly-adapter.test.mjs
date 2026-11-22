@@ -108,6 +108,7 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
     "/market-data-health",
     "/venue-health",
     "/evidence-scorecard",
+    "/evidence-ledger/audit",
     "/paper-collector/resources",
     "/research",
     "/human-interaction/pending"
@@ -591,6 +592,7 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
     "/market-data-health",
     "/venue-health",
     "/evidence-scorecard",
+    "/evidence-ledger/audit",
     "/paper-collector/resources",
     "/research",
     "/human-interaction/pending"
@@ -604,6 +606,7 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
     "/market-data-health",
     "/venue-health",
     "/evidence-scorecard",
+    "/evidence-ledger/audit",
     "/paper-collector/resources",
     "/research",
     "/human-interaction/pending"
