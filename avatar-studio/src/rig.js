@@ -233,7 +233,7 @@ export function createAvatarRig(parent) {
         const waistToSpine = THREE.MathUtils.clamp((y - 0.92) / 0.35, 0, 1);
         const spineToChest = THREE.MathUtils.clamp((y - 1.27) / 0.39, 0, 1);
         const hipsWeight = 1 - waistToSpine;
-        const chestWeight = spineToChest;
+        const chestWeight = waistToSpine * spineToChest;
         const spineWeight = waistToSpine * (1 - spineToChest);
         indices.push(hipsIndex, spineIndex, chestIndex, 0);
         weights.push(hipsWeight, spineWeight, chestWeight, 0);
