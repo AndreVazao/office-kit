@@ -119,13 +119,16 @@ export function applyWindowsPrivateAcl(path, {
 
 export function verifyAuthenticodeHelper(helperPath, {
   spawnImpl = spawnSync,
-  expectedThumbprint = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT
+  expectedThumbprint
 } = {}) {
+  // Production startup intentionally has no environment fallback. Until the
+  // installer-authenticated publisher policy is implemented, the default
+  // host verifier fails closed because no trusted pin is supplied.
   if (typeof helperPath !== "string" || !isAbsolute(helperPath) || !existsSync(helperPath)) {
     throw new Error("windows_host_cng_helper_missing");
   }
   if (typeof expectedThumbprint !== "string" || !/^[A-Fa-f0-9]{40}$/.test(expectedThumbprint)) {
-    throw new Error("windows_host_cng_signer_thumbprint_required");
+    throw new Error("windows_host_publisher_policy_unavailable");
   }
   const escaped = helperPath.replace(/'/g, "''");
   const thumbprint = expectedThumbprint.toUpperCase();
