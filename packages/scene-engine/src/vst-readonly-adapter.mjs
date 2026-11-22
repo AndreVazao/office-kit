@@ -17,6 +17,18 @@ const COCKPIT_ENDPOINTS = Object.freeze({
   humanInteractionPending: "/human-interaction/pending"
 });
 const ALLOWED_PATHS = new Set(["/observer/summary", ...Object.values(COCKPIT_ENDPOINTS)]);
+const ASSISTANT_PATH = "/assistant/message";
+const ASSISTANT_DEPARTMENTS = new Set([
+  "brain", "markets", "radar", "research", "paper", "risk", "recovery", "audit", "human"
+]);
+const UI_ONLY_DEPARTMENTS = new Set(["analysis", "central_memory"]);
+const PAPER_CONTROL_COMMANDS = new Set([
+  "iniciar", "inicia", "ligar", "começar", "comecar", "start",
+  "pausar", "pausa", "pause", "retomar", "retoma", "resume",
+  "parar", "para", "stop"
+]);
+const SECRET_ASSIGNMENT_PATTERN = /\\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret)\\s*[:=]\\s*\\S+/i;
+
 const PRIVATE_FIELD_NAMES = new Set([
   "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
   "privatenamespace", "screenshotpath", "password", "secret",
@@ -246,6 +258,200 @@ export class VstReadOnlyAdapter {
     this.authenticationRejected = false;
   }
 
+  async #postAssistantMessage(message, department, { signal } = {}) {
+    try {
+      return await runWithDeadline(async requestSignal => {
+        let token;
+        try {
+          token = await this.getAccessToken({ signal: requestSignal });
+        } catch {
+          if (requestSignal.aborted) throw new Error("vst_request_outcome_unknown");
+          throw new Error("vst_token_provider_failed");
+        }
+        if (typeof token !== "string" || token.length < 16 || token.length > 8_192
+          || token.trim() !== token || /\\s/.test(token)) {
+          throw new Error("vst_local_token_unavailable");
+        }
+
+        let response;
+        try {
+          response = await this.fetchImpl(this.baseUrl + ASSISTANT_PATH, {
+            method: "POST",
+            headers: {
+              "X-Token": token,
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message, department }),
+            cache: "no-store",
+            credentials: "omit",
+            redirect: "error",
+            signal: requestSignal
+          });
+        } catch {
+          if (requestSignal.aborted) throw new Error("vst_request_outcome_unknown");
+          throw new Error("vst_transport_error");
+        } finally {
+          token = null;
+        }
+
+        if (requestSignal.aborted) throw new Error("vst_request_outcome_unknown");
+        const status = Number.isInteger(response?.status) && response.status >= 0 && response.status <= 599
+          ? response.status : 0;
+        if (status === 401) {
+          this.authenticationRejected = true;
+          throw new Error("vst_auth_rejected");
+        }
+        if (status >= 500 || status === 0) {
+          return Object.freeze({
+            ok: false,
+            intent: "OUTCOME_UNKNOWN",
+            status: "UNKNOWN",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: "vst_request_outcome_unknown"
+          });
+        }
+
+        const contentType = response.headers?.get?.("content-type") ?? "";
+        if (!contentType.toLowerCase().includes("application/json")) {
+          return Object.freeze({
+            ok: false,
+            intent: status === 403 ? "PERMISSION_DENIED" : "REQUEST_REJECTED",
+            status: "REJECTED",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: status === 403 ? "permission_denied" : "invalid_response_content_type"
+          });
+        }
+
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          if (status >= 200 && status < 300 || status === 409) {
+            return Object.freeze({
+              ok: false,
+              intent: "OUTCOME_UNKNOWN",
+              status: "UNKNOWN",
+              httpStatus: status,
+              sent: true,
+              retryAllowed: false,
+              error: "vst_request_outcome_unknown"
+            });
+          }
+          return Object.freeze({
+            ok: false,
+            intent: status === 403 ? "PERMISSION_DENIED" : "REQUEST_REJECTED",
+            status: "REJECTED",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: status === 403 ? "permission_denied" : "invalid_response_body"
+          });
+        }
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+          return Object.freeze({
+            ok: false,
+            intent: "OUTCOME_UNKNOWN",
+            status: "UNKNOWN",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: "vst_request_outcome_unknown"
+          });
+        }
+
+        if (status === 403) {
+          const errorText = typeof payload.error === "string" ? payload.error : "";
+          const requiredScope = /^scope_required:([a-z_]+)$/.exec(errorText)?.[1] ?? null;
+          return Object.freeze({
+            ok: false,
+            intent: "PERMISSION_DENIED",
+            status: "REJECTED",
+            httpStatus: status,
+            requiredScope,
+            sent: true,
+            retryAllowed: false,
+            error: "permission_denied"
+          });
+        }
+
+        if (status < 200 || status >= 300 && status !== 409) {
+          return Object.freeze({
+            ok: false,
+            intent: "REQUEST_REJECTED",
+            status: "REJECTED",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: "vst_request_rejected"
+          });
+        }
+
+        const result = payload.result && typeof payload.result === "object"
+          && !Array.isArray(payload.result) ? payload.result : payload;
+        const safeResult = sanitizeCockpitPayload(result, "", 0, { nodes: 0 }, "assistantMessage");
+        const backendStatus = typeof result.status === "string"
+          ? result.status.trim().toUpperCase() : "UNKNOWN";
+        const intent = typeof result.intent === "string" ? result.intent : "UNKNOWN";
+        const request = safeResult?.request ?? null;
+        const requestId = typeof request?.request_id === "string" ? request.request_id : null;
+        const reply = typeof safeResult?.reply === "string" ? safeResult.reply : "";
+        const accepted = payload.ok === true && ["QUEUED", "COMPLETED"].includes(backendStatus);
+
+        return Object.freeze({
+          ok: payload.ok === true,
+          accepted,
+          completed: backendStatus === "COMPLETED",
+          intent,
+          status: backendStatus,
+          department,
+          httpStatus: status,
+          reply,
+          requestId,
+          request,
+          data: safeResult?.data ?? null,
+          paperOnly: safeResult?.paper_only === true,
+          executionAuthorized: false,
+          sent: true,
+          retryAllowed: false,
+          backend: safeResult
+        });
+      }, this.timeoutMs, "vst_request_outcome_unknown", {
+        signal,
+        abortCode: "vst_request_outcome_unknown"
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === "vst_auth_rejected") throw error;
+      if (code === "vst_token_provider_failed" || code === "vst_local_token_unavailable") {
+        return Object.freeze({
+          ok: false,
+          intent: "AUTHENTICATION_UNAVAILABLE",
+          status: "UNAVAILABLE",
+          sent: false,
+          retryAllowed: false,
+          error: "vst_session_token_unavailable"
+        });
+      }
+      if (code === "vst_request_outcome_unknown" || code === "vst_request_timeout"
+        || code === "vst_transport_error" || code === "vst_connection_superseded") {
+        return Object.freeze({
+          ok: false,
+          intent: "OUTCOME_UNKNOWN",
+          status: "UNKNOWN",
+          sent: true,
+          retryAllowed: false,
+          error: "vst_request_outcome_unknown"
+        });
+      }
+      throw error;
+    }
+  }
+
   async #get(path, { signal } = {}) {
     if (!ALLOWED_PATHS.has(path)) throw new Error("vst_route_not_allowlisted");
     return runWithDeadline(async signal => {
@@ -283,7 +489,7 @@ export class VstReadOnlyAdapter {
       if (!response || !response.ok) {
         const status = Number.isInteger(response?.status) && response.status >= 0 && response.status <= 599
           ? response.status : 0;
-        if (status === 401 || status === 403) {
+        if (status === 401) {
           this.authenticationRejected = true;
           throw new Error("vst_auth_rejected");
         }
@@ -413,6 +619,56 @@ export class VstReadOnlyAdapter {
     const controller = this.connectionAbortController;
     if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
     return this.#toSnapshot(await this.#get("/observer/summary", { signal: controller.signal }));
+  }
+
+  async sendAssistantMessage({ message, department = "brain" } = {}) {
+    if (typeof message !== "string") throw new Error("vst_assistant_message_required");
+    const cleanMessage = message.trim().replace(/\\s+/g, " ");
+    if (!cleanMessage || cleanMessage.length > 2_000) throw new Error("vst_assistant_message_invalid");
+
+    const normalizedDepartment = typeof department === "string"
+      ? department.trim().toLowerCase().replace(/-/g, "_") : "";
+    if (UI_ONLY_DEPARTMENTS.has(normalizedDepartment)) {
+      return Object.freeze({
+        ok: false,
+        intent: "DEPARTMENT_NOT_CONNECTED",
+        status: "NOT_CONNECTED",
+        department: normalizedDepartment,
+        sent: false,
+        retryAllowed: false,
+        reply: "O VST ainda não declara um handler conversacional independente para esta área. Os dados read-only continuam disponíveis no cockpit."
+      });
+    }
+    if (!ASSISTANT_DEPARTMENTS.has(normalizedDepartment)) {
+      throw new Error("vst_assistant_department_invalid");
+    }
+    if (SECRET_ASSIGNMENT_PATTERN.test(cleanMessage)) {
+      return Object.freeze({
+        ok: false,
+        intent: "SECRET_INPUT_BLOCKED",
+        status: "BLOCKED",
+        department: normalizedDepartment,
+        sent: false,
+        retryAllowed: false,
+        reply: "Não envies chaves, passwords, tokens ou credenciais de exchanges pela conversa do Office Kit."
+      });
+    }
+    if (PAPER_CONTROL_COMMANDS.has(cleanMessage.toLowerCase())) {
+      return Object.freeze({
+        ok: false,
+        intent: "PAPER_CONTROL_BLOCKED_PHASE_2",
+        status: "BLOCKED",
+        department: normalizedDepartment,
+        sent: false,
+        retryAllowed: false,
+        reply: "Os controlos PAPER ainda não estão habilitados nesta fase. Nenhum pedido foi enviado ao VST."
+      });
+    }
+    if (!this.connected) throw new Error("vst_adapter_not_connected");
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
+    const controller = this.connectionAbortController;
+    if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
+    return this.#postAssistantMessage(cleanMessage, normalizedDepartment, { signal: controller.signal });
   }
 
   async getCockpitSnapshot() {
