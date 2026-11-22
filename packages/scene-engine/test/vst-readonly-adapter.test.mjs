@@ -166,6 +166,12 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.taskFeed.count, 2);
   assert.deepEqual(snapshot.agents, []);
   assert.equal(snapshot.agentState, "not_exposed_by_backend");
+  const departments = Object.fromEntries(snapshot.departmentEvidence.map(item => [item.department, item]));
+  assert.equal(departments.brain.evidenceState, "available");
+  assert.equal(departments.markets.evidenceState, "available");
+  assert.equal(departments.research.evidenceState, "available");
+  assert.equal(departments.central_memory.evidenceState, "available");
+  assert.equal(departments.markets.agentState, "not_exposed_by_backend");
   assert.deepEqual(snapshot.tasks.map(task => task.id), ["research-market-123", "research-failed-456"]);
   assert.equal(snapshot.tasks[0].department, "research");
   assert.equal(snapshot.tasks[0].requestedDepartment, "radar");
@@ -204,6 +210,9 @@ test("cockpit snapshot preserves partial endpoint failures without fabricating d
   assert.equal(snapshot.taskFeed.state, "unavailable");
   assert.equal(snapshot.taskFeed.error, "vst_http_503");
   assert.deepEqual(snapshot.tasks, []);
+  const departments = Object.fromEntries(snapshot.departmentEvidence.map(item => [item.department, item]));
+  assert.equal(departments.recovery.evidenceState, "unavailable");
+  assert.equal(departments.research.evidenceState, "unavailable");
   assert.equal(JSON.stringify(snapshot).includes("internal detail must not be copied"), false);
   await adapter.disconnect();
 });
