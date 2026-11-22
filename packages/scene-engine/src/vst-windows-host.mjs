@@ -68,8 +68,8 @@ export function createWindowsVstHost({
 
   async function clearRejectedSession(error) {
     if (error?.message === "vst_auth_rejected") {
-      await adapter.disconnect();
       sessionToken = null;
+      await adapter.disconnect();
     }
     throw error;
   }
@@ -78,6 +78,7 @@ export function createWindowsVstHost({
     if (ownerConsent !== true) throw new Error("vst_session_token_owner_consent_required");
     if (!isValidSessionToken(token)) throw new Error("vst_session_token_invalid");
     await ensureOpen();
+    sessionToken = null;
     await adapter.disconnect();
     sessionToken = token;
     return Object.freeze({
@@ -91,8 +92,8 @@ export function createWindowsVstHost({
   async function clearSessionToken({ ownerConsent } = {}) {
     if (ownerConsent !== true) throw new Error("vst_session_token_owner_consent_required");
     await ensureOpen();
-    await adapter.disconnect();
     sessionToken = null;
+    await adapter.disconnect();
     return Object.freeze({ cleared: true, storage: "memory-session" });
   }
 
@@ -132,8 +133,11 @@ export function createWindowsVstHost({
 
   async function disconnect() {
     if (closed) return { disconnected: true, tokenCleared: true };
-    await adapter.disconnect();
-    sessionToken = null;
+    try {
+      await adapter.disconnect();
+    } finally {
+      sessionToken = null;
+    }
     return { disconnected: true, tokenCleared: true };
   }
 
