@@ -6,7 +6,7 @@ import { resolveEditionHostOptions, runEditionCli } from "../src/edition-cli.mjs
 import { runDgmMatCli } from "../src/dgmat-cli.mjs";
 import { runVstCli } from "../src/vst-cli.mjs";
 
-function makeHost(edition) {
+function makeHost(edition, { connectError = null } = {}) {
   let connected = false;
   let sessionToken = null;
   const calls = [];
@@ -27,7 +27,7 @@ function makeHost(edition) {
       sessionToken = token;
       return { configured: true, storage: "memory-session", persistent: false, tokenExposed: false };
     },
-    async connect() { calls.push("connect"); connected = true; return { connected: true }; },
+    async connect() { calls.push("connect"); if (connectError) throw new Error(connectError); connected = true; return { connected: true }; },
     async getSnapshot() {
       calls.push("snapshot");
       if (!connected) throw new Error("not_connected");
@@ -159,12 +159,23 @@ test("VST CLI forwards only the fixed assistant-message request and preserves ba
   assert.equal(result.code, 0);
   assert.equal(result.responses[0].error, "not_connected");
   assert.equal(result.responses[1].connected, true);
+  assert.equal(result.responses[1].assistantMessageEnabled, true);
   assert.equal(result.responses[2].response.intent, "RESEARCH");
   assert.equal(result.responses[2].response.status, "QUEUED");
   assert.equal(result.responses[2].response.requestId, "cli-research-123");
   assert.equal(result.responses[2].response.executionAuthorized, false);
   assert.equal(host.calls.filter(call => call === "assistant-message").length, 1);
   assert.equal(host.calls.at(-1), "close");
+});
+
+test("VST CLI reports a missing session token as authentication unavailable", async () => {
+  const host = makeHost("vst", { connectError: "vst_session_token_unavailable" });
+  const result = await runWithStreams({
+    edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, ['{"command":"connect"}', '{"command":"shutdown"}']);
+  assert.equal(result.responses[0].ok, false);
+  assert.equal(result.responses[0].error, "authentication_unavailable");
+  assert.equal(host.calls.includes("assistant-message"), false);
 });
 
 test("DGM-MAT CLI rejects the VST assistant-message command", async () => {
