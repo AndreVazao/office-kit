@@ -42,7 +42,7 @@ const SECRET_ASSIGNMENT_PATTERN = /["']?\b(?:api[_-]?(?:key|secret)|access[_-]?t
 const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{16,}/i;
 
 const PRIVATE_FIELD_NAMES = new Set([
-  "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
+  "token", "claimtoken", "claimtokenhash", "ownerid", "userid", "leaseowner",
   "privatenamespace", "screenshotpath", "password", "secret",
   "apikey", "privatekey", "accesstoken", "refreshtoken",
   "authorization", "credential", "credentials"
