@@ -210,6 +210,95 @@ function safeTimestamp(value) {
     : null;
 }
 
+const RESEARCH_TASK_STATUSES = new Set([
+  "PENDING", "IN_PROGRESS", "COMPLETED", "DISCARDED", "FAILED"
+]);
+const RESEARCH_DEPARTMENT_LABELS = Object.freeze({
+  "CEO": "brain",
+  "CÉREBRO / CEO": "brain",
+  "EXCHANGES": "markets",
+  "MARKET RADAR": "radar",
+  "INVESTIGAÇÃO": "research",
+  "LABORATÓRIO PAPER": "paper",
+  "CONTROLO DE RISCO": "risk",
+  "RECUPERAÇÃO": "recovery",
+  "AUDITORIA": "audit",
+  "INTERVENÇÃO HUMANA": "human"
+});
+
+function safeIsoTimestamp(seconds) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0
+    || seconds * 1_000 > 8_640_000_000_000_000) return null;
+  try { return new Date(seconds * 1_000).toISOString(); }
+  catch { return null; }
+}
+
+function requestedDepartmentFromResearchMessage(message) {
+  if (typeof message !== "string") return "brain";
+  const explicit = /^\\[Departamento solicitado: ([^\\]]+)\\]\\s*/i.exec(message);
+  if (explicit) return RESEARCH_DEPARTMENT_LABELS[explicit[1].trim().toLocaleUpperCase("pt-PT")] ?? "unknown";
+  if (/^\\[Área do cockpit: Análise\\]/i.test(message)) return "analysis";
+  return "brain";
+}
+
+function normalizeResearchTasks(researchSection) {
+  if (researchSection?.state !== "available") {
+    return Object.freeze({
+      state: "unavailable",
+      sourcePath: "/research",
+      error: researchSection?.error ?? "vst_research_unavailable",
+      tasks: Object.freeze([])
+    });
+  }
+  const requests = researchSection.data?.requests;
+  if (!Array.isArray(requests)) {
+    return Object.freeze({
+      state: "invalid",
+      sourcePath: "/research",
+      error: "vst_research_response_invalid",
+      tasks: Object.freeze([])
+    });
+  }
+  const tasks = [];
+  for (const request of requests.slice(0, 30)) {
+    if (!request || typeof request !== "object" || Array.isArray(request)
+      || typeof request.request_id !== "string" || !request.request_id
+      || request.request_id.length > 128) continue;
+    const status = typeof request.status === "string" ? request.status.trim().toUpperCase() : "";
+    if (!RESEARCH_TASK_STATUSES.has(status)) continue;
+    const task = {
+      id: request.request_id,
+      type: "research",
+      department: "research",
+      requestedDepartment: requestedDepartmentFromResearchMessage(request.message),
+      status,
+      createdAt: safeIsoTimestamp(request.created_at),
+      updatedAt: safeIsoTimestamp(request.updated_at)
+    };
+    if (typeof request.message === "string") task.description = request.message.slice(0, 4_096);
+    if (typeof request.result === "string" && request.result) task.result = request.result.slice(0, 4_096);
+    if (status === "FAILED" && typeof request.result === "string" && request.result) {
+      task.blocker = request.result.slice(0, 4_096);
+    }
+    if (Number.isFinite(request.progress) && request.progress >= 0 && request.progress <= 100) {
+      task.progress = request.progress;
+    }
+    if (Number.isSafeInteger(request.attempt_count) && request.attempt_count >= 0 && request.attempt_count <= 100) {
+      task.attemptCount = request.attempt_count;
+    }
+    if (Array.isArray(request.urls)) {
+      task.sources = request.urls.filter(value => typeof value === "string").slice(0, 10);
+    }
+    tasks.push(Object.freeze(task));
+  }
+  return Object.freeze({
+    state: "available",
+    sourcePath: "/research",
+    count: tasks.length,
+    tasks: Object.freeze(tasks)
+  });
+}
+
 function freshnessFor(timestampMs, now, ttlMs) {
   if (timestampMs === null) return { state: "unavailable", ageMs: null };
   const ageMs = now - timestampMs;
@@ -828,12 +917,17 @@ export class VstReadOnlyAdapter {
       ? sectionMap.status.data.mode.trim().toUpperCase()
       : "UNKNOWN";
 
+    const taskFeed = normalizeResearchTasks(sectionMap.research);
     return Object.freeze({
       schemaVersion: 1,
       sourceId: SOURCE_ID,
       generatedAt: new Date(generatedAt).toISOString(),
       readOnly: true,
       sections: Object.freeze(sectionMap),
+      taskFeed,
+      tasks: taskFeed.tasks,
+      agents: Object.freeze([]),
+      agentState: "not_exposed_by_backend",
       authority: Object.freeze({
         mode,
         paperOnly: mode === "PAPER",
