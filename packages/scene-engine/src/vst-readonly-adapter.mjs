@@ -74,7 +74,8 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
         "$1=[redacted]"
       )
       .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{16,}/gi, "Bearer [redacted]")
-      .replace(/([?&](?:access_token|refresh_token|api_key|api_secret|token|secret|password)=)[^&\s]+/gi, "$1[redacted]");  }
+      .replace(/([?&](?:access_token|refresh_token|api_key|api_secret|token|secret|password)=)[^&\s]+/gi, "$1[redacted]");
+  }
   if (Array.isArray(value)) {
     return value.slice(0, 200)
       .map(item => sanitizeCockpitPayload(item, "", depth + 1, budget, section))
