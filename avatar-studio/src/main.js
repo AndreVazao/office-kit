@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { createAvatarRig } from "./rig.js";
 import { createAvatarAnimationClips } from "./animation-export.js";
+import { attachAvatarQualityMetadata } from "./quality-profiles.js";
 
 const $ = (id) => document.getElementById(id);
 const viewport = $("viewport");
@@ -387,6 +388,7 @@ function renderCharacter() {
   geometries.forEach((geometry) => geometry.dispose());
   materials.forEach((mat) => mat.dispose());
   character = config.preset === "robot" ? buildRobot(config) : buildHuman(config);
+  attachAvatarQualityMetadata(character, "avatar-studio");
   scene.add(character);
   avatarRig = createAvatarRig(character);
   avatarRig.setMode($("pose-mode")?.value || "idle");
