@@ -58,6 +58,18 @@ Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e
 - `departmentEvidence` expõe apenas disponibilidade das fontes reais associadas a cada área (por exemplo `/venue-health` para Markets e `/research` para Research). O campo `evidenceState` significa disponibilidade de dados, nunca que um agente/departamento está a executar trabalho.
 - A área `analysis` é apenas contexto encaminhado para Research; não é apresentada como equipa independente.
 
+## Fase 5a — diagnóstico local e recuperação limitada
+
+- O host VST integra o `OfficeHealthRecoveryEngine` do core através do armazenamento de incidentes persistente fornecido pelo host Windows.
+- As probes distinguem runtime Office Kit, sessão/adaptador, transporte autenticado e snapshot autoritativo do VST.
+- Timeouts e erros de transporte sem resposta são classificados como indeterminados; HTTP 401/403 e erros HTTP do backend são distinguidos sem os tratar como falhas de rede.
+- Sem token ou antes da primeira tentativa de ligação, o estado é `not_configured`/`not_connected`; não é criado um incidente falso.
+- A recuperação só é iniciada por pedido explícito `recover`. A única ação permitida é reconnect do adaptador local; não reinicia o processo VST, não renova tokens e não escreve no backend.
+- Depois do reconnect, o host exige um novo `GET /observer/summary` com snapshot aceite, sincronizado e fresco. Sem essa prova, o resultado permanece não recuperado.
+- Um token rejeitado é limpo e nunca é reenviado automaticamente. HTTP 403, HTTP 404 e 5xx bloqueiam o reconnect automático e exigem ação do proprietário/backend.
+- As subscrições do host são restauradas após reconnect local; desligar o Office Kit não interrompe o VST.
+- Os comandos CLI `diagnose` e `recover` são fixos e exclusivos da edição VST.
+
 ## Redação e proteção de dados
 
 - Todos os payloads passam por redator recursivo limitado: remove claim tokens, credenciais, identificadores privados, campos de caminhos, valores de formulários de intervenção humana e query/fragment/user-info de URLs; redige atribuições de tokens em texto.
@@ -67,7 +79,7 @@ Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e
 
 ## Interface do host
 
-Após consentimento explícito e autenticação, o host expõe `getCockpitSnapshot()` e `sendAssistantMessage({ message, department })`. A Fase 5 acrescenta `diagnose()` e `attemptRecovery()` com probes em camadas e uma única ação local de reconnect. O CLI aceita apenas comandos fixos; `assistant-message`, `diagnose` e `recover` são exclusivos da edição VST. Não existe entrada para rota, método ou comando arbitrário.
+Após consentimento explícito e autenticação, o host expõe `getCockpitSnapshot()`, `sendAssistantMessage({ message, department })`, `diagnose()` e `attemptRecovery()` com probes em camadas e uma única ação local de reconnect. O CLI aceita apenas comandos fixos; `assistant-message`, `diagnose` e `recover` são exclusivos da edição VST. Não existe entrada para rota, método ou comando arbitrário.
 
 ## Ainda não implementado
 
