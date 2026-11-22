@@ -33,16 +33,16 @@ The existing `GET /observer/summary` remains the authenticated connection/synchr
 
 - Default endpoint is exact loopback `http://127.0.0.1:8765`; LAN/Tailscale is deliberately not enabled in this increment.
 - Every request uses `GET`, `X-Token`, `cache: no-store`, `credentials: omit`, and `redirect: error`.
-- The token is obtained from the VST-specific Windows CNG secret namespace; it is not returned to the renderer, written to URLs, or included in logs.
+- The owner supplies the control token for the active session. The host keeps it only in process memory and clears its reference on disconnect, authentication rejection, and close. It is not written to the CNG vault, renderer storage, URLs, or logs. JavaScript strings cannot be reliably zeroized.
 - Requests are bounded by the adapter timeout and use at most three concurrent endpoint reads.
 - Endpoint failures are represented as unavailable sections with sanitized error codes. Other read sections can still be displayed.
 - Authentication rejection invalidates the cockpit snapshot; a partial snapshot is not reported as authenticated success.
-- The response is session data only. It is not persisted by the Office Kit visual layer.
+- The response is session data only. It is not persisted by the Office Kit visual layer or host.
 - Mode and authority flags are descriptive only. `executionAuthorized`, `ordersSubmitted`, and `riskBearingActionsAllowed` remain false in the Office Kit contract.
 
 ## Host interface
 
-After explicit token provisioning and explicit connection, the VST host exposes `getCockpitSnapshot()`. The local host CLI accepts the fixed `cockpit-snapshot` command. It accepts no token, route, method, or arbitrary payload from the caller.
+After explicit session-token authentication and explicit connection, the VST host exposes `getCockpitSnapshot()`. The local host CLI accepts a fixed `authenticate` request carrying the owner-approved token through stdin only, then the fixed `cockpit-snapshot` command. The token is not echoed or logged and is cleared on disconnect/close; no arbitrary route or method is accepted.
 
 ## Explicitly not implemented in Phase 1
 
