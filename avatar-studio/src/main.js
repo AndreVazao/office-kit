@@ -4,6 +4,7 @@ import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { createAvatarRig } from "./rig.js";
 import { createAvatarAnimationClips } from "./animation-export.js";
 import { attachAvatarQualityMetadata, evaluateAvatarQuality } from "./quality-profiles.js";
+import { applyAvatarQualityVariant } from "./quality-variants.js";
 
 const $ = (id) => document.getElementById(id);
 const viewport = $("viewport");
@@ -468,34 +469,59 @@ $("export-glb").addEventListener("click", () => {
     button.textContent = originalLabel;
   };
 
+  let qualityVariant = null;
   try {
+    const selectedQuality = $("export-quality")?.value || "high";
+    qualityVariant = applyAvatarQualityVariant(character, selectedQuality);
+    character.userData.officeKitAvatar = character.userData.officeKitAvatar || {};
+    character.userData.officeKitAvatar.exportedVariant = {
+      id: qualityVariant.profileId,
+      sourceTriangles: qualityVariant.sourceTriangles,
+      optimizedTriangles: qualityVariant.optimizedTriangles,
+      optimizedVertices: qualityVariant.optimizedVertices,
+      triangleBudget: qualityVariant.triangleBudget,
+      withinTriangleBudget: qualityVariant.withinTriangleBudget,
+      simplification: "skinning-aware-vertex-clustering"
+    };
     const exporter = new GLTFExporter();
     const animations = createAvatarAnimationClips(avatarRig, poseMode?.value || "idle");
-    button.textContent = "A exportar…";
+    button.textContent = "A otimizar e exportar…";
     exporter.parse(character, (result) => {
       try {
+        qualityVariant?.restore();
+        qualityVariant = null;
         const blob = new Blob([result], { type: "model/gltf-binary" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "office-kit-avatar-" + currentPreset + ".glb";
+        link.download = "office-kit-avatar-" + currentPreset + "-" + selectedQuality + ".glb";
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        const withinBudget = result && character.userData.officeKitAvatar.exportedVariant.withinTriangleBudget;
+        if (!withinBudget) {
+          alert("O GLB foi exportado, mas a geometria ainda excede o orçamento de triângulos deste perfil. Consulte a auditoria antes de o distribuir.");
+        }
       } catch (error) {
         console.error("GLB download preparation failed", error);
         alert("O modelo foi gerado, mas não foi possível preparar a transferência do ficheiro.");
       } finally {
+        qualityVariant?.restore();
+        qualityVariant = null;
         restoreButton();
       }
     }, (error) => {
       console.error("GLB export failed", error);
+      qualityVariant?.restore();
+      qualityVariant = null;
       restoreButton();
       alert("Não foi possível exportar o modelo GLB. Consulte a consola do navegador.");
     }, { binary: true, onlyVisible: true, animations });
   } catch (error) {
     console.error("GLB export setup failed", error);
+    qualityVariant?.restore();
+    qualityVariant = null;
     restoreButton();
     alert("Não foi possível preparar a exportação GLB. Consulte a consola do navegador.");
   }
