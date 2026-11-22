@@ -100,7 +100,8 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
         requests: [
           {
             request_id: "research-market-123",
-            message: "[Departamento solicitado: Market Radar] Investiga a volatilidade entre venues",
+            message: "[Departamento solicitado: Market Radar] Investiga https://user:URL_PASSWORD@example.com/market?session=URL_SECRET#private",
+            urls: ["https://user:URL_PASSWORD@example.com/market?session=URL_SECRET#private"],
             status: "IN_PROGRESS",
             created_at: 1_795_370_000,
             updated_at: 1_795_370_010,
@@ -171,6 +172,11 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.tasks[0].status, "IN_PROGRESS");
   assert.equal(snapshot.tasks[0].progress, undefined, "progress is not invented");
   assert.equal(snapshot.tasks[0].updatedAt, new Date(1_795_370_010 * 1_000).toISOString());
+  assert.deepEqual(snapshot.tasks[0].sources, ["https://example.com/market"]);
+  assert.equal(snapshot.tasks[0].description.includes("URL_PASSWORD"), false);
+  assert.equal(snapshot.tasks[0].description.includes("URL_SECRET"), false);
+  assert.equal(JSON.stringify(snapshot).includes("URL_PASSWORD"), false);
+  assert.equal(JSON.stringify(snapshot).includes("URL_SECRET"), false);
   assert.equal(snapshot.tasks[1].status, "FAILED");
   assert.equal(snapshot.tasks[1].blocker, "Fonte de dados indisponível");
   assert.equal(snapshot.tasks[1].progress, 25);
