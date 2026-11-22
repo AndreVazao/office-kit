@@ -19,6 +19,8 @@ The route contract was checked against VST `main` at `ac88989caeff86198339de38e2
 |---|---|---|
 | Liveness | `GET /health` | Public liveness only; not proof of private access |
 | CEO / overview | `GET /status` | `read_private_state` |
+| Central Memory health | `GET /learning-memory/health` | `read_private_state` |
+| Central Memory runtime | `GET /learning-memory/runtime` | `read_private_state` |
 | Recovery / diagnostics | `GET /diagnostics` | `read_private_state` |
 | Radar / data freshness | `GET /market-data-health` | `read_private_state` |
 | Markets / venues | `GET /venue-health` | `read_private_state` |
