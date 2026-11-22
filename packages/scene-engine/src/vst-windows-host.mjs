@@ -211,7 +211,10 @@ export function createWindowsVstHost({
       lastConnectionFailure,
       lastAuthorizationFailure,
       backendOperationalState: "unverified",
-      backendReadOnly: true
+      backendReadOnly: false,
+      backendWriteScope: "assistant_message_only",
+      financialActionsAllowed: false,
+      paperControlsEnabled: false
     });
   }
 
