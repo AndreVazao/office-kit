@@ -316,13 +316,50 @@ test("assistant message blocks credential assignments and unconnected UI-only de
     assert.equal(secret.intent, "SECRET_INPUT_BLOCKED");
     assert.equal(secret.sent, false);
   }
-  for (const department of ["analysis", "central_memory", "central-memory"]) {
-    const result = await adapter.sendAssistantMessage({ message: "Analisa os dados", department });
+  for (const department of ["central_memory", "central-memory"]) {
+    const result = await adapter.sendAssistantMessage({ message: "Consulta a memória", department });
     assert.equal(result.intent, "DEPARTMENT_NOT_CONNECTED");
     assert.equal(result.status, "NOT_CONNECTED");
     assert.equal(result.sent, false);
   }
   assert.equal(calls.filter(call => new URL(call.url).pathname === "/assistant/message").length, 0);
+  await adapter.disconnect();
+});
+
+test("Analysis panel routes as a tagged research request without inventing an Analysis backend", async () => {
+  let postBody = null;
+  const adapter = createAdapter({
+    fetchImpl: async (url, init = {}) => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/assistant/message") {
+        postBody = JSON.parse(init.body);
+        return response({
+          ok: true,
+          result: {
+            intent: "RESEARCH",
+            status: "QUEUED",
+            reply: "Pedido aceite na fila de investigação.",
+            request: { request_id: "analysis-routed-789", status: "PENDING" }
+          }
+        });
+      }
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Avalia a robustez desta hipótese",
+    department: "analysis"
+  });
+  assert.equal(postBody.department, "research");
+  assert.equal(postBody.message, "[Área do cockpit: Análise] Analisa: Avalia a robustez desta hipótese");
+  assert.equal(result.selectedDepartment, "analysis");
+  assert.equal(result.backendDepartment, "research");
+  assert.equal(result.department, "research");
+  assert.equal(result.intent, "RESEARCH");
+  assert.equal(result.status, "QUEUED");
+  assert.equal(result.requestId, "analysis-routed-789");
   await adapter.disconnect();
 });
 
@@ -884,5 +921,6 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
   assert.equal(vstAdapterContract.assistantMessagePaperControlsBlocked, true);
   assert.equal(vstAdapterContract.assistantMessageAutomaticRetry, false);
   assert.ok(vstAdapterContract.assistantMessageDepartments.includes("research"));
-  assert.ok(vstAdapterContract.assistantMessageUiOnlyDepartments.includes("analysis"));
+  assert.ok(vstAdapterContract.assistantMessageUiOnlyDepartments.includes("central_memory"));
+  assert.equal(vstAdapterContract.assistantMessageDepartmentRouting.analysis, "research");
 });
