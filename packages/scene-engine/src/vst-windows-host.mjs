@@ -216,6 +216,9 @@ export function createWindowsVstHost({
     if (!sessionToken && lastConnectionFailure !== "authentication_rejected") {
       return Object.freeze({ state: "not_configured", diagnostics: null, incidentId: null });
     }
+    if (sessionToken && !adapter.connected && !lastConnectionFailure) {
+      return Object.freeze({ state: "not_connected", diagnostics: null, incidentId: null });
+    }
     const engine = getDiagnosticsEngine();
     const report = await engine.diagnose({
       edition: "vst",
@@ -242,6 +245,9 @@ export function createWindowsVstHost({
     const diagnosis = await diagnose();
     if (diagnosis.state === "not_configured") {
       return Object.freeze({ recovered: false, blocked: true, reason: "session_not_configured", diagnosis });
+    }
+    if (diagnosis.state === "not_connected") {
+      return Object.freeze({ recovered: false, blocked: true, reason: "connection_not_attempted", diagnosis });
     }
     if (diagnosis.state === "healthy") {
       return Object.freeze({ recovered: false, blocked: true, reason: "recovery_not_required", diagnosis });
