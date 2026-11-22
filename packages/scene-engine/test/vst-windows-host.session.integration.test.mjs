@@ -89,13 +89,15 @@ test("an authenticated but not-yet-connected VST session is not recorded as an i
 test("VST diagnostics classify a disconnected adapter and recover only the local adapter", async () => {
   const host = makeHost();
   const requests = [];
+  const events = [];
+  let unsubscribe = () => {};
   let transportAvailable = false;
   const composed = createWindowsVstHost({
     hostFactory: () => host,
     adapterOptions: {
       now: () => fixedNow,
       timeoutMs: 1_000,
-      pollIntervalMs: 60_000,
+      pollIntervalMs: 1_000,
       fetchImpl: async (url, init) => {
         requests.push({ path: new URL(url).pathname, method: init.method });
         if (!transportAvailable) throw new Error("socket unavailable");
@@ -116,6 +118,7 @@ test("VST diagnostics classify a disconnected adapter and recover only the local
   });
   try {
     await composed.ready;
+    unsubscribe = composed.subscribe(event => events.push(event));
     await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
     await assert.rejects(composed.connect(), /vst_transport_error/);
     assert.equal(composed.getCredentialState().configured, true);
@@ -135,6 +138,8 @@ test("VST diagnostics classify a disconnected adapter and recover only the local
 
     const verified = await composed.diagnose();
     assert.equal(verified.state, "healthy");
+    await new Promise(resolve => setTimeout(resolve, 1_100));
+    assert.ok(events.some(event => event.type === "snapshot"), "host subscriptions survive local reconnect");
     const incidents = await host.incidentStore.list();
     assert.equal(incidents.length, 1);
     assert.equal(incidents[0].status, "healthy");
@@ -142,6 +147,7 @@ test("VST diagnostics classify a disconnected adapter and recover only the local
     assert.ok(requests.every(item => item.method === "GET"));
     assert.equal(requests.some(item => item.path !== "/observer/summary"), false);
   } finally {
+    unsubscribe();
     await composed.close();
   }
 });
