@@ -34,7 +34,22 @@ function response(path) {
           execution_authorized: false
         }
       }
-      : { ok: true, path };
+      : path === "/research"
+        ? {
+          pending: 1,
+          active: 0,
+          completed: 0,
+          discarded: 0,
+          failed: 0,
+          requests: [{
+            request_id: "research-live-task-001",
+            message: "Investiga a frescura dos dados de mercado",
+            status: "PENDING",
+            created_at: 1_795_370_000,
+            updated_at: 1_795_370_000
+          }]
+        }
+        : { ok: true, path };
   return {
     ok: true,
     status: 200,
@@ -76,6 +91,14 @@ test("VST session token stays ephemeral across cockpit GETs and restricted assis
     const snapshot = await composed.getCockpitSnapshot();
     assert.equal(snapshot.readOnly, true);
     assert.equal(snapshot.sections.status.state, "available");
+    assert.equal(snapshot.taskFeed.state, "available");
+    assert.equal(snapshot.tasks.length, 1);
+    assert.equal(snapshot.tasks[0].id, "research-live-task-001");
+    assert.equal(snapshot.tasks[0].department, "research");
+    assert.equal(snapshot.tasks[0].status, "PENDING");
+    assert.equal(snapshot.tasks[0].progress, undefined);
+    assert.deepEqual(snapshot.agents, []);
+    assert.equal(snapshot.agentState, "not_exposed_by_backend");
     assert.ok(requests.length >= 13);
     assert.ok(requests.filter(item => item.method === "GET").length >= 13);
     assert.ok(requests.every(item => item.token === ownerToken));
