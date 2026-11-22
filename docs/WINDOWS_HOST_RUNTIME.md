@@ -112,13 +112,14 @@ O SqliteOfficeIncidentStore verifica SHA-256 + HMAC-SHA-256 antes de operações
 Limites: chave associada ao perfil Windows atual; backup apenas do SQLite não é suficiente. Sem âncora externa monotónica, rollback/truncagem para um prefixo antigo válido não é detetado. Rotação de chave e recuperação entre perfis ainda não estão implementadas. CI Windows com helper CNG real passou, mas não substitui teste no PC físico.
 
 
-## VST Windows host composition — preview isolado (2026-11-12)
+## VST Windows host composition — read-only cockpit preview
 
-A edição VST expõe `createWindowsVstHost` apenas pelo entrypoint `./windows-host/vst`. O host usa o `WindowsCngSecretVault` genérico no namespace `vst.local-api`, separado de `dgmat.bootstrap` e da identidade do nó. Provisionar/remover o token exige consentimento explícito do proprietário; provisionar não liga o adapter automaticamente.
+A edição VST expõe `createWindowsVstHost` apenas pelo entrypoint `./windows-host/vst`. O token de controlo é fornecido pelo proprietário para a sessão ativa e mantido apenas em memória. Não é guardado no CNG, SQLite, ficheiros de configuração ou armazenamento visual. Desligar, rejeição de autenticação e fechar o host limpam a referência; o proprietário volta a introduzir o token na próxima sessão.
 
-A ligação é manual e read-only: somente `GET http://127.0.0.1:8765/observer/summary` com `X-Token`, sem redirects ou endpoints remotos. O envelope só é aceite quando `ok === true`. O adapter não expõe comandos, não infere atividade de agentes/tarefas e mantém o estado operacional `unverified`. O modo REAL não concede autorização de execução.
+A ligação é manual e read-only: `GET http://127.0.0.1:8765/observer/summary` para sincronização e os endpoints GET autenticados do cockpit documentados em `docs/integrations/VST_COCKPIT_ADAPTER.md`. O token segue apenas no header `X-Token`; redirects e endpoints remotos continuam bloqueados. Não são expostos comandos, controlos PAPER ou rotas de escrita. O modo REAL não concede autorização de execução.
 
-O CI #43230962819 passou em Node 22 e Node 26.13.1 no HEAD de implementação `3aff126095e4af10d16ea65fccaeb58be983eb43`. O teste VST usa o helper CNG nativo e SQLite real através da composição VST, com host factory injetada e resposta HTTP simulada; valida o percurso do segredo/CNG, não o host Windows completo nem uma instância VST ativa. A regressão visual #43230962934 também passou. O commit subsequente de sincronização documental está a ser revalidado no seu próprio HEAD da PR antes do merge. A validação live e no PC físico continua pendente.
+O teste de integração VST verifica o ciclo de vida do token efémero e a agregação read-only com respostas HTTP simuladas. A compatibilidade live, Authenticode positivo e validação no PC físico continuam pendentes.
+
 
 
 The portable Universal Windows bundle now includes the generic monotonic anchor contract, coordinator and incident writer modules required by the Windows host composition. These modules are backend-neutral; DGM-MAT/VST adapter modules remain excluded from the Universal bundle. The bundle allowlist test must stay in sync with the copy list.
