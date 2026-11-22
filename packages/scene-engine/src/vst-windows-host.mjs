@@ -79,6 +79,8 @@ export function createWindowsVstHost({
 
   async function clearRejectedSession(error) {
     if (error?.message === "vst_auth_rejected") {
+      lastConnectionFailure = "authentication_rejected";
+      lastAuthorizationFailure = null;
       sessionToken = null;
       await adapter.disconnect();
     }
