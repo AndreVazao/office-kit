@@ -1,8 +1,18 @@
 # Implementation status
 
+## Current integration status — 2026-11-22
+
+- Main HEAD: `540d7e3d4cec6ffe5df63587951c3c0b1d84a158` (PR #116 squash merge). The PR #116 checks passed on its exact final HEAD `dbb94763883c782e6f38040bf8e37ddfbd3a3a9f`: CI run [45008801668](https://github.com/AndreVazao/office-kit/actions/runs/45008801668) passed Linux/Windows Node 22 and Node 26.13.1; visual regression [45008801688](https://github.com/AndreVazao/office-kit/actions/runs/45008801688) passed.
+- PR #115 was squash-merged as `65f556ffa3b69a84e930ea3e194bc29e1e187d82` from final PR HEAD `f179d24f52f3f8947c4ee3728db70e5a0087d111`. Its multi-process test uses two independent Node.js processes and real SQLite/WAL on one local host, but a deterministic test-only license verifier. It does not prove production signature trust, cross-PC/offline coordination, power-loss durability or physical-PC behavior.
+- PR #116 removes the process-environment publisher pin from the production Windows host and DGM-MAT/VST portable launchers. With no authenticated installer policy yet, the default host fails closed before opening SQLite. The Windows host is therefore intentionally unavailable for normal production startup until issue #110 is completed.
+- The explicit SHA-1 thumbprint argument in `verifyAuthenticodeHelper` remains a test-only seam. No production publisher pin, positive commercial trust chain, exact multi-signature binding or revocation policy is implemented.
+- Universal remains backend-neutral; DGM-MAT and VST keep separate host compositions, adapters and credential namespaces. All three portable Windows bundles are CI-tested on GitHub-hosted runners, not installed by MSI/MSIX and not validated on a physical user PC.
+- PR #108 remains a separate draft limited to `avatar-studio/`. Its four optimized geometry/texture tiers are not implemented; current quality-profile values are metadata/targets only.
+- Open production gates: #110 Authenticode/publisher policy; #104 native installers and platform lifecycle; #109 signed-license/host activation integration; #58 TPM-backed anti-rollback and physical recovery; #57 live DGM-MAT session validation.
+
 This page records implemented work separately from planned or independently verified behavior.
 
-## Current integration status — 2026-11-15
+## Historical integration status — 2026-11-15
 
 - Main HEAD at this status update: `68be0150c8f5ecd5a59f28a99426110c0c9fed08` (PR #95 squash merge). No PR is currently open; issues #57 and #58 remain open.
 
@@ -761,7 +771,7 @@ This branch is not yet validated. Its CI must complete on the final branch/PR HE
 - Main HEAD: `e4800a76747f84b35e0f14fa4babf071c2d30de2`.
 - PR #107 delivered portable Windows bundles for Universal, DGM-MAT and VST. Final PR HEAD `75fd8d027d69d49fc11c0b20f7e1d58d5eece0e4`; squash merge `b27136a974d25bb1f3572a5bdb8700f359ac2627`. CI [44911614409](https://github.com/AndreVazao/office-kit/actions/runs/44911614409) passed Linux/Windows Node 22/26.13.1, including all three bundle E2E steps; visual regression [44911614342](https://github.com/AndreVazao/office-kit/actions/runs/44911614342) passed on the same PR HEAD.
 - The bundle result is GitHub-hosted runner evidence only. It does not establish MSI/MSIX lifecycle, commercial signing/trust, live backend compatibility or physical-PC installation.
-- Issue #110 remains open. The current bounded PowerShell verifier still reads a SHA-1 thumbprint from the process environment; authenticated installer-provisioned publisher policy, SHA-256 SPKI pinning, exact signer/signature binding and explicit revocation behavior remain unimplemented.
+- Issue #110 remains open. PR #116 was squash-merged on 2026-11-22 as `540d7e3d4cec6ffe5df63587951c3c0b1d84a158` from final PR HEAD `dbb94763883c782e6f38040bf8e37ddfbd3a3a9f`; CI `45008801668` passed all Linux/Windows Node 22/26 jobs and visual regression `45008801688` passed on that exact PR HEAD. The production host no longer reads `OFFICE_KIT_CNG_SIGNER_THUMBPRINT`; without an authenticated publisher-policy provider it fails closed with `windows_host_publisher_policy_unavailable` before opening SQLite. This is a deliberate startup block, not a working production trust policy. Installer-authenticated SHA-256 SPKI pinning, exact signature-index/signer binding, explicit install/update and offline revocation policies, and native Windows positive/negative trust tests remain unimplemented.
 - PR #111 added the third SQLite process-crash boundary and was squash-merged as `b8cff02dd9f74886df6c39895213cc03e31a4bbf` from final PR HEAD `362ac780cb7f9c31b7111ac6b7384a2179357abb`. CI [44912644014](https://github.com/AndreVazao/office-kit/actions/runs/44912644014) passed Linux/Windows Node 22/26.13.1; the new subtest was observed passing in all four job logs. Visual regression [44912644019](https://github.com/AndreVazao/office-kit/actions/runs/44912644019) passed on that exact PR HEAD.
 - The new crash test uses real SQLite/WAL with `synchronous=FULL`, a real child process and an explicit test-only file-backed fake anchor. It verifies rollback of an interrupted finalization transaction and exactly-once recovery. It is not TPM, power-loss, hardware rollback-resistance or physical-PC evidence.
 - Post-merge main CI [44913217716](https://github.com/AndreVazao/office-kit/actions/runs/44913217716) passed all four Linux/Windows Node 22/26.13.1 jobs; post-merge visual regression [44913217681](https://github.com/AndreVazao/office-kit/actions/runs/44913217681) passed on the merge commit.
