@@ -207,7 +207,9 @@ export function createWindowsVstHost({
         ? "denied" : lastAuthorizationFailure ? "scope_denied"
           : adapter.connected ? "read_private_state_granted" : "not_checked",
       connectivityState: adapter.connected
-        ? "connected" : lastConnectionFailure === "connectivity_unavailable" ? "unavailable" : "disconnected",
+        ? "connected" : lastConnectionFailure === "connectivity_unavailable" ? "unavailable"
+          : ["authentication_rejected", "authorization_denied"].includes(lastConnectionFailure)
+            ? "reachable" : "disconnected",
       lastConnectionFailure,
       lastAuthorizationFailure,
       backendOperationalState: "unverified",
