@@ -68,6 +68,24 @@ function response(path) {
   };
 }
 
+test("an authenticated but not-yet-connected VST session is not recorded as an incident", async () => {
+  const host = makeHost();
+  const composed = createWindowsVstHost({ hostFactory: () => host });
+  try {
+    await composed.ready;
+    await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
+    const diagnosis = await composed.diagnose();
+    assert.equal(diagnosis.state, "not_connected");
+    assert.equal(diagnosis.incidentId, null);
+    assert.deepEqual(await host.incidentStore.list(), []);
+    const recovery = await composed.attemptRecovery();
+    assert.equal(recovery.blocked, true);
+    assert.equal(recovery.reason, "connection_not_attempted");
+  } finally {
+    await composed.close();
+  }
+});
+
 test("VST diagnostics classify a disconnected adapter and recover only the local adapter", async () => {
   const host = makeHost();
   const requests = [];
