@@ -22,6 +22,17 @@ const ASSISTANT_DEPARTMENTS = new Set([
   "brain", "markets", "radar", "research", "paper", "risk", "recovery", "audit", "human"
 ]);
 const UI_ONLY_DEPARTMENTS = new Set(["analysis", "central_memory"]);
+const ASSISTANT_DEPARTMENT_LABELS = Object.freeze({
+  brain: "Cérebro / CEO",
+  markets: "Exchanges",
+  radar: "Market Radar",
+  research: "Investigação",
+  paper: "Laboratório PAPER",
+  risk: "Controlo de risco",
+  recovery: "Recuperação",
+  audit: "Auditoria",
+  human: "Intervenção humana"
+});
 const PAPER_CONTROL_COMMANDS = new Set([
   "iniciar", "inicia", "ligar", "começar", "comecar", "start",
   "pausar", "pausa", "pause", "retomar", "retoma", "resume",
@@ -261,6 +272,48 @@ export class VstReadOnlyAdapter {
     this.snapshotSequence = 0;
     this.sessionId = null;
     this.authenticationRejected = false;
+  }
+
+  async #reconcileResearchRequest(message, department, submittedAt, { signal } = {}) {
+    const label = ASSISTANT_DEPARTMENT_LABELS[department];
+    const expectedMessage = department === "brain"
+      ? message : "[Departamento solicitado: " + label + "] " + message;
+    try {
+      const snapshot = await this.#get("/research", { signal });
+      const requests = Array.isArray(snapshot?.requests) ? snapshot.requests : [];
+      const now = Date.now() / 1_000;
+      const matches = requests.filter(item => item && item.message === expectedMessage
+        && Number.isFinite(Number(item.created_at))
+        && Number(item.created_at) >= submittedAt - 5
+        && Number(item.created_at) <= now + 5);
+      matches.sort((left, right) => Number(right.created_at) - Number(left.created_at));
+      const match = matches[0];
+      if (!match) {
+        return Object.freeze({ reconciliation: "not_found", retryAllowed: false });
+      }
+      const request = sanitizeCockpitPayload(match, "", 0, { nodes: 0 }, "researchReconciliation");
+      const status = typeof match.status === "string" ? match.status.trim().toUpperCase() : "UNKNOWN";
+      return Object.freeze({
+        intent: "RESEARCH_RECONCILED",
+        status,
+        accepted: true,
+        completed: status === "COMPLETED",
+        requestId: typeof request?.request_id === "string" ? request.request_id : null,
+        request,
+        reply: "O VST confirmou o pedido e devolveu o estado atual da fila.",
+        paperOnly: true,
+        executionAuthorized: false,
+        reconciliation: "matched",
+        retryAllowed: false
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === "vst_auth_rejected") throw error;
+      return Object.freeze({
+        reconciliation: code === "vst_http_403" ? "permission_denied" : "unavailable",
+        retryAllowed: false
+      });
+    }
   }
 
   async #postAssistantMessage(message, department, { signal } = {}) {
@@ -696,7 +749,15 @@ export class VstReadOnlyAdapter {
     if (this.authenticationRejected) throw new Error("vst_auth_rejected");
     const controller = this.connectionAbortController;
     if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
-    return this.#postAssistantMessage(cleanMessage, normalizedDepartment, { signal: controller.signal });
+    const submittedAt = Date.now() / 1_000;
+    const result = await this.#postAssistantMessage(cleanMessage, normalizedDepartment, { signal: controller.signal });
+    if (result.status === "UNKNOWN" && result.sent === true) {
+      const reconciliation = await this.#reconcileResearchRequest(
+        cleanMessage, normalizedDepartment, submittedAt, { signal: controller.signal }
+      );
+      return Object.freeze({ ...result, ...reconciliation });
+    }
+    return result;
   }
 
   async getCockpitSnapshot() {
