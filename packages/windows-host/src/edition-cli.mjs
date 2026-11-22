@@ -8,7 +8,7 @@ const EDITION_DATA_DIRECTORIES = Object.freeze({
 const MAX_REQUEST_BYTES = 4_096;
 const CLI_COMMANDS = new Set(["health", "serve"]);
 const REQUEST_COMMANDS = new Set([
-  "health", "credential-status", "connect", "snapshot", "disconnect", "shutdown"
+  "health", "credential-status", "connect", "snapshot", "cockpit-snapshot", "disconnect", "shutdown"
 ]);
 
 function writeJson(output, value) {
@@ -57,6 +57,14 @@ async function executeRequest(host, command) {
     if (health?.adapterConnected !== true) return { ok: false, command, error: "not_connected" };
     return { ok: true, command, snapshot: await host.getSnapshot() };
   }
+  if (command === "cockpit-snapshot") {
+    const health = await host.health();
+    if (health?.adapterConnected !== true) return { ok: false, command, error: "not_connected" };
+    if (typeof host.getCockpitSnapshot !== "function") {
+      return { ok: false, command, error: "cockpit_snapshot_unavailable" };
+    }
+    return { ok: true, command, readOnly: true, cockpit: await host.getCockpitSnapshot() };
+  }
   if (command === "disconnect") {
     await host.disconnect();
     return { ok: true, command, connected: false };
@@ -80,6 +88,7 @@ async function runServe(host, { input, output }) {
       } catch {
         const error = request.command === "connect" ? "connection_failed"
           : request.command === "snapshot" ? "snapshot_failed"
+            : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
             : request.command === "disconnect" ? "disconnect_failed"
               : request.command === "credential-status" ? "credential_status_failed"
                 : "health_failed";
