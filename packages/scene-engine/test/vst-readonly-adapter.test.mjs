@@ -167,7 +167,7 @@ test("cockpit payloads redact secrets, private identifiers, local paths and URL 
             request_id: "request-123",
             status: "PENDING",
             title: "Owner confirmation",
-            message: "token=INLINE_SECRET api_key=INLINE_KEY",
+            message: 'token=INLINE_SECRET api_key=INLINE_KEY {"apiKey":"INLINE_JSON_KEY"} Bearer INLINE_BEARER_SECRET_0123456789',
             fields: [{ name: "password", label: "Password", value: "FORM_SECRET", default_value: "FORM_DEFAULT" }],
             claim_token: "CLAIM_SECRET_VALUE",
             claim_token_hash: "CLAIM_HASH_VALUE",
@@ -193,7 +193,7 @@ test("cockpit payloads redact secrets, private identifiers, local paths and URL 
   const snapshot = await adapter.getCockpitSnapshot();
   const serialized = JSON.stringify(snapshot);
   for (const secret of [
-    "INLINE_SECRET", "INLINE_KEY", "FORM_SECRET", "FORM_DEFAULT", "CLAIM_SECRET_VALUE", "CLAIM_HASH_VALUE",
+    "INLINE_SECRET", "INLINE_KEY", "INLINE_JSON_KEY", "INLINE_BEARER_SECRET_0123456789", "FORM_SECRET", "FORM_DEFAULT", "CLAIM_SECRET_VALUE", "CLAIM_HASH_VALUE",
     "PRIVATE_OWNER_ID", "URL_SECRET", "STATUS_API_KEY", "vst.sqlite", "screenshot.png"
   ]) {
     assert.equal(serialized.includes(secret), false, secret);
@@ -207,7 +207,9 @@ test("cockpit payloads redact secrets, private identifiers, local paths and URL 
   assert.equal(pending.fields[0].value, undefined);
   assert.equal(pending.fields[0].default_value, undefined);
   assert.equal(pending.screenshot_path, undefined);
-  assert.equal(pending.message, "token=[redacted] api_key=[redacted]");
+  assert.equal(pending.message.includes("INLINE_JSON_KEY"), false);
+  assert.equal(pending.message.includes("INLINE_BEARER_SECRET"), false);
+  assert.equal(pending.message.startsWith("token=[redacted] api_key=[redacted]"), true);
   assert.equal(snapshot.sections.status.data.owner.owner_id, undefined);
   await adapter.disconnect();
 });
