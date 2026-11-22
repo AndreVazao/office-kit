@@ -72,13 +72,17 @@ async function executeRequest(host, command) {
   return { ok: true, command, shutdown: true };
 }
 
-async function runServe(host, { input, output }) {
+async function runServe(host, { input, output, edition }) {
   const reader = createInterface({ input, crlfDelay: Infinity, terminal: false });
   try {
     for await (const line of reader) {
       const request = parseRequest(line);
       if (request.error) {
         writeJson(output, { ok: false, error: request.error });
+        continue;
+      }
+      if (request.command === "cockpit-snapshot" && edition !== "vst") {
+        writeJson(output, { ok: false, error: "invalid_request" });
         continue;
       }
       try {
@@ -138,7 +142,7 @@ export async function runEditionCli({
         return 1;
       }
     }
-    await runServe(host, { input, output });
+    await runServe(host, { input, output, edition });
     return 0;
   } finally {
     await host.close();
