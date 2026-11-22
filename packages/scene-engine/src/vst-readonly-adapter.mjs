@@ -14,6 +14,58 @@ const COCKPIT_ENDPOINTS = Object.freeze({
   humanInteractionPending: "/human-interaction/pending"
 });
 const ALLOWED_PATHS = new Set(["/observer/summary", ...Object.values(COCKPIT_ENDPOINTS)]);
+const PRIVATE_FIELD_NAMES = new Set([
+  "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
+  "privatenamespace", "screenshotpath", "password", "secret",
+  "apikey", "privatekey", "accesstoken", "refreshtoken",
+  "authorization", "credential", "credentials", "claim"
+]);
+
+function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 }) {
+  if (budget.nodes++ >= 20_000 || depth > 8) return null;
+  const normalizedKey = String(key).replace(/[^a-z0-9]/gi, "").toLowerCase();
+  if (PRIVATE_FIELD_NAMES.has(normalizedKey)
+    || normalizedKey.endsWith("path")
+    || normalizedKey.endsWith("directory")
+    || normalizedKey === "dir"
+    || normalizedKey === "root") {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    if (normalizedKey === "url") {
+      try {
+        const parsed = new URL(value);
+        parsed.username = "";
+        parsed.password = "";
+        parsed.search = "";
+        parsed.hash = "";
+        return parsed.toString().slice(0, 2_048);
+      } catch {
+        return value.slice(0, 2_048);
+      }
+    }
+    return value.slice(0, 4_096).replace(
+      /\\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\\s*[:=]\\s*["']?[^\\s"'&,;]+/gi,
+      "$1=[redacted]"
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 200)
+      .map(item => sanitizeCockpitPayload(item, "", depth + 1, budget))
+      .filter(item => item !== undefined);
+  }
+  if (value && typeof value === "object") {
+    const output = {};
+    for (const [childKey, childValue] of Object.entries(value).slice(0, 200)) {
+      const sanitized = sanitizeCockpitPayload(childValue, childKey, depth + 1, budget);
+      if (sanitized !== undefined) output[childKey] = sanitized;
+    }
+    return output;
+  }
+  return value;
+}
+
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ENGINE_STATUSES = new Set([
   "OFF", "STARTING", "RUNNING", "PAUSED", "STOPPING",
@@ -368,11 +420,12 @@ export class VstReadOnlyAdapter {
         const [key, path] = endpoints[index];
         try {
           const data = await this.#get(path, { signal: controller.signal });
+          const sanitizedData = sanitizeCockpitPayload(data);
           sections[index] = Object.freeze({
             state: "available",
             path,
             receivedAt: new Date(this.now()).toISOString(),
-            data
+            data: sanitizedData
           });
         } catch (error) {
           if (this.authenticationRejected || controller.signal.aborted) throw error;
