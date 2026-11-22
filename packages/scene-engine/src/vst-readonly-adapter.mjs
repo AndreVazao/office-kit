@@ -21,7 +21,8 @@ const ASSISTANT_PATH = "/assistant/message";
 const ASSISTANT_DEPARTMENTS = new Set([
   "brain", "markets", "radar", "research", "paper", "risk", "recovery", "audit", "human"
 ]);
-const UI_ONLY_DEPARTMENTS = new Set(["analysis", "central_memory"]);
+const UI_ONLY_DEPARTMENTS = new Set(["central_memory"]);
+const ASSISTANT_UI_DEPARTMENT_ROUTING = Object.freeze({ analysis: "research" });
 const ASSISTANT_DEPARTMENT_LABELS = Object.freeze({
   brain: "Cérebro / CEO",
   markets: "Exchanges",
@@ -710,18 +711,23 @@ export class VstReadOnlyAdapter {
 
     const normalizedDepartment = typeof department === "string"
       ? department.trim().toLowerCase().replace(/-/g, "_") : "";
+    const selectedDepartment = normalizedDepartment;
+    const backendDepartment = ASSISTANT_UI_DEPARTMENT_ROUTING[normalizedDepartment] ?? normalizedDepartment;
+    const routedMessage = normalizedDepartment === "analysis"
+      ? "[Área do cockpit: Análise] Analisa: " + cleanMessage : cleanMessage;
     if (UI_ONLY_DEPARTMENTS.has(normalizedDepartment)) {
       return Object.freeze({
         ok: false,
         intent: "DEPARTMENT_NOT_CONNECTED",
         status: "NOT_CONNECTED",
         department: normalizedDepartment,
+        selectedDepartment,
         sent: false,
         retryAllowed: false,
         reply: "O VST ainda não declara um handler conversacional independente para esta área. Os dados read-only continuam disponíveis no cockpit."
       });
     }
-    if (!ASSISTANT_DEPARTMENTS.has(normalizedDepartment)) {
+    if (!ASSISTANT_DEPARTMENTS.has(backendDepartment)) {
       throw new Error("vst_assistant_department_invalid");
     }
     if (SECRET_ASSIGNMENT_PATTERN.test(cleanMessage) || BEARER_TOKEN_PATTERN.test(cleanMessage)) {
@@ -751,14 +757,14 @@ export class VstReadOnlyAdapter {
     const controller = this.connectionAbortController;
     if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
     const submittedAt = Date.now() / 1_000;
-    const result = await this.#postAssistantMessage(cleanMessage, normalizedDepartment, { signal: controller.signal });
+    const result = await this.#postAssistantMessage(routedMessage, backendDepartment, { signal: controller.signal });
     if (result.status === "UNKNOWN" && result.sent === true) {
       const reconciliation = await this.#reconcileResearchRequest(
-        cleanMessage, normalizedDepartment, submittedAt, { signal: controller.signal }
+        routedMessage, backendDepartment, submittedAt, { signal: controller.signal }
       );
-      return Object.freeze({ ...result, ...reconciliation });
+      return Object.freeze({ ...result, ...reconciliation, selectedDepartment, backendDepartment });
     }
-    return result;
+    return Object.freeze({ ...result, selectedDepartment, backendDepartment });
   }
 
   async getCockpitSnapshot() {
@@ -913,6 +919,7 @@ export const vstAdapterContract = Object.freeze({
   assistantMessageMethod: "POST",
   assistantMessageDepartments: Object.freeze([...ASSISTANT_DEPARTMENTS]),
   assistantMessageUiOnlyDepartments: Object.freeze([...UI_ONLY_DEPARTMENTS]),
+  assistantMessageDepartmentRouting: Object.freeze({ ...ASSISTANT_UI_DEPARTMENT_ROUTING }),
   assistantMessagePaperControlsBlocked: true,
   assistantMessageAutomaticRetry: false,
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
