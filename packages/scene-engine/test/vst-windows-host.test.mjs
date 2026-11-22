@@ -233,7 +233,7 @@ test("VST host keeps the session token on missing submit_research scope", async 
     assert.equal(composed.getCredentialState().configured, true);
     const health = await composed.health();
     assert.equal(health.authenticationState, "configured");
-    assert.equal(health.authorizationState, "denied");
+    assert.equal(health.authorizationState, "scope_denied");
     assert.equal(health.lastAuthorizationFailure, "submit_research");
   } finally {
     await composed.close();
