@@ -1,0 +1,82 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createWindowsVstHost } from "../src/vst-windows-host.mjs";
+
+const fixedNow = Date.parse("2026-11-22T12:00:00.000Z");
+const ownerToken = "vst-session-token-" + "0123456789".repeat(4);
+
+function makeHost() {
+  let closed = false;
+  return {
+    ready: Promise.resolve({ status: "ready" }),
+    async health() { return { status: "ready" }; },
+    async close() { closed = true; },
+    get closed() { return closed; }
+  };
+}
+
+function response(path) {
+  const data = path === "/observer/summary"
+    ? {
+      ok: true, status: "OFF", mode: "PAPER", open_positions_count: 0,
+      opportunities_count: 0, updated_at_ms: fixedNow, health_state: "unknown",
+      allow_new_tasks: false, allow_risk_bearing_actions: false, health_checked_at_ms: 0
+    }
+    : { ok: true, path };
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: () => "application/json" },
+    json: async () => data
+  };
+}
+
+test("VST session token is never persisted and is cleared on disconnect/close", async () => {
+  const host = makeHost();
+  const requests = [];
+  const composed = createWindowsVstHost({
+    hostFactory: () => host,
+    adapterOptions: {
+      now: () => fixedNow,
+      timeoutMs: 1_000,
+      pollIntervalMs: 60_000,
+      fetchImpl: async (url, init) => {
+        requests.push({ url, method: init.method, token: init.headers?.["X-Token"] ?? null });
+        return response(new URL(url).pathname);
+      }
+    }
+  });
+
+  try {
+    await composed.ready;
+    const configured = await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
+    assert.deepEqual(configured, {
+      configured: true,
+      storage: "memory-session",
+      persistent: false,
+      tokenExposed: false
+    });
+    assert.equal(requests.length, 0, "session setup must not connect or persist");
+    assert.equal(composed.getCredentialState().configured, true);
+    assert.equal(composed.getCredentialState().persistent, false);
+
+    await composed.connect();
+    const snapshot = await composed.getCockpitSnapshot();
+    assert.equal(snapshot.readOnly, true);
+    assert.equal(snapshot.sections.status.state, "available");
+    assert.ok(requests.length >= 10);
+    assert.ok(requests.every(item => item.method === "GET"));
+    assert.ok(requests.every(item => item.token === ownerToken));
+    assert.equal(JSON.stringify(snapshot).includes(ownerToken), false);
+
+    await composed.disconnect();
+    assert.equal(composed.getCredentialState().configured, false);
+    assert.equal(composed.getCredentialState().storage, "memory-session");
+    await assert.rejects(composed.connect(), /session_token_unavailable/);
+  } finally {
+    await composed.close();
+  }
+
+  assert.equal(host.closed, true);
+  assert.equal(composed.getCredentialState().storage, "closed");
+});
