@@ -40,7 +40,8 @@ export function createAvatarRig(parent) {
   const chest = makeBone("Chest", [0, 1.56, 0], spine);
   const neck = makeBone("Neck", [0, 1.72, 0], chest);
   const headBone = makeBone("Head", [0, 1.94, 0], neck);
-  makeBone("Jaw", taggedBonePositions.get("Jaw") || [0, 1.785, 0.035], headBone);
+  // Place the jaw pivot at the hinge behind the mouth, not at the mouth mesh origin.
+  makeBone("Jaw", [0, 1.79, 0.055], headBone);
   for (const side of ["L", "R"]) {
     const fallbackX = side === "L" ? -0.083 : 0.083;
     makeBone("Eyelid_" + side, taggedBonePositions.get("Eyelid_" + side) || [fallbackX, 1.997, 0.185], headBone);
@@ -222,6 +223,12 @@ export function createAvatarRig(parent) {
           x < 0 ? thighWeight : 0,
           x >= 0 ? thighWeight : 0
         );
+      } else if (segment === "neck") {
+        const neckIndex = boneIndex.get("Neck");
+        const chestWeight = 1 - THREE.MathUtils.clamp((y - 1.62) / 0.16, 0, 1);
+        const neckWeight = 1 - chestWeight;
+        indices.push(chestIndex, neckIndex, 0, 0);
+        weights.push(chestWeight, neckWeight, 0, 0);
       } else {
         const waistToSpine = THREE.MathUtils.clamp((y - 0.92) / 0.35, 0, 1);
         const spineToChest = THREE.MathUtils.clamp((y - 1.27) / 0.39, 0, 1);
