@@ -85,6 +85,8 @@ test("edition CLI starts disconnected and accepts only explicit read-only sessio
   assert.equal(result.responses[3].assistantMessageEnabled, true);
   assert.equal(result.responses[3].financialActionsAllowed, false);
   assert.equal(result.responses[3].paperControlsEnabled, false);
+  assert.equal(result.responses[3].executionAuthorized, false);
+  assert.equal(result.responses[3].riskBearingActionsAllowed, false);
   assert.equal(result.responses[4].snapshot.synchronized, false);
   assert.equal(result.responses[5].connected, false);
   assert.equal(result.responses[6].shutdown, true);
