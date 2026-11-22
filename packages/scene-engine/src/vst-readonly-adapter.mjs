@@ -5,6 +5,8 @@ const SOURCE_ID = "vazao-sovereign-trader";
 const COCKPIT_ENDPOINTS = Object.freeze({
   health: "/health",
   status: "/status",
+  learningMemoryHealth: "/learning-memory/health",
+  learningMemoryRuntime: "/learning-memory/runtime",
   diagnostics: "/diagnostics",
   marketDataHealth: "/market-data-health",
   venueHealth: "/venue-health",
