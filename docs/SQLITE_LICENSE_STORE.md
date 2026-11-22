@@ -21,9 +21,9 @@ The adapter compares the serialized pre-update and post-update states, so it per
 
 ## Verification boundary
 
-Tests in this repository use a deterministic fake driver to verify SQL adapter behavior and transaction requirements. They do not prove actual SQLite locking, crash recovery, filesystem durability, OS access control, encryption or multi-process behavior. A real-driver integration test and native host are still required before production use.
+The suite includes deterministic fake-driver tests and real `node:sqlite` file-backed integration tests. The latter cover WAL persistence, `BEGIN IMMEDIATE` writer contention, and a two-process license-seat race on one local database. The concurrent test uses a deterministic test-only license verifier; it proves same-host serialization and seat-limit enforcement, not production signature validation.
 
-This module is a persistent-store adapter boundary, not a completed desktop installer or a production licensing service.
+These tests do not prove power-loss durability, OS access control, database encryption, network-share semantics, cross-PC/offline coordination, or physical-host behavior. This adapter is not a completed desktop installer or a production licensing service.
 
 
 ## Real SQLite integration coverage (2026-11-07)
@@ -31,3 +31,11 @@ This module is a persistent-store adapter boundary, not a completed desktop inst
 - Covered: close/reopen persistence, in-place mutation persistence, invalid-state rollback, independent-connection writer lock behavior using `BEGIN IMMEDIATE`, and corrupt JSON rejection.
 - The locking test proves SQLite's real writer reservation across two independent connections in one process. It is not a multi-process crash-recovery or power-loss durability test.
 - Branch `test/sqlite-multi-connection-locking` adds the independent-connection and corruption cases; CI/visual regression must pass on the final PR HEAD before merge.
+
+
+## Concurrent license-seat enforcement (2026-11-21)
+
+- PR #115 adds a real multi-process activation race test. Two independent Node.js child processes use the same on-disk SQLite/WAL database and the same test entitlement with `maxInstallations: 1`.
+- The parent holds a real `BEGIN IMMEDIATE` writer reservation until both processes reach the registry transaction boundary. After release, exactly one activation succeeds and the other returns `installation_limit_reached`; reopening SQLite confirms exactly one active installation.
+- Exact PR HEAD: `0b4bbcf12716ef856f1c66e89ebdd9a07de5f590`. CI run [44916584036](https://github.com/AndreVazao/office-kit/actions/runs/44916584036) passed Linux/Windows on Node 22 and Node 26.13.1; visual run [44916584062](https://github.com/AndreVazao/office-kit/actions/runs/44916584062) passed on the same SHA.
+- The entitlement verifier is a deterministic test-only fake. This is same-host process coordination on a local database, not production license-signature validation, cross-PC/offline seat enforcement, network-share support, power-loss proof, or physical-host validation.

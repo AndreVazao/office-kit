@@ -822,3 +822,12 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [x] Validate Linux/Windows Node 22/26 and visual regression on the exact PR HEAD; post-merge main CI and visual regression passed on `e4800a76747f84b35e0f14fa4babf071c2d30de2`.
 - [ ] Implement a concrete least-privilege Windows installation/package driver and MSI/MSIX lifecycle; injected-driver controller tests do not prove Windows Installer or SCM behavior.
 - [ ] Validate clean install, upgrade, rollback, recovery, uninstall/data retention and reinstall on disposable Windows runners and physical PCs.
+
+
+## 2026-11-21 — licensing seat-enforcement increment
+
+- [x] Add real SQLite/WAL multi-process coverage for concurrent activation of a one-seat entitlement; exactly one of two independent Node processes can activate on the same local database. PR #115 final HEAD `0b4bbcf12716ef856f1c66e89ebdd9a07de5f590`; CI run [44916584036](https://github.com/AndreVazao/office-kit/actions/runs/44916584036) and visual run [44916584062](https://github.com/AndreVazao/office-kit/actions/runs/44916584062) passed on that SHA.
+- [ ] Integrate the registry/store into native Universal, DGM-MAT and VST host compositions without sharing edition-specific entitlements or credentials.
+- [ ] Add a production trusted issuer keyring, authenticated key rotation and signed-license verification; the current concurrency test uses a test-only verifier.
+- [ ] Add platform identity, activation/deactivation UX, backup/recovery and security review.
+- [ ] Do not claim multi-PC/offline seat enforcement: separate disconnected installations still require a central/private registry or explicit online activation policy.
