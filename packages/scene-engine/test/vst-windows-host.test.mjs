@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { createWindowsVstHost } from "../src/vst-windows-host.mjs";
 
 const fixedNow = Date.parse("2026-11-12T12:00:00.000Z");
-const response = data => ({
-  ok: true,
-  status: 200,
+const response = (data, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
   headers: { get: () => "application/json" },
   json: async () => data
 });
@@ -22,7 +22,7 @@ const observerState = () => ({
   health_checked_at_ms: 0
 });
 
-function makeFetch() {
+function makeFetch({ rejectAuth = false } = {}) {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({
@@ -31,50 +31,26 @@ function makeFetch() {
       token: options.headers?.["X-Token"] ?? null,
       authorization: options.headers?.Authorization ?? null
     });
-    return response(observerState());
+    const path = new URL(url).pathname;
+    if (rejectAuth && path === "/status") return response({ ok: false }, 401);
+    return response(path === "/observer/summary" ? observerState() : { ok: true, path });
   };
   return { fetchImpl, calls };
 }
 
 function makeHost() {
-  let secret = null;
   let closed = false;
-  const calls = { closed: 0, namespace: null, destroyed: 0 };
+  const calls = { closed: 0 };
   return {
     calls,
     get closed() { return closed; },
-    get secret() { return secret; },
-    installationId: "officekit-vst-test-00000000000000000000000000000000",
-    ready: Promise.resolve({ status: "empty" }),
-    createSecretStore(namespace) {
-      calls.namespace = namespace;
-      return {
-        async setSecret(name, value) {
-          assert.equal(name, "owner-token");
-          secret = value;
-        },
-        async getSecret(name) {
-          assert.equal(name, "owner-token");
-          return secret;
-        },
-        hasSecret(name) {
-          assert.equal(name, "owner-token");
-          return secret !== null;
-        },
-        async destroy() {
-          calls.destroyed += 1;
-          const hadSecret = secret !== null;
-          secret = null;
-          return { deletedCount: hadSecret ? 1 : 0, keyDeleted: true };
-        }
-      };
-    },
+    ready: Promise.resolve({ status: "ready" }),
     async health() { return { status: "ready", identityStatus: "empty" }; },
     async close() { closed = true; calls.closed += 1; }
   };
 }
 
-test("VST Windows host exposes the authenticated read-only cockpit snapshot through its token vault", async () => {
+test("VST host keeps the owner token in session memory and exposes read-only cockpit data", async () => {
   const host = makeHost();
   const { fetchImpl, calls } = makeFetch();
   const ownerToken = "vst-owner-token-" + "0123456789".repeat(4);
@@ -82,98 +58,101 @@ test("VST Windows host exposes the authenticated read-only cockpit snapshot thro
     hostFactory: () => host,
     adapterOptions: { fetchImpl, now: () => fixedNow, timeoutMs: 1_000, pollIntervalMs: 60_000 }
   });
+
   try {
-    await composed.provisionLocalApiToken({ token: ownerToken, ownerConsent: true });
-    await composed.connect();
+    assert.equal(composed.edition, "vst");
+    assert.equal(composed.getCredentialState().configured, false);
+    await assert.rejects(composed.setSessionToken({ token: ownerToken }), /owner_consent_required/);
+    await assert.rejects(composed.setSessionToken({ token: "short", ownerConsent: true }), /token_invalid/);
+    await assert.rejects(composed.connect(), /session_token_unavailable/);
+    assert.equal(calls.length, 0);
+
+    const configured = await composed.setSessionToken({ token: ownerToken, ownerConsent: true });
+    assert.equal(configured.configured, true);
+    assert.equal(configured.storage, "memory-session");
+    assert.equal(configured.persistent, false);
+    assert.equal(configured.tokenExposed, false);
+    assert.equal(calls.length, 0, "setting a session token must not auto-connect");
+    assert.equal(JSON.stringify(composed.getCredentialState()).includes(ownerToken), false);
+    assert.equal(composed.getCredentialState().persistent, false);
+
+    const connected = await composed.connect();
+    assert.equal(connected.connected, true);
+    assert.equal(calls[0].url, "http://127.0.0.1:8765/observer/summary");
+    assert.equal(calls[0].method, "GET");
+    assert.equal(calls[0].token, ownerToken);
+    assert.equal(calls[0].authorization, null);
+
     const snapshot = await composed.getCockpitSnapshot();
     assert.equal(snapshot.readOnly, true);
     assert.equal(snapshot.authority.executionAuthorized, false);
     assert.equal(snapshot.sections.status.state, "available");
     assert.ok(calls.some(call => call.url.endsWith("/status") && call.method === "GET"));
     assert.ok(calls.every(call => call.method === "GET"));
-    assert.ok(calls.filter(call => call.url.includes("/status")).every(call => call.token === ownerToken));
-  } finally {
-    await composed.close();
-  }
-});
-
-test("VST Windows host requires explicit consent and never auto-connects on credential provisioning", async () => {
-  const host = makeHost();
-  const { fetchImpl, calls } = makeFetch();
-  const ownerToken = "vst-owner-token-" + "0123456789".repeat(4);
-  const composed = createWindowsVstHost({
-    hostFactory: () => host,
-    adapterOptions: { fetchImpl, now: () => fixedNow, timeoutMs: 1_000, pollIntervalMs: 60_000 }
-  });
-
-  try {
-    assert.equal(host.calls.namespace, "vst.local-api");
-    assert.equal(calls.length, 0);
-    assert.equal(composed.edition, "vst");
-    await assert.rejects(
-      composed.provisionLocalApiToken({ token: ownerToken }),
-      /owner_consent_required/
-    );
-    await assert.rejects(
-      composed.provisionLocalApiToken({ token: "short", ownerConsent: true }),
-      /token_invalid/
-    );
-    assert.equal(host.secret, null);
-
-    const provisioned = await composed.provisionLocalApiToken({
-      token: ownerToken,
-      ownerConsent: true
-    });
-    assert.equal(provisioned.stored, true);
-    assert.equal(provisioned.namespace, "vst.local-api");
-    assert.equal(provisioned.hardwareBacked, false);
-    assert.equal(provisioned.tokenCachedInMemory, false);
-    assert.equal(host.secret, ownerToken);
-    assert.equal(calls.length, 0);
-
-    const credentialState = composed.getCredentialState();
-    assert.equal(credentialState.configured, true);
-    assert.equal(credentialState.tokenExposed, false);
-    assert.equal(JSON.stringify(credentialState).includes(ownerToken), false);
+    assert.ok(calls.every(call => call.token === ownerToken));
+    assert.equal(JSON.stringify(snapshot).includes(ownerToken), false);
 
     const health = await composed.health();
     assert.equal(health.edition, "vst");
-    assert.equal(health.adapterConnected, false);
+    assert.equal(health.adapterConnected, true);
     assert.equal(health.credentialsConfigured, true);
+    assert.equal(health.credentialStorage, "memory-session");
     assert.equal(health.backendOperationalState, "unverified");
     assert.equal(health.backendReadOnly, true);
     assert.equal(JSON.stringify(health).includes(ownerToken), false);
 
-    const connected = await composed.connect();
-    assert.equal(connected.connected, true);
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].url, "http://127.0.0.1:8765/observer/summary");
-    assert.equal(calls[0].method, "GET");
-    assert.equal(calls[0].token, ownerToken);
-    assert.equal(calls[0].authorization, null);
-
-    const snapshot = await composed.getSnapshot();
-    assert.equal(snapshot.backend.engineStatus, "OFF");
-    assert.equal(snapshot.backend.mode, "PAPER");
-    assert.equal(snapshot.backend.executionAuthorized, false);
-    assert.equal(snapshot.backend.runtimeReadiness, "unverified");
-    assert.deepEqual(snapshot.agents, []);
-    assert.deepEqual(snapshot.tasks, []);
-
-    const removed = await composed.removeLocalApiToken({ ownerConsent: true });
-    assert.equal(removed.deletedCount, 1);
-    assert.equal(removed.keyDeleted, true);
-    assert.equal(host.secret, null);
-    await assert.rejects(composed.connect(), /vst_local_token_unavailable/);
-    assert.equal(calls.length, 2);
+    const disconnected = await composed.disconnect();
+    assert.equal(disconnected.tokenCleared, true);
+    assert.equal(composed.getCredentialState().configured, false);
+    assert.equal(composed.getCredentialState().storage, "memory-session");
+    await assert.rejects(composed.connect(), /session_token_unavailable/);
   } finally {
     await composed.close();
   }
   assert.equal(host.closed, true);
   assert.equal(host.calls.closed, 1);
+  assert.equal(composed.getCredentialState().storage, "closed");
 });
 
-test("VST Windows host rejects non-loopback endpoints before creating a host", () => {
+test("VST host clears the in-memory token after authentication rejection", async () => {
+  const host = makeHost();
+  const { fetchImpl } = makeFetch({ rejectAuth: true });
+  const composed = createWindowsVstHost({
+    hostFactory: () => host,
+    adapterOptions: { fetchImpl, now: () => fixedNow, timeoutMs: 1_000, pollIntervalMs: 60_000 }
+  });
+  try {
+    await composed.setSessionToken({
+      token: "vst-owner-token-" + "0123456789".repeat(4),
+      ownerConsent: true
+    });
+    await composed.connect();
+    await assert.rejects(composed.getCockpitSnapshot(), /vst_auth_rejected/);
+    assert.equal(composed.getCredentialState().configured, false);
+    assert.equal(composed.getCredentialState().persistent, false);
+  } finally {
+    await composed.close();
+  }
+});
+
+test("VST host requires explicit consent to clear a session token", async () => {
+  const host = makeHost();
+  const composed = createWindowsVstHost({ hostFactory: () => host });
+  try {
+    await composed.setSessionToken({
+      token: "vst-owner-token-" + "0123456789".repeat(4),
+      ownerConsent: true
+    });
+    await assert.rejects(composed.clearSessionToken(), /owner_consent_required/);
+    const result = await composed.clearSessionToken({ ownerConsent: true });
+    assert.equal(result.cleared, true);
+    assert.equal(composed.getCredentialState().configured, false);
+  } finally {
+    await composed.close();
+  }
+});
+
+test("VST host rejects non-loopback endpoints before creating a host", () => {
   let created = false;
   assert.throws(() => createWindowsVstHost({
     hostFactory: () => { created = true; return makeHost(); },
@@ -182,21 +161,8 @@ test("VST Windows host rejects non-loopback endpoints before creating a host", (
   assert.equal(created, false);
 });
 
-test("VST Windows host rejects a host without the secure secret-store contract", () => {
+test("VST host rejects a host without the required lifecycle contract", () => {
   assert.throws(() => createWindowsVstHost({
     hostFactory: () => ({ ready: Promise.resolve(), close: async () => {} })
-  }), /secret_store_unavailable/);
-});
-
-
-test("VST Windows host rejects an incomplete secret-vault implementation", () => {
-  let closed = false;
-  assert.throws(() => createWindowsVstHost({
-    hostFactory: () => ({
-      ready: Promise.resolve(),
-      createSecretStore: () => ({ getSecret: async () => null }),
-      async close() { closed = true; }
-    })
-  }), /secret_store_unavailable/);
-  assert.equal(closed, true, "invalid vault contract closes the injected host");
+  }), /lifecycle_unavailable/);
 });
