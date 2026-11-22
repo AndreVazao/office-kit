@@ -471,10 +471,14 @@ $("export-glb").addEventListener("click", () => {
 
   let qualityVariant = null;
   try {
+    const exportCharacter = character;
+    const exportPreset = currentPreset;
+    const exportRig = avatarRig;
+    const exportPose = poseMode?.value || "idle";
     const selectedQuality = $("export-quality")?.value || "high";
-    qualityVariant = applyAvatarQualityVariant(character, selectedQuality);
-    character.userData.officeKitAvatar = character.userData.officeKitAvatar || {};
-    character.userData.officeKitAvatar.exportedVariant = {
+    qualityVariant = applyAvatarQualityVariant(exportCharacter, selectedQuality);
+    exportCharacter.userData.officeKitAvatar = exportCharacter.userData.officeKitAvatar || {};
+    exportCharacter.userData.officeKitAvatar.exportedVariant = {
       id: qualityVariant.profileId,
       sourceTriangles: qualityVariant.sourceTriangles,
       optimizedTriangles: qualityVariant.optimizedTriangles,
@@ -484,9 +488,9 @@ $("export-glb").addEventListener("click", () => {
       simplification: "skinning-aware-vertex-clustering"
     };
     const exporter = new GLTFExporter();
-    const animations = createAvatarAnimationClips(avatarRig, poseMode?.value || "idle");
+    const animations = createAvatarAnimationClips(exportRig, exportPose);
     button.textContent = "A otimizar e exportar…";
-    exporter.parse(character, (result) => {
+    exporter.parse(exportCharacter, (result) => {
       try {
         qualityVariant?.restore();
         qualityVariant = null;
@@ -494,12 +498,12 @@ $("export-glb").addEventListener("click", () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "office-kit-avatar-" + currentPreset + "-" + selectedQuality + ".glb";
+        link.download = "office-kit-avatar-" + exportPreset + "-" + selectedQuality + ".glb";
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-        const withinBudget = result && character.userData.officeKitAvatar.exportedVariant.withinTriangleBudget;
+        const withinBudget = result && exportCharacter.userData.officeKitAvatar.exportedVariant.withinTriangleBudget;
         if (!withinBudget) {
           alert("O GLB foi exportado, mas a geometria ainda excede o orçamento de triângulos deste perfil. Consulte a auditoria antes de o distribuir.");
         }
