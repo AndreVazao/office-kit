@@ -305,6 +305,8 @@ export class VstReadOnlyAdapter {
         paperOnly: true,
         executionAuthorized: false,
         reconciliation: "matched",
+        outcome: "reconciled",
+        error: null,
         retryAllowed: false
       });
     } catch (error) {
