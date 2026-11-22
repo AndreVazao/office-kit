@@ -34,7 +34,7 @@ Avatar Studio defines four delivery profiles in `src/quality-profiles.js`: Ultra
 
 The GLB root carries this contract in standard glTF `extras` metadata (`officeKitAvatar`), including schema version, profile definitions, and the `runtime-owned` selection policy. This lets a future reviewed adapter read the available tiers without coupling the standalone editor to runtime packages.
 
-**Important status:** the current prototype still exports its source geometry; the four triangle budgets are authoring targets, not four already-decimated mesh files. Tier-specific geometry reduction, material/texture variants, and automated visual-equivalence checks remain implementation work. Do not treat the profile metadata as proof that four optimized assets already exist. The Office Kit engines remain untouched and own device capability detection, runtime selection, and fallback.
+**Current implementation:** the GLB export selector generates one profile-specific file at a time. Ultra retains source geometry; High, Medium, and Low run a deterministic vertex-clustering pass per mesh. The pass preserves UV seams and material-group boundaries, averages retained vertex attributes, and aggregates the four strongest bone influences before normalizing skin weights. The exporter records source/optimized triangle counts, vertex count, selected profile, and whether the triangle budget was reached in `officeKitAvatar.exportedVariant`. The original editor geometry is restored after export.\n\n**Validation boundary:** this is a first geometry-reduction pass, not a certified production LOD pipeline. Texture resolution/material variants, automated visual-equivalence checks, deformation stress tests across every animation, and external GLB playback acceptance are still pending. Clustering can alter silhouette or surface detail, and a mesh can remain above budget if its topology cannot be reduced safely enough. Inspect every exported profile before distribution. The Office Kit engines remain untouched and own device capability detection, runtime selection, and fallback.
 
 ## Multi-device graphics quality contract and source audit
 
@@ -42,7 +42,7 @@ Four target profiles (Ultra, High, Medium, Low) are defined in `src/quality-prof
 
 The Studio does not detect the user's device and does not select a runtime profile. The Office Kit runtime remains the sole authority for capability detection, profile selection, and fallback.
 
-**Current limitation:** these are source-model measurements and budget checks, not four optimized deliverables. Tier-specific mesh simplification, texture/material variants, and visual-equivalence validation are still pending. The report must not be interpreted as proof that a model marked "fits" has been tested on every device or that dedicated tier assets exist.
+**Current limitation:** the editor audit reports source-model fit, while each explicit GLB export applies the selected geometry profile. A profile export is not proof of device performance or visual equivalence. The runtime still makes the device-specific selection; Avatar Studio only authors and exports variants.
 
 ## CEO identity-reference workflow
 
