@@ -174,10 +174,10 @@ async function runServe(host, { input, output, edition }) {
                         : request.command === "authenticate" ? "authentication_failed"
                           : request.command === "assistant-message" ? "assistant_message_failed"
                             : request.command === "diagnose" ? "diagnostics_failed"
-                               : request.command === "recover" ? "recovery_failed"
-                                 : request.command === "disconnect" ? "disconnect_failed"
-                              : request.command === "credential-status" ? "credential_status_failed"
-                                : "health_failed";
+                              : request.command === "recover" ? "recovery_failed"
+                                : request.command === "disconnect" ? "disconnect_failed"
+                                  : request.command === "credential-status" ? "credential_status_failed"
+                                    : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
       }
     }
