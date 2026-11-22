@@ -24,7 +24,12 @@ const PRIVATE_FIELD_NAMES = new Set([
 function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 }) {
   if (budget.nodes++ >= 20_000 || depth > 8) return null;
   const normalizedKey = String(key).replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const containsSecretMarker = [
+    "token", "secret", "password", "credential", "apikey",
+    "privatekey", "authorization", "passphrase"
+  ].some(marker => normalizedKey.includes(marker));
   if (PRIVATE_FIELD_NAMES.has(normalizedKey)
+    || containsSecretMarker
     || normalizedKey.endsWith("path")
     || normalizedKey.endsWith("directory")
     || normalizedKey === "dir"
