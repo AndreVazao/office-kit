@@ -334,41 +334,62 @@ export function createAvatarRig(parent) {
     const slow = Math.sin(t * 2.1);
 
     if (mode === "walk") {
+      const stride = t * 6;
+      bones.Hips.rotation.z = Math.sin(stride) * 0.025;
+      bones.Spine.rotation.z = -Math.sin(stride) * 0.018;
+      bones.Chest.rotation.y = Math.sin(stride) * 0.025;
       for (const side of ["L", "R"]) {
-        const sign = side === "L" ? 1 : -1;
-        bones["UpperLeg_" + side].rotation.x = Math.sin(t * 6) * 0.42 * sign;
-        bones["LowerLeg_" + side].rotation.x = Math.max(0, -Math.sin(t * 6) * 0.58);
-        bones["UpperArm_" + side].rotation.x = -Math.sin(t * 6) * 0.28 * sign;
-        bones["Forearm_" + side].rotation.x = -0.12;
+        const phase = stride + (side === "L" ? 0 : Math.PI);
+        const cycle = Math.sin(phase);
+        const recovery = Math.max(0, -cycle);
+        bones["UpperLeg_" + side].rotation.x = cycle * 0.42;
+        bones["LowerLeg_" + side].rotation.x = recovery * 0.58;
+        bones["Foot_" + side].rotation.x = recovery * 0.12 - Math.max(0, cycle) * 0.18;
+        bones["UpperArm_" + side].rotation.x = -cycle * 0.28;
+        bones["Forearm_" + side].rotation.x = -0.12 - recovery * 0.12;
+        bones["Hand_" + side].rotation.z = Math.sin(phase + 0.4) * 0.035;
       }
-      bones.Spine.rotation.z = Math.sin(t * 6) * 0.035;
     } else if (mode === "sit") {
+      bones.Hips.rotation.x = -0.035;
       bones.Spine.rotation.x = -0.08;
+      bones.Chest.rotation.x = 0.025;
       for (const side of ["L", "R"]) {
         bones["UpperLeg_" + side].rotation.x = -1.05;
         bones["LowerLeg_" + side].rotation.x = 1.18;
+        bones["Foot_" + side].rotation.x = -0.22;
         bones["UpperArm_" + side].rotation.x = -0.20;
         bones["Forearm_" + side].rotation.x = -0.55;
+        bones["Hand_" + side].rotation.z = side === "L" ? -0.025 : 0.025;
       }
     } else if (mode === "talk") {
+      bones.Hips.rotation.y = Math.sin(t * 1.1) * 0.018;
       bones.Chest.rotation.x = Math.sin(t * 2.5) * 0.035;
       bones.Neck.rotation.y = Math.sin(t * 1.8) * 0.12;
       bones.Head.rotation.y = Math.sin(t * 1.8 + 0.8) * 0.10;
       bones.UpperArm_L.rotation.x = -0.45 - Math.max(0, wave) * 0.55;
       bones.Forearm_L.rotation.x = -0.35 - Math.max(0, wave) * 0.45;
+      bones.Hand_L.rotation.z = -0.10 - Math.max(0, wave) * 0.08;
       bones.UpperArm_R.rotation.x = -0.28 - Math.max(0, -wave) * 0.35;
-      bones.Forearm_R.rotation.x = -0.30;
+      bones.Forearm_R.rotation.x = -0.30 - Math.max(0, -wave) * 0.18;
+      bones.Hand_R.rotation.z = 0.07 + Math.max(0, -wave) * 0.05;
     } else if (mode === "work") {
+      bones.Hips.rotation.x = 0.025;
       bones.Spine.rotation.x = 0.12;
       bones.Neck.rotation.x = 0.18;
       bones.Head.rotation.x = -0.12;
       for (const side of ["L", "R"]) {
         bones["UpperArm_" + side].rotation.x = -0.72 + slow * 0.035;
         bones["Forearm_" + side].rotation.x = -0.82 + Math.sin(t * 7 + (side === "L" ? 0 : 1)) * 0.08;
+        bones["Hand_" + side].rotation.z = Math.sin(t * 7 + (side === "L" ? 0 : 1)) * 0.025;
       }
     } else {
+      bones.Hips.rotation.x = Math.sin(t * 1.1) * 0.006;
+      bones.Spine.rotation.x = Math.sin(t * 1.1 + 0.4) * 0.008;
       bones.Chest.rotation.z = Math.sin(t * 1.4) * 0.012;
       bones.Head.rotation.y = Math.sin(t * 0.7) * 0.025;
+      for (const side of ["L", "R"]) {
+        bones["Hand_" + side].rotation.z = Math.sin(t * 0.9 + (side === "L" ? 0 : 1)) * 0.012;
+      }
     }
 
     // Facial controls: jaw movement follows speech, eyelids blink together,
