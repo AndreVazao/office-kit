@@ -126,7 +126,7 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.authority.ordersSubmitted, false);
   assert.equal(snapshot.authority.riskBearingActionsAllowed, false);
   assert.equal(snapshot.sections.status.state, "available");
-  assert.equal(snapshot.sections.status.data.source_path, "/status");
+  assert.equal(snapshot.sections.status.data.ok, true);
   assert.equal(snapshot.sections.research.state, "available");
   assert.equal(snapshot.sections.humanInteractionPending.state, "available");
   assert.deepEqual(adapter.capabilities, ["read_state"]);
@@ -149,6 +149,60 @@ test("cockpit snapshot preserves partial endpoint failures without fabricating d
   assert.equal(snapshot.sections.diagnostics.error, "vst_http_503");
   assert.equal(snapshot.sections.status.state, "available");
   assert.equal(JSON.stringify(snapshot).includes("internal detail must not be copied"), false);
+  await adapter.disconnect();
+});
+
+test("cockpit payloads redact secrets, private identifiers, local paths and URL query strings", async () => {
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/human-interaction/pending") {
+        return response({
+          ok: true,
+          requests: [{
+            request_id: "request-123",
+            status: "PENDING",
+            title: "Owner confirmation",
+            message: "token=INLINE_SECRET api_key=INLINE_KEY",
+            claim_token: "CLAIM_SECRET_VALUE",
+            claim_token_hash: "CLAIM_HASH_VALUE",
+            screenshot_path: "C:\\private\\screenshot.png",
+            owner_id: "PRIVATE_OWNER_ID",
+            private_namespace: "owners/PRIVATE_OWNER_ID",
+            url: "https://example.com/review?access_token=URL_SECRET#private"
+          }]
+        });
+      }
+      if (path === "/status") {
+        return response({
+          ok: true,
+          owner: { owner_id: "PRIVATE_OWNER_ID", private_namespace: "owners/PRIVATE_OWNER_ID" },
+          api_key: "STATUS_API_KEY",
+          database_path: "C:\\private\\vst.sqlite"
+        });
+      }
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const snapshot = await adapter.getCockpitSnapshot();
+  const serialized = JSON.stringify(snapshot);
+  for (const secret of [
+    "INLINE_SECRET", "INLINE_KEY", "CLAIM_SECRET_VALUE", "CLAIM_HASH_VALUE",
+    "PRIVATE_OWNER_ID", "URL_SECRET", "STATUS_API_KEY", "vst.sqlite", "screenshot.png"
+  ]) {
+    assert.equal(serialized.includes(secret), false, secret);
+  }
+  const pending = snapshot.sections.humanInteractionPending.data.requests[0];
+  assert.equal(pending.request_id, "request-123");
+  assert.equal(pending.status, "PENDING");
+  assert.equal(pending.title, "Owner confirmation");
+  assert.equal(pending.url, "https://example.com/review");
+  assert.equal(pending.claim_token, undefined);
+  assert.equal(pending.screenshot_path, undefined);
+  assert.equal(pending.message, "token=[redacted] api_key=[redacted]");
+  assert.equal(snapshot.sections.status.data.owner.owner_id, undefined);
   await adapter.disconnect();
 });
 
