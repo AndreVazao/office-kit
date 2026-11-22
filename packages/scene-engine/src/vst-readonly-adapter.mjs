@@ -244,8 +244,8 @@ export class VstReadOnlyAdapter {
     this.pollIntervalMs = pollIntervalMs;
     this.ttlMs = ttlMs;
     this.apiVersion = 1;
-    this.metadata = Object.freeze({ id: SOURCE_ID, name: "Vazao Sovereign Trader read-only adapter", version: "0.1.0" });
-    this.capabilities = Object.freeze(["read_state"]);
+    this.metadata = Object.freeze({ id: SOURCE_ID, name: "Vazao Sovereign Trader cockpit adapter", version: "0.2.0" });
+    this.capabilities = Object.freeze(["read_state", "assistant_message"]);
     this.connected = false;
     this.listeners = new Set();
     this.pollTimer = null;
@@ -842,6 +842,12 @@ export const vstAdapterContract = Object.freeze({
   mode: "read-only",
   defaultBaseUrl: DEFAULT_BASE_URL,
   allowedMethods: Object.freeze(["GET"]),
+  assistantMessagePath: ASSISTANT_PATH,
+  assistantMessageMethod: "POST",
+  assistantMessageDepartments: Object.freeze([...ASSISTANT_DEPARTMENTS]),
+  assistantMessageUiOnlyDepartments: Object.freeze([...UI_ONLY_DEPARTMENTS]),
+  assistantMessagePaperControlsBlocked: true,
+  assistantMessageAutomaticRetry: false,
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
   cockpitReadPaths: Object.freeze(Object.values(COCKPIT_ENDPOINTS)),
   authenticationHeader: "X-Token",
