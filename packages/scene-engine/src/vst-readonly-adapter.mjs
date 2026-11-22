@@ -21,14 +21,17 @@ const PRIVATE_FIELD_NAMES = new Set([
   "authorization", "credential", "credentials"
 ]);
 
-function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 }) {
+function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 }, section = "") {
   if (budget.nodes++ >= 20_000 || depth > 8) return null;
   const normalizedKey = String(key).replace(/[^a-z0-9]/gi, "").toLowerCase();
   const containsSecretMarker = [
     "token", "secret", "password", "credential", "apikey",
     "privatekey", "authorization", "passphrase"
   ].some(marker => normalizedKey.includes(marker));
-  if (PRIVATE_FIELD_NAMES.has(normalizedKey)
+  const humanInputValue = section === "humanInteractionPending"
+    && ["value", "defaultvalue", "initialvalue", "inputvalue", "response", "responsevalue"].includes(normalizedKey);
+  if (humanInputValue
+    || PRIVATE_FIELD_NAMES.has(normalizedKey)
     || containsSecretMarker
     || normalizedKey.endsWith("path")
     || normalizedKey.endsWith("directory")
@@ -56,14 +59,14 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
   }
   if (Array.isArray(value)) {
     return value.slice(0, 200)
-      .map(item => sanitizeCockpitPayload(item, "", depth + 1, budget))
+      .map(item => sanitizeCockpitPayload(item, "", depth + 1, budget, section))
       .filter(item => item !== undefined);
   }
   if (value && typeof value === "object") {
     const output = Object.create(null);
     for (const [childKey, childValue] of Object.entries(value).slice(0, 200)) {
       if (childKey === "__proto__" || childKey === "prototype" || childKey === "constructor") continue;
-      const sanitized = sanitizeCockpitPayload(childValue, childKey, depth + 1, budget);
+      const sanitized = sanitizeCockpitPayload(childValue, childKey, depth + 1, budget, section);
       if (sanitized !== undefined) output[childKey] = sanitized;
     }
     return output;
@@ -426,7 +429,7 @@ export class VstReadOnlyAdapter {
         const [key, path] = endpoints[index];
         try {
           const data = await this.#get(path, { signal: controller.signal });
-          const sanitizedData = sanitizeCockpitPayload(data);
+          const sanitizedData = sanitizeCockpitPayload(data, "", 0, { nodes: 0 }, key);
           sections[index] = Object.freeze({
             state: "available",
             path,
