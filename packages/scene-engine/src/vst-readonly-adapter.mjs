@@ -34,6 +34,30 @@ const ASSISTANT_DEPARTMENT_LABELS = Object.freeze({
   audit: "Auditoria",
   human: "Intervenção humana"
 });
+const DEPARTMENT_DEFINITIONS = Object.freeze([
+  { id: "brain", label: "CEO", sourceKeys: ["status"] },
+  { id: "markets", label: "Markets", sourceKeys: ["venueHealth"] },
+  { id: "radar", label: "Radar", sourceKeys: ["marketDataHealth"] },
+  { id: "research", label: "Research", sourceKeys: ["research"] },
+  { id: "analysis", label: "Analysis", sourceKeys: ["evidenceScorecard"] },
+  { id: "paper", label: "PAPER Lab", sourceKeys: ["paperCollectorResources"] },
+  { id: "risk", label: "Risk", sourceKeys: ["status", "diagnostics"] },
+  { id: "central_memory", label: "Central Memory", sourceKeys: ["learningMemoryHealth", "learningMemoryRuntime"] },
+  { id: "recovery", label: "Recovery", sourceKeys: ["diagnostics"] },
+  { id: "audit", label: "Audit", sourceKeys: ["evidenceLedgerAudit"] },
+  { id: "human", label: "Human", sourceKeys: ["humanInteractionPending"] }
+]);
+const DEPARTMENT_MESSAGE_PREFIXES = Object.freeze([
+  { prefix: "[Departamento solicitado: Cérebro / CEO]", department: "brain" },
+  { prefix: "[Departamento solicitado: Exchanges]", department: "markets" },
+  { prefix: "[Departamento solicitado: Market Radar]", department: "radar" },
+  { prefix: "[Departamento solicitado: Investigação]", department: "research" },
+  { prefix: "[Departamento solicitado: Laboratório PAPER]", department: "paper" },
+  { prefix: "[Departamento solicitado: Controlo de risco]", department: "risk" },
+  { prefix: "[Departamento solicitado: Recuperação]", department: "recovery" },
+  { prefix: "[Departamento solicitado: Auditoria]", department: "audit" },
+  { prefix: "[Departamento solicitado: Intervenção humana]", department: "human" }
+]);
 const PAPER_CONTROL_COMMANDS = new Set([
   "iniciar", "inicia", "ligar", "começar", "comecar", "start",
   "pausar", "pausa", "pause", "retomar", "retoma", "resume",
@@ -216,6 +240,169 @@ function freshnessFor(timestampMs, now, ttlMs) {
   if (ageMs < 0) return { state: "future_or_clock_skew", ageMs };
   if (ageMs <= ttlMs) return { state: "fresh", ageMs };
   return { state: "stale", ageMs };
+}
+
+function unixSecondsToIso(value) {
+  const seconds = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  const milliseconds = seconds * 1_000;
+  if (!Number.isFinite(milliseconds) || milliseconds > 8_640_000_000_000_000) return undefined;
+  return new Date(milliseconds).toISOString();
+}
+
+function departmentFromResearchMessage(message) {
+  if (typeof message !== "string") return "unclassified";
+  if (message.includes("[Área do cockpit: Análise]")) return "analysis";
+  if (message.includes("[Área do cockpit: CEO]")) return "brain";
+  const match = DEPARTMENT_MESSAGE_PREFIXES.find(item => message.startsWith(item.prefix));
+  return match?.department ?? "unclassified";
+}
+
+function displayResearchMessage(message) {
+  if (typeof message !== "string") return "";
+  return message
+    .replace(/^\\[Departamento solicitado: [^\\]]+\\]\\s*/i, "")
+    .replace(/^\\[Área do cockpit: [^\\]]+\\]\\s*/i, "")
+    .replace(/^Analisa:\\s*/i, "");
+}
+
+function buildResearchTasks(section) {
+  if (section?.state !== "available" || !Array.isArray(section.data?.requests)) return Object.freeze([]);
+  const tasks = section.data.requests.slice(0, 30).flatMap(item => {
+    if (!item || typeof item.request_id !== "string" || !item.request_id
+      || typeof item.status !== "string" || !item.status) return [];
+    const status = item.status.trim().toUpperCase();
+    const originDepartment = departmentFromResearchMessage(item.message);
+    const createdAt = unixSecondsToIso(item.created_at);
+    const updatedAt = unixSecondsToIso(item.updated_at);
+    const task = {
+      id: item.request_id,
+      requestId: item.request_id,
+      taskType: "research",
+      status,
+      department: originDepartment === "unclassified" ? "research" : originDepartment,
+      originDepartment,
+      executionDepartment: "research",
+      executionQueue: "research",
+      message: typeof item.message === "string" ? item.message : "",
+      displayMessage: displayResearchMessage(item.message),
+      sourcePath: "/research",
+      observedAt: section.receivedAt ?? null,
+      queued: status === "PENDING",
+      inProgress: status === "IN_PROGRESS",
+      active: status === "PENDING" || status === "IN_PROGRESS",
+      completed: status === "COMPLETED",
+      failed: status === "FAILED",
+      discarded: status === "DISCARDED",
+      terminal: ["COMPLETED", "FAILED", "DISCARDED"].includes(status)
+    };
+    if (createdAt) task.createdAt = createdAt;
+    if (updatedAt) {
+      task.updatedAt = updatedAt;
+      task.lastUpdatedAt = updatedAt;
+    } else if (createdAt) {
+      task.lastUpdatedAt = createdAt;
+    }
+    const attemptCount = safeCount(item.attempt_count);
+    if (attemptCount !== null) task.attemptCount = attemptCount;
+    const leaseExpiresAt = unixSecondsToIso(item.lease_expires_at);
+    if (leaseExpiresAt) task.leaseExpiresAt = leaseExpiresAt;
+    if (typeof item.result === "string" && item.result) task.result = item.result;
+    if (typeof item.progress === "number" && Number.isFinite(item.progress)) {
+      task.progress = item.progress;
+      task.progressSource = "backend";
+    }
+    return [Object.freeze(task)];
+  });
+  return Object.freeze(tasks);
+}
+
+function buildHumanInterventions(section) {
+  if (section?.state !== "available" || !Array.isArray(section.data?.requests)) return Object.freeze([]);
+  const interventions = section.data.requests.flatMap(item => {
+    if (!item || typeof item.request_id !== "string" || !item.request_id
+      || typeof item.status !== "string" || !item.status) return [];
+    const intervention = {
+      id: item.request_id,
+      requestId: item.request_id,
+      taskType: "human_intervention",
+      department: "human",
+      status: item.status.trim().toUpperCase(),
+      platform: typeof item.platform === "string" ? item.platform : "unknown",
+      kind: typeof item.kind === "string" ? item.kind : "unknown",
+      title: typeof item.title === "string" ? item.title : "",
+      message: typeof item.message === "string" ? item.message : "",
+      sourcePath: "/human-interaction/pending",
+      observedAt: section.receivedAt ?? null
+    };
+    const createdAt = unixSecondsToIso(item.created_at);
+    const updatedAt = unixSecondsToIso(item.updated_at);
+    const expiresAt = unixSecondsToIso(item.expires_at);
+    if (createdAt) intervention.createdAt = createdAt;
+    if (updatedAt) {
+      intervention.updatedAt = updatedAt;
+      intervention.lastUpdatedAt = updatedAt;
+    } else if (createdAt) {
+      intervention.lastUpdatedAt = createdAt;
+    }
+    if (expiresAt) intervention.expiresAt = expiresAt;
+    return [Object.freeze(intervention)];
+  });
+  return Object.freeze(interventions);
+}
+
+function buildQueueSummary(section, fields) {
+  if (section?.state !== "available" || !section.data || typeof section.data !== "object") {
+    return Object.freeze({ dataAvailability: "UNAVAILABLE", sourcePath: section?.path ?? null });
+  }
+  const counts = Object.create(null);
+  let total = 0;
+  let known = 0;
+  for (const [key, sourceKey] of fields) {
+    const count = safeCount(section.data[sourceKey]);
+    if (count !== null) {
+      counts[key] = count;
+      total += count;
+      known += 1;
+    }
+  }
+  if (known > 0) counts.total = total;
+  return Object.freeze({
+    dataAvailability: "AVAILABLE",
+    counts: Object.freeze(counts),
+    sourcePath: section.path,
+    observedAt: section.receivedAt ?? null
+  });
+}
+
+function buildDepartmentStates(sections) {
+  return Object.freeze(DEPARTMENT_DEFINITIONS.map(definition => {
+    const sources = definition.sourceKeys.map(key => {
+      const section = sections[key];
+      const data = section?.state === "available" ? section.data : null;
+      const source = {
+        key,
+        path: section?.path ?? null,
+        state: section?.state === "available" ? "AVAILABLE" : "UNAVAILABLE",
+        observedAt: section?.receivedAt ?? null
+      };
+      if (typeof data?.status === "string") source.backendStatus = data.status;
+      if (typeof data?.running === "boolean") source.running = data.running;
+      if (typeof data?.pending === "number" && Number.isSafeInteger(data.pending)) source.pending = data.pending;
+      return Object.freeze(source);
+    });
+    const available = sources.filter(source => source.state === "AVAILABLE").length;
+    const dataAvailability = available === 0
+      ? "UNAVAILABLE" : available === sources.length ? "AVAILABLE" : "PARTIAL";
+    const observedAt = sources.map(source => source.observedAt).filter(value => typeof value === "string").sort().at(-1);
+    return Object.freeze({
+      id: definition.id,
+      label: definition.label,
+      dataAvailability,
+      sources: Object.freeze(sources),
+      observedAt: observedAt ?? null
+    });
+  }));
 }
 
 /**
@@ -715,7 +902,8 @@ export class VstReadOnlyAdapter {
     const selectedDepartment = normalizedDepartment;
     const backendDepartment = ASSISTANT_UI_DEPARTMENT_ROUTING[normalizedDepartment] ?? normalizedDepartment;
     const routedMessage = normalizedDepartment === "analysis"
-      ? "[Área do cockpit: Análise] Analisa: " + cleanMessage : cleanMessage;
+      ? "[Área do cockpit: Análise] Analisa: " + cleanMessage
+      : normalizedDepartment === "brain" ? "[Área do cockpit: CEO] " + cleanMessage : cleanMessage;
     if (UI_ONLY_DEPARTMENTS.has(normalizedDepartment)) {
       return Object.freeze({
         ok: false,
@@ -834,6 +1022,20 @@ export class VstReadOnlyAdapter {
       generatedAt: new Date(generatedAt).toISOString(),
       readOnly: true,
       sections: Object.freeze(sectionMap),
+      departments: buildDepartmentStates(sectionMap),
+      agents: Object.freeze([]),
+      agentsState: "not_exposed_by_backend",
+      tasks: buildResearchTasks(sectionMap.research),
+      tasksAvailability: sectionMap.research?.state === "available" ? "AVAILABLE" : "UNAVAILABLE",
+      taskSummary: buildQueueSummary(sectionMap.research, [
+        ["pending", "pending"], ["inProgress", "active"], ["completed", "completed"],
+        ["discarded", "discarded"], ["failed", "failed"]
+      ]),
+      humanInterventions: buildHumanInterventions(sectionMap.humanInteractionPending),
+      humanInterventionsAvailability: sectionMap.humanInteractionPending?.state === "available" ? "AVAILABLE" : "UNAVAILABLE",
+      humanInterventionsSummary: buildQueueSummary(sectionMap.humanInteractionPending, [
+        ["pending", "pending"], ["respondedWaitingPc", "responded_waiting_pc"], ["applied", "applied"]
+      ]),
       authority: Object.freeze({
         mode,
         paperOnly: mode === "PAPER",
