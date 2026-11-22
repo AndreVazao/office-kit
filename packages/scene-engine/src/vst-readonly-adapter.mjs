@@ -311,6 +311,7 @@ export class VstReadOnlyAdapter {
       if (code === "vst_auth_rejected") throw error;
       return Object.freeze({
         reconciliation: code === "vst_http_403" ? "permission_denied" : "unavailable",
+        reconciliationRequiredScope: code === "vst_http_403" ? "read_private_state" : null,
         retryAllowed: false
       });
     }
