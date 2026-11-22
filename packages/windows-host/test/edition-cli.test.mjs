@@ -8,6 +8,7 @@ import { runVstCli } from "../src/vst-cli.mjs";
 
 function makeHost(edition) {
   let connected = false;
+  let sessionToken = null;
   const calls = [];
   return {
     calls,
@@ -18,7 +19,13 @@ function makeHost(edition) {
     },
     getCredentialState() {
       calls.push("credential-status");
-      return { configured: false, credentialExposed: false };
+      return { configured: sessionToken !== null, storage: "memory-session", persistent: false, tokenExposed: false };
+    },
+    async setSessionToken({ token, ownerConsent }) {
+      calls.push("authenticate");
+      if (ownerConsent !== true) throw new Error("owner_consent_required");
+      sessionToken = token;
+      return { configured: true, storage: "memory-session", persistent: false, tokenExposed: false };
     },
     async connect() { calls.push("connect"); connected = true; return { connected: true }; },
     async getSnapshot() {
@@ -31,7 +38,7 @@ function makeHost(edition) {
       if (!connected) throw new Error("not_connected");
       return { readOnly: true, authority: { executionAuthorized: false } };
     },
-    async disconnect() { calls.push("disconnect"); connected = false; return { disconnected: true }; },
+    async disconnect() { calls.push("disconnect"); connected = false; sessionToken = null; return { disconnected: true, tokenCleared: true }; },
     async close() { calls.push("close"); connected = false; }
   };
 }
@@ -73,24 +80,54 @@ test("edition CLI starts disconnected and accepts only explicit read-only sessio
   assert.equal(host.calls.at(-1), "close");
 });
 
-test("VST CLI exposes cockpit-snapshot only after an explicit authenticated connection", async () => {
+test("VST CLI accepts a session token only through an explicit memory-only authentication request", async () => {
   const host = makeHost("vst");
+  const token = "TOP_SECRET_SESSION_TOKEN_0123456789";
   const result = await runWithStreams({
     edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
   }, [
     '{"command":"cockpit-snapshot"}',
+    JSON.stringify({ command: "authenticate", token, ownerConsent: true }),
+    '{"command":"credential-status"}',
     '{"command":"connect"}',
     '{"command":"cockpit-snapshot"}',
+    '{"command":"disconnect"}',
+    '{"command":"credential-status"}',
     '{"command":"shutdown"}'
   ]);
   assert.equal(result.code, 0);
   assert.equal(result.responses[0].error, "invalid_request");
-  assert.equal(result.responses[1].connected, true);
-  assert.equal(result.responses[2].readOnly, true);
-  assert.equal(result.responses[2].cockpit.authority.executionAuthorized, false);
-  assert.equal(result.responses[3].shutdown, true);
+  assert.equal(result.responses[1].sessionConfigured, true);
+  assert.equal(result.responses[1].storage, "memory-session");
+  assert.equal(result.responses[1].tokenExposed, false);
+  assert.equal(result.responses[2].credentials.configured, true);
+  assert.equal(result.responses[2].credentials.persistent, false);
+  assert.equal(result.responses[3].connected, true);
+  assert.equal(result.responses[4].readOnly, true);
+  assert.equal(result.responses[4].cockpit.authority.executionAuthorized, false);
+  assert.equal(result.responses[5].tokenCleared, true);
+  assert.equal(result.responses[6].credentials.configured, false);
+  assert.equal(result.responses[7].shutdown, true);
+  assert.equal(result.text.includes(token), false);
+  assert.equal(host.calls.filter(call => call === "authenticate").length, 1);
   assert.equal(host.calls.filter(call => call === "cockpit-snapshot").length, 1);
   assert.equal(host.calls.at(-1), "close");
+});
+
+test("DGM-MAT CLI rejects VST-only authentication and cockpit commands", async () => {
+  const host = makeHost("dgmat");
+  const token = "TOP_SECRET_SESSION_TOKEN_0123456789";
+  const result = await runWithStreams({
+    edition: "dgmat", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    JSON.stringify({ command: "authenticate", token, ownerConsent: true }),
+    '{"command":"cockpit-snapshot"}',
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(result.responses[1].error, "invalid_request");
+  assert.equal(result.text.includes(token), false);
+  assert.equal(host.calls.includes("authenticate"), false);
 });
 
 test("edition CLI rejects credential fields and never echoes request contents", async () => {
