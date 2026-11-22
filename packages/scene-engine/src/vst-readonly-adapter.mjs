@@ -27,7 +27,7 @@ const PAPER_CONTROL_COMMANDS = new Set([
   "pausar", "pausa", "pause", "retomar", "retoma", "resume",
   "parar", "para", "stop"
 ]);
-const SECRET_ASSIGNMENT_PATTERN = /\\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret)\\s*[:=]\\s*\\S+/i;
+const SECRET_ASSIGNMENT_PATTERN = /\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret)\s*[:=]\s*\S+/i;
 
 const PRIVATE_FIELD_NAMES = new Set([
   "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
@@ -259,6 +259,7 @@ export class VstReadOnlyAdapter {
   }
 
   async #postAssistantMessage(message, department, { signal } = {}) {
+    let requestStarted = false;
     try {
       return await runWithDeadline(async requestSignal => {
         let token;
@@ -269,11 +270,12 @@ export class VstReadOnlyAdapter {
           throw new Error("vst_token_provider_failed");
         }
         if (typeof token !== "string" || token.length < 16 || token.length > 8_192
-          || token.trim() !== token || /\\s/.test(token)) {
+          || token.trim() !== token || /\s/.test(token)) {
           throw new Error("vst_local_token_unavailable");
         }
 
         let response;
+        requestStarted = true;
         try {
           response = await this.fetchImpl(this.baseUrl + ASSISTANT_PATH, {
             method: "POST",
@@ -316,6 +318,17 @@ export class VstReadOnlyAdapter {
 
         const contentType = response.headers?.get?.("content-type") ?? "";
         if (!contentType.toLowerCase().includes("application/json")) {
+          if (status >= 200 && status < 300 || status === 409) {
+            return Object.freeze({
+              ok: false,
+              intent: "OUTCOME_UNKNOWN",
+              status: "UNKNOWN",
+              httpStatus: status,
+              sent: true,
+              retryAllowed: false,
+              error: "vst_request_outcome_unknown"
+            });
+          }
           return Object.freeze({
             ok: false,
             intent: status === 403 ? "PERMISSION_DENIED" : "REQUEST_REJECTED",
@@ -435,6 +448,16 @@ export class VstReadOnlyAdapter {
           sent: false,
           retryAllowed: false,
           error: "vst_session_token_unavailable"
+        });
+      }
+      if (code === "vst_request_outcome_unknown" && !requestStarted) {
+        return Object.freeze({
+          ok: false,
+          intent: "REQUEST_NOT_SENT",
+          status: "NOT_SENT",
+          sent: false,
+          retryAllowed: false,
+          error: "vst_connection_unavailable"
         });
       }
       if (code === "vst_request_outcome_unknown" || code === "vst_request_timeout"
@@ -623,7 +646,7 @@ export class VstReadOnlyAdapter {
 
   async sendAssistantMessage({ message, department = "brain" } = {}) {
     if (typeof message !== "string") throw new Error("vst_assistant_message_required");
-    const cleanMessage = message.trim().replace(/\\s+/g, " ");
+    const cleanMessage = message.trim().replace(/\s+/g, " ");
     if (!cleanMessage || cleanMessage.length > 2_000) throw new Error("vst_assistant_message_invalid");
 
     const normalizedDepartment = typeof department === "string"
