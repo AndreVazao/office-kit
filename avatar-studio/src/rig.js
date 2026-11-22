@@ -186,28 +186,51 @@ export function createAvatarRig(parent) {
     skinned.normalizeSkinWeights();
   }
 
-  // Bind the pelvis and torso shells to the central spine chain. Weights
-  // are distributed vertically between adjacent bones for smooth bending.
+  // Blend the pelvis into both upper legs at the lateral hip seams, then
+  // carry the waist into the spine and chest with a three-stage torso gradient.
   const bodyMeshes = [];
   parent.traverse((object) => {
     if (object.isMesh && object.userData.rigBodySegment) bodyMeshes.push(object);
   });
   for (const sourceMesh of bodyMeshes) {
     const segment = sourceMesh.userData.rigBodySegment;
-    const pair = segment === "pelvis" ? ["Hips", "Spine"] : ["Spine", "Chest"];
     sourceMesh.updateMatrix();
     const geometry = sourceMesh.geometry.clone();
     geometry.applyMatrix4(sourceMesh.matrix);
     const positions = geometry.getAttribute("position");
     const indices = [];
     const weights = [];
-    const lower = segment === "pelvis" ? 0.78 : 1.05;
-    const upper = segment === "pelvis" ? 1.20 : 1.66;
+    const hipsIndex = boneIndex.get("Hips");
+    const spineIndex = boneIndex.get("Spine");
+    const chestIndex = boneIndex.get("Chest");
+    const leftLegIndex = boneIndex.get("UpperLeg_L");
+    const rightLegIndex = boneIndex.get("UpperLeg_R");
+
     for (let i = 0; i < positions.count; i += 1) {
+      const x = positions.getX(i);
       const y = positions.getY(i);
-      const t = THREE.MathUtils.clamp((y - lower) / (upper - lower), 0, 1);
-      indices.push(boneIndex.get(pair[0]), boneIndex.get(pair[1]), 0, 0);
-      weights.push(1 - t, t, 0, 0);
+      if (segment === "pelvis") {
+        const waistToSpine = THREE.MathUtils.clamp((y - 0.86) / 0.36, 0, 1);
+        const lateralHip = THREE.MathUtils.clamp((Math.abs(x) - 0.075) / 0.14, 0, 1);
+        const thighWeight = (1 - waistToSpine) * lateralHip * 0.55;
+        const spineWeight = waistToSpine;
+        const hipsWeight = Math.max(0, 1 - spineWeight - thighWeight);
+        indices.push(hipsIndex, spineIndex, leftLegIndex, rightLegIndex);
+        weights.push(
+          hipsWeight,
+          spineWeight,
+          x < 0 ? thighWeight : 0,
+          x >= 0 ? thighWeight : 0
+        );
+      } else {
+        const waistToSpine = THREE.MathUtils.clamp((y - 0.92) / 0.35, 0, 1);
+        const spineToChest = THREE.MathUtils.clamp((y - 1.27) / 0.39, 0, 1);
+        const hipsWeight = 1 - waistToSpine;
+        const chestWeight = spineToChest;
+        const spineWeight = waistToSpine * (1 - spineToChest);
+        indices.push(hipsIndex, spineIndex, chestIndex, 0);
+        weights.push(hipsWeight, spineWeight, chestWeight, 0);
+      }
     }
     geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
     geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
