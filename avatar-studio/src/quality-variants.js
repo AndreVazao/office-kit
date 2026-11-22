@@ -20,6 +20,7 @@ function makeClusteredGeometry(source, cellSize) {
   const vertexCount = position.count;
   const attributes = Object.entries(source.attributes);
   const uv = source.getAttribute("uv");
+  const normal = source.getAttribute("normal");
   const skinIndex = source.getAttribute("skinIndex");
   const skinWeight = source.getAttribute("skinWeight");
   const groups = source.groups?.length
@@ -35,12 +36,14 @@ function makeClusteredGeometry(source, cellSize) {
     const y = position.getY(sourceVertex);
     const z = position.getZ(sourceVertex);
     const uvKey = uv ? Math.round(uv.getX(sourceVertex) * 10000) + ":" + Math.round(uv.getY(sourceVertex) * 10000) : "";
+    const normalKey = normal ? [Math.round(normal.getX(sourceVertex) * 20), Math.round(normal.getY(sourceVertex) * 20), Math.round(normal.getZ(sourceVertex) * 20)].join(":") : "";
     const key = [
       materialIndex,
       Math.round(x / cellSize),
       Math.round(y / cellSize),
       Math.round(z / cellSize),
-      uvKey
+      uvKey,
+      normalKey
     ].join("|");
     let target = buckets.get(key);
     if (target !== undefined) {
@@ -207,16 +210,28 @@ export function applyAvatarQualityVariant(root, profileId) {
   let optimizedTriangles = 0;
   let optimizedVertices = 0;
 
-  for (const mesh of meshes) {
-    const original = mesh.geometry;
-    const meshTriangles = geometryTriangles(original);
-    const meshTarget = Math.max(1, Math.floor(meshTriangles * ratio));
-    const optimized = profileId === "ultra" ? original.clone() : simplifyToBudget(original, meshTarget);
-    originals.push({ mesh, geometry: original });
-    mesh.geometry = optimized;
-    optimizedTriangles += geometryTriangles(optimized);
-    optimizedVertices += optimized.getAttribute("position")?.count || 0;
-    if (mesh.isSkinnedMesh) optimized.normalizeSkinWeights();
+  try {
+    for (const mesh of meshes) {
+      const original = mesh.geometry;
+      const meshTriangles = geometryTriangles(original);
+      const meshTarget = Math.max(1, Math.floor(meshTriangles * ratio));
+      const optimized = profileId === "ultra" ? original.clone() : simplifyToBudget(original, meshTarget);
+      if (mesh.isSkinnedMesh && (!optimized.getAttribute("skinIndex") || !optimized.getAttribute("skinWeight"))) {
+        optimized.dispose();
+        throw new Error("LOD generation removed required skinning attributes from " + mesh.name);
+      }
+      originals.push({ mesh, geometry: original });
+      mesh.geometry = optimized;
+      optimizedTriangles += geometryTriangles(optimized);
+      optimizedVertices += optimized.getAttribute("position")?.count || 0;
+      if (mesh.isSkinnedMesh) optimized.normalizeSkinWeights();
+    }
+  } catch (error) {
+    for (const { mesh, geometry } of originals) {
+      mesh.geometry.dispose();
+      mesh.geometry = geometry;
+    }
+    throw error;
   }
 
   let restored = false;
