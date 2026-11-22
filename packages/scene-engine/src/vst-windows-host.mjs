@@ -203,8 +203,9 @@ export function createWindowsVstHost({
       credentialStorage: "memory-session",
       authenticationState: sessionToken !== null
         ? "configured" : lastConnectionFailure === "authentication_rejected" ? "rejected" : "not_configured",
-      authorizationState: lastAuthorizationFailure
-        ? "denied" : adapter.connected ? "read_private_state_granted" : "not_checked",
+      authorizationState: lastConnectionFailure === "authorization_denied"
+        ? "denied" : lastAuthorizationFailure ? "scope_denied"
+          : adapter.connected ? "read_private_state_granted" : "not_checked",
       connectivityState: adapter.connected
         ? "connected" : lastConnectionFailure === "connectivity_unavailable" ? "unavailable" : "disconnected",
       lastConnectionFailure,
