@@ -221,7 +221,7 @@ try {
   $certificate = New-SelfSignedCertificate -Subject "CN=Office Kit CI Ephemeral Publisher" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256
   Write-Host "Created an ephemeral CI code-signing certificate."
 
-  Write-Host "Leaving the ephemeral certificate untrusted; production launcher must reject this CI-only signer."
+  Write-Host "Leaving the ephemeral certificate untrusted; production launcher must fail closed without authenticated publisher policy."
 
   Write-Host "Signing the bundled CNG helper."
   $escapedHelperPath = $helperPath.Replace("'", "''")
@@ -257,8 +257,8 @@ try {
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
 
   $launcherRejection = Invoke-OfficeKitHost -Arguments @("health") -ExpectFailure
-  if ($launcherRejection.status -ne "error" -or $launcherRejection.code -ne "windows_host_command_failed_powershell.exe") {
-    throw "Production launcher did not reject the untrusted ephemeral CI certificate."
+  if ($launcherRejection.status -ne "error" -or $launcherRejection.code -ne "windows_host_publisher_policy_unavailable") {
+    throw "Production launcher did not fail closed because no installer-authenticated publisher policy is provisioned."
   }
 
   $env:OFFICE_KIT_CNG_HOST_PATH = $helperPath
@@ -304,7 +304,7 @@ try {
     throw "Portable host did not report the revoked identity state after process restart."
   }
 
-  Write-Output "Portable Windows host bundle passed: launcher rejected untrusted signer; test-only pinned signature integrity, real local SQLite and Windows CNG identity create/reopen/rotate/revoke passed. Trusted-publisher acceptance remains a physical-release validation."
+  Write-Output "Portable Windows host bundle passed: production startup failed closed without authenticated publisher policy; test-only signature integrity, real local SQLite and Windows CNG identity create/reopen/rotate/revoke passed. Trusted-publisher acceptance remains a release gate."
 }
 finally {
   $officeKitData = Join-Path $testLocalAppData "OfficeKit"
