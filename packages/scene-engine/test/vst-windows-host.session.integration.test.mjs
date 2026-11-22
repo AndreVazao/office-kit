@@ -99,6 +99,7 @@ test("VST session token stays ephemeral across cockpit GETs and restricted assis
     assert.equal(snapshot.tasks[0].progress, undefined);
     assert.deepEqual(snapshot.agents, []);
     assert.equal(snapshot.agentState, "not_exposed_by_backend");
+    assert.equal(snapshot.departmentEvidence.find(item => item.department === "research").evidenceState, "available");
     assert.ok(requests.length >= 13);
     assert.ok(requests.filter(item => item.method === "GET").length >= 13);
     assert.ok(requests.every(item => item.token === ownerToken));
