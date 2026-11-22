@@ -438,6 +438,29 @@ test("assistant timeout reconciles the backend research queue before any retry c
   await adapter.disconnect();
 });
 
+test("unknown assistant outcome remains blocked when backend reconciliation is not authorized", async () => {
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/assistant/message") throw new Error("response lost after dispatch");
+      if (path === "/research") return response({ error: "scope_required:read_private_state" }, 403);
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Investiga esta hipótese",
+    department: "research"
+  });
+  assert.equal(result.status, "UNKNOWN");
+  assert.equal(result.reconciliation, "permission_denied");
+  assert.equal(result.reconciliationRequiredScope, "read_private_state");
+  assert.equal(result.retryAllowed, false);
+  assert.equal(adapter.authenticationRejected, false);
+  await adapter.disconnect();
+});
+
 test("assistant message 401 invalidates authentication while 403 remains an authorization refusal", async () => {
   const unauthenticated = createAdapter({
     fetchImpl: async url => {
