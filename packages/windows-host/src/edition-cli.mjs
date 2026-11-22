@@ -115,7 +115,8 @@ async function runServe(host, { input, output, edition }) {
         const error = request.command === "connect" ? "connection_failed"
           : request.command === "snapshot" ? "snapshot_failed"
             : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
-            : request.command === "disconnect" ? "disconnect_failed"
+              : request.command === "authenticate" ? "authentication_failed"
+                : request.command === "disconnect" ? "disconnect_failed"
               : request.command === "credential-status" ? "credential_status_failed"
                 : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
