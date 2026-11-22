@@ -86,6 +86,87 @@ test("uses only authenticated loopback GET /observer/summary with X-Token", asyn
   await adapter.disconnect();
 });
 
+test("cockpit snapshot reads only the authenticated read-only VST route allowlist", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      const path = new URL(url).pathname;
+      return path === "/observer/summary"
+        ? response(state())
+        : response({ ok: true, source_path: path });
+    }
+  });
+  await adapter.connect();
+  const snapshot = await adapter.getCockpitSnapshot();
+  const expectedPaths = [
+    "/health",
+    "/status",
+    "/diagnostics",
+    "/market-data-health",
+    "/venue-health",
+    "/evidence-scorecard",
+    "/paper-collector/resources",
+    "/research",
+    "/human-interaction/pending"
+  ];
+  assert.deepEqual(
+    calls.slice(1).map(call => new URL(call.url).pathname).sort(),
+    [...expectedPaths].sort()
+  );
+  for (const call of calls.slice(1)) {
+    assert.equal(call.init.method, "GET");
+    assert.equal(call.init.headers["X-Token"], "vst-local-token-0123456789");
+    assert.equal(call.init.cache, "no-store");
+    assert.equal(call.init.credentials, "omit");
+    assert.equal(call.init.redirect, "error");
+  }
+  assert.equal(snapshot.readOnly, true);
+  assert.equal(snapshot.authority.executionAuthorized, false);
+  assert.equal(snapshot.authority.ordersSubmitted, false);
+  assert.equal(snapshot.authority.riskBearingActionsAllowed, false);
+  assert.equal(snapshot.sections.status.state, "available");
+  assert.equal(snapshot.sections.status.data.source_path, "/status");
+  assert.equal(snapshot.sections.research.state, "available");
+  assert.equal(snapshot.sections.humanInteractionPending.state, "available");
+  assert.deepEqual(adapter.capabilities, ["read_state"]);
+  assert.deepEqual(vstAdapterContract.cockpitReadPaths, expectedPaths);
+  await adapter.disconnect();
+});
+
+test("cockpit snapshot preserves partial endpoint failures without fabricating data", async () => {
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/diagnostics") return response({ error: "internal detail must not be copied" }, 503);
+      return response({ ok: true, source_path: path });
+    }
+  });
+  await adapter.connect();
+  const snapshot = await adapter.getCockpitSnapshot();
+  assert.equal(snapshot.sections.diagnostics.state, "unavailable");
+  assert.equal(snapshot.sections.diagnostics.error, "vst_http_503");
+  assert.equal(snapshot.sections.status.state, "available");
+  assert.equal(JSON.stringify(snapshot).includes("internal detail must not be copied"), false);
+  await adapter.disconnect();
+});
+
+test("cockpit snapshot stops on authentication rejection and never reports a successful partial session", async () => {
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/status") return response({ ok: false }, 401);
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  await assert.rejects(adapter.getCockpitSnapshot(), /vst_auth_rejected/);
+  assert.equal(adapter.authenticationRejected, true);
+  await adapter.disconnect();
+});
+
 test("maps only the bounded observer fields and never invents agents, tasks or authority", async () => {
   const adapter = createAdapter();
   await adapter.connect();
