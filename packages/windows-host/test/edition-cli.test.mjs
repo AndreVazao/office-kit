@@ -96,7 +96,7 @@ test("VST CLI accepts a session token only through an explicit memory-only authe
     '{"command":"shutdown"}'
   ]);
   assert.equal(result.code, 0);
-  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(result.responses[0].error, "not_connected");
   assert.equal(result.responses[1].sessionConfigured, true);
   assert.equal(result.responses[1].storage, "memory-session");
   assert.equal(result.responses[1].tokenExposed, false);
