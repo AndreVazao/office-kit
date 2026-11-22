@@ -1,67 +1,77 @@
-# VST cockpit adapter — Phase 1 read-only contract
+# VST cockpit adapter — Fases 1 e 2
 
-**Status:** implementation in progress; CI and real-backend acceptance are pending.  
-**Scope:** Office Kit only. This document does not change or extend the VST backend.
+**Estado:** implementação em validação; CI e integração live com um VST em execução ainda pendentes.  
+**Âmbito:** apenas Office Kit. Este documento não altera nem estende o backend VST.
 
-## Authority boundary
+## Fronteira de autoridade
 
-- VST remains the only operational authority and continues independently if Office Kit closes.
-- Office Kit is a read-only authenticated client in this phase.
-- No trading logic, risk engine, exchange credentials, learning store, backend lifecycle control, or financial authorization is implemented here.
-- The adapter exposes only `read_state`. It does not expose a generic HTTP method, arbitrary route, or write capability.
-- No agent/task activity is synthesized. The existing observer snapshot continues to publish empty `agents` and `tasks` until VST provides explicit records with verified semantics.
+- VST continua a ser o único cérebro e autoridade operacional; continua a funcionar se o Office Kit fechar, for atualizado ou removido.
+- O snapshot operacional é read-only. A única escrita permitida nesta fase é a rota fixa `POST /assistant/message`, limitada a conversa, consulta de estado e submissão de investigação.
+- Office Kit não executa lógica de trading, não possui Risk Engine, não guarda credenciais de exchanges, não aprende nem persiste memória operacional e não controla o ciclo de vida do backend.
+- O adaptador declara `read_state` e `assistant_message`; não expõe métodos HTTP, rotas, comandos ou payloads arbitrários.
+- Os controlos PAPER, ações de intervenção humana e operações financeiras continuam bloqueados.
+- Não são inventados agentes, tarefas, progresso ou estados. Um pedido de investigação com estado `QUEUED` não é apresentado como trabalho concluído.
 
-## Verified VST routes
+## Rotas VST verificadas
 
-The route contract was checked against VST `main` at `ac88989caeff86198339de38e241b3e52560e791` in `PC_ENGINE/api/server.py`.
+Os caminhos foram confirmados em VST `main` no commit `ac88989caeff86198339de38e241b3e52560e791`, em `PC_ENGINE/api/server.py` e `PC_ENGINE/api/assistant_gateway.py`.
 
-| Cockpit section | Method and path | Authentication |
+| Área do cockpit | Método e rota | Âmbito |
 |---|---|---|
-| Liveness | `GET /health` | Public liveness only; not proof of private access |
-| CEO / overview | `GET /status` | `read_private_state` |
-| Central Memory health | `GET /learning-memory/health` | `read_private_state` |
-| Central Memory runtime | `GET /learning-memory/runtime` | `read_private_state` |
-| Recovery / diagnostics | `GET /diagnostics` | `read_private_state` |
-| Radar / data freshness | `GET /market-data-health` | `read_private_state` |
-| Markets / venues | `GET /venue-health` | `read_private_state` |
-| Evidence | `GET /evidence-scorecard` | `read_private_state` |
-| Audit integrity summary | `GET /evidence-ledger/audit` | `read_private_state` |
-| PAPER collector resources | `GET /paper-collector/resources` | `read_private_state` |
-| Research queue | `GET /research` | `read_private_state` |
-| Human intervention queue | `GET /human-interaction/pending` | `read_private_state` |
+| Liveness | `GET /health` | Público; não prova acesso privado |
+| CEO / visão geral | `GET /status` | `read_private_state` |
+| Central Memory | `GET /learning-memory/health`, `GET /learning-memory/runtime` | `read_private_state` |
+| Recovery | `GET /diagnostics` | `read_private_state` |
+| Radar | `GET /market-data-health` | `read_private_state` |
+| Markets | `GET /venue-health` | `read_private_state` |
+| Analysis / evidência | `GET /evidence-scorecard` | `read_private_state` |
+| Audit | `GET /evidence-ledger/audit` | `read_private_state`; apenas resumo |
+| PAPER Lab | `GET /paper-collector/resources` | `read_private_state` |
+| Research | `GET /research` | `read_private_state` |
+| Intervenção humana | `GET /human-interaction/pending` | `read_private_state` |
+| CEO / conversa | `POST /assistant/message` | `read_private_state`; investigação requer também `submit_research` |
 
-The existing `GET /observer/summary` remains the authenticated connection/synchronization probe for the runtime adapter. The twelve cockpit routes above are an additional bounded read-only snapshot.
+`GET /observer/summary` continua a ser a prova autenticada de ligação/sincronização. O endpoint `GET /evidence-ledger` não é consumido: a listagem atual não oferece paginação/limite e poderia transferir um histórico sem limite. A área Audit recebe apenas o resumo `/evidence-ledger/audit`.
 
-## Transport and data handling
+## Transporte, autenticação e autorização
 
-- Default endpoint is exact loopback `http://127.0.0.1:8765`; LAN/Tailscale is deliberately not enabled in this increment.
-- Every request uses `GET`, `X-Token`, `cache: no-store`, `credentials: omit`, and `redirect: error`.
-- The owner supplies the control token for the active session. The host keeps it only in process memory and clears its reference on disconnect, authentication rejection, and close. It is not written to the CNG vault, renderer storage, URLs, or logs. JavaScript strings cannot be reliably zeroized.
-- Requests are bounded by the adapter timeout and use at most three concurrent endpoint reads.
-- Endpoint failures are represented as unavailable sections with sanitized error codes. Other read sections can still be displayed.
-- Every payload passes a bounded recursive redactor: claim tokens, credentials, owner identifiers, local filesystem paths and URL query/fragment/user-info are removed; free-text token-like assignments are redacted. Pending human-interaction form values/defaults are also removed. Nested depth, object keys, array lengths and string lengths are bounded.
-- Authentication rejection invalidates the cockpit snapshot; a partial snapshot is not reported as authenticated success.
-- The response is session data only. It is not persisted by the Office Kit visual layer or host. The `/human-interaction/pending` claim token is deliberately removed; this phase cannot claim/respond to a human-interaction request.
-- Mode and authority flags are descriptive only. `executionAuthorized`, `ordersSubmitted`, and `riskBearingActionsAllowed` remain false in the Office Kit contract.
+- Base URL fixa: `http://127.0.0.1:8765`. LAN/Tailscale não está habilitado nesta fase.
+- As leituras usam apenas GET na allowlist fixa. A conversa usa apenas POST em `/assistant/message`, com body exato `{ message, department }`.
+- Todas as chamadas usam `X-Token`, `cache: no-store`, `credentials: omit` e `redirect: error`.
+- O token é fornecido pelo proprietário para a sessão ativa, guardado apenas em memória e limpo em disconnect, rejeição de autenticação e close. Não é escrito em CNG, SQLite, ficheiros, URLs, logs ou armazenamento visual. JavaScript não garante zeroização física de strings.
+- HTTP 401 significa autenticação rejeitada: o token de sessão é limpo. HTTP 403 significa autorização/âmbito insuficiente: o token é preservado e a falha é exposta separadamente. Timeout, erro de rede ou resposta 5xx depois do envio produzem resultado `UNKNOWN`; não existe retry automático.
+- A ligação exige `read_private_state`. A submissão de investigação exige adicionalmente `submit_research`; falta desse âmbito é devolvida como recusa de autorização, não como token inválido.
+- Departamentos conversacionais VST confirmados: `brain`, `markets`, `radar`, `research`, `paper`, `risk`, `recovery`, `audit` e `human`. `analysis` e `central_memory` ainda não têm handler conversacional independente no VST; os seus painéis read-only continuam disponíveis e a conversa devolve `NOT_CONNECTED` sem enviar pedido.
+- Os comandos exatos PAPER de iniciar, pausar, retomar e parar são bloqueados localmente até à Fase 4. Não há rota alternativa de escrita.
+- Mensagens com padrões comuns de credenciais (API key/secret, password, token, bearer) são recusadas localmente e não são enviadas ao VST. Não colar credenciais de exchange no cockpit.
+- Pedidos REAL são enviados ao gateway existente e a recusa do VST é apresentada sem tentar contornar a decisão.
+- `request_id` devolvido pelo backend é preservado. `QUEUED` significa aceite na fila, não execução nem conclusão. A conclusão só pode vir de estado posterior confirmado pelo backend.
 
-## Host interface
+## Redação e proteção de dados
 
-After explicit session-token authentication and explicit connection, the VST host exposes `getCockpitSnapshot()`. The local host CLI accepts a fixed `authenticate` request carrying the owner-approved token through stdin only, then the fixed `cockpit-snapshot` command. The token is not echoed or logged and is cleared on disconnect/close; no arbitrary route or method is accepted.
+- Todos os payloads passam por redator recursivo limitado: remove claim tokens, credenciais, identificadores privados, campos de caminhos, valores de formulários de intervenção humana e query/fragment/user-info de URLs; redige atribuições de tokens em texto.
+- Profundidade, número de propriedades, tamanho de arrays e strings são limitados.
+- O token de claim de `/human-interaction/pending` e valores de formulários são removidos; esta fase não reclama nem responde a pedidos humanos.
+- O snapshot não é persistido pelo Office Kit. Não são enviados tokens ou dados privados para Vercel.
 
-## Explicitly not implemented in Phase 1
+## Interface do host
 
-- `POST /assistant/message` and department context routing.
-- Task/request lifecycle tracking beyond data actually returned by the backend.
-- PAPER start/pause/resume/stop controls.
-- Human-interaction response/cancel actions.
-- LAN/Tailscale, device pairing, or remote identity verification.
-- Android packaging, cockpit panels, or live backend end-to-end acceptance.
+Após consentimento explícito e autenticação, o host expõe `getCockpitSnapshot()` e `sendAssistantMessage({ message, department })`. O CLI aceita apenas os comandos fixos `authenticate`, `connect`, `cockpit-snapshot`, `assistant-message`, `disconnect` e `health`; o comando `assistant-message` é exclusivo da edição VST. Não existe entrada para rota, método ou comando arbitrário.
 
-## Next gates
+## Ainda não implementado
 
-1. Pass Linux/Windows Node 22/26 and Chromium visual CI on the exact PR HEAD.
-2. Add a controlled authenticated VST backend integration test using the real route factory, not only mocked fetch responses.
-3. Confirm partial endpoint failures, expired/revoked tokens, stale timestamps, and server restart behavior.
-4. Keep the Windows host fail-closed until the installer-authenticated Authenticode policy is implemented; this adapter PR does not bypass that gate.
-5. Implement the authenticated assistant gateway in a separate phase after its department and permission semantics are contract-tested.
-6. Add LAN/Tailscale only after endpoint identity, origin validation, token transport, and reconnect behavior are independently verified.
+- Fase 3: ciclo de vida completo das tarefas e estados reais dos departamentos, reconciliados por IDs do backend.
+- Fase 4: controlos PAPER exclusivamente pelas rotas VST existentes e respetivas autorizações.
+- Resposta/cancelamento de intervenções humanas.
+- Ligação LAN/Tailscale e identidade remota.
+- UI final dos painéis, Android e distribuição.
+- Histórico completo do evidence ledger enquanto o backend não oferecer paginação/limites.
+- E2E live contra uma instância VST e validação no PC físico.
+
+## Próximos gates
+
+1. Linux/Windows Node 22/26 e regressão visual Chromium no SHA exato da PR.
+2. Testes de 401 vs 403, falta de `submit_research`, recusa REAL, bloqueio PAPER e timeout com resultado desconhecido.
+3. Teste E2E autenticado com instância VST real, sem alterar o repositório VST.
+4. Manter o host Windows fail-closed até à política Authenticode autenticada pelo instalador; esta integração não contorna a issue #110.
+5. Implementar estados de tarefas na Fase 3 e controlos PAPER na Fase 4, em PRs separadas.
