@@ -8,7 +8,7 @@
 - PR #119 integrated the restricted authenticated `POST /assistant/message` bridge, backend request IDs, permission distinction and unknown-outcome reconciliation.
 - PR #120 integrated real research queue task normalization and department evidence availability. Task progress is shown only if supplied by VST; agent inventory remains explicitly unavailable.
 - Issue #121 blocks PAPER controls: the current VST API does not guarantee an atomic PAPER-only boundary for all start/pause/resume/stop operations. Office Kit must not invoke these routes or route controls through assistant messages.
-- Current branch `feat/vst-local-diagnostics-recovery-2026-11-22` integrates layered local diagnostics and explicit adapter-only reconnect. It must not restart VST, renew credentials, write to backend or retry after authentication rejection.
+- PR #122 merged as `ee3540c05ccf3f00478b8f2c67f9133c1a80ab42` from final HEAD `48114a47a113bd53b75aa2a2c061d0362db1a0f2`; CI #45064563249 and visual regression #45064563221 passed. VST host diagnostics use the OfficeHealthRecoveryEngine; recovery reconnects only the local adapter and requires a fresh synchronized observer snapshot. It must not restart VST, renew credentials, write to backend or retry after authentication rejection.
 - VST backend, DGM-MAT, Universal and Avatar Studio are not modified by this integration. LAN/Tailscale and live E2E remain pending.
 
 ## Produto e invariantes
