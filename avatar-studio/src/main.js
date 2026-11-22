@@ -156,7 +156,8 @@ function buildHuman(config) {
   // Let the shirt shell follow the spine-to-chest bend instead of rotating as one rigid piece.
   shirtMesh.userData.rigBodySegment = "torso";
   const neckMesh = cylinder(root, skin, [0, 1.72, 0], 0.09, 0.10, 0.16, "Neck");
-  neckMesh.userData.rigBlendBones = ["Chest", "Neck"];
+  // Distribute the neck transition along its length instead of using fixed weights.
+  neckMesh.userData.rigBodySegment = "neck";
 
   // Arms
   for (const side of [-1, 1]) {
