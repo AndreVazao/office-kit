@@ -799,6 +799,7 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
   assert.deepEqual(vstAdapterContract.capabilities, ["read_state", "assistant_message"]);
   assert.equal(vstAdapterContract.assistantMessagePath, "/assistant/message");
   assert.equal(vstAdapterContract.assistantMessageMethod, "POST");
+  assert.deepEqual(vstAdapterContract.assistantMessageRequiredScopes, ["read_private_state", "submit_research"]);
   assert.equal(vstAdapterContract.assistantMessagePaperControlsBlocked, true);
   assert.equal(vstAdapterContract.assistantMessageAutomaticRetry, false);
   assert.ok(vstAdapterContract.assistantMessageDepartments.includes("research"));
