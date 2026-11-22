@@ -57,7 +57,6 @@ test("edition CLI starts disconnected and accepts only explicit read-only sessio
     '{"command":"snapshot"}',
     '{"command":"connect"}',
     '{"command":"snapshot"}',
-    '{"command":"cockpit-snapshot"}',
     '{"command":"disconnect"}',
     '{"command":"shutdown"}'
   ]);
@@ -67,13 +66,29 @@ test("edition CLI starts disconnected and accepts only explicit read-only sessio
   assert.equal(result.responses[2].error, "not_connected");
   assert.equal(result.responses[3].connected, true);
   assert.equal(result.responses[4].snapshot.synchronized, false);
-  assert.equal(result.responses[5].command, "cockpit-snapshot");
-  assert.equal(result.responses[5].readOnly, true);
-  assert.equal(result.responses[5].cockpit.authority.executionAuthorized, false);
-  assert.equal(result.responses[6].connected, false);
-  assert.equal(result.responses[7].shutdown, true);
+  assert.equal(result.responses[5].connected, false);
+  assert.equal(result.responses[6].shutdown, true);
   assert.equal(host.calls.filter(call => call === "connect").length, 1);
   assert.equal(host.calls.filter(call => call === "disconnect").length, 1);
+  assert.equal(host.calls.at(-1), "close");
+});
+
+test("VST CLI exposes cockpit-snapshot only after an explicit authenticated connection", async () => {
+  const host = makeHost("vst");
+  const result = await runWithStreams({
+    edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    '{"command":"cockpit-snapshot"}',
+    '{"command":"connect"}',
+    '{"command":"cockpit-snapshot"}',
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.code, 0);
+  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(result.responses[1].connected, true);
+  assert.equal(result.responses[2].readOnly, true);
+  assert.equal(result.responses[2].cockpit.authority.executionAuthorized, false);
+  assert.equal(result.responses[3].shutdown, true);
   assert.equal(host.calls.filter(call => call === "cockpit-snapshot").length, 1);
   assert.equal(host.calls.at(-1), "close");
 });
