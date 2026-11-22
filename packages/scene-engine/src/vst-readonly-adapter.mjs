@@ -235,9 +235,9 @@ function safeIsoTimestamp(seconds) {
 
 function requestedDepartmentFromResearchMessage(message) {
   if (typeof message !== "string") return "brain";
-  const explicit = /^\\[Departamento solicitado: ([^\\]]+)\\]\\s*/i.exec(message);
+  const explicit = /^\[Departamento solicitado: ([^\]]+)\]\s*/i.exec(message);
   if (explicit) return RESEARCH_DEPARTMENT_LABELS[explicit[1].trim().toLocaleUpperCase("pt-PT")] ?? "unknown";
-  if (/^\\[Área do cockpit: Análise\\]/i.test(message)) return "analysis";
+  if (/^\[Área do cockpit: Análise\]/i.test(message)) return "analysis";
   return "brain";
 }
 
