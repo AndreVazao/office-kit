@@ -8,7 +8,7 @@ const EDITION_DATA_DIRECTORIES = Object.freeze({
 const MAX_REQUEST_BYTES = 4_096;
 const CLI_COMMANDS = new Set(["health", "serve"]);
 const REQUEST_COMMANDS = new Set([
-  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "disconnect", "shutdown"
+  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "assistant-message", "disconnect", "shutdown"
 ]);
 
 function writeJson(output, value) {
@@ -41,6 +41,13 @@ function parseRequest(line) {
       return { error: "invalid_request" };
     }
     return { command: value.command, token: value.token, ownerConsent: true };
+  }
+  if (value.command === "assistant-message") {
+    if (keys.join(",") !== "command,department,message"
+      || typeof value.message !== "string" || typeof value.department !== "string") {
+      return { error: "invalid_request" };
+    }
+    return { command: value.command, message: value.message, department: value.department };
   }
   if (keys.length !== 1 || keys[0] !== "command") return { error: "invalid_request" };
   return { command: value.command };
@@ -87,6 +94,19 @@ async function executeRequest(host, request) {
     }
     return { ok: true, command, readOnly: true, cockpit: await host.getCockpitSnapshot() };
   }
+  if (command === "assistant-message") {
+    if (typeof host.sendAssistantMessage !== "function") {
+      return { ok: false, command, error: "assistant_message_unavailable" };
+    }
+    return {
+      ok: true,
+      command,
+      response: await host.sendAssistantMessage({
+        message: request.message,
+        department: request.department
+      })
+    };
+  }
   if (command === "disconnect") {
     const result = await host.disconnect();
     return {
@@ -108,7 +128,7 @@ async function runServe(host, { input, output, edition }) {
         writeJson(output, { ok: false, error: request.error });
         continue;
       }
-      if ((request.command === "cockpit-snapshot" || request.command === "authenticate") && edition !== "vst") {
+      if ((request.command === "cockpit-snapshot" || request.command === "authenticate" || request.command === "assistant-message") && edition !== "vst") {
         writeJson(output, { ok: false, error: "invalid_request" });
         continue;
       }
@@ -121,7 +141,8 @@ async function runServe(host, { input, output, edition }) {
           : request.command === "snapshot" ? "snapshot_failed"
             : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
               : request.command === "authenticate" ? "authentication_failed"
-                : request.command === "disconnect" ? "disconnect_failed"
+                : request.command === "assistant-message" ? "assistant_message_failed"
+                  : request.command === "disconnect" ? "disconnect_failed"
               : request.command === "credential-status" ? "credential_status_failed"
                 : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
