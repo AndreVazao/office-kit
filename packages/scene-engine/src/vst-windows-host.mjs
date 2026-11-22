@@ -214,7 +214,9 @@ export function createWindowsVstHost({
       backendReadOnly: false,
       backendWriteScope: "assistant_message_only",
       financialActionsAllowed: false,
-      paperControlsEnabled: false
+      paperControlsEnabled: false,
+      executionAuthorized: false,
+      riskBearingActionsAllowed: false
     });
   }
 
