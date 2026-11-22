@@ -588,13 +588,13 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 ## VST read-only adapter preview — implementation increment (2026-11-12)
 
 - Added a VST-only adapter entrypoint and Windows host composition; the generic scene-engine entrypoint remains backend-neutral.
-- The adapter allowlist contains only authenticated loopback `GET /observer/summary` on port 8765 with `X-Token`; redirects are rejected and remote endpoints are disabled.
+- The adapter uses authenticated loopback `GET /observer/summary` plus fixed GET-only cockpit routes `/health`, `/status`, `/diagnostics`, `/market-data-health`, `/venue-health`, `/evidence-scorecard`, `/paper-collector/resources`, `/research`, and `/human-interaction/pending`; redirects and remote endpoints remain disabled.
 - The VST control token is memory-only for the active owner-approved session; disconnect, authentication rejection and close clear the in-memory reference. It is never persisted in the CNG vault.
 - Snapshots accept observer data only when the response envelope has `ok === true`, then copy bounded fields. Failed envelopes suppress supplied status/count/health values and remain synchronizing. Agent/task arrays remain empty; observer publication time is not treated as engine readiness. Stale/future/missing timestamps do not become authoritative.
 - `REAL` mode is reported as configuration only. No command capability, risk-bearing action or execution authorization is exposed.
 - Disconnect and superseding connection attempts abort the active token-provider/fetch signal; each connection has a fresh session UUID and bounded request deadline.
 - Unit/fake tests cover route restrictions, authentication, normalization, freshness, deadlines, cancellation, reconnect generation and secret redaction. Edition artifact tests inspect actual tarball contents for isolation.
-- CI #43230962819 and visual regression #43230962934 passed on implementation HEAD `3aff126095e4af10d16ea65fccaeb58be983eb43`; Linux/Windows Node 22/26 matrix, Windows CNG integration (including VST namespace) and portable bundle E2E passed. The subsequent documentation-only synchronization commit is being revalidated on its own PR HEAD before merge. Remaining gates: live E2E against the real VST observer, full signed host lifecycle, physical-PC provisioning/reconnect/restart, and production installer/signing.
+- Historical CI #43230962819 validated the retired CNG-persisted VST token design. Current acceptance must instead use the memory-only session-token tests and exact PR HEAD checks. Remaining gates: live E2E against a real VST instance, full signed host lifecycle, physical-PC provisioning/reconnect/restart, and production installer/signing.
 
 
 
