@@ -74,6 +74,29 @@ function makeHost() {
   };
 }
 
+test("VST Windows host exposes the authenticated read-only cockpit snapshot through its token vault", async () => {
+  const host = makeHost();
+  const { fetchImpl, calls } = makeFetch();
+  const ownerToken = "vst-owner-token-" + "0123456789".repeat(4);
+  const composed = createWindowsVstHost({
+    hostFactory: () => host,
+    adapterOptions: { fetchImpl, now: () => fixedNow, timeoutMs: 1_000, pollIntervalMs: 60_000 }
+  });
+  try {
+    await composed.provisionLocalApiToken({ token: ownerToken, ownerConsent: true });
+    await composed.connect();
+    const snapshot = await composed.getCockpitSnapshot();
+    assert.equal(snapshot.readOnly, true);
+    assert.equal(snapshot.authority.executionAuthorized, false);
+    assert.equal(snapshot.sections.status.state, "available");
+    assert.ok(calls.some(call => call.url.endsWith("/status") && call.method === "GET"));
+    assert.ok(calls.every(call => call.method === "GET"));
+    assert.ok(calls.filter(call => call.url.includes("/status")).every(call => call.token === ownerToken));
+  } finally {
+    await composed.close();
+  }
+});
+
 test("VST Windows host requires explicit consent and never auto-connects on credential provisioning", async () => {
   const host = makeHost();
   const { fetchImpl, calls } = makeFetch();
