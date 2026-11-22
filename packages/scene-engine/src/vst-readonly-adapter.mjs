@@ -841,7 +841,7 @@ export class VstReadOnlyAdapter {
 
 export const vstAdapterContract = Object.freeze({
   id: SOURCE_ID,
-  mode: "read-only",
+  mode: "read-only-snapshot+restricted-assistant-message",
   defaultBaseUrl: DEFAULT_BASE_URL,
   allowedMethods: Object.freeze(["GET"]),
   assistantMessagePath: ASSISTANT_PATH,
@@ -863,5 +863,5 @@ export const vstAdapterContract = Object.freeze({
   requiresInjectedSecureTokenProvider: true,
   sessionIdentity: "fresh-uuid-per-connection",
   remoteConnectionSupported: false,
-  capabilities: Object.freeze(["read_state"])
+  capabilities: Object.freeze(["read_state", "assistant_message"])
 });
