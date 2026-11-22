@@ -36,7 +36,7 @@ The existing `GET /observer/summary` remains the authenticated connection/synchr
 - The owner supplies the control token for the active session. The host keeps it only in process memory and clears its reference on disconnect, authentication rejection, and close. It is not written to the CNG vault, renderer storage, URLs, or logs. JavaScript strings cannot be reliably zeroized.
 - Requests are bounded by the adapter timeout and use at most three concurrent endpoint reads.
 - Endpoint failures are represented as unavailable sections with sanitized error codes. Other read sections can still be displayed.
-- Every payload passes a bounded recursive redactor: claim tokens, credentials, owner identifiers, local filesystem paths and URL query/fragment/user-info are removed; free-text token-like assignments are redacted. Nested depth, object keys, array lengths and string lengths are bounded.
+- Every payload passes a bounded recursive redactor: claim tokens, credentials, owner identifiers, local filesystem paths and URL query/fragment/user-info are removed; free-text token-like assignments are redacted. Pending human-interaction form values/defaults are also removed. Nested depth, object keys, array lengths and string lengths are bounded.
 - Authentication rejection invalidates the cockpit snapshot; a partial snapshot is not reported as authenticated success.
 - The response is session data only. It is not persisted by the Office Kit visual layer or host. The `/human-interaction/pending` claim token is deliberately removed; this phase cannot claim/respond to a human-interaction request.
 - Mode and authority flags are descriptive only. `executionAuthorized`, `ordersSubmitted`, and `riskBearingActionsAllowed` remain false in the Office Kit contract.
