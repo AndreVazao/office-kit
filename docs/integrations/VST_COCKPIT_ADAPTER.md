@@ -1,6 +1,6 @@
 # VST cockpit adapter — Fases 1, 2 e 3 (incremento de tarefas)
 
-**Estado:** Fases 1–3 integradas (PRs #118–#120); Fase 4 bloqueada pela issue #121; diagnósticos locais e recuperação limitada da Fase 5 em validação. E2E live com VST em execução continua pendente.  
+**Estado:** Fases 1–3 integradas (PRs #118–#120); Fase 5a integrada (PR #122); Fase 4 bloqueada pela issue #121. E2E live com VST em execução continua pendente.  
 **Âmbito:** apenas Office Kit. Este documento não altera nem estende o backend VST.
 
 ## Fronteira de autoridade
