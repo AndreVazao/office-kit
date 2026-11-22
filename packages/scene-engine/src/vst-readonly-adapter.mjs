@@ -362,6 +362,7 @@ export class VstReadOnlyAdapter {
     let cursor = 0;
     const worker = async () => {
       while (true) {
+        if (this.authenticationRejected || controller.signal.aborted) return;
         const index = cursor++;
         if (index >= endpoints.length) return;
         const [key, path] = endpoints[index];
