@@ -141,6 +141,7 @@ async function runServe(host, { input, output, edition }) {
       } catch (caught) {
         const code = caught instanceof Error ? caught.message : "";
         const error = code === "vst_auth_rejected" ? "authentication_failed"
+          : code === "vst_session_token_unavailable" || code === "vst_token_provider_failed" ? "authentication_unavailable"
           : code === "vst_http_403" ? "authorization_denied"
             : code === "vst_request_timeout" || code === "vst_transport_error"
               || /^vst_http_(?:0|5[0-9]{2})$/.test(code) ? "connectivity_unavailable"
