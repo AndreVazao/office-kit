@@ -95,6 +95,8 @@ async function executeRequest(host, request) {
     return { ok: true, command, readOnly: true, cockpit: await host.getCockpitSnapshot() };
   }
   if (command === "assistant-message") {
+    const health = await host.health();
+    if (health?.adapterConnected !== true) return { ok: false, command, error: "not_connected" };
     if (typeof host.sendAssistantMessage !== "function") {
       return { ok: false, command, error: "assistant_message_unavailable" };
     }
