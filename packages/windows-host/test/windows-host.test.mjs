@@ -331,6 +331,38 @@ test("Authenticode verifier never takes the publisher pin from the process envir
 });
 
 
+test("Windows host startup ignores an environment publisher pin and fails before opening SQLite", () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-publisher-policy-"));
+  const appDataPath = join(directory, "OfficeKit");
+  const helperPath = join(directory, "OfficeKit.CngHost.exe");
+  const previous = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
+  let databaseOpened = false;
+  writeFileSync(helperPath, "test helper");
+  try {
+    process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = "A".repeat(40);
+    assert.throws(() => createWindowsHost({
+      platform: "win32",
+      appDataPath,
+      helperPath,
+      resolveUserSid: () => "S-1-5-21-100",
+      applyAcl: () => {},
+      spawnImpl: () => {
+        throw new Error("PowerShell must not run without authenticated publisher policy");
+      },
+      databaseFactory: () => {
+        databaseOpened = true;
+        throw new Error("database_must_not_open");
+      }
+    }), /windows_host_publisher_policy_unavailable/);
+    assert.equal(databaseOpened, false);
+  } finally {
+    if (previous === undefined) delete process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
+    else process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
 test("host startup reconciliation completes before identity mutations are exposed", async () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-ready-"));
   const events = [];
