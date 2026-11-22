@@ -68,11 +68,13 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
         return value.split(/[?#]/, 1)[0].slice(0, 2_048);
       }
     }
-    return value.slice(0, 4_096).replace(
-      /\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\s*[:=]\s*["']?[^\s"'&,;]+/gi,
-      "$1=[redacted]"
-    );
-  }
+    return value.slice(0, 4_096)
+      .replace(
+        /["']?\b(api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret|token|authorization)["']?\s*[:=]\s*["']?[^\s"'&,;]+/gi,
+        "$1=[redacted]"
+      )
+      .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{16,}/gi, "Bearer [redacted]")
+      .replace(/([?&](?:access_token|refresh_token|api_key|api_secret|token|secret|password)=)[^&\s]+/gi, "$1[redacted]");  }
   if (Array.isArray(value)) {
     return value.slice(0, 200)
       .map(item => sanitizeCockpitPayload(item, "", depth + 1, budget, section))
