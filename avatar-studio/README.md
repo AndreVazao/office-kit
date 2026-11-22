@@ -36,6 +36,14 @@ The GLB root carries this contract in standard glTF `extras` metadata (`officeKi
 
 **Important status:** the current prototype still exports its source geometry; the four triangle budgets are authoring targets, not four already-decimated mesh files. Tier-specific geometry reduction, material/texture variants, and automated visual-equivalence checks remain implementation work. Do not treat the profile metadata as proof that four optimized assets already exist. The Office Kit engines remain untouched and own device capability detection, runtime selection, and fallback.
 
+## Multi-device graphics quality contract and source audit
+
+Four target profiles (Ultra, High, Medium, Low) are defined in `src/quality-profiles.js`. The editor now measures the actual visible post-rig avatar geometry: triangle count, vertex count, visible mesh count, skinned mesh count, and unique material count. It displays whether the current source model fits each profile's triangle and material budgets. The measured source metrics and profile-fit results are embedded in the exported GLB root extras.
+
+The Studio does not detect the user's device and does not select a runtime profile. The Office Kit runtime remains the sole authority for capability detection, profile selection, and fallback.
+
+**Current limitation:** these are source-model measurements and budget checks, not four optimized deliverables. Tier-specific mesh simplification, texture/material variants, and visual-equivalence validation are still pending. The report must not be interpreted as proof that a model marked "fits" has been tested on every device or that dedicated tier assets exist.
+
 ## CEO identity-reference workflow
 
 The right-hand identity panel accepts a local JPEG, PNG, or WebP reference image (maximum 15 MB). The image is decoded and drawn in the browser only; it is not uploaded, committed, persisted, or transmitted by this module. The user can mark ten facial reference points on the image to create a manual landmark guide. Only the current browser session holds the selected image and points.
