@@ -29,7 +29,7 @@ The route contract was checked against VST `main` at `ac88989caeff86198339de38e2
 | Research queue | `GET /research` | `read_private_state` |
 | Human intervention queue | `GET /human-interaction/pending` | `read_private_state` |
 
-The existing `GET /observer/summary` remains the authenticated connection/synchronization probe for the runtime adapter. The nine cockpit routes above are an additional bounded read-only snapshot.
+The existing `GET /observer/summary` remains the authenticated connection/synchronization probe for the runtime adapter. The eleven cockpit routes above are an additional bounded read-only snapshot.
 
 ## Transport and data handling
 
