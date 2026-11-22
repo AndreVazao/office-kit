@@ -49,7 +49,7 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
         parsed.hash = "";
         return parsed.toString().slice(0, 2_048);
       } catch {
-        return value.slice(0, 2_048);
+        return value.split(/[?#]/, 1)[0].slice(0, 2_048);
       }
     }
     return value.slice(0, 4_096).replace(
