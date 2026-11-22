@@ -126,10 +126,6 @@ $launcher = @"
 @echo off
 setlocal
 set "OFFICE_KIT_CNG_HOST_PATH=%~dp0OfficeKit.CngHost.exe"
-if not defined OFFICE_KIT_CNG_SIGNER_THUMBPRINT (
-  echo {"ok":false,"error":"windows_host_cng_signer_thumbprint_required"}
-  exit /b 1
-)
 "%~dp0node.exe" "%~dp0$entrypointWindows" %*
 exit /b %ERRORLEVEL%
 "@
