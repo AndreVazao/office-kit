@@ -203,11 +203,12 @@ function freshnessFor(timestampMs, now, ttlMs) {
 }
 
 /**
- * Read-only VST adapter.
+ * VST cockpit adapter.
  *
- * It uses only authenticated loopback GET /observer/summary with X-Token.
- * The observer timestamp is the latest publication time, not proof of engine
- * readiness, PAPER/REAL authorization, agent activity, or trading authority.
+ * Cockpit state uses a fixed authenticated loopback GET allowlist. Assistant
+ * messaging uses only the fixed POST /assistant/message route and is restricted
+ * to chat/status/research; PAPER control phrases and credential assignments are
+ * blocked locally. The adapter never exposes arbitrary HTTP methods or routes.
  */
 export class VstReadOnlyAdapter {
   constructor({
@@ -852,6 +853,7 @@ export const vstAdapterContract = Object.freeze({
   cockpitReadPaths: Object.freeze(Object.values(COCKPIT_ENDPOINTS)),
   authenticationHeader: "X-Token",
   requiredScope: "read_private_state",
+  assistantMessageRequiredScopes: Object.freeze(["read_private_state", "submit_research"]),
   responseSuccessField: "ok",
   requiresSuccessfulObserverEnvelope: true,
   sourceTimestampField: "updated_at_ms",
