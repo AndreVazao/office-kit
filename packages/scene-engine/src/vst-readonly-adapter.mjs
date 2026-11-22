@@ -17,8 +17,33 @@ const COCKPIT_ENDPOINTS = Object.freeze({
   humanInteractionPending: "/human-interaction/pending"
 });
 const ALLOWED_PATHS = new Set(["/observer/summary", ...Object.values(COCKPIT_ENDPOINTS)]);
+const ASSISTANT_PATH = "/assistant/message";
+const ASSISTANT_DEPARTMENTS = new Set([
+  "brain", "markets", "radar", "research", "paper", "risk", "recovery", "audit", "human"
+]);
+const UI_ONLY_DEPARTMENTS = new Set(["central_memory"]);
+const ASSISTANT_UI_DEPARTMENT_ROUTING = Object.freeze({ analysis: "research" });
+const ASSISTANT_DEPARTMENT_LABELS = Object.freeze({
+  brain: "Cérebro / CEO",
+  markets: "Exchanges",
+  radar: "Market Radar",
+  research: "Investigação",
+  paper: "Laboratório PAPER",
+  risk: "Controlo de risco",
+  recovery: "Recuperação",
+  audit: "Auditoria",
+  human: "Intervenção humana"
+});
+const PAPER_CONTROL_COMMANDS = new Set([
+  "iniciar", "inicia", "ligar", "começar", "comecar", "start",
+  "pausar", "pausa", "pause", "retomar", "retoma", "resume",
+  "parar", "para", "stop"
+]);
+const SECRET_ASSIGNMENT_PATTERN = /["']?\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret|token|authorization)["']?\s*[:=]\s*["']?[^\s"'&,;]+/i;
+const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{16,}/i;
+
 const PRIVATE_FIELD_NAMES = new Set([
-  "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
+  "token", "claimtoken", "claimtokenhash", "ownerid", "userid", "leaseowner",
   "privatenamespace", "screenshotpath", "password", "secret",
   "apikey", "privatekey", "accesstoken", "refreshtoken",
   "authorization", "credential", "credentials"
@@ -55,10 +80,13 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
         return value.split(/[?#]/, 1)[0].slice(0, 2_048);
       }
     }
-    return value.slice(0, 4_096).replace(
-      /\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\s*[:=]\s*["']?[^\s"'&,;]+/gi,
-      "$1=[redacted]"
-    );
+    return value.slice(0, 4_096)
+      .replace(
+        /["']?\b(api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret|token|authorization)["']?\s*[:=]\s*["']?[^\s"'&,;]+/gi,
+        "$1=[redacted]"
+      )
+      .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{16,}/gi, "Bearer [redacted]")
+      .replace(/([?&](?:access_token|refresh_token|api_key|api_secret|token|secret|password)=)[^&\s]+/gi, "$1[redacted]");
   }
   if (Array.isArray(value)) {
     return value.slice(0, 200)
@@ -191,11 +219,12 @@ function freshnessFor(timestampMs, now, ttlMs) {
 }
 
 /**
- * Read-only VST adapter.
+ * VST cockpit adapter.
  *
- * It uses only authenticated loopback GET /observer/summary with X-Token.
- * The observer timestamp is the latest publication time, not proof of engine
- * readiness, PAPER/REAL authorization, agent activity, or trading authority.
+ * Cockpit state uses a fixed authenticated loopback GET allowlist. Assistant
+ * messaging uses only the fixed POST /assistant/message route and is restricted
+ * to chat/status/research; PAPER control phrases and credential assignments are
+ * blocked locally. The adapter never exposes arbitrary HTTP methods or routes.
  */
 export class VstReadOnlyAdapter {
   constructor({
@@ -232,8 +261,8 @@ export class VstReadOnlyAdapter {
     this.pollIntervalMs = pollIntervalMs;
     this.ttlMs = ttlMs;
     this.apiVersion = 1;
-    this.metadata = Object.freeze({ id: SOURCE_ID, name: "Vazao Sovereign Trader read-only adapter", version: "0.1.0" });
-    this.capabilities = Object.freeze(["read_state"]);
+    this.metadata = Object.freeze({ id: SOURCE_ID, name: "Vazao Sovereign Trader cockpit adapter", version: "0.2.0" });
+    this.capabilities = Object.freeze(["read_state", "assistant_message"]);
     this.connected = false;
     this.listeners = new Set();
     this.pollTimer = null;
@@ -244,6 +273,267 @@ export class VstReadOnlyAdapter {
     this.snapshotSequence = 0;
     this.sessionId = null;
     this.authenticationRejected = false;
+  }
+
+  async #reconcileResearchRequest(message, department, submittedAt, { signal } = {}) {
+    const label = ASSISTANT_DEPARTMENT_LABELS[department];
+    const expectedMessage = department === "brain"
+      ? message : "[Departamento solicitado: " + label + "] " + message;
+    try {
+      const snapshot = await this.#get("/research", { signal });
+      const requests = Array.isArray(snapshot?.requests) ? snapshot.requests : [];
+      const now = Date.now() / 1_000;
+      const matches = requests.filter(item => item && item.message === expectedMessage
+        && Number.isFinite(Number(item.created_at))
+        && Number(item.created_at) >= submittedAt - 1
+        && Number(item.created_at) <= now + 5);
+      matches.sort((left, right) => Number(right.created_at) - Number(left.created_at));
+      const match = matches[0];
+      if (!match) {
+        return Object.freeze({ reconciliation: "not_found", retryAllowed: true, retryRequiresOwnerConfirmation: true });
+      }
+      const request = sanitizeCockpitPayload(match, "", 0, { nodes: 0 }, "researchReconciliation");
+      const status = typeof match.status === "string" ? match.status.trim().toUpperCase() : "UNKNOWN";
+      return Object.freeze({
+        intent: "RESEARCH_RECONCILED",
+        status,
+        accepted: true,
+        completed: status === "COMPLETED",
+        requestId: typeof request?.request_id === "string" ? request.request_id : null,
+        request,
+        reply: "O VST confirmou o pedido e devolveu o estado atual da fila.",
+        executionAuthorized: false,
+        reconciliation: "matched",
+        outcome: "reconciled",
+        error: null,
+        retryAllowed: false
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === "vst_auth_rejected") throw error;
+      return Object.freeze({
+        reconciliation: code === "vst_http_403" ? "permission_denied" : "unavailable",
+        reconciliationRequiredScope: code === "vst_http_403" ? "read_private_state" : null,
+        retryAllowed: false
+      });
+    }
+  }
+
+  async #postAssistantMessage(message, department, { signal } = {}) {
+    let requestStarted = false;
+    try {
+      return await runWithDeadline(async requestSignal => {
+        let token;
+        try {
+          token = await this.getAccessToken({ signal: requestSignal });
+        } catch {
+          if (requestSignal.aborted) throw new Error("vst_request_outcome_unknown");
+          throw new Error("vst_token_provider_failed");
+        }
+        if (typeof token !== "string" || token.length < 16 || token.length > 8_192
+          || token.trim() !== token || /\s/.test(token)) {
+          throw new Error("vst_local_token_unavailable");
+        }
+
+        let response;
+        requestStarted = true;
+        try {
+          response = await this.fetchImpl(this.baseUrl + ASSISTANT_PATH, {
+            method: "POST",
+            headers: {
+              "X-Token": token,
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message, department }),
+            cache: "no-store",
+            credentials: "omit",
+            redirect: "error",
+            signal: requestSignal
+          });
+        } catch {
+          if (requestSignal.aborted) throw new Error("vst_request_outcome_unknown");
+          throw new Error("vst_transport_error");
+        } finally {
+          token = null;
+        }
+
+        if (requestSignal.aborted) throw new Error("vst_request_outcome_unknown");
+        const status = Number.isInteger(response?.status) && response.status >= 0 && response.status <= 599
+          ? response.status : 0;
+        if (status === 401) {
+          this.authenticationRejected = true;
+          throw new Error("vst_auth_rejected");
+        }
+        if (status >= 500 || status === 0) {
+          return Object.freeze({
+            ok: false,
+            intent: "OUTCOME_UNKNOWN",
+            status: "UNKNOWN",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: "vst_request_outcome_unknown"
+          });
+        }
+
+        const contentType = response.headers?.get?.("content-type") ?? "";
+        if (!contentType.toLowerCase().includes("application/json")) {
+          if (status >= 200 && status < 300 || status === 409) {
+            return Object.freeze({
+              ok: false,
+              intent: "OUTCOME_UNKNOWN",
+              status: "UNKNOWN",
+              httpStatus: status,
+              sent: true,
+              retryAllowed: false,
+              error: "vst_request_outcome_unknown"
+            });
+          }
+          return Object.freeze({
+            ok: false,
+            intent: status === 403 ? "PERMISSION_DENIED" : "REQUEST_REJECTED",
+            status: "REJECTED",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: status === 403 ? "permission_denied" : "invalid_response_content_type"
+          });
+        }
+
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          if (status >= 200 && status < 300 || status === 409) {
+            return Object.freeze({
+              ok: false,
+              intent: "OUTCOME_UNKNOWN",
+              status: "UNKNOWN",
+              httpStatus: status,
+              sent: true,
+              retryAllowed: false,
+              error: "vst_request_outcome_unknown"
+            });
+          }
+          return Object.freeze({
+            ok: false,
+            intent: status === 403 ? "PERMISSION_DENIED" : "REQUEST_REJECTED",
+            status: "REJECTED",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: status === 403 ? "permission_denied" : "invalid_response_body"
+          });
+        }
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+          return Object.freeze({
+            ok: false,
+            intent: "OUTCOME_UNKNOWN",
+            status: "UNKNOWN",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: "vst_request_outcome_unknown"
+          });
+        }
+
+        if (status === 403) {
+          const errorText = typeof payload.error === "string" ? payload.error : "";
+          const requiredScope = /^scope_required:([a-z_]+)$/.exec(errorText)?.[1] ?? null;
+          return Object.freeze({
+            ok: false,
+            intent: "PERMISSION_DENIED",
+            status: "REJECTED",
+            httpStatus: status,
+            requiredScope,
+            sent: true,
+            retryAllowed: false,
+            error: "permission_denied"
+          });
+        }
+
+        if (status < 200 || status >= 300 && status !== 409) {
+          return Object.freeze({
+            ok: false,
+            intent: "REQUEST_REJECTED",
+            status: "REJECTED",
+            httpStatus: status,
+            sent: true,
+            retryAllowed: false,
+            error: "vst_request_rejected"
+          });
+        }
+
+        const result = payload.result && typeof payload.result === "object"
+          && !Array.isArray(payload.result) ? payload.result : payload;
+        const safeResult = sanitizeCockpitPayload(result, "", 0, { nodes: 0 }, "assistantMessage");
+        const backendStatus = typeof result.status === "string"
+          ? result.status.trim().toUpperCase() : "UNKNOWN";
+        const intent = typeof result.intent === "string" ? result.intent : "UNKNOWN";
+        const request = safeResult?.request ?? null;
+        const requestId = typeof request?.request_id === "string" ? request.request_id : null;
+        const reply = typeof safeResult?.reply === "string" ? safeResult.reply : "";
+        const accepted = payload.ok === true && ["QUEUED", "COMPLETED"].includes(backendStatus);
+
+        return Object.freeze({
+          ok: payload.ok === true,
+          accepted,
+          completed: backendStatus === "COMPLETED",
+          intent,
+          status: backendStatus,
+          department,
+          httpStatus: status,
+          reply,
+          requestId,
+          request,
+          data: safeResult?.data ?? null,
+          paperOnly: safeResult?.paper_only === true,
+          executionAuthorized: false,
+          sent: true,
+          retryAllowed: false,
+          backend: safeResult
+        });
+      }, this.timeoutMs, "vst_request_outcome_unknown", {
+        signal,
+        abortCode: "vst_request_outcome_unknown"
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === "vst_auth_rejected") throw error;
+      if (code === "vst_token_provider_failed" || code === "vst_local_token_unavailable") {
+        return Object.freeze({
+          ok: false,
+          intent: "AUTHENTICATION_UNAVAILABLE",
+          status: "UNAVAILABLE",
+          sent: false,
+          retryAllowed: false,
+          error: "vst_session_token_unavailable"
+        });
+      }
+      if (code === "vst_request_outcome_unknown" && !requestStarted) {
+        return Object.freeze({
+          ok: false,
+          intent: "REQUEST_NOT_SENT",
+          status: "NOT_SENT",
+          sent: false,
+          retryAllowed: false,
+          error: "vst_connection_unavailable"
+        });
+      }
+      if (code === "vst_request_outcome_unknown" || code === "vst_request_timeout"
+        || code === "vst_transport_error" || code === "vst_connection_superseded") {
+        return Object.freeze({
+          ok: false,
+          intent: "OUTCOME_UNKNOWN",
+          status: "UNKNOWN",
+          sent: true,
+          retryAllowed: false,
+          error: "vst_request_outcome_unknown"
+        });
+      }
+      throw error;
+    }
   }
 
   async #get(path, { signal } = {}) {
@@ -283,7 +573,7 @@ export class VstReadOnlyAdapter {
       if (!response || !response.ok) {
         const status = Number.isInteger(response?.status) && response.status >= 0 && response.status <= 599
           ? response.status : 0;
-        if (status === 401 || status === 403) {
+        if (status === 401) {
           this.authenticationRejected = true;
           throw new Error("vst_auth_rejected");
         }
@@ -392,7 +682,7 @@ export class VstReadOnlyAdapter {
       this.sequence = 0;
       this.snapshotSequence = 0;
       this.#startPolling(generation);
-      return { connected: true, sourceId: SOURCE_ID, mode: "read-only", sessionId };
+      return { connected: true, sourceId: SOURCE_ID, mode: "read-only-snapshot+restricted-assistant-message", sessionId };
     } catch (error) {
       const superseded = generation !== this.connectionGeneration || controller.signal.aborted;
       if (this.connectionAbortController === controller) {
@@ -413,6 +703,69 @@ export class VstReadOnlyAdapter {
     const controller = this.connectionAbortController;
     if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
     return this.#toSnapshot(await this.#get("/observer/summary", { signal: controller.signal }));
+  }
+
+  async sendAssistantMessage({ message, department = "brain" } = {}) {
+    if (typeof message !== "string") throw new Error("vst_assistant_message_required");
+    const cleanMessage = message.trim().replace(/\s+/g, " ");
+    if (!cleanMessage || cleanMessage.length > 2_000) throw new Error("vst_assistant_message_invalid");
+
+    const normalizedDepartment = typeof department === "string"
+      ? department.trim().toLowerCase().replace(/-/g, "_") : "";
+    const selectedDepartment = normalizedDepartment;
+    const backendDepartment = ASSISTANT_UI_DEPARTMENT_ROUTING[normalizedDepartment] ?? normalizedDepartment;
+    const routedMessage = normalizedDepartment === "analysis"
+      ? "[Área do cockpit: Análise] Analisa: " + cleanMessage : cleanMessage;
+    if (UI_ONLY_DEPARTMENTS.has(normalizedDepartment)) {
+      return Object.freeze({
+        ok: false,
+        intent: "DEPARTMENT_NOT_CONNECTED",
+        status: "NOT_CONNECTED",
+        department: normalizedDepartment,
+        selectedDepartment,
+        sent: false,
+        retryAllowed: false,
+        reply: "O VST ainda não declara um handler conversacional independente para esta área. Os dados read-only continuam disponíveis no cockpit."
+      });
+    }
+    if (!ASSISTANT_DEPARTMENTS.has(backendDepartment)) {
+      throw new Error("vst_assistant_department_invalid");
+    }
+    if (SECRET_ASSIGNMENT_PATTERN.test(cleanMessage) || BEARER_TOKEN_PATTERN.test(cleanMessage)) {
+      return Object.freeze({
+        ok: false,
+        intent: "SECRET_INPUT_BLOCKED",
+        status: "BLOCKED",
+        department: normalizedDepartment,
+        sent: false,
+        retryAllowed: false,
+        reply: "Não envies chaves, passwords, tokens ou credenciais de exchanges pela conversa do Office Kit."
+      });
+    }
+    if (PAPER_CONTROL_COMMANDS.has(cleanMessage.toLowerCase())) {
+      return Object.freeze({
+        ok: false,
+        intent: "PAPER_CONTROL_BLOCKED_PHASE_2",
+        status: "BLOCKED",
+        department: normalizedDepartment,
+        sent: false,
+        retryAllowed: false,
+        reply: "Os controlos PAPER ainda não estão habilitados nesta fase. Nenhum pedido foi enviado ao VST."
+      });
+    }
+    if (!this.connected) throw new Error("vst_adapter_not_connected");
+    if (this.authenticationRejected) throw new Error("vst_auth_rejected");
+    const controller = this.connectionAbortController;
+    if (!controller || controller.signal.aborted) throw new Error("vst_adapter_not_connected");
+    const submittedAt = Date.now() / 1_000;
+    const result = await this.#postAssistantMessage(routedMessage, backendDepartment, { signal: controller.signal });
+    if (result.status === "UNKNOWN" && result.sent === true) {
+      const reconciliation = await this.#reconcileResearchRequest(
+        routedMessage, backendDepartment, submittedAt, { signal: controller.signal }
+      );
+      return Object.freeze({ ...result, ...reconciliation, selectedDepartment, backendDepartment });
+    }
+    return Object.freeze({ ...result, selectedDepartment, backendDepartment });
   }
 
   async getCockpitSnapshot() {
@@ -560,13 +913,21 @@ export class VstReadOnlyAdapter {
 
 export const vstAdapterContract = Object.freeze({
   id: SOURCE_ID,
-  mode: "read-only",
+  mode: "read-only-snapshot+restricted-assistant-message",
   defaultBaseUrl: DEFAULT_BASE_URL,
   allowedMethods: Object.freeze(["GET"]),
+  assistantMessagePath: ASSISTANT_PATH,
+  assistantMessageMethod: "POST",
+  assistantMessageDepartments: Object.freeze([...ASSISTANT_DEPARTMENTS]),
+  assistantMessageUiOnlyDepartments: Object.freeze([...UI_ONLY_DEPARTMENTS]),
+  assistantMessageDepartmentRouting: Object.freeze({ ...ASSISTANT_UI_DEPARTMENT_ROUTING }),
+  assistantMessagePaperControlsBlocked: true,
+  assistantMessageAutomaticRetry: false,
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
   cockpitReadPaths: Object.freeze(Object.values(COCKPIT_ENDPOINTS)),
   authenticationHeader: "X-Token",
   requiredScope: "read_private_state",
+  assistantMessageRequiredScopes: Object.freeze(["read_private_state", "submit_research"]),
   responseSuccessField: "ok",
   requiresSuccessfulObserverEnvelope: true,
   sourceTimestampField: "updated_at_ms",
@@ -575,5 +936,5 @@ export const vstAdapterContract = Object.freeze({
   requiresInjectedSecureTokenProvider: true,
   sessionIdentity: "fresh-uuid-per-connection",
   remoteConnectionSupported: false,
-  capabilities: Object.freeze(["read_state"])
+  capabilities: Object.freeze(["read_state", "assistant_message"])
 });

@@ -112,13 +112,17 @@ O SqliteOfficeIncidentStore verifica SHA-256 + HMAC-SHA-256 antes de operações
 Limites: chave associada ao perfil Windows atual; backup apenas do SQLite não é suficiente. Sem âncora externa monotónica, rollback/truncagem para um prefixo antigo válido não é detetado. Rotação de chave e recuperação entre perfis ainda não estão implementadas. CI Windows com helper CNG real passou, mas não substitui teste no PC físico.
 
 
-## VST Windows host composition — read-only cockpit preview
+## VST Windows host composition — authenticated cockpit bridge
 
-A edição VST expõe `createWindowsVstHost` apenas pelo entrypoint `./windows-host/vst`. O token de controlo é fornecido pelo proprietário para a sessão ativa e mantido apenas em memória. Não é guardado no CNG, SQLite, ficheiros de configuração ou armazenamento visual. Desligar, rejeição de autenticação e fechar o host limpam a referência; o proprietário volta a introduzir o token na próxima sessão.
+A edição VST expõe `createWindowsVstHost` apenas pelo entrypoint `./windows-host/vst`. O token de controlo é fornecido pelo proprietário para a sessão ativa e mantido apenas em memória. Não é guardado no CNG, SQLite, ficheiros de configuração ou armazenamento visual. Disconnect, rejeição de autenticação e close limpam a referência; o proprietário volta a introduzir o token na próxima sessão.
 
-A ligação é manual e read-only: `GET http://127.0.0.1:8765/observer/summary` para sincronização e os endpoints GET autenticados do cockpit documentados em `docs/integrations/VST_COCKPIT_ADAPTER.md`. O token segue apenas no header `X-Token`; redirects e endpoints remotos continuam bloqueados. Não são expostos comandos, controlos PAPER ou rotas de escrita. O modo REAL não concede autorização de execução.
+O snapshot usa `GET http://127.0.0.1:8765/observer/summary` e a allowlist GET fixa documentada em `docs/integrations/VST_COCKPIT_ADAPTER.md`. A conversa usa apenas `POST /assistant/message`, com `message` e `department`; não existe método ou rota arbitrários. O token segue apenas no header `X-Token`. Redirects e endpoints remotos continuam bloqueados.
 
-O teste de integração VST verifica o ciclo de vida do token efémero e a agregação read-only com respostas HTTP simuladas. A compatibilidade live, Authenticode positivo e validação no PC físico continuam pendentes.
+O host distingue autenticação inválida (401, token limpo), autorização insuficiente (403, token preservado) e falha de conectividade. Uma operação POST que termina em timeout/erro de rede/5xx após o envio é apresentada como resultado desconhecido e nunca é repetida automaticamente. Os comandos PAPER exatos de iniciar/pausar/retomar/parar e mensagens com atribuições comuns de credenciais são bloqueados antes do POST. O backend continua a ser a autoridade; a resposta REAL recusada pelo VST é preservada.
+
+Os departamentos conversacionais são limitados aos handlers que existem no VST. `analysis` e `central_memory` continuam como painéis read-only sem handler conversacional próprio. Não são adicionados controlos PAPER, resposta de intervenções humanas, LAN/Tailscale ou ciclo de vida do backend.
+
+Os testes de integração usam respostas HTTP simuladas e verificam token efémero, allowlist, assistant POST, request IDs, bloqueios locais e separação 401/403. Compatibilidade live, Authenticode positivo e validação no PC físico continuam pendentes.
 
 
 

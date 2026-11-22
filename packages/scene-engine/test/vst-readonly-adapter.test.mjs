@@ -74,7 +74,7 @@ test("uses only authenticated loopback GET /observer/summary with X-Token", asyn
   const connected = await adapter.connect();
   assert.equal(connected.connected, true);
   assert.equal(connected.sessionId, firstSessionId);
-  assert.deepEqual(adapter.capabilities, ["read_state"]);
+  assert.deepEqual(adapter.capabilities, ["read_state", "assistant_message"]);
   assert.equal(calls[0].url, "http://127.0.0.1:8765/observer/summary");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.headers["X-Token"], "vst-local-token-0123456789");
@@ -132,7 +132,7 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.sections.status.data.ok, true);
   assert.equal(snapshot.sections.research.state, "available");
   assert.equal(snapshot.sections.humanInteractionPending.state, "available");
-  assert.deepEqual(adapter.capabilities, ["read_state"]);
+  assert.deepEqual(adapter.capabilities, ["read_state", "assistant_message"]);
   assert.deepEqual(vstAdapterContract.cockpitReadPaths, expectedPaths);
   await adapter.disconnect();
 });
@@ -167,7 +167,7 @@ test("cockpit payloads redact secrets, private identifiers, local paths and URL 
             request_id: "request-123",
             status: "PENDING",
             title: "Owner confirmation",
-            message: "token=INLINE_SECRET api_key=INLINE_KEY",
+            message: 'token=INLINE_SECRET api_key=INLINE_KEY {"apiKey":"INLINE_JSON_KEY"} Bearer INLINE_BEARER_SECRET_0123456789',
             fields: [{ name: "password", label: "Password", value: "FORM_SECRET", default_value: "FORM_DEFAULT" }],
             claim_token: "CLAIM_SECRET_VALUE",
             claim_token_hash: "CLAIM_HASH_VALUE",
@@ -193,7 +193,7 @@ test("cockpit payloads redact secrets, private identifiers, local paths and URL 
   const snapshot = await adapter.getCockpitSnapshot();
   const serialized = JSON.stringify(snapshot);
   for (const secret of [
-    "INLINE_SECRET", "INLINE_KEY", "FORM_SECRET", "FORM_DEFAULT", "CLAIM_SECRET_VALUE", "CLAIM_HASH_VALUE",
+    "INLINE_SECRET", "INLINE_KEY", "INLINE_JSON_KEY", "INLINE_BEARER_SECRET_0123456789", "FORM_SECRET", "FORM_DEFAULT", "CLAIM_SECRET_VALUE", "CLAIM_HASH_VALUE",
     "PRIVATE_OWNER_ID", "URL_SECRET", "STATUS_API_KEY", "vst.sqlite", "screenshot.png"
   ]) {
     assert.equal(serialized.includes(secret), false, secret);
@@ -207,7 +207,9 @@ test("cockpit payloads redact secrets, private identifiers, local paths and URL 
   assert.equal(pending.fields[0].value, undefined);
   assert.equal(pending.fields[0].default_value, undefined);
   assert.equal(pending.screenshot_path, undefined);
-  assert.equal(pending.message, "token=[redacted] api_key=[redacted]");
+  assert.equal(pending.message.includes("INLINE_JSON_KEY"), false);
+  assert.equal(pending.message.includes("INLINE_BEARER_SECRET"), false);
+  assert.equal(pending.message.startsWith("token=[redacted] api_key=[redacted]"), true);
   assert.equal(snapshot.sections.status.data.owner.owner_id, undefined);
   await adapter.disconnect();
 });
@@ -225,6 +227,293 @@ test("cockpit snapshot stops on authentication rejection and never reports a suc
   await assert.rejects(adapter.getCockpitSnapshot(), /vst_auth_rejected/);
   assert.equal(adapter.authenticationRejected, true);
   await adapter.disconnect();
+});
+
+test("assistant message uses only the fixed authenticated POST route and preserves backend request identity", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url, init });
+      if (new URL(url).pathname === "/observer/summary") return response(state());
+      return response({
+        ok: true,
+        result: {
+          intent: "RESEARCH",
+          status: "QUEUED",
+          reply: "Pedido aceite e colocado na fila.",
+          request: { request_id: "research-req-123", status: "PENDING", message: "Investiga mercado" },
+          paper_only: true,
+          execution_authorized: false
+        }
+      });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Investiga a frescura dos dados de mercado",
+    department: "research"
+  });
+  const call = calls.find(item => new URL(item.url).pathname === "/assistant/message");
+  assert.ok(call);
+  assert.equal(call.url, "http://127.0.0.1:8765/assistant/message");
+  assert.equal(call.init.method, "POST");
+  assert.equal(call.init.headers["X-Token"], "vst-local-token-0123456789");
+  assert.equal(call.init.headers["Content-Type"], "application/json");
+  assert.equal(call.init.cache, "no-store");
+  assert.equal(call.init.credentials, "omit");
+  assert.equal(call.init.redirect, "error");
+  assert.deepEqual(JSON.parse(call.init.body), {
+    message: "Investiga a frescura dos dados de mercado",
+    department: "research"
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.completed, false);
+  assert.equal(result.intent, "RESEARCH");
+  assert.equal(result.status, "QUEUED");
+  assert.equal(result.requestId, "research-req-123");
+  assert.equal(result.executionAuthorized, false);
+  assert.equal(result.retryAllowed, false);
+  assert.equal(JSON.stringify(result).includes("vst-local-token-0123456789"), false);
+  await adapter.disconnect();
+});
+
+test("assistant message blocks PAPER control phrases before any POST", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url, init });
+      return new URL(url).pathname === "/observer/summary" ? response(state()) : response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const commands = ["iniciar", "inicia", "ligar", "começar", "comecar", "start",
+    "pausar", "pausa", "pause", "retomar", "retoma", "resume", "parar", "para", "stop"];
+  for (const message of commands) {
+    const result = await adapter.sendAssistantMessage({ message, department: "paper" });
+    assert.equal(result.status, "BLOCKED", message);
+    assert.equal(result.sent, false, message);
+  }
+  assert.equal(calls.filter(call => new URL(call.url).pathname === "/assistant/message").length, 0);
+  await adapter.disconnect();
+});
+
+test("assistant message blocks credential assignments and unconnected UI-only departments locally", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url, init });
+      return new URL(url).pathname === "/observer/summary" ? response(state()) : response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const secretMessages = [
+    "Investiga isto api_key=SHOULD_NOT_LEAVE_OFFICE_KIT",
+    '{"apiKey":"SHOULD_NOT_LEAVE_OFFICE_KIT","secret":"DO_NOT_SEND"}',
+    "Authorization: Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  ];
+  for (const message of secretMessages) {
+    const secret = await adapter.sendAssistantMessage({ message, department: "research" });
+    assert.equal(secret.intent, "SECRET_INPUT_BLOCKED");
+    assert.equal(secret.sent, false);
+  }
+  for (const department of ["central_memory", "central-memory"]) {
+    const result = await adapter.sendAssistantMessage({ message: "Consulta a memória", department });
+    assert.equal(result.intent, "DEPARTMENT_NOT_CONNECTED");
+    assert.equal(result.status, "NOT_CONNECTED");
+    assert.equal(result.sent, false);
+  }
+  assert.equal(calls.filter(call => new URL(call.url).pathname === "/assistant/message").length, 0);
+  await adapter.disconnect();
+});
+
+test("Analysis panel routes as a tagged research request without inventing an Analysis backend", async () => {
+  let postBody = null;
+  const adapter = createAdapter({
+    fetchImpl: async (url, init = {}) => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/assistant/message") {
+        postBody = JSON.parse(init.body);
+        return response({
+          ok: true,
+          result: {
+            intent: "RESEARCH",
+            status: "QUEUED",
+            reply: "Pedido aceite na fila de investigação.",
+            request: { request_id: "analysis-routed-789", status: "PENDING" }
+          }
+        });
+      }
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Avalia a robustez desta hipótese",
+    department: "analysis"
+  });
+  assert.equal(postBody.department, "research");
+  assert.equal(postBody.message, "[Área do cockpit: Análise] Analisa: Avalia a robustez desta hipótese");
+  assert.equal(result.selectedDepartment, "analysis");
+  assert.equal(result.backendDepartment, "research");
+  assert.equal(result.department, "research");
+  assert.equal(result.intent, "RESEARCH");
+  assert.equal(result.status, "QUEUED");
+  assert.equal(result.requestId, "analysis-routed-789");
+  await adapter.disconnect();
+});
+
+test("assistant message distinguishes missing research scope from invalid authentication", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url, init });
+      if (new URL(url).pathname === "/observer/summary") return response(state());
+      return response({ error: "scope_required:submit_research" }, 403);
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({ message: "Investiga esta hipótese", department: "research" });
+  assert.equal(result.intent, "PERMISSION_DENIED");
+  assert.equal(result.status, "REJECTED");
+  assert.equal(result.requiredScope, "submit_research");
+  assert.equal(adapter.authenticationRejected, false);
+  assert.equal(adapter.connected, true);
+  assert.equal(calls.filter(call => new URL(call.url).pathname === "/assistant/message").length, 1);
+  await adapter.disconnect();
+});
+
+test("assistant message preserves REAL refusal from VST and never retries unknown outcomes", async () => {
+  let postCount = 0;
+  const blocked = createAdapter({
+    fetchImpl: async url => {
+      if (new URL(url).pathname === "/observer/summary") return response(state());
+      postCount += 1;
+      return response({
+        ok: false,
+        result: { intent: "REAL_BLOCKED", status: "BLOCKED", reply: "Pedido REAL recusado.", paper_only: true }
+      }, 409);
+    }
+  });
+  await blocked.connect();
+  const refused = await blocked.sendAssistantMessage({ message: "Quero executar em REAL", department: "brain" });
+  assert.equal(refused.intent, "REAL_BLOCKED");
+  assert.equal(refused.status, "BLOCKED");
+  assert.equal(refused.accepted, false);
+  await blocked.disconnect();
+
+  let postAttempts = 0;
+  let reconciliationReads = 0;
+  const unknown = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/research") {
+        reconciliationReads += 1;
+        return response({ requests: [] });
+      }
+      postAttempts += 1;
+      throw new Error("network lost after request dispatch");
+    }
+  });
+  await unknown.connect();
+  const outcome = await unknown.sendAssistantMessage({ message: "Investiga esta hipótese", department: "research" });
+  assert.equal(outcome.intent, "OUTCOME_UNKNOWN");
+  assert.equal(outcome.status, "UNKNOWN");
+  assert.equal(outcome.reconciliation, "not_found");
+  assert.equal(outcome.retryAllowed, true);
+  assert.equal(outcome.retryRequiresOwnerConfirmation, true);
+  assert.equal(postAttempts, 1);
+  assert.equal(reconciliationReads, 1);
+  await unknown.disconnect();
+});
+
+test("assistant timeout reconciles the backend research queue before any retry can be allowed", async () => {
+  let postAttempts = 0;
+  let researchReads = 0;
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/assistant/message") {
+        postAttempts += 1;
+        throw new Error("connection dropped after server dispatch");
+      }
+      if (path === "/research") {
+        researchReads += 1;
+        return response({
+          requests: [{
+            request_id: "reconciled-research-456",
+            message: "[Departamento solicitado: Investigação] Investiga esta hipótese",
+            status: "IN_PROGRESS",
+            created_at: Date.now() / 1_000,
+            updated_at: Date.now() / 1_000,
+            lease_owner: "private-worker-id",
+            attempt_count: 1
+          }]
+        });
+      }
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Investiga esta hipótese",
+    department: "research"
+  });
+  assert.equal(postAttempts, 1);
+  assert.equal(researchReads, 1);
+  assert.equal(result.intent, "RESEARCH_RECONCILED");
+  assert.equal(result.status, "IN_PROGRESS");
+  assert.equal(result.accepted, true);
+  assert.equal(result.completed, false);
+  assert.equal(result.requestId, "reconciled-research-456");
+  assert.equal(result.reconciliation, "matched");
+  assert.equal(result.outcome, "reconciled");
+  assert.equal(result.error, null);
+  assert.equal(result.retryAllowed, false);
+  assert.equal(result.request.lease_owner, undefined);
+  assert.equal(JSON.stringify(result).includes("private-worker-id"), false);
+  await adapter.disconnect();
+});
+
+test("unknown assistant outcome remains blocked when backend reconciliation is not authorized", async () => {
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/assistant/message") throw new Error("response lost after dispatch");
+      if (path === "/research") return response({ error: "scope_required:read_private_state" }, 403);
+      return response({ ok: true });
+    }
+  });
+  await adapter.connect();
+  const result = await adapter.sendAssistantMessage({
+    message: "Investiga esta hipótese",
+    department: "research"
+  });
+  assert.equal(result.status, "UNKNOWN");
+  assert.equal(result.reconciliation, "permission_denied");
+  assert.equal(result.reconciliationRequiredScope, "read_private_state");
+  assert.equal(result.retryAllowed, false);
+  assert.equal(adapter.authenticationRejected, false);
+  await adapter.disconnect();
+});
+
+test("assistant message 401 invalidates authentication while 403 remains an authorization refusal", async () => {
+  const unauthenticated = createAdapter({
+    fetchImpl: async url => {
+      if (new URL(url).pathname === "/observer/summary") return response(state());
+      return response({ error: "unauthorized" }, 401);
+    }
+  });
+  await unauthenticated.connect();
+  await assert.rejects(
+    unauthenticated.sendAssistantMessage({ message: "Investiga esta hipótese", department: "research" }),
+    /vst_auth_rejected/
+  );
+  assert.equal(unauthenticated.authenticationRejected, true);
+  await unauthenticated.disconnect();
 });
 
 test("maps only the bounded observer fields and never invents agents, tasks or authority", async () => {
@@ -358,7 +647,7 @@ test("REAL mode is reported as configuration only and never grants execution aut
   assert.equal(snapshot.backend.paperOnly, false);
   assert.equal(snapshot.backend.executionAuthorized, false);
   assert.equal(snapshot.backend.allowRiskBearingActions, false);
-  assert.deepEqual(adapter.capabilities, ["read_state"]);
+  assert.deepEqual(adapter.capabilities, ["read_state", "assistant_message"]);
   await adapter.disconnect();
 });
 
@@ -378,17 +667,26 @@ test("rejects malformed tokens and never includes provider errors or secrets in 
   assert.equal(JSON.stringify(transportFailure).includes("private-owner-secret"), false);
 });
 
-test("fails closed on 401/403 and never follows redirects", async () => {
-  for (const status of [401, 403]) {
-    const adapter = createAdapter({
-      fetchImpl: async (_url, init) => {
-        assert.equal(init.redirect, "error");
-        return response({ error: "private detail" }, status);
-      }
-    });
-    await assert.rejects(adapter.connect(), /vst_auth_rejected/);
-    await adapter.disconnect();
-  }
+test("distinguishes invalid authentication from denied authorization and never follows redirects", async () => {
+  const invalidToken = createAdapter({
+    fetchImpl: async (_url, init) => {
+      assert.equal(init.redirect, "error");
+      return response({ error: "private detail" }, 401);
+    }
+  });
+  await assert.rejects(invalidToken.connect(), /vst_auth_rejected/);
+  assert.equal(invalidToken.authenticationRejected, true);
+  await invalidToken.disconnect();
+
+  const missingScope = createAdapter({
+    fetchImpl: async (_url, init) => {
+      assert.equal(init.redirect, "error");
+      return response({ error: "scope_required:read_private_state" }, 403);
+    }
+  });
+  await assert.rejects(missingScope.connect(), /vst_http_403/);
+  assert.equal(missingScope.authenticationRejected, false);
+  await missingScope.disconnect();
 });
 
 test("rejects non-JSON and malformed observer responses", async () => {
@@ -618,5 +916,13 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
   assert.equal(vstAdapterContract.sourceTimestampField, "updated_at_ms");
   assert.equal(vstAdapterContract.sourceTimestampSemantics, "last_observer_publish_time_not_engine_readiness");
   assert.equal(vstAdapterContract.remoteConnectionSupported, false);
-  assert.deepEqual(vstAdapterContract.capabilities, ["read_state"]);
+  assert.deepEqual(vstAdapterContract.capabilities, ["read_state", "assistant_message"]);
+  assert.equal(vstAdapterContract.assistantMessagePath, "/assistant/message");
+  assert.equal(vstAdapterContract.assistantMessageMethod, "POST");
+  assert.deepEqual(vstAdapterContract.assistantMessageRequiredScopes, ["read_private_state", "submit_research"]);
+  assert.equal(vstAdapterContract.assistantMessagePaperControlsBlocked, true);
+  assert.equal(vstAdapterContract.assistantMessageAutomaticRetry, false);
+  assert.ok(vstAdapterContract.assistantMessageDepartments.includes("research"));
+  assert.ok(vstAdapterContract.assistantMessageUiOnlyDepartments.includes("central_memory"));
+  assert.equal(vstAdapterContract.assistantMessageDepartmentRouting.analysis, "research");
 });

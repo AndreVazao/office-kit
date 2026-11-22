@@ -525,8 +525,11 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Wire the DGM-MAT session provider into a DGM-MAT-only Windows host composition root.
 - [ ] Verify the live `/runtime/state` and `/auth/session` contracts against the running local DGM-MAT instance without enabling writes.
 - [ ] Run the full DGM-MAT edition workflow and validate on a physical PC. Unit/fake tests are not live integration.
-- [x] Implement the VST adapter separately; keep VST credentials and code out of Universal and DGM-MAT.
-- [ ] Validate live E2E for the read-only cockpit endpoints and implement assistant messaging, task lifecycle, authorized PAPER controls and LAN/Tailscale in separate reviewed phases.
+- [x] Implement the VST read-only cockpit adapter separately; keep VST credentials and code out of Universal and DGM-MAT. It consumes the fixed 12-route GET allowlist, uses a memory-only session token and redacts claim tokens/credentials/private paths.
+- [ ] Complete the fixed `POST /assistant/message` bridge with backend-enforced scopes, PAPER command refusal, no automatic retries and 401/403/connectivity separation (Phase 2 branch under validation).
+- [ ] Reconcile real research task states and request IDs from backend snapshots (Phase 3).
+- [ ] Add PAPER controls only through the existing VST routes and their backend permissions (Phase 4).
+- [ ] Validate live E2E and LAN/Tailscale identity/transport (Phase 5); Android and distribution remain later gates.
 
 ## PR #61 — merged validation record (2026-11-10)
 - [x] Linux CI passed on final PR HEAD `ded5a449b452fdf56048ff547279fe3b06ddda23`.

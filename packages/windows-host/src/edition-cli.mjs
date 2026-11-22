@@ -8,7 +8,7 @@ const EDITION_DATA_DIRECTORIES = Object.freeze({
 const MAX_REQUEST_BYTES = 4_096;
 const CLI_COMMANDS = new Set(["health", "serve"]);
 const REQUEST_COMMANDS = new Set([
-  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "disconnect", "shutdown"
+  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "assistant-message", "disconnect", "shutdown"
 ]);
 
 function writeJson(output, value) {
@@ -42,6 +42,13 @@ function parseRequest(line) {
     }
     return { command: value.command, token: value.token, ownerConsent: true };
   }
+  if (value.command === "assistant-message") {
+    if (keys.join(",") !== "command,department,message"
+      || typeof value.message !== "string" || typeof value.department !== "string") {
+      return { error: "invalid_request" };
+    }
+    return { command: value.command, message: value.message, department: value.department };
+  }
   if (keys.length !== 1 || keys[0] !== "command") return { error: "invalid_request" };
   return { command: value.command };
 }
@@ -72,7 +79,19 @@ async function executeRequest(host, request) {
   }
   if (command === "connect") {
     await host.connect();
-    return { ok: true, command, connected: true, readOnly: true, backendOperationalState: "unverified" };
+    const health = await host.health();
+    return {
+      ok: true,
+      command,
+      connected: true,
+      readOnlySnapshot: true,
+      assistantMessageEnabled: health?.edition === "vst",
+      financialActionsAllowed: false,
+      paperControlsEnabled: false,
+      executionAuthorized: false,
+      riskBearingActionsAllowed: false,
+      backendOperationalState: "unverified"
+    };
   }
   if (command === "snapshot") {
     const health = await host.health();
@@ -86,6 +105,21 @@ async function executeRequest(host, request) {
       return { ok: false, command, error: "cockpit_snapshot_unavailable" };
     }
     return { ok: true, command, readOnly: true, cockpit: await host.getCockpitSnapshot() };
+  }
+  if (command === "assistant-message") {
+    const health = await host.health();
+    if (health?.adapterConnected !== true) return { ok: false, command, error: "not_connected" };
+    if (typeof host.sendAssistantMessage !== "function") {
+      return { ok: false, command, error: "assistant_message_unavailable" };
+    }
+    return {
+      ok: true,
+      command,
+      response: await host.sendAssistantMessage({
+        message: request.message,
+        department: request.department
+      })
+    };
   }
   if (command === "disconnect") {
     const result = await host.disconnect();
@@ -108,7 +142,7 @@ async function runServe(host, { input, output, edition }) {
         writeJson(output, { ok: false, error: request.error });
         continue;
       }
-      if ((request.command === "cockpit-snapshot" || request.command === "authenticate") && edition !== "vst") {
+      if ((request.command === "cockpit-snapshot" || request.command === "authenticate" || request.command === "assistant-message") && edition !== "vst") {
         writeJson(output, { ok: false, error: "invalid_request" });
         continue;
       }
@@ -116,14 +150,24 @@ async function runServe(host, { input, output, edition }) {
         const result = await executeRequest(host, request);
         writeJson(output, result);
         if (request.command === "shutdown") break;
-      } catch {
-        const error = request.command === "connect" ? "connection_failed"
-          : request.command === "snapshot" ? "snapshot_failed"
-            : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
-              : request.command === "authenticate" ? "authentication_failed"
-                : request.command === "disconnect" ? "disconnect_failed"
-              : request.command === "credential-status" ? "credential_status_failed"
-                : "health_failed";
+      } catch (caught) {
+        const code = caught instanceof Error ? caught.message : "";
+        const error = code === "vst_auth_rejected" ? "authentication_failed"
+          : code === "vst_session_token_unavailable" || code === "vst_token_provider_failed" ? "authentication_unavailable"
+          : code === "vst_http_403" ? "authorization_denied"
+            : code === "vst_request_timeout" || code === "vst_transport_error" || code === "vst_http_0"
+            ? "connectivity_unavailable"
+            : /^vst_http_5[0-9]{2}$/.test(code) ? "backend_unavailable"
+              : code === "vst_http_404" ? "backend_contract_mismatch"
+                : code === "vst_adapter_not_connected" ? "not_connected"
+                  : request.command === "connect" ? "connection_failed"
+                    : request.command === "snapshot" ? "snapshot_failed"
+                      : request.command === "cockpit-snapshot" ? "cockpit_snapshot_failed"
+                        : request.command === "authenticate" ? "authentication_failed"
+                          : request.command === "assistant-message" ? "assistant_message_failed"
+                            : request.command === "disconnect" ? "disconnect_failed"
+                              : request.command === "credential-status" ? "credential_status_failed"
+                                : "health_failed";
         writeJson(output, { ok: false, command: request.command, error });
       }
     }

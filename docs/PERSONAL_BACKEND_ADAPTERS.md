@@ -1,6 +1,6 @@
 # Personal backend adapter integration map
 
-Reviewed and updated on 2026-11-12. The VST adapter contract below is implemented as a read-only preview; live VST compatibility is not yet verified. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
+Reviewed and updated on 2026-11-22. The VST adapter contract below contains read-only cockpit snapshots and a restricted assistant-message bridge; live VST compatibility is not yet verified. This is an integration map, not a claim that either backend is fully production-connected or that remote exposure is safe.
 
 ## Universal edition
 
@@ -35,7 +35,7 @@ Repository: `AndreVazao/DGM-MAT`.
 
 Repository: `AndreVazao/VazaoSovereignTrader`.
 
-### Current Office Kit read-only preview contract
+### Current Office Kit cockpit contract — Phases 1 and 2
 
 | Office Kit view | VST route | Interpretation |
 |---|---|---|
@@ -51,17 +51,20 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 | PAPER collector | `GET /paper-collector/resources` | Authenticated resource diagnostics |
 | Research | `GET /research` | Authenticated research queue snapshot |
 | Human interaction | `GET /human-interaction/pending` | Authenticated pending intervention snapshot |
+| Assistant / research | `POST /assistant/message` | Fixed message+department body; backend scopes enforced |
 
-The adapter uses authenticated loopback `GET /observer/summary` for synchronization plus the nine cockpit GET routes in the table above. The route paths and scopes were checked against VST `main` at `ac88989caeff86198339de38e241b3e52560e791`. Live response compatibility remains pending.
+The adapter uses authenticated loopback `GET /observer/summary` for synchronization plus the twelve cockpit GET routes in the table above. The fixed `POST /assistant/message` route is separate from the GET allowlist and cannot accept an arbitrary path or method. The route paths and scopes were checked against VST `main` at `ac88989caeff86198339de38e241b3e52560e791`. Live response compatibility remains pending.
 
 ### Authentication and safety
 
 - The owner supplies the VST control token for one active session. It is held only in process memory and sent only in the `X-Token` header; disconnect, authentication rejection and close clear the reference. It is never persisted by the Office Kit.
-- The adapter permits only HTTP loopback GETs from the fixed allowlist on port 8765, rejects redirects and remote endpoints, and declares only `read_state`. The twelve cockpit endpoints are read with a maximum of three concurrent requests; no write method is exposed. The unpaginated evidence-ledger record list is excluded. Responses pass a bounded recursive redactor that removes claim tokens, credential fields, owner identifiers, local paths, URL query data and pending human-interaction form values before reaching the renderer.
+- The adapter permits only HTTP loopback GETs from the fixed allowlist on port 8765, rejects redirects and remote endpoints, and declares `read_state` plus `assistant_message`. The twelve cockpit endpoints are read with a maximum of three concurrent requests. The only POST is `/assistant/message`, restricted to chat/status/research; PAPER control phrases and credential-like messages are blocked locally. The unpaginated evidence-ledger record list is excluded. Responses pass a bounded recursive redactor that removes claim tokens, credential fields, owner identifiers, local paths, URL query data and pending human-interaction form values before reaching the renderer.
+- The assistant message requires `read_private_state`; research additionally requires `submit_research`. A 403 scope denial preserves the session token; a 401 clears it. Timeout/5xx after send is `UNKNOWN`; the adapter checks `GET /research` once, returns a matching backend request if found, and only permits a manual retry after a negative reconciliation plus owner confirmation. No automatic retry occurs.
+- Backend-supported conversation departments are `brain`, `markets`, `radar`, `research`, `paper`, `risk`, `recovery`, `audit`, and `human`. `analysis` requests are explicitly tagged and routed to the existing `research` queue (not a separate Analysis worker); `central_memory` remains a read-only panel until VST supplies a dedicated handler.
 - The observer envelope must contain `ok === true` before state/count/health fields are accepted. `updated_at_ms` is treated as the last observer publication time, not proof of engine readiness. Missing, stale or future timestamps do not produce authoritative state.
-- The adapter does not copy observer-provided agents/tasks; both arrays remain empty. `REAL` is informational only; `executionAuthorized=false` and `allowRiskBearingActions=false`. No order, mode, start/stop, pairing, file-upload or execution-surface mutation route is exposed.
+- The adapter does not copy observer-provided agents/tasks; both arrays remain empty. `REAL` is informational only; VST refusal is surfaced. `executionAuthorized=false` and `allowRiskBearingActions=false`. No order, mode, PAPER control, pairing, file-upload or execution-surface mutation route is exposed.
 - The Windows host requires `ownerConsent: true` to set/clear the session token and does not auto-connect. Connection is explicit. The token is memory-only, is not retained across restarts or disconnects, and is never exposed by status APIs. JavaScript cannot guarantee zeroization of strings; only references and active requests are cleared.
-- A successful fake response or local transport handshake is not proof that VST is ready, authorized or trading. Live observer contract validation and physical-PC testing remain required.
+- A successful fake response or local transport handshake is not proof that VST is ready, authorized or trading. Live observer/assistant contract validation and physical-PC testing remain required.
 
 ## Shared implementation requirements
 

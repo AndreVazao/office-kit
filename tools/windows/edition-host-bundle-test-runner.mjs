@@ -184,7 +184,8 @@ async function main() {
     assert.equal(responses[0].health?.adapterConnected, false, "serve_auto_connected");
     assert.equal(responses[1].credentials?.configured, false, "unexpected_persisted_credential");
     assert.equal(responses[2].ok, false, "connect_without_owner_credential_succeeded");
-    assert.equal(responses[2].error, "connection_failed", "connect_error_not_sanitized");
+    const expectedConnectError = expectedKey === "vst" ? "authentication_unavailable" : "connection_failed";
+    assert.equal(responses[2].error, expectedConnectError, "connect_error_not_sanitized");
     assert.equal(responses[3].ok, false, "snapshot_without_connection_succeeded");
     assert.equal(responses[3].error, "not_connected", "snapshot_error_mismatch");
     assert.equal(responses[4].shutdown, true, "serve_shutdown_not_acknowledged");

@@ -524,6 +524,16 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - The documentation-only synchronization commits after that implementation checkpoint are being revalidated on the current PR HEAD before merge.
 - Remaining VST gates: live read-only E2E against an actual VST instance, full signed Windows host lifecycle, trusted-publisher acceptance, and physical-PC provisioning/reconnect/disconnect/restart. Do not enable trading/write routes.
 
+## VST cockpit integration — 2026-11-22
+
+- PR #118 merged by squash as `c71a17728f0b2b35ac0fee5c96cc86575ce459cb`. Its exact PR HEAD `57249326152a1c75454ba80f3ac683424d4501e0` passed Linux/Windows Node 22/26 and Chromium visual regression. Post-merge workflow runs were not surfaced by the available GitHub query.
+- The VST-only adapter reads twelve fixed cockpit GET endpoints plus authenticated `GET /observer/summary`; it includes learning-memory health/runtime and the bounded evidence-ledger audit summary. The unpaginated full evidence ledger is deliberately excluded.
+- The VST control token is memory-only for one owner-approved session. No CNG, SQLite, config, URL, log or renderer persistence. Disconnect, 401 and close clear the reference; 403 scope denial preserves the token.
+- Phase 2 is under review in PR #119 on branch `feat/vst-assistant-message-bridge-2026-11-22`: fixed `POST /assistant/message`, no arbitrary routes/methods, no automatic retries, request IDs preserved, timeout/5xx after send mapped to UNKNOWN.
+- The assistant gateway is verified at VST `main` `ac88989caeff86198339de38e241b3e52560e791`. Research requires `submit_research`; read access requires `read_private_state`; exact PAPER start/pause/resume/stop phrases are blocked locally until Phase 4. 401 authentication rejection and 403 authorization denial are separate.
+- VST currently has no independent `analysis` or `central_memory` conversational department. Analysis requests are explicitly tagged and routed to the existing Research queue (not a separate Analysis worker); Central Memory remains read-only and reports `NOT_CONNECTED` for conversation.
+- No VST backend files, DGM-MAT implementation or Avatar Studio files were modified. Live VST E2E, Windows Authenticode policy, physical-PC validation, LAN/Tailscale and Android remain pending.
+
 ## Node runtime validation — PR #77 merged (2026-11-12)
 
 - PR #77 merged as `d0bcd59055202e7a845bb2b103cf91c72597a1b2`; final PR HEAD `fe811f4d8b44ae81b4294bd2e108065212176bde`.
