@@ -187,16 +187,10 @@ export function createWindowsVstHost({
           try {
             await adapter.disconnect();
             await adapter.connect();
-            lastProbeSnapshot = await adapter.getSnapshot();
-            if (lastProbeSnapshot.synchronized !== true
-              || lastProbeSnapshot.backend?.sourceSnapshotFreshness !== "fresh") {
-              return { ok: false, code: "snapshot_unverified", evidence: "Adapter reconnected, but the authoritative snapshot is not fresh and synchronized." };
-            }
             lastConnectionFailure = null;
             lastAuthorizationFailure = null;
             lastProbeError = null;
-            lastConfirmedAt = lastProbeSnapshot.generatedAt;
-            return { ok: true, code: "reconnected", evidence: "Local adapter reconnected and a fresh authoritative observer snapshot was verified." };
+            return { ok: true, code: "reconnected", evidence: "Local adapter reconnected; authoritative snapshot verification follows as a separate bounded step." };
           } catch (error) {
             lastConnectionFailure = classifyConnectionFailure(error);
             if (error?.message === "vst_auth_rejected") {
