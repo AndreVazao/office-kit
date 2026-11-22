@@ -27,8 +27,8 @@ const PAPER_CONTROL_COMMANDS = new Set([
   "pausar", "pausa", "pause", "retomar", "retoma", "resume",
   "parar", "para", "stop"
 ]);
-const SECRET_ASSIGNMENT_PATTERN = /["']?\\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret|token|authorization)["']?\\s*[:=]\\s*["']?[^\\s"'&,;]+/i;
-const BEARER_TOKEN_PATTERN = /\\bBearer\\s+[A-Za-z0-9._~+/-]{16,}/i;
+const SECRET_ASSIGNMENT_PATTERN = /["']?\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret|token|authorization)["']?\s*[:=]\s*["']?[^\s"'&,;]+/i;
+const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{16,}/i;
 
 const PRIVATE_FIELD_NAMES = new Set([
   "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
