@@ -174,7 +174,7 @@ test("VST host distinguishes read-scope denial from invalid authentication", asy
     const health = await composed.health();
     assert.equal(health.authenticationState, "configured");
     assert.equal(health.authorizationState, "denied");
-    assert.equal(health.connectivityState, "disconnected");
+    assert.equal(health.connectivityState, "reachable");
     assert.equal(health.lastConnectionFailure, "authorization_denied");
     assert.equal(health.lastAuthorizationFailure, "read_private_state");
   } finally {
@@ -266,6 +266,7 @@ test("VST host clears session token after assistant endpoint returns 401", async
     const health = await composed.health();
     assert.equal(health.authenticationState, "rejected");
     assert.equal(health.authorizationState, "not_checked");
+    assert.equal(health.connectivityState, "reachable");
   } finally {
     await composed.close();
   }
