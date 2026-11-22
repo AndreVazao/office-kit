@@ -47,6 +47,8 @@ function makeHost(edition, { connectError = null } = {}) {
         department, receivedMessage: message, executionAuthorized: false
       };
     },
+    async diagnose() { calls.push("diagnose"); return { state: "healthy", incidentId: null }; },
+    async attemptRecovery() { calls.push("recover"); return { recovered: true, status: "recovered" }; },
     async disconnect() { calls.push("disconnect"); connected = false; sessionToken = null; return { disconnected: true, tokenCleared: true }; },
     async close() { calls.push("close"); connected = false; }
   };
@@ -166,6 +168,36 @@ test("VST CLI forwards only the fixed assistant-message request and preserves ba
   assert.equal(result.responses[2].response.executionAuthorized, false);
   assert.equal(host.calls.filter(call => call === "assistant-message").length, 1);
   assert.equal(host.calls.at(-1), "close");
+});
+
+test("VST CLI exposes only fixed diagnose and local-recovery commands", async () => {
+  const host = makeHost("vst");
+  const result = await runWithStreams({
+    edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    '{"command":"diagnose"}',
+    '{"command":"recover"}',
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.responses[0].diagnostics.state, "healthy");
+  assert.equal(result.responses[1].recovery.recovered, true);
+  assert.equal(host.calls.filter(call => call === "diagnose").length, 1);
+  assert.equal(host.calls.filter(call => call === "recover").length, 1);
+});
+
+test("DGM-MAT CLI rejects VST-only diagnostics and recovery commands", async () => {
+  const host = makeHost("dgmat");
+  const result = await runWithStreams({
+    edition: "dgmat", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    '{"command":"diagnose"}',
+    '{"command":"recover"}',
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(result.responses[1].error, "invalid_request");
+  assert.equal(host.calls.includes("diagnose"), false);
+  assert.equal(host.calls.includes("recover"), false);
 });
 
 test("VST CLI reports a missing session token as authentication unavailable", async () => {
