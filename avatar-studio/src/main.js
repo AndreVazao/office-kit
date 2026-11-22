@@ -153,8 +153,10 @@ function buildHuman(config) {
   const torso = ellipsoid(root, jacket, [0, 1.34, 0], [torsoWidth, 0.38, 0.17], "Jacket_Torso");
   torso.userData.rigBodySegment = "torso";
   const shirtMesh = ellipsoid(root, shirt, [0, 1.39, 0.145], [0.13, 0.30, 0.045], "Shirt");
-  shirtMesh.userData.rigBoneName = "Chest";
-  cylinder(root, skin, [0, 1.72, 0], 0.09, 0.10, 0.16, "Neck");
+  // Let the shirt shell follow the spine-to-chest bend instead of rotating as one rigid piece.
+  shirtMesh.userData.rigBodySegment = "torso";
+  const neckMesh = cylinder(root, skin, [0, 1.72, 0], 0.09, 0.10, 0.16, "Neck");
+  neckMesh.userData.rigBlendBones = ["Chest", "Neck"];
 
   // Arms
   for (const side of [-1, 1]) {
