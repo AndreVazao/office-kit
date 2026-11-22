@@ -623,7 +623,7 @@ export class VstReadOnlyAdapter {
       this.sequence = 0;
       this.snapshotSequence = 0;
       this.#startPolling(generation);
-      return { connected: true, sourceId: SOURCE_ID, mode: "read-only", sessionId };
+      return { connected: true, sourceId: SOURCE_ID, mode: "read-only-snapshot+restricted-assistant-message", sessionId };
     } catch (error) {
       const superseded = generation !== this.connectionGeneration || controller.signal.aborted;
       if (this.connectionAbortController === controller) {
