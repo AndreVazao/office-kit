@@ -14,7 +14,7 @@ button, select, input { font: inherit; }
 h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); letter-spacing: -.04em; }
 h2 { margin: 0; font-size: 18px; }
 h3 { margin: 0; font-size: 13px; }
-.top-actions { display: flex; align-items: center; gap: 16px; }
+.top-actions { display: flex; align-items: center; gap: 12px; }\n.export-quality { display: grid; gap: 4px; color: #aab8cc; font-size: 9px; font-weight: 750; letter-spacing: .04em; }\n.export-quality select { min-width: 92px; padding: 8px 9px; }
 .status { color: #aab8cc; font-size: 12px; }
 .status i, .live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #53d6a1; box-shadow: 0 0 12px #53d6a1; }
 button { border: 0; border-radius: 8px; padding: 11px 16px; color: white; cursor: pointer; font-size: 12px; font-weight: 750; }
