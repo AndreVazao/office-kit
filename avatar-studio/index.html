@@ -24,6 +24,14 @@
       </div>
       <div class="top-actions">
         <span class="status"><i></i> Editor local</span>
+        <label class="export-quality">Qualidade GLB
+          <select id="export-quality" aria-label="Perfil de qualidade para exportação">
+            <option value="ultra">Ultra</option>
+            <option value="high" selected>Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </select>
+        </label>
         <button id="export-glb" class="primary">Exportar GLB</button>
       </div>
     </header>
@@ -191,7 +199,7 @@
             <div><span>Malhas visíveis</span><strong id="quality-meshes">—</strong></div>
           </div>
           <div id="quality-profiles" class="quality-profiles" aria-live="polite"></div>
-          <p class="quality-disclaimer">Auditoria do modelo-fonte. Os perfis ainda precisam de malhas otimizadas próprias. O motor do Office Kit escolhe o perfil conforme o dispositivo.</p>
+          <p class="quality-disclaimer">A exportação gera uma variante geométrica por perfil com clustering e preservação de pesos ósseos. A escolha automática do perfil continua exclusiva do motor geral do Office Kit.</p>
         </section>
         <div class="stat"><span>Exportação</span><strong>glTF Binary</strong></div>
         <div class="detail-note">
