@@ -289,7 +289,7 @@ export class VstReadOnlyAdapter {
       matches.sort((left, right) => Number(right.created_at) - Number(left.created_at));
       const match = matches[0];
       if (!match) {
-        return Object.freeze({ reconciliation: "not_found", retryAllowed: true });
+        return Object.freeze({ reconciliation: "not_found", retryAllowed: true, retryRequiresOwnerConfirmation: true });
       }
       const request = sanitizeCockpitPayload(match, "", 0, { nodes: 0 }, "researchReconciliation");
       const status = typeof match.status === "string" ? match.status.trim().toUpperCase() : "UNKNOWN";
