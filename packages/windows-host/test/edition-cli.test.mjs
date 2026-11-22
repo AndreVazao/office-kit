@@ -38,6 +38,15 @@ function makeHost(edition) {
       if (!connected) throw new Error("not_connected");
       return { readOnly: true, authority: { executionAuthorized: false } };
     },
+    async sendAssistantMessage({ message, department }) {
+      calls.push("assistant-message");
+      if (!connected) throw new Error("not_connected");
+      return {
+        ok: true, accepted: true, completed: false, intent: "RESEARCH",
+        status: "QUEUED", requestId: "cli-research-123",
+        department, receivedMessage: message, executionAuthorized: false
+      };
+    },
     async disconnect() { calls.push("disconnect"); connected = false; sessionToken = null; return { disconnected: true, tokenCleared: true }; },
     async close() { calls.push("close"); connected = false; }
   };
@@ -128,6 +137,58 @@ test("DGM-MAT CLI rejects VST-only authentication and cockpit commands", async (
   assert.equal(result.responses[1].error, "invalid_request");
   assert.equal(result.text.includes(token), false);
   assert.equal(host.calls.includes("authenticate"), false);
+});
+
+test("VST CLI forwards only the fixed assistant-message request and preserves backend acceptance", async () => {
+  const host = makeHost("vst");
+  const message = "Investiga a frescura dos dados de mercado";
+  const result = await runWithStreams({
+    edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    JSON.stringify({ command: "assistant-message", message, department: "research" }),
+    '{"command":"connect"}',
+    JSON.stringify({ command: "assistant-message", message, department: "research" }),
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.code, 0);
+  assert.equal(result.responses[0].error, "not_connected");
+  assert.equal(result.responses[1].connected, true);
+  assert.equal(result.responses[2].response.intent, "RESEARCH");
+  assert.equal(result.responses[2].response.status, "QUEUED");
+  assert.equal(result.responses[2].response.requestId, "cli-research-123");
+  assert.equal(result.responses[2].response.executionAuthorized, false);
+  assert.equal(host.calls.filter(call => call === "assistant-message").length, 1);
+  assert.equal(host.calls.at(-1), "close");
+});
+
+test("DGM-MAT CLI rejects the VST assistant-message command", async () => {
+  const host = makeHost("dgmat");
+  const result = await runWithStreams({
+    edition: "dgmat", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    JSON.stringify({ command: "assistant-message", message: "Investiga isto", department: "research" }),
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(host.calls.includes("assistant-message"), false);
+});
+
+test("VST CLI rejects arbitrary assistant-message payload fields", async () => {
+  const host = makeHost("vst");
+  const result = await runWithStreams({
+    edition: "vst", createHost: () => host, hostOptions: {}, argv: ["serve"]
+  }, [
+    JSON.stringify({
+      command: "assistant-message",
+      message: "Investiga isto",
+      department: "research",
+      endpoint: "/arbitrary",
+      method: "DELETE"
+    }),
+    '{"command":"shutdown"}'
+  ]);
+  assert.equal(result.responses[0].error, "invalid_request");
+  assert.equal(host.calls.includes("assistant-message"), false);
 });
 
 test("edition CLI rejects credential fields and never echoes request contents", async () => {
