@@ -18,7 +18,7 @@ const PRIVATE_FIELD_NAMES = new Set([
   "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
   "privatenamespace", "screenshotpath", "password", "secret",
   "apikey", "privatekey", "accesstoken", "refreshtoken",
-  "authorization", "credential", "credentials", "claim"
+  "authorization", "credential", "credentials"
 ]);
 
 function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 }) {
@@ -45,7 +45,7 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
       }
     }
     return value.slice(0, 4_096).replace(
-      /\\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\\s*[:=]\\s*["']?[^\\s"'&,;]+/gi,
+      /\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\s*[:=]\s*["']?[^\s"'&,;]+/gi,
       "$1=[redacted]"
     );
   }
