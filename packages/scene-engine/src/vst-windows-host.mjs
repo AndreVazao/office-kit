@@ -341,6 +341,10 @@ export function createWindowsVstHost({
     sessionToken = token;
     lastConnectionFailure = null;
     lastAuthorizationFailure = null;
+    lastProbeSnapshot = null;
+    lastProbeError = null;
+    lastConfirmedAt = null;
+    lastDiagnosticReport = null;
     return Object.freeze({
       configured: true,
       storage: "memory-session",
@@ -479,6 +483,7 @@ export function createWindowsVstHost({
             ? "reachable" : "disconnected",
       lastConnectionFailure,
       lastAuthorizationFailure,
+      diagnosticsAvailable: typeof host.createDiagnostics === "function",
       diagnosticsState: lastDiagnosticReport?.status ?? "not_run",
       lastIncidentId: lastDiagnosticReport?.incidentId ?? null,
       lastConfirmedAt,
