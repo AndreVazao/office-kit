@@ -3,7 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { createAvatarRig } from "./rig.js";
 import { createAvatarAnimationClips } from "./animation-export.js";
-import { attachAvatarQualityMetadata } from "./quality-profiles.js";
+import { attachAvatarQualityMetadata, evaluateAvatarQuality } from "./quality-profiles.js";
 
 const $ = (id) => document.getElementById(id);
 const viewport = $("viewport");
@@ -388,9 +388,18 @@ function renderCharacter() {
   geometries.forEach((geometry) => geometry.dispose());
   materials.forEach((mat) => mat.dispose());
   character = config.preset === "robot" ? buildRobot(config) : buildHuman(config);
-  attachAvatarQualityMetadata(character, "avatar-studio");
   scene.add(character);
   avatarRig = createAvatarRig(character);
+  const qualityMetrics = attachAvatarQualityMetadata(character, "avatar-studio");
+  const qualityFits = evaluateAvatarQuality(qualityMetrics);
+  $("quality-triangles").textContent = qualityMetrics.triangles.toLocaleString("pt-PT");
+  $("quality-materials").textContent = qualityMetrics.materialCount.toLocaleString("pt-PT");
+  $("quality-meshes").textContent = qualityMetrics.visibleMeshes.toLocaleString("pt-PT");
+  $("quality-profiles").innerHTML = qualityFits.map((profile) => {
+    const status = profile.fits ? "Dentro do orçamento" : "Excede orçamento";
+    const ratio = Math.max(profile.triangleRatio, profile.materialRatio);
+    return `<div class="quality-profile ${profile.fits ? "fits" : "exceeds"}"><span>${profile.label}</span><strong>${status}</strong><small>${Math.round(ratio * 100)}% do limite mais restritivo</small></div>`;
+  }).join("");
   avatarRig.setMode($("pose-mode")?.value || "idle");
   avatarRig.setVisible(Boolean($("show-rig")?.checked));
 
