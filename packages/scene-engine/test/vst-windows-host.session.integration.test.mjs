@@ -101,18 +101,7 @@ test("VST diagnostics classify a disconnected adapter and recover only the local
       fetchImpl: async (url, init) => {
         requests.push({ path: new URL(url).pathname, method: init.method });
         if (!transportAvailable) throw new Error("socket unavailable");
-        return response(new URL(url).pathname === "/observer/summary"
-          ? {
-            ok: true,
-            status: "OFF",
-            mode: "PAPER",
-            updated_at_ms: fixedNow,
-            health_checked_at_ms: fixedNow,
-            health_state: "healthy",
-            open_positions_count: 0,
-            opportunities_count: 0
-          }
-          : { ok: true });
+        return response(new URL(url).pathname);
       }
     }
   });
@@ -164,7 +153,12 @@ test("VST diagnostics never retry an authentication-rejected token", async () =>
       fetchImpl: async (_url, init) => {
         calls += 1;
         assert.equal(init.method, "GET");
-        return response({ ok: false }, 401);
+        return {
+          ok: false,
+          status: 401,
+          headers: { get: () => "application/json" },
+          json: async () => ({ ok: false })
+        };
       }
     }
   });
