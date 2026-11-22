@@ -8,7 +8,7 @@ const EDITION_DATA_DIRECTORIES = Object.freeze({
 const MAX_REQUEST_BYTES = 4_096;
 const CLI_COMMANDS = new Set(["health", "serve"]);
 const REQUEST_COMMANDS = new Set([
-  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "assistant-message", "disconnect", "shutdown"
+  "health", "credential-status", "authenticate", "connect", "snapshot", "cockpit-snapshot", "assistant-message", "diagnose", "recover", "disconnect", "shutdown"
 ]);
 
 function writeJson(output, value) {
