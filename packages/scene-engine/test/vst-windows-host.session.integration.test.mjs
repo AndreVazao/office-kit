@@ -22,7 +22,19 @@ function response(path) {
       opportunities_count: 0, updated_at_ms: fixedNow, health_state: "unknown",
       allow_new_tasks: false, allow_risk_bearing_actions: false, health_checked_at_ms: 0
     }
-    : { ok: true, path };
+    : path === "/assistant/message"
+      ? {
+        ok: true,
+        result: {
+          intent: "RESEARCH",
+          status: "QUEUED",
+          reply: "Pedido aceite e colocado na fila.",
+          request: { request_id: "session-bridge-123", status: "PENDING" },
+          paper_only: true,
+          execution_authorized: false
+        }
+      }
+      : { ok: true, path };
   return {
     ok: true,
     status: 200,
@@ -31,7 +43,7 @@ function response(path) {
   };
 }
 
-test("VST session token is never persisted and is cleared on disconnect/close", async () => {
+test("VST session token stays ephemeral across cockpit GETs and restricted assistant POST", async () => {
   const host = makeHost();
   const requests = [];
   const composed = createWindowsVstHost({
@@ -41,7 +53,7 @@ test("VST session token is never persisted and is cleared on disconnect/close", 
       timeoutMs: 1_000,
       pollIntervalMs: 60_000,
       fetchImpl: async (url, init) => {
-        requests.push({ url, method: init.method, token: init.headers?.["X-Token"] ?? null });
+        requests.push({ url, method: init.method, token: init.headers?.["X-Token"] ?? null, body: init.body ?? null });
         return response(new URL(url).pathname);
       }
     }
@@ -64,10 +76,26 @@ test("VST session token is never persisted and is cleared on disconnect/close", 
     const snapshot = await composed.getCockpitSnapshot();
     assert.equal(snapshot.readOnly, true);
     assert.equal(snapshot.sections.status.state, "available");
-    assert.ok(requests.length >= 10);
-    assert.ok(requests.every(item => item.method === "GET"));
+    assert.ok(requests.length >= 13);
+    assert.ok(requests.filter(item => item.method === "GET").length >= 13);
     assert.ok(requests.every(item => item.token === ownerToken));
     assert.equal(JSON.stringify(snapshot).includes(ownerToken), false);
+
+    const assistant = await composed.sendAssistantMessage({
+      message: "Investiga a frescura dos dados de mercado",
+      department: "research"
+    });
+    assert.equal(assistant.status, "QUEUED");
+    assert.equal(assistant.requestId, "session-bridge-123");
+    assert.equal(assistant.executionAuthorized, false);
+    const post = requests.find(item => item.method === "POST");
+    assert.ok(post);
+    assert.equal(new URL(post.url).pathname, "/assistant/message");
+    assert.deepEqual(JSON.parse(post.body), {
+      message: "Investiga a frescura dos dados de mercado",
+      department: "research"
+    });
+    assert.equal(JSON.stringify(assistant).includes(ownerToken), false);
 
     await composed.disconnect();
     assert.equal(composed.getCredentialState().configured, false);
