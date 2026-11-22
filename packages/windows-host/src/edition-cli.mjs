@@ -88,8 +88,13 @@ async function executeRequest(host, request) {
     return { ok: true, command, readOnly: true, cockpit: await host.getCockpitSnapshot() };
   }
   if (command === "disconnect") {
-    await host.disconnect();
-    return { ok: true, command, connected: false };
+    const result = await host.disconnect();
+    return {
+      ok: true,
+      command,
+      connected: false,
+      tokenCleared: result?.tokenCleared === true
+    };
   }
   return { ok: true, command, shutdown: true };
 }
