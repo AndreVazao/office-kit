@@ -11,6 +11,7 @@ const COCKPIT_ENDPOINTS = Object.freeze({
   marketDataHealth: "/market-data-health",
   venueHealth: "/venue-health",
   evidenceScorecard: "/evidence-scorecard",
+  evidenceLedgerAudit: "/evidence-ledger/audit",
   paperCollectorResources: "/paper-collector/resources",
   research: "/research",
   humanInteractionPending: "/human-interaction/pending"
