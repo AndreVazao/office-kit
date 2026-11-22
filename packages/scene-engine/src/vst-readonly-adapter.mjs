@@ -302,7 +302,6 @@ export class VstReadOnlyAdapter {
         requestId: typeof request?.request_id === "string" ? request.request_id : null,
         request,
         reply: "O VST confirmou o pedido e devolveu o estado atual da fila.",
-        paperOnly: true,
         executionAuthorized: false,
         reconciliation: "matched",
         outcome: "reconciled",
