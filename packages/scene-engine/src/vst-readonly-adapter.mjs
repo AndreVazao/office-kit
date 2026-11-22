@@ -62,6 +62,7 @@ function sanitizeCockpitPayload(value, key = "", depth = 0, budget = { nodes: 0 
   if (value && typeof value === "object") {
     const output = Object.create(null);
     for (const [childKey, childValue] of Object.entries(value).slice(0, 200)) {
+      if (childKey === "__proto__" || childKey === "prototype" || childKey === "constructor") continue;
       const sanitized = sanitizeCockpitPayload(childValue, childKey, depth + 1, budget);
       if (sanitized !== undefined) output[childKey] = sanitized;
     }
