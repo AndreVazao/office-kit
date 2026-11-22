@@ -14,24 +14,22 @@ O pacote `packages/windows-host` acrescenta uma composição local Windows-only 
 
 O host não inicia rede, descoberta, telemetria, federation, backend adapter, enrollment ou comandos remotos. O CLI só cria/roda/revoga identidade quando o utilizador pede explicitamente.
 
-## Uso de desenvolvimento
+## Verificação do publisher — bloqueio fail-closed
 
-Este procedimento é legado e exclusivamente de desenvolvimento/teste. O código atual ainda lê `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` como pin SHA-1, mas essa variável é controlável pelo ambiente do processo e não constitui uma identidade de publisher provisionada e protegida pelo instalador. Não usar este mecanismo como fronteira de confiança em instalações de utilizadores nem distribuir bundles com esta configuração. A issue #110 bloqueia a aprovação de produção até existir política autenticada provisionada pelo instalador, pin SHA-256 SPKI, associação ao índice exato da assinatura WinTrust e verificação de revogação fail-closed.
+O host já não lê `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` nem qualquer outra variável de ambiente para escolher o publisher. A função de verificação só aceita um pin explicitamente fornecido por uma política autenticada; a composição de produção ainda não dispõe desse provider. Por isso, o arranque normal falha antes de abrir a base de dados com `windows_host_publisher_policy_unavailable`.
+
+O parâmetro explícito de thumbprint permanece apenas para testes isolados do comando PowerShell. Não é uma configuração de produção, não deve ser passado pelo CLI e não autoriza distribuição. O launcher dos bundles não exige nem consulta variáveis de publisher. Até existir provisionamento autenticado pelo instalador, o host Windows permanece intencionalmente indisponível para arranque de produção.
 
 ```powershell
-$env:OFFICE_KIT_CNG_HOST_PATH = "C:\Program Files\Office Kit\OfficeKit.CngHost.exe"
-$env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = "<40-character trusted publisher certificate thumbprint>"
+$env:OFFICE_KIT_CNG_HOST_PATH = "C:\\Program Files\\Office Kit\\OfficeKit.CngHost.exe"
 node packages/windows-host/src/cli.mjs health
-node packages/windows-host/src/cli.mjs create-identity --organization-id=andre-vazao --node-id=office-pc-01
-node packages/windows-host/src/cli.mjs rotate-identity
-node packages/windows-host/src/cli.mjs revoke-identity
 ```
 
-A criação de identidade é sempre explícita. `health` num primeiro arranque apresenta `identityStatus: empty`; não cria automaticamente uma identidade.
+O comando acima deve falhar fechado nesta fase, porque a política autenticada ainda não foi implementada. Não definir um thumbprint no ambiente para contornar o bloqueio.
 
 ## Limites e validação
 
-- A verificação atual usa WinVerifyTrust nativo, mas ainda não é uma fronteira de confiança de produção: a identidade esperada continua a vir de `OFFICE_KIT_CNG_SIGNER_THUMBPRINT`, o certificado é extraído separadamente com `X509Certificate.CreateFromSignedFile` sem associação explícita ao índice validado por WinTrust e a revogação está desativada (`fdwRevocationChecks = 0`, `dwProvFlags = 0x1010`). A política-alvo e os gates estão em `docs/security/WINDOWS_AUTHENTICODE_POLICY.md` e issue #110; o documento de política ainda não está implementado.
+- A verificação de produção usa o caminho PowerShell `Get-AuthenticodeSignature`, limitado a 15 segundos, mas a política autenticada do publisher ainda não está implementada. O pin por variável de ambiente foi removido da composição de produção; sem um pin fornecido por uma política autenticada, o host falha fechado antes de abrir a base de dados. O parâmetro explícito de thumbprint existe apenas para testes isolados. Continuam pendentes pin SHA-256 SPKI, política provisionada pelo instalador, associação explícita à assinatura selecionada e regras de revogação distintas para instalação/atualização e arranque offline. Ver issue #110.
 - Os testes automatizados injetam o verificador de assinatura e as operações ACL; validam a composição, isolamento do processo, persistência do installation ID, health e rejeição de helper não confiável. Isto não valida as ACLs ou a cadeia de certificados de uma instalação física.
 - O helper CNG atualmente publicado no CI não é assinado por um certificado de distribuição. Portanto, o CLI de produção não arranca com esse artefacto até existir assinatura e trust chain válidas.
 - Ainda não existe instalador MSI/MSIX, assinatura de release, serviço Windows, UI, atualização/rollback, backup/restore ou teste num PC físico.

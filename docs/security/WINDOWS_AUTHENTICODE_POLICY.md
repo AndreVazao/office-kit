@@ -108,3 +108,11 @@ The WinTrust helper API caveat is a design risk, not a reason to omit signer bin
 ## 2026-11-21 — interim baseline restoration
 
 The native WinVerifyTrust rewrite previously present in PR #107 was reverted in commit f26f4b365a9ae48cca67bd1c2504ab4404d3846f to the bounded PowerShell Get-AuthenticodeSignature verifier already present on main. This removes the PR-introduced WTD_REVOCATION_CHECK_NONE path and the separate X509Certificate.CreateFromSignedFile signer extraction. The restored verifier requires Authenticode Status Valid and a matching process-environment SHA-1 thumbprint; runChecked bounds the PowerShell child process to 15 seconds and rejects timeout/nonzero exit. This is an interim reviewed compatibility baseline, not the target production design. Installer-authenticated publisher policy, SHA-256 SPKI pinning, explicit revocation policy and native Windows test coverage remain outstanding; issue #110 stays open.
+
+## 8. Implementation checkpoint — remove environment pin from production startup (2026-11-22)
+
+The production host no longer reads `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` as an implicit expected publisher. The DGM-MAT/VST portable launcher no longer requires that environment variable. The default host composition has no authenticated publisher-policy provider yet and therefore rejects startup with `windows_host_publisher_policy_unavailable` before opening SQLite. This is an intentional fail-closed intermediate state.
+
+The verifier's explicit `expectedThumbprint` argument is retained only for isolated tests that exercise the bounded PowerShell command construction and status handling. It is not read from CLI arguments, process environment or user preferences by the production composition. Separate test runners may still use the environment variable for their own injected signature-integrity verifier; that test-only path does not authorize the production host.
+
+This checkpoint closes only the environment-controlled implicit pin path. It does not implement the installer-authenticated policy, SHA-256 SPKI pin, exact signature-index/signer binding, revocation checks, commercial trust chain or positive production startup. Issue #110 remains open and the Windows host must remain unavailable for production startup until those remaining requirements are implemented and tested.

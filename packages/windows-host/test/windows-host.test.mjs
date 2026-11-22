@@ -296,17 +296,24 @@ test("Windows host rejects non-Windows execution and relative storage paths", ()
 });
 
 
-test("Authenticode validation requires and pins the configured publisher thumbprint", () => {
+test("Authenticode verifier never takes the publisher pin from the process environment", () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-signer-"));
   const helperPath = join(directory, "helper.exe");
   writeFileSync(helperPath, "test helper");
   const expectedThumbprint = "A".repeat(40);
+  const previous = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
   let command;
   try {
+    process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = expectedThumbprint;
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => {
+        throw new Error("verifier_must_not_run_without_authenticated_policy");
+      }
+    }), /windows_host_publisher_policy_unavailable/);
     assert.throws(() => verifyAuthenticodeHelper(helperPath, {
       spawnImpl: () => ({ status: 0, stdout: "" }),
       expectedThumbprint: ""
-    }), /windows_host_cng_signer_thumbprint_required/);
+    }), /windows_host_publisher_policy_unavailable/);
     assert.equal(verifyAuthenticodeHelper(helperPath, {
       spawnImpl: (name, args) => {
         command = { name, args };
@@ -317,6 +324,8 @@ test("Authenticode validation requires and pins the configured publisher thumbpr
     assert.equal(command.name, "powershell.exe");
     assert.ok(command.args.at(-1).includes(expectedThumbprint));
   } finally {
+    if (previous === undefined) delete process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
+    else process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = previous;
     rmSync(directory, { recursive: true, force: true });
   }
 });

@@ -157,10 +157,10 @@ try {
 
   New-Item -ItemType Directory -Path $untrustedDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $untrustedDataRoot
-  Write-Output "Edition bundle smoke: production launcher must reject the untrusted ephemeral publisher."
+  Write-Output "Edition bundle smoke: production launcher must fail closed without installer-authenticated publisher policy."
   $untrustedRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($untrustedRun.ExitCode -eq 0) {
-    throw "Edition launcher accepted an untrusted publisher."
+    throw "Edition launcher bypassed the missing authenticated publisher policy."
   }
   $untrustedResult = ($untrustedRun.StdOut.Trim() | ConvertFrom-Json)
   if ($untrustedResult.ok -ne $false -or $untrustedResult.error -ne "host_start_failed") {
@@ -170,14 +170,17 @@ try {
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = ("0" * 40)
   New-Item -ItemType Directory -Path $pinnedMismatchDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $pinnedMismatchDataRoot
-  Write-Output "Edition bundle smoke: production launcher must reject a signer thumbprint mismatch."
+  Write-Output "Edition bundle smoke: changing the process environment thumbprint must not change the fail-closed result."
   $pinnedMismatchRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($pinnedMismatchRun.ExitCode -eq 0) {
-    throw "Edition launcher accepted a signer that does not match the pinned publisher thumbprint."
+    throw "Edition launcher behavior changed when the process environment thumbprint changed."
   }
   $pinnedMismatchResult = ($pinnedMismatchRun.StdOut.Trim() | ConvertFrom-Json)
   if ($pinnedMismatchResult.ok -ne $false -or $pinnedMismatchResult.error -ne "host_start_failed") {
     throw "Pinned publisher mismatch did not produce the expected sanitized startup failure."
+  }
+  if ($pinnedMismatchResult.error -ne $untrustedResult.error) {
+    throw "Process environment thumbprint changed the production launcher failure result."
   }
 
   $env:OFFICE_KIT_CNG_SIGNER_THUMBPRINT = $certificate.Thumbprint
@@ -199,10 +202,10 @@ try {
 
   New-Item -ItemType Directory -Path $postTestDataRoot -Force | Out-Null
   $env:LOCALAPPDATA = $postTestDataRoot
-  Write-Output "Edition bundle smoke: production launcher must still reject the publisher; test did not add root trust."
+  Write-Output "Edition bundle smoke: production launcher remains blocked without authenticated policy; test did not add root trust."
   $postTestRun = Invoke-BoundedProcess -FilePath $env:ComSpec -Arguments @("/d", "/c", $launcherPath, "health") -TimeoutMilliseconds 30000
   if ($postTestRun.ExitCode -eq 0) {
-    throw "Production launcher accepted the ephemeral publisher after the test-only host run."
+    throw "Production launcher bypassed the missing authenticated publisher policy after the test-only host run."
   }
   $postTestResult = ($postTestRun.StdOut.Trim() | ConvertFrom-Json)
   if ($postTestResult.ok -ne $false -or $postTestResult.error -ne "host_start_failed") {
