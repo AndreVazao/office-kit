@@ -531,7 +531,7 @@ Nunca declarar funcionalidade implementada, testada, publicada ou merged sem con
 - The VST control token is memory-only for one owner-approved session. No CNG, SQLite, config, URL, log or renderer persistence. Disconnect, 401 and close clear the reference; 403 scope denial preserves the token.
 - Phase 2 is under review in PR #119 on branch `feat/vst-assistant-message-bridge-2026-11-22`: fixed `POST /assistant/message`, no arbitrary routes/methods, no automatic retries, request IDs preserved, timeout/5xx after send mapped to UNKNOWN.
 - The assistant gateway is verified at VST `main` `ac88989caeff86198339de38e241b3e52560e791`. Research requires `submit_research`; read access requires `read_private_state`; exact PAPER start/pause/resume/stop phrases are blocked locally until Phase 4. 401 authentication rejection and 403 authorization denial are separate.
-- VST currently has no independent `analysis` or `central_memory` conversational department. Their cockpit panels may display read-only data, but the adapter reports `NOT_CONNECTED` for conversation rather than inventing handlers.
+- VST currently has no independent `analysis` or `central_memory` conversational department. Analysis requests are explicitly tagged and routed to the existing Research queue (not a separate Analysis worker); Central Memory remains read-only and reports `NOT_CONNECTED` for conversation.
 - No VST backend files, DGM-MAT implementation or Avatar Studio files were modified. Live VST E2E, Windows Authenticode policy, physical-PC validation, LAN/Tailscale and Android remain pending.
 
 ## Node runtime validation — PR #77 merged (2026-11-12)
