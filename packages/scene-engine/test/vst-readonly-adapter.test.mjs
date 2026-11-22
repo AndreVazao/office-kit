@@ -304,12 +304,16 @@ test("assistant message blocks credential assignments and unconnected UI-only de
     }
   });
   await adapter.connect();
-  const secret = await adapter.sendAssistantMessage({
-    message: "Investiga isto api_key=SHOULD_NOT_LEAVE_OFFICE_KIT",
-    department: "research"
-  });
-  assert.equal(secret.intent, "SECRET_INPUT_BLOCKED");
-  assert.equal(secret.sent, false);
+  const secretMessages = [
+    "Investiga isto api_key=SHOULD_NOT_LEAVE_OFFICE_KIT",
+    '{"apiKey":"SHOULD_NOT_LEAVE_OFFICE_KIT","secret":"DO_NOT_SEND"}',
+    "Authorization: Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  ];
+  for (const message of secretMessages) {
+    const secret = await adapter.sendAssistantMessage({ message, department: "research" });
+    assert.equal(secret.intent, "SECRET_INPUT_BLOCKED");
+    assert.equal(secret.sent, false);
+  }
   for (const department of ["analysis", "central_memory", "central-memory"]) {
     const result = await adapter.sendAssistantMessage({ message: "Analisa os dados", department });
     assert.equal(result.intent, "DEPARTMENT_NOT_CONNECTED");
