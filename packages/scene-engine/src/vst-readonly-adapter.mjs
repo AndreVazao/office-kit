@@ -285,7 +285,7 @@ export class VstReadOnlyAdapter {
       const now = Date.now() / 1_000;
       const matches = requests.filter(item => item && item.message === expectedMessage
         && Number.isFinite(Number(item.created_at))
-        && Number(item.created_at) >= submittedAt - 5
+        && Number(item.created_at) >= submittedAt - 1
         && Number(item.created_at) <= now + 5);
       matches.sort((left, right) => Number(right.created_at) - Number(left.created_at));
       const match = matches[0];
