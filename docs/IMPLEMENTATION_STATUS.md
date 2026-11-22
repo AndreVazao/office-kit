@@ -588,7 +588,7 @@ The 2-core/approximately 3-GB Windows PC is a validation target only, not a prod
 ## VST read-only adapter preview — implementation increment (2026-11-12)
 
 - Added a VST-only adapter entrypoint and Windows host composition; the generic scene-engine entrypoint remains backend-neutral.
-- The adapter uses authenticated loopback `GET /observer/summary` plus fixed GET-only cockpit routes `/health`, `/status`, `/learning-memory/health`, `/learning-memory/runtime`, `/diagnostics`, `/market-data-health`, `/venue-health`, `/evidence-scorecard`, `/paper-collector/resources`, `/research`, and `/human-interaction/pending`; redirects and remote endpoints remain disabled.
+- The adapter uses authenticated loopback `GET /observer/summary` plus fixed GET-only cockpit routes `/health`, `/status`, `/learning-memory/health`, `/learning-memory/runtime`, `/diagnostics`, `/market-data-health`, `/venue-health`, `/evidence-scorecard`, `/evidence-ledger/audit`, `/paper-collector/resources`, `/research`, and `/human-interaction/pending`; redirects and remote endpoints remain disabled.
 - The VST control token is memory-only for the active owner-approved session; disconnect, authentication rejection and close clear the in-memory reference. It is never persisted in the CNG vault.
 - Snapshots accept observer data only when the response envelope has `ok === true`, then copy bounded fields. Failed envelopes suppress supplied status/count/health values and remain synchronizing. Agent/task arrays remain empty; observer publication time is not treated as engine readiness. Stale/future/missing timestamps do not become authoritative.
 - `REAL` mode is reported as configuration only. No command capability, risk-bearing action or execution authorization is exposed.
