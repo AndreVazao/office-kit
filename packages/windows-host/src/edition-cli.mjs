@@ -79,7 +79,19 @@ async function executeRequest(host, request) {
   }
   if (command === "connect") {
     await host.connect();
-    return { ok: true, command, connected: true, readOnlySnapshot: true, assistantMessageEnabled: true, financialActionsAllowed: false, paperControlsEnabled: false, executionAuthorized: false, riskBearingActionsAllowed: false, backendOperationalState: "unverified" };
+    const health = await host.health();
+    return {
+      ok: true,
+      command,
+      connected: true,
+      readOnlySnapshot: true,
+      assistantMessageEnabled: health?.edition === "vst",
+      financialActionsAllowed: false,
+      paperControlsEnabled: false,
+      executionAuthorized: false,
+      riskBearingActionsAllowed: false,
+      backendOperationalState: "unverified"
+    };
   }
   if (command === "snapshot") {
     const health = await host.health();
