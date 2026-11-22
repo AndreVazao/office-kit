@@ -522,7 +522,29 @@ test("each reconnect receives a new UUID and a late prior poll cannot emit into 
 test("publishes the exact VST read-only route and timestamp contract", () => {
   assert.equal(vstAdapterContract.id, "vazao-sovereign-trader");
   assert.deepEqual(vstAdapterContract.allowedMethods, ["GET"]);
-  assert.deepEqual(vstAdapterContract.allowedPaths, ["/observer/summary"]);
+  assert.deepEqual(vstAdapterContract.allowedPaths, [
+    "/observer/summary",
+    "/health",
+    "/status",
+    "/diagnostics",
+    "/market-data-health",
+    "/venue-health",
+    "/evidence-scorecard",
+    "/paper-collector/resources",
+    "/research",
+    "/human-interaction/pending"
+  ]);
+  assert.deepEqual(vstAdapterContract.cockpitReadPaths, [
+    "/health",
+    "/status",
+    "/diagnostics",
+    "/market-data-health",
+    "/venue-health",
+    "/evidence-scorecard",
+    "/paper-collector/resources",
+    "/research",
+    "/human-interaction/pending"
+  ]);
   assert.equal(vstAdapterContract.authenticationHeader, "X-Token");
   assert.equal(vstAdapterContract.responseSuccessField, "ok");
   assert.equal(vstAdapterContract.requiresSuccessfulObserverEnvelope, true);
