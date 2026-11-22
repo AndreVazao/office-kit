@@ -469,6 +469,8 @@ test("assistant timeout reconciles the backend research queue before any retry c
   assert.equal(result.completed, false);
   assert.equal(result.requestId, "reconciled-research-456");
   assert.equal(result.reconciliation, "matched");
+  assert.equal(result.outcome, "reconciled");
+  assert.equal(result.error, null);
   assert.equal(result.retryAllowed, false);
   assert.equal(result.request.lease_owner, undefined);
   assert.equal(JSON.stringify(result).includes("private-worker-id"), false);
