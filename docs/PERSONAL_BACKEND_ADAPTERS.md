@@ -47,6 +47,7 @@ Repository: `AndreVazao/VazaoSovereignTrader`.
 | Radar / freshness | `GET /market-data-health` | Authenticated data freshness state |
 | Markets | `GET /venue-health` | Authenticated venue state |
 | Evidence | `GET /evidence-scorecard` | Authenticated evidence summary |
+| Audit integrity | `GET /evidence-ledger/audit` | Authenticated ledger audit summary; full unpaginated ledger excluded |
 | PAPER collector | `GET /paper-collector/resources` | Authenticated resource diagnostics |
 | Research | `GET /research` | Authenticated research queue snapshot |
 | Human interaction | `GET /human-interaction/pending` | Authenticated pending intervention snapshot |
@@ -56,7 +57,7 @@ The adapter uses authenticated loopback `GET /observer/summary` for synchronizat
 ### Authentication and safety
 
 - The owner supplies the VST control token for one active session. It is held only in process memory and sent only in the `X-Token` header; disconnect, authentication rejection and close clear the reference. It is never persisted by the Office Kit.
-- The adapter permits only HTTP loopback GETs from the fixed allowlist on port 8765, rejects redirects and remote endpoints, and declares only `read_state`. The eleven cockpit endpoints are read with a maximum of three concurrent requests; no write method is exposed. Responses pass a bounded recursive redactor that removes claim tokens, credential fields, owner identifiers, local paths, URL query data and pending human-interaction form values before reaching the renderer.
+- The adapter permits only HTTP loopback GETs from the fixed allowlist on port 8765, rejects redirects and remote endpoints, and declares only `read_state`. The twelve cockpit endpoints are read with a maximum of three concurrent requests; no write method is exposed. The unpaginated evidence-ledger record list is excluded. Responses pass a bounded recursive redactor that removes claim tokens, credential fields, owner identifiers, local paths, URL query data and pending human-interaction form values before reaching the renderer.
 - The observer envelope must contain `ok === true` before state/count/health fields are accepted. `updated_at_ms` is treated as the last observer publication time, not proof of engine readiness. Missing, stale or future timestamps do not produce authoritative state.
 - The adapter does not copy observer-provided agents/tasks; both arrays remain empty. `REAL` is informational only; `executionAuthorized=false` and `allowRiskBearingActions=false`. No order, mode, start/stop, pairing, file-upload or execution-surface mutation route is exposed.
 - The Windows host requires `ownerConsent: true` to set/clear the session token and does not auto-connect. Connection is explicit. The token is memory-only, is not retained across restarts or disconnects, and is never exposed by status APIs. JavaScript cannot guarantee zeroization of strings; only references and active requests are cleared.
