@@ -27,7 +27,8 @@ const PAPER_CONTROL_COMMANDS = new Set([
   "pausar", "pausa", "pause", "retomar", "retoma", "resume",
   "parar", "para", "stop"
 ]);
-const SECRET_ASSIGNMENT_PATTERN = /\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret)\s*[:=]\s*\S+/i;
+const SECRET_ASSIGNMENT_PATTERN = /["']?\\b(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passphrase|secret|token|authorization)["']?\\s*[:=]\\s*["']?[^\\s"'&,;]+/i;
+const BEARER_TOKEN_PATTERN = /\\bBearer\\s+[A-Za-z0-9._~+/-]{16,}/i;
 
 const PRIVATE_FIELD_NAMES = new Set([
   "token", "claimtoken", "claimtokenhash", "ownerid", "userid",
@@ -666,7 +667,7 @@ export class VstReadOnlyAdapter {
     if (!ASSISTANT_DEPARTMENTS.has(normalizedDepartment)) {
       throw new Error("vst_assistant_department_invalid");
     }
-    if (SECRET_ASSIGNMENT_PATTERN.test(cleanMessage)) {
+    if (SECRET_ASSIGNMENT_PATTERN.test(cleanMessage) || BEARER_TOKEN_PATTERN.test(cleanMessage)) {
       return Object.freeze({
         ok: false,
         intent: "SECRET_INPUT_BLOCKED",
