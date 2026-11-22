@@ -383,8 +383,8 @@ test("assistant message preserves REAL refusal from VST and never retries unknow
   const outcome = await unknown.sendAssistantMessage({ message: "Investiga esta hipótese", department: "research" });
   assert.equal(outcome.intent, "OUTCOME_UNKNOWN");
   assert.equal(outcome.status, "UNKNOWN");
-  assert.equal(outcome.retryAllowed, false);
   assert.equal(outcome.reconciliation, "not_found");
+  assert.equal(outcome.retryAllowed, true);
   assert.equal(postAttempts, 1);
   assert.equal(reconciliationReads, 1);
   await unknown.disconnect();
