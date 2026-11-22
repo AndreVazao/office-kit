@@ -67,6 +67,14 @@ export function createWindowsVstHost({
   let lastProbeSnapshot = null;
   let lastProbeError = null;
   let lastConfirmedAt = null;
+  const listeners = new Set();
+
+  function attachListeners() {
+    if (!adapter.connected) return;
+    for (const listener of listeners) {
+      try { adapter.subscribe(listener); } catch { /* A listener cannot block recovery. */ }
+    }
+  }
 
   function classifyConnectionFailure(error) {
     const code = error instanceof Error ? error.message : "";
@@ -198,6 +206,7 @@ export function createWindowsVstHost({
           try {
             await adapter.disconnect();
             await adapter.connect();
+            attachListeners();
             lastConnectionFailure = null;
             lastAuthorizationFailure = null;
             lastProbeError = null;
@@ -357,6 +366,7 @@ export function createWindowsVstHost({
       const result = await adapter.connect();
       lastConnectionFailure = null;
       lastAuthorizationFailure = null;
+      attachListeners();
       return result;
     } catch (error) {
       lastConnectionFailure = classifyConnectionFailure(error);
@@ -416,7 +426,14 @@ export function createWindowsVstHost({
 
   function subscribe(listener) {
     if (closed) throw new Error("vst_windows_host_closed");
-    return adapter.subscribe(listener);
+    if (typeof listener !== "function") throw new TypeError("listener must be a function");
+    listeners.add(listener);
+    let unsubscribeAdapter = null;
+    if (adapter.connected) unsubscribeAdapter = adapter.subscribe(listener);
+    return () => {
+      listeners.delete(listener);
+      unsubscribeAdapter?.();
+    };
   }
 
   async function disconnect() {
@@ -479,6 +496,7 @@ export function createWindowsVstHost({
     if (closed) return;
     closed = true;
     sessionToken = null;
+    listeners.clear();
     try {
       await adapter.disconnect();
     } finally {
