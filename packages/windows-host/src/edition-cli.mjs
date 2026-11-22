@@ -46,7 +46,8 @@ function parseRequest(line) {
   return { command: value.command };
 }
 
-async function executeRequest(host, request) {\n  const { command } = request;
+async function executeRequest(host, request) {
+  const { command } = request;
   if (command === "health") {
     return { ok: true, command, health: await host.health() };
   }
