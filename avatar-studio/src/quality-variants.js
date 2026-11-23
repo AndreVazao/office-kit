@@ -663,6 +663,29 @@ function prepareMaterialTextureVariant(material, maxSize) {
   scan(material.uniforms, "uniforms");
   if (!textureMap.size) return { material, changed: false, unsupported };
   const variant = material.clone();
+  if (variant.uniforms) {
+    const retained = new Set(textureMap.values());
+    const sourceTextures = new Set();
+    const collectSource = (value, seen = new Set()) => {
+      if (!value || typeof value !== "object" || seen.has(value)) return;
+      seen.add(value);
+      if (value.isTexture) { sourceTextures.add(value); return; }
+      if (Array.isArray(value)) value.forEach((entry) => collectSource(entry?.value ?? entry, seen));
+      else Object.values(value).forEach((entry) => collectSource(entry?.value ?? entry, seen));
+    };
+    collectSource(material.uniforms);
+    const disposeDetached = (value, seen = new Set()) => {
+      if (!value || typeof value !== "object" || seen.has(value)) return;
+      seen.add(value);
+      if (value.isTexture) {
+        if (!sourceTextures.has(value) && !retained.has(value)) value.dispose();
+        return;
+      }
+      if (Array.isArray(value)) value.forEach((entry) => disposeDetached(entry?.value ?? entry, seen));
+      else Object.values(value).forEach((entry) => disposeDetached(entry?.value ?? entry, seen));
+    };
+    disposeDetached(variant.uniforms);
+  }
   for (const slot of AVATAR_TEXTURE_SLOTS) if (textureMap.has(material[slot])) variant[slot] = textureMap.get(material[slot]);
   if (material.uniforms) {
     variant.uniforms = cloneUniformValue(material.uniforms, textureMap);
@@ -773,6 +796,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
 
   const classMaterials = new Map();
   const variantMaterials = new Set();
+  let convertedMeshCount = 0;
   try {
     for (const mesh of meshes) {
       if (Array.isArray(mesh.material)) continue;
@@ -816,6 +840,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
         variantMaterials.add(variantMaterial);
       }
       originalMaterials.push({ mesh, material: original });
+      convertedMeshCount += 1;
       mesh.material = variantMaterial;
     }
   } catch (error) {
@@ -849,7 +874,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
     withinMaterialBudget: materialCount <= profile.materialBudget,
     withinTextureBudget: textureOverBudgetCount === 0,
     precision,
-    convertedMeshCount: originalMaterials.length,
+    convertedMeshCount,
     restore() {
       if (restored) return;
       restored = true;
