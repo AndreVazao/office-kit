@@ -182,8 +182,13 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
     [...expectedPaths].sort()
   );
   for (const call of calls.slice(1)) {
+    const path = new URL(call.url).pathname;
     assert.equal(call.init.method, "GET");
-    assert.equal(call.init.headers["X-Token"], "vst-local-token-0123456789");
+    if (path === "/health") {
+      assert.equal(Object.hasOwn(call.init.headers, "X-Token"), false);
+    } else {
+      assert.equal(call.init.headers["X-Token"], "vst-local-token-0123456789");
+    }
     assert.equal(call.init.cache, "no-store");
     assert.equal(call.init.credentials, "omit");
     assert.equal(call.init.redirect, "error");
@@ -192,8 +197,13 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.authority.executionAuthorized, false);
   assert.equal(snapshot.authority.ordersSubmitted, false);
   assert.equal(snapshot.authority.riskBearingActionsAllowed, false);
+  assert.equal(snapshot.sections.health.state, "available");
+  assert.equal(snapshot.sections.health.access, "public");
   assert.equal(snapshot.sections.status.state, "available");
+  assert.equal(snapshot.sections.status.access, "private");
   assert.equal(snapshot.sections.status.data.ok, true);
+  assert.deepEqual(vstAdapterContract.publicPaths, ["/health"]);
+  assert.equal(vstAdapterContract.privatePaths.includes("/health"), false);
   assert.equal(snapshot.sections.research.state, "available");
   assert.equal(snapshot.sections.humanInteractionPending.state, "available");
   assert.equal(snapshot.taskFeed.state, "available");
@@ -224,6 +234,82 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.deepEqual(adapter.capabilities, ["read_state", "assistant_message"]);
   assert.deepEqual(vstAdapterContract.cockpitReadPaths, expectedPaths);
   await adapter.disconnect();
+});
+
+test("public GET /health never proves authentication or invalidates a private session", async () => {
+  let healthCalls = 0;
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/health") {
+        healthCalls += 1;
+        return response({ status: "ok" }, 401);
+      }
+      return response({ ok: true, source_path: path });
+    }
+  });
+  await adapter.connect();
+  const snapshot = await adapter.getCockpitSnapshot();
+  assert.equal(healthCalls, 1);
+  assert.equal(snapshot.sections.health.state, "unavailable");
+  assert.equal(snapshot.sections.health.access, "public");
+  assert.equal(snapshot.sections.health.error, "vst_http_401");
+  assert.equal(adapter.authenticationRejected, false);
+  const privateSnapshot = await adapter.getSnapshot();
+  assert.equal(privateSnapshot.backend.transportReachable, true);
+  await adapter.disconnect();
+});
+
+test("public health 401, 403, 5xx and timeout never invalidate private authentication", async () => {
+  for (const status of [401, 403, 503]) {
+    const adapter = createAdapter({
+      fetchImpl: async (url, init) => {
+        const path = new URL(url).pathname;
+        if (path === "/observer/summary") return response(state());
+        if (path === "/health") {
+          assert.equal(Object.hasOwn(init.headers, "X-Token"), false);
+          return response({ status: "unavailable" }, status);
+        }
+        return response({ ok: true, source_path: path });
+      }
+    });
+    await adapter.connect();
+    const cockpit = await adapter.getCockpitSnapshot();
+    assert.equal(cockpit.sections.health.state, "unavailable");
+    assert.equal(cockpit.sections.health.access, "public");
+    assert.equal(cockpit.sections.health.error, "vst_http_" + status);
+    assert.equal(adapter.authenticationRejected, false);
+    assert.equal((await adapter.getSnapshot()).backend.transportReachable, true);
+    await adapter.disconnect();
+  }
+
+  const timedOut = createAdapter({
+    timeoutMs: 250,
+    fetchImpl: async (url, init) => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/health") {
+        assert.equal(Object.hasOwn(init.headers, "X-Token"), false);
+        return new Promise((_, reject) => {
+          init.signal.addEventListener("abort", () => {
+            const error = new Error("public_health_timeout");
+            error.name = "AbortError";
+            reject(error);
+          }, { once: true });
+        });
+      }
+      return response({ ok: true, source_path: path });
+    }
+  });
+  await timedOut.connect();
+  const cockpit = await timedOut.getCockpitSnapshot();
+  assert.equal(cockpit.sections.health.state, "unavailable");
+  assert.equal(cockpit.sections.health.access, "public");
+  assert.equal(cockpit.sections.health.error, "vst_request_timeout");
+  assert.equal(timedOut.authenticationRejected, false);
+  assert.equal((await timedOut.getSnapshot()).backend.transportReachable, true);
+  await timedOut.disconnect();
 });
 
 test("cockpit snapshot preserves partial endpoint failures without fabricating data", async () => {
@@ -991,6 +1077,23 @@ test("publishes the exact VST read-only route and timestamp contract", () => {
     "/research",
     "/human-interaction/pending"
   ]);
+  assert.deepEqual(vstAdapterContract.publicPaths, ["/health"]);
+  assert.deepEqual(vstAdapterContract.privatePaths, [
+    "/observer/summary",
+    "/status",
+    "/learning-memory/health",
+    "/learning-memory/runtime",
+    "/diagnostics",
+    "/market-data-health",
+    "/venue-health",
+    "/evidence-scorecard",
+    "/evidence-ledger/audit",
+    "/paper-collector/resources",
+    "/research",
+    "/human-interaction/pending"
+  ]);
+  assert.equal(Object.isFrozen(vstAdapterContract.publicPaths), true);
+  assert.equal(Object.isFrozen(vstAdapterContract.privatePaths), true);
   assert.deepEqual(vstAdapterContract.cockpitReadPaths, [
     "/health",
     "/status",
