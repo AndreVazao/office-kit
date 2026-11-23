@@ -493,6 +493,9 @@ function runChecked(command, args, spawnImpl, timeout = 15_000) {
     timeout: 15_000,
     maxBuffer: 1024 * 1024
   });
+  if (result.error?.code === "ETIMEDOUT") {
+    throw new Error("windows_host_command_timeout_" + command.toLowerCase());
+  }
   if (result.error || result.status !== 0) {
     throw new Error("windows_host_command_failed_" + command.toLowerCase());
   }
