@@ -58,7 +58,7 @@ internal static class PublisherPolicyKey
         return info;
     }
 
-    public static byte[] SignBytesForTests(string installationId, byte[] payload)
+    public static byte[] SignPayload(string installationId, byte[] payload)
     {
         EnsureElevatedInstallerContext();
         if (payload.Length is < 1 or > 65536)
@@ -72,7 +72,7 @@ internal static class PublisherPolicyKey
 
     public static object Sign(string installationId, byte[] payload)
     {
-        var signature = SignBytesForTests(installationId, payload);
+        var signature = SignPayload(installationId, payload);
         return new
         {
             ok = true,
@@ -92,7 +92,8 @@ internal static class PublisherPolicyKey
             return new { ok = true, deleted = false };
 
         using var key = CngKey.Open(keyName, Provider, CngKeyOpenOptions.MachineKey);
-        ValidateKey(key);
+        if (!key.IsMachineKey)
+            throw new CryptographicException("publisher_policy_key_scope_invalid");
         key.Delete();
         return new { ok = true, deleted = true };
     }
@@ -285,7 +286,7 @@ internal static class PublisherPolicyKey
             throw new CryptographicException(status, error);
     }
 
-    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int NCryptOpenStorageProvider(out IntPtr providerHandle, string providerName, int flags);
 
     [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
@@ -326,7 +327,7 @@ internal static class PublisherPolicyKey
     [DllImport("ncrypt.dll")]
     private static extern int NCryptFreeObject(IntPtr objectHandle);
 
-    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [DllImport("advapi32.dll", EntryPoint = "ConvertStringSecurityDescriptorToSecurityDescriptorW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
     private static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(
         string stringSecurityDescriptor,
         uint stringSDRevision,
@@ -334,6 +335,6 @@ internal static class PublisherPolicyKey
         out uint securityDescriptorSize
     );
 
-    [DllImport("kernel32.dll")]
+    [DllImport("kernel32.dll", ExactSpelling = true)]
     private static extern IntPtr LocalFree(IntPtr memory);
 }
