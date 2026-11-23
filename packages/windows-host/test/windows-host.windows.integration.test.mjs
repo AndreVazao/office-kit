@@ -115,7 +115,7 @@ test("Windows Authenticode verifier rejects an unsigned helper", {
   try {
     assert.throws(() => verifyAuthenticodeHelper(helperPath, {
       expectedSpkiSha256: "a".repeat(64)
-    }), /windows_host_(?:authenticode_verification_failed|command_failed_powershell\\.exe)/);
+    }), /windows_host_(?:authenticode_verification_failed|command_failed_powershell\.exe)/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
