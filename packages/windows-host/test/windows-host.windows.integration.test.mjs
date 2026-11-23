@@ -67,6 +67,13 @@ test("Windows host applies real user and SYSTEM ACLs to installation data", {
       platform: "win32",
       appDataPath,
       helperPath,
+      publisherPolicyLoader: ({ installationId, edition }) => ({
+        installationId,
+        edition: edition ?? "universal",
+        signatureIndex: 0,
+        publisherSpkiSha256: "a".repeat(64),
+        revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+      }),
       verifyHelper: () => true,
       runtimeFactory: fakeRuntime,
       secretVaultFactory: fakeSecretVault
