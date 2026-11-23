@@ -510,6 +510,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
 
   const meshes = [];
   const originalMaterials = [];
+  const originalGeometries = [];
   const sourceMaterials = new Set();
   const auditedMaterials = new Set();
   const nonConvertibleMaterials = new Set();
@@ -568,9 +569,13 @@ export function applyAvatarMaterialVariant(root, profileId) {
       const original = mesh.material;
       if (!eligibleMaterials.has(original) || precision === 0) continue;
 
-      const position = mesh.geometry?.getAttribute("position");
+      const sourceGeometry = mesh.geometry;
+      const position = sourceGeometry?.getAttribute("position");
       if (!position) continue;
-      const existingColor = mesh.geometry.getAttribute("color");
+      const variantGeometry = sourceGeometry.clone();
+      originalGeometries.push({ mesh, geometry: sourceGeometry, variantGeometry });
+      mesh.geometry = variantGeometry;
+      const existingColor = variantGeometry.getAttribute("color");
       const colors = new Float32Array(position.count * 3);
       for (let vertex = 0; vertex < position.count; vertex += 1) {
         const baseR = original.color.r;
@@ -586,7 +591,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
           colors[vertex * 3 + 2] = baseB;
         }
       }
-      mesh.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+      variantGeometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
 
       const key = materialClassKey(original, precision);
       let variantMaterial = classMaterials.get(key);
@@ -605,6 +610,10 @@ export function applyAvatarMaterialVariant(root, profileId) {
     }
   } catch (error) {
     for (const { mesh, material } of originalMaterials) mesh.material = material;
+    for (const { mesh, geometry, variantGeometry } of originalGeometries) {
+      mesh.geometry = geometry;
+      variantGeometry.dispose();
+    }
     for (const material of variantMaterials) material.dispose();
     throw error;
   }
@@ -633,6 +642,10 @@ export function applyAvatarMaterialVariant(root, profileId) {
       if (restored) return;
       restored = true;
       for (const { mesh, material } of originalMaterials) mesh.material = material;
+      for (const { mesh, geometry, variantGeometry } of originalGeometries) {
+        mesh.geometry = geometry;
+        variantGeometry.dispose();
+      }
       for (const material of variantMaterials) material.dispose();
     }
   };
