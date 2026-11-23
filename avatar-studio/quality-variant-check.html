@@ -190,7 +190,23 @@
         materialGeometryB.dispose();
         originalMaterialA.dispose();
         originalMaterialB.dispose();
-        output.textContent = "PASS — geometria, materiais, orçamentos e rollback concluídos\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+
+        const textureRoot = new THREE.Group();
+        const oversizedTexture = new THREE.DataTexture(new Uint8Array(1024 * 1024 * 4), 1024, 1024, THREE.RGBAFormat);
+        const texturedMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: oversizedTexture });
+        const texturedMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), texturedMaterial);
+        textureRoot.add(texturedMesh);
+        const textureVariant = applyAvatarMaterialVariant(textureRoot, "low");
+        const textureRejected = !textureVariant.withinTextureBudget && textureVariant.textureIssues.length === 1 &&
+          textureVariant.textureIssues[0].width === 1024 && textureVariant.textureMaxSize === 512;
+        lines.push({ textureProfile: "low", textureRejected, textureMaxSize: textureVariant.textureMaxSize, result: textureRejected ? "PASS" : "FAIL" });
+        textureVariant.restore();
+        texturedMesh.geometry.dispose();
+        texturedMaterial.dispose();
+        oversizedTexture.dispose();
+        if (!textureRejected) throw new Error("O perfil Low não rejeitou a textura acima do limite.");
+
+        output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
         console.error(error);
