@@ -26,7 +26,10 @@ function makeClusteredGeometry(source, cellSize) {
     }
   }
   const uv = source.getAttribute("uv");
+  const uv2 = source.getAttribute("uv2");
+  const color = source.getAttribute("color");
   const normal = source.getAttribute("normal");
+  const tangent = source.getAttribute("tangent");
   const skinIndex = source.getAttribute("skinIndex");
   const skinWeight = source.getAttribute("skinWeight");
   const bounds = new THREE.Box3().setFromBufferAttribute(position);
@@ -49,14 +52,24 @@ function makeClusteredGeometry(source, cellSize) {
     // Quantize UVs at the same relative LOD scale: nearby points inside a UV
     // island can merge, while the 0/1 seam remains in a different bucket.
     const uvKey = uv ? Math.round(uv.getX(sourceVertex) / uvCellSize) + ":" + Math.round(uv.getY(sourceVertex) / uvCellSize) : "";
+    const uv2Key = uv2 ? Math.round(uv2.getX(sourceVertex) / uvCellSize) + ":" + Math.round(uv2.getY(sourceVertex) / uvCellSize) : "";
     const normalKey = normal ? [Math.round(normal.getX(sourceVertex) * 20), Math.round(normal.getY(sourceVertex) * 20), Math.round(normal.getZ(sourceVertex) * 20)].join(":") : "";
+    const tangentKey = tangent
+      ? [Math.round(tangent.getX(sourceVertex) * 20), Math.round(tangent.getY(sourceVertex) * 20), Math.round(tangent.getZ(sourceVertex) * 20), tangent.itemSize > 3 && tangent.getW(sourceVertex) < 0 ? -1 : 1].join(":")
+      : "";
+    const colorKey = color
+      ? Array.from({ length: color.itemSize }, (_, component) => Math.round(color.getComponent(sourceVertex, component) * 255)).join(":")
+      : "";
     const key = [
       materialIndex,
       Math.round(x / cellSize),
       Math.round(y / cellSize),
       Math.round(z / cellSize),
       uvKey,
-      normalKey
+      uv2Key,
+      normalKey,
+      tangentKey,
+      colorKey
     ].join("|");
     let target = buckets.get(key);
     if (target !== undefined) {
