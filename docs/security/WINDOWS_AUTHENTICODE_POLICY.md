@@ -1,6 +1,6 @@
 # Windows Authenticode trust policy
 
-Status: design contract for issue #110; not yet implemented or production-approved.
+Status: staged implementation for issue #110; installation-scoped CNG policy-key provisioning and the canonical signed-policy v1 contract are implemented. Production host verification, WinTrust signature binding and revocation enforcement remain pending; not production-approved.
 
 This document defines the security properties required before the Windows helper verifier can be treated as a production boundary. It deliberately does not claim that the current `WinVerifyTrust` implementation satisfies them.
 
@@ -116,3 +116,45 @@ The production host no longer reads `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` as an imp
 The verifier's explicit `expectedThumbprint` argument is retained only for isolated tests that exercise the bounded PowerShell command construction and status handling. It is not read from CLI arguments, process environment or user preferences by the production composition. Separate test runners may still use the environment variable for their own injected signature-integrity verifier; that test-only path does not authorize the production host.
 
 This checkpoint closes only the environment-controlled implicit pin path. It does not implement the installer-authenticated policy, SHA-256 SPKI pin, exact signature-index/signer binding, revocation checks, commercial trust chain or positive production startup. Issue #110 remains open and the Windows host must remain unavailable for production startup until those remaining requirements are implemented and tested.
+
+
+## 9. Canonical signed publisher-policy envelope v1 — implementation checkpoint
+
+PR #135 introduced the installation-scoped CNG policy key primitive. The native helper now provisions a machine RSA-3072 key under the Microsoft Software KSP, with signing-only usage, a non-exportable private key and a protected DACL. The key name is derived from the installation ID as \`okp-\` plus the first 32 lowercase hex characters of SHA-256(installationId). Existing keys are never overwritten or regenerated. Provisioning/signing require an elevated installer context; deletion requires an explicit matching installation ID.
+
+The next contract uses a canonical UTF-8 JSON payload with this exact property order:
+
+1. \`schemaVersion\` — integer \`1\`
+2. \`productId\` — \`office-kit\`
+3. \`edition\` — \`universal\`, \`dgmat\` or \`vst\`
+4. \`installationId\` — installation-scoped Office Kit ID
+5. \`keyName\` — derived CNG machine-key name
+6. \`policyVersion\` — positive integer
+7. \`createdAt\` — canonical UTC ISO-8601 timestamp
+8. \`publisherSpkiSha256\` — lowercase SHA-256 digest of the publisher certificate SPKI
+9. \`signatureIndex\` — exactly \`0\`; primary signature only
+10. \`revocationPolicy\` — exact values below
+
+\`\`\`json
+{
+  "schemaVersion": 1,
+  "productId": "office-kit",
+  "edition": "universal",
+  "installationId": "officekit-<32 lowercase hex characters>",
+  "keyName": "okp-<32 lowercase hex characters>",
+  "policyVersion": 1,
+  "createdAt": "2026-11-23T16:30:00.000Z",
+  "publisherSpkiSha256": "<64 lowercase hex characters>",
+  "signatureIndex": 0,
+  "revocationPolicy": {
+    "installUpdate": "online-chain-exclude-root-fail-closed",
+    "runtimeStartup": "cache-only-chain-exclude-root-fail-closed"
+  }
+}
+\`\`\`
+
+The envelope is canonical JSON with exact keys \`format\`, \`keyName\`, \`payload\`, \`signature\`. The payload is Base64 of the canonical UTF-8 bytes; the signature is Base64 of a 384-byte RSA-3072 PKCS#1 v1.5 SHA-256 signature produced by the installation's CNG machine key. The format identifier is \`officekit-publisher-policy-envelope-v1\`.
+
+The Node contract validates exact keys/property order, canonical JSON, installation and edition binding, the derived key name, RSA-3072 SPKI type, signature length, signature integrity, primary-only signature selection and the two fixed fail-closed revocation modes. Duplicate JSON keys, unknown properties, noncanonical Base64, tampering, wrong key, replay across installations/editions and unsupported signature/revocation modes are rejected.
+
+This is a format and cryptographic-validation contract, not yet a production bootstrap. The Windows host still does not read or trust this envelope during startup. The next stage must retrieve the public verification material directly from the protected machine CNG key store (without launching the CNG helper), validate the key's machine scope/ACL, verify the envelope before any helper launch or SQLite open, and then bind the Authenticode signer to the exact WinTrust-verified signature index. Until that work and the native Windows matrix pass, the default production host remains fail-closed.
