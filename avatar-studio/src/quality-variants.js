@@ -9,6 +9,27 @@ function geometryTriangles(geometry) {
   return Math.floor((index ? index.count : geometry.getAttribute("position")?.count || 0) / 3);
 }
 
+function assertMaterialGroupCoverage(mesh) {
+  const groups = mesh.geometry.groups || [];
+  if (!groups.length) return;
+  const index = mesh.geometry.getIndex();
+  const limit = index ? index.count : mesh.geometry.getAttribute("position")?.count || 0;
+  const ranges = [...groups].sort((a, b) => a.start - b.start);
+  let cursor = 0;
+  for (const group of ranges) {
+    if (!Number.isInteger(group.start) || !Number.isInteger(group.count) ||
+        !Number.isInteger(group.materialIndex) || group.start !== cursor ||
+        group.start % 3 !== 0 || group.count < 0 || group.count % 3 !== 0 ||
+        group.start + group.count > limit) {
+      throw new Error(mesh.name + ": grupos de material inválidos ou com cobertura incompleta.");
+    }
+    cursor += group.count;
+  }
+  if (cursor !== limit) {
+    throw new Error(mesh.name + ": grupos de material não cobrem toda a geometria.");
+  }
+}
+
 function attributeValue(attribute, index, component) {
   // Three.js BufferAttribute.getComponent() already denormalizes normalized
   // integer storage; do not apply a second conversion here.
@@ -461,6 +482,7 @@ export function applyAvatarQualityVariant(root, profileId) {
     if (!object.isMesh || !object.visible || !object.geometry?.getAttribute("position")) return;
     meshes.push(object);
   });
+  meshes.forEach(assertMaterialGroupCoverage);
   const sourceTriangles = meshes.reduce((sum, mesh) => sum + geometryTriangles(mesh.geometry), 0);
   const targetTriangles = Math.min(sourceTriangles, profile.triangleBudget);
   const meshBudgets = allocateTriangleBudgets(meshes, targetTriangles);
