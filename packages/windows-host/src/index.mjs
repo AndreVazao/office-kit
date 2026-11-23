@@ -273,7 +273,8 @@ const PUBLISHER_POLICY_KEY_SDDL =
   "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)";
 
 export function readPublisherPolicyPublicKey(installationId, {
-  spawnImpl = spawnSync
+  spawnImpl = spawnSync,
+  timeout = 15_000
 } = {}) {
   const keyName = publisherPolicyKeyName(installationId);
   const expectedSddl = PUBLISHER_POLICY_KEY_SDDL;
@@ -882,7 +883,14 @@ export function createWindowsHost({
   spawnImpl = spawnSync,
   resolveUserSid = () => resolveWindowsUserSid({ spawnImpl }),
   applyAcl = (path, userSid) => applyWindowsPrivateAcl(path, { userSid, spawnImpl }),
-  verifyHelper = path => verifyAuthenticodeHelper(path, { spawnImpl }),
+  edition = "universal",
+  publisherPolicyLoader = loadPublisherPolicy,
+  verifyHelper = (path, policy) => verifyAuthenticodeHelper(path, {
+    spawnImpl,
+    expectedSpkiSha256: policy.publisherSpkiSha256,
+    signatureIndex: policy.signatureIndex,
+    revocationMode: policy.revocationPolicy.runtimeStartup
+  }),
   databaseFactory = path => new DatabaseSync(path),
   runtimeFactory = createWindowsNodeIdentityRuntime,
   hardwareProbe = detectHostHardwareCapabilities,
@@ -944,11 +952,34 @@ export function createWindowsHost({
       requestedProfile: profileOverride,
       requestedRenderer: rendererOverride
     });
-    if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
-    if (verifyHelper(helperPath) !== true) throw new Error("windows_host_cng_helper_untrusted");
-
     installationId = readOrCreateInstallationId(identityPath, makeId);
     applyAcl(identityPath, userSid);
+    if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
+    if (typeof publisherPolicyLoader !== "function") {
+      throw new TypeError("windows_host_publisher_policy_loader_required");
+    }
+    let publisherPolicy;
+    try {
+      publisherPolicy = publisherPolicyLoader({
+        policyPath: join(root, "publisher-policy.json"),
+        installationId,
+        edition,
+        spawnImpl
+      });
+    } catch (error) {
+      if (error?.code === "ENOENT") throw new Error("windows_host_publisher_policy_unavailable");
+      throw error;
+    }
+    if (!publisherPolicy || publisherPolicy.installationId !== installationId
+      || publisherPolicy.edition !== edition || publisherPolicy.signatureIndex !== 0
+      || typeof publisherPolicy.publisherSpkiSha256 !== "string"
+      || !/^[0-9a-f]{64}$/.test(publisherPolicy.publisherSpkiSha256)
+      || publisherPolicy.revocationPolicy?.runtimeStartup !== "cache-only-chain-exclude-root-fail-closed") {
+      throw new Error("windows_host_publisher_policy_invalid");
+    }
+    if (verifyHelper(helperPath, publisherPolicy) !== true) {
+      throw new Error("windows_host_cng_helper_untrusted");
+    }
     monotonicAnchorProvider = monotonicAnchorProviderFactory({ installationId, platform, dataDirectory });
     if (!monotonicAnchorProvider || typeof monotonicAnchorProvider.read !== "function"
       || typeof monotonicAnchorProvider.advance !== "function"
