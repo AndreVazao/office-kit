@@ -82,7 +82,7 @@ internal static class Program
             Assert(provisioned.MachineScope, "publisher policy key uses machine scope");
             Assert(provisioned.KeySize == 3072, "publisher policy key is RSA 3072");
             Assert(!provisioned.PrivateKeyExportable, "publisher policy private key is non-exportable");
-            Assert(provisioned.SecurityDescriptorSddl == PublisherPolicyKey.ExpectedSecurityDescriptorSddl,
+            Assert(string.Equals(provisioned.SecurityDescriptorSddl, PublisherPolicyKey.ExpectedSecurityDescriptorSddl, StringComparison.OrdinalIgnoreCase),
                 "publisher policy key has the exact installer-only security descriptor");
 
             var payload = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"purpose\":\"protocol-test\"}");
