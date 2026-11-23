@@ -147,6 +147,31 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   await adapter.disconnect();
 });
 
+test("public GET /health never proves authentication or invalidates a private session", async () => {
+  let healthCalls = 0;
+  const adapter = createAdapter({
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === "/observer/summary") return response(state());
+      if (path === "/health") {
+        healthCalls += 1;
+        return response({ status: "ok" }, 401);
+      }
+      return response({ ok: true, source_path: path });
+    }
+  });
+  await adapter.connect();
+  const snapshot = await adapter.getCockpitSnapshot();
+  assert.equal(healthCalls, 1);
+  assert.equal(snapshot.sections.health.state, "unavailable");
+  assert.equal(snapshot.sections.health.access, "public");
+  assert.equal(snapshot.sections.health.error, "vst_http_401");
+  assert.equal(adapter.authenticationRejected, false);
+  const privateSnapshot = await adapter.getSnapshot();
+  assert.equal(privateSnapshot.backend.transportReachable, true);
+  await adapter.disconnect();
+});
+
 test("cockpit snapshot preserves partial endpoint failures without fabricating data", async () => {
   const adapter = createAdapter({
     fetchImpl: async url => {
