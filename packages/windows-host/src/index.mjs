@@ -269,6 +269,174 @@ export function verifyPublisherPolicyEnvelope({
 }
 
 
+const PUBLISHER_POLICY_KEY_SDDL =
+  "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)";
+
+export function readPublisherPolicyPublicKey(installationId, {
+  spawnImpl = spawnSync
+} = {}) {
+  const keyName = publisherPolicyKeyName(installationId);
+  const expectedSddl = PUBLISHER_POLICY_KEY_SDDL;
+  const readerSource = String.raw`using System;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+public static class OfficeKitCngPolicyAclReader
+{
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int NCryptOpenStorageProvider(out IntPtr providerHandle, string providerName, int flags);
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int NCryptOpenKey(IntPtr providerHandle, out IntPtr keyHandle, string keyName, int legacyKeySpec, int flags);
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int NCryptGetProperty(IntPtr objectHandle, string propertyName, byte[] output, int outputLength, out int resultLength, int flags);
+    [DllImport("ncrypt.dll", ExactSpelling = true)]
+    private static extern int NCryptFreeObject(IntPtr objectHandle);
+
+    public static string Read(string keyName)
+    {
+        IntPtr providerHandle = IntPtr.Zero;
+        IntPtr keyHandle = IntPtr.Zero;
+        try
+        {
+            int status = NCryptOpenStorageProvider(out providerHandle, "Microsoft Software Key Storage Provider", 0);
+            if (status != 0) throw new InvalidOperationException("ncrypt_provider_open:0x" + status.ToString("X8"));
+            status = NCryptOpenKey(providerHandle, out keyHandle, keyName, 0, 0x20 | 0x40);
+            if (status != 0) throw new InvalidOperationException("ncrypt_key_open:0x" + status.ToString("X8"));
+            byte[] buffer = new byte[4096];
+            int length;
+            status = NCryptGetProperty(keyHandle, "Security Descr", buffer, buffer.Length, out length, 0x1 | 0x2 | 0x4);
+            if (status != 0) throw new InvalidOperationException("ncrypt_acl_read:0x" + status.ToString("X8"));
+            if (length <= 0 || length > buffer.Length) throw new InvalidOperationException("ncrypt_acl_size_invalid");
+            byte[] descriptor = new byte[length];
+            Array.Copy(buffer, descriptor, length);
+            RawSecurityDescriptor raw = new RawSecurityDescriptor(descriptor, 0);
+            return raw.GetSddlForm(AccessControlSections.All);
+        }
+        finally
+        {
+            if (keyHandle != IntPtr.Zero) NCryptFreeObject(keyHandle);
+            if (providerHandle != IntPtr.Zero) NCryptFreeObject(providerHandle);
+        }
+    }
+}`;
+
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `$keyName = '${keyName}'`,
+    `$readerSource = '${readerSource}'`,
+    "Add-Type -TypeDefinition $readerSource -Language CSharp",
+    "$provider = [System.Security.Cryptography.CngProvider]::MicrosoftSoftwareKeyStorageProvider",
+    "$key = [System.Security.Cryptography.CngKey]::Open($keyName, $provider, [System.Security.Cryptography.CngKeyOpenOptions]::MachineKey)",
+    "try {",
+    "  if ($key.KeyName -ne $keyName -or -not $key.IsMachineKey -or $key.KeySize -ne 3072 -or [int]$key.ExportPolicy -ne 0 -or [int]$key.KeyUsage -ne 2 -or $key.AlgorithmGroup.ToString() -ne 'RSA') { exit 3 }",
+    "  $sddl = [OfficeKitCngPolicyAclReader]::Read($keyName)",
+    `  if ($sddl -ine '${expectedSddl}') { exit 4 }`,
+    "  $rsa = [System.Security.Cryptography.RSACng]::new($key)",
+    "  $parameters = $rsa.ExportParameters($false)",
+    "  $result = [ordered]@{ keyName = $key.KeyName; keySize = $key.KeySize; machineScope = $key.IsMachineKey; algorithmGroup = $key.AlgorithmGroup.ToString(); exportPolicy = [int]$key.ExportPolicy; keyUsage = [int]$key.KeyUsage; securityDescriptorSddl = $sddl; modulus = [Convert]::ToBase64String($parameters.Modulus); exponent = [Convert]::ToBase64String($parameters.Exponent) }",
+    "  [Console]::Out.Write(($result | ConvertTo-Json -Compress -Depth 3))",
+    "} finally { if ($rsa) { $rsa.Dispose() }; if ($key) { $key.Dispose() } }"
+  ].join("; ");
+
+  const commandResult = spawnImpl("powershell.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "AllSigned",
+    "-Command",
+    script
+  ], {
+    encoding: "utf8",
+    windowsHide: true,
+    shell: false,
+    timeout: 15_000,
+    maxBuffer: 1024 * 1024
+  });
+  if (commandResult.error || commandResult.status !== 0) {
+    const detail = String(commandResult.stderr ?? "")
+      .replace(/[\\r\\n\\t]+/g, " ")
+      .slice(0, 320);
+    throw new Error("publisher_policy_key_reader_failed:" + (detail || "powershell_exit_" + commandResult.status));
+  }
+  const output = String(commandResult.stdout ?? "").trim();
+
+  let record;
+  try {
+    record = JSON.parse(output);
+  } catch {
+    throw new Error("publisher_policy_key_response_invalid");
+  }
+  assertExactKeys(record, [
+    "keyName", "keySize", "machineScope", "algorithmGroup", "exportPolicy",
+    "keyUsage", "securityDescriptorSddl", "modulus", "exponent"
+  ], "publisher_policy_key_response_schema_invalid");
+  if (record.keyName !== keyName || record.keySize !== 3072 || record.machineScope !== true
+      || record.algorithmGroup !== "RSA" || record.exportPolicy !== 0 || record.keyUsage !== 2) {
+    throw new Error("publisher_policy_key_metadata_invalid");
+  }
+  if (typeof record.securityDescriptorSddl !== "string"
+      || record.securityDescriptorSddl.toLowerCase() !== expectedSddl.toLowerCase()) {
+    throw new Error("publisher_policy_key_acl_invalid");
+  }
+
+  const modulus = decodeCanonicalBase64(record.modulus, "publisher_policy_key_modulus_invalid", 512);
+  const exponent = decodeCanonicalBase64(record.exponent, "publisher_policy_key_exponent_invalid", 16);
+  if (modulus.length !== 384 || exponent.length !== 3
+      || exponent[0] !== 0x01 || exponent[1] !== 0x00 || exponent[2] !== 0x01) {
+    throw new Error("publisher_policy_key_public_parameters_invalid");
+  }
+
+  let publicKey;
+  try {
+    publicKey = createPublicKey({
+      key: {
+        kty: "RSA",
+        n: modulus.toString("base64url"),
+        e: exponent.toString("base64url")
+      },
+      format: "jwk"
+    });
+  } catch {
+    throw new Error("publisher_policy_key_public_key_invalid");
+  }
+  if (publicKey.asymmetricKeyType !== "rsa" || publicKey.asymmetricKeyDetails?.modulusLength !== 3072) {
+    throw new Error("publisher_policy_key_public_key_invalid");
+  }
+
+  return Object.freeze({
+    keyName,
+    keySize: 3072,
+    machineScope: true,
+    privateKeyExportable: false,
+    securityDescriptorSddl: record.securityDescriptorSddl,
+    publicKeySpki: publicKey.export({ type: "spki", format: "der" })
+  });
+}
+
+export function loadPublisherPolicy({
+  policyPath,
+  installationId,
+  edition,
+  spawnImpl = spawnSync
+} = {}) {
+  if (typeof policyPath !== "string" || !isAbsolute(policyPath)) {
+    throw new TypeError("publisher_policy_path_must_be_absolute");
+  }
+  const fileInfo = lstatSync(policyPath);
+  if (fileInfo.isSymbolicLink() || !fileInfo.isFile() || fileInfo.size < 1 || fileInfo.size > 131072) {
+    throw new Error("publisher_policy_file_invalid");
+  }
+  const envelope = readFileSync(policyPath);
+  const keyInfo = readPublisherPolicyPublicKey(installationId, { spawnImpl });
+  return verifyPublisherPolicyEnvelope({
+    envelope,
+    publicKeySpki: keyInfo.publicKeySpki,
+    expectedInstallationId: installationId,
+    expectedEdition: edition
+  });
+}
+
+
 function createUnsupportedMonotonicAnchorProvider() {
   return Object.freeze({
     async capabilities() {

@@ -158,3 +158,19 @@ The envelope is canonical JSON with exact keys \`format\`, \`keyName\`, \`payloa
 The Node contract validates exact keys/property order, canonical JSON, installation and edition binding, the derived key name, RSA-3072 SPKI type, signature length, signature integrity, primary-only signature selection and the two fixed fail-closed revocation modes. Duplicate JSON keys, unknown properties, noncanonical Base64, tampering, wrong key, replay across installations/editions and unsupported signature/revocation modes are rejected.
 
 This is a format and cryptographic-validation contract, not yet a production bootstrap. The Windows host still does not read or trust this envelope during startup. The next stage must retrieve the public verification material directly from the protected machine CNG key store (without launching the CNG helper), validate the key's machine scope/ACL, verify the envelope before any helper launch or SQLite open, and then bind the Authenticode signer to the exact WinTrust-verified signature index. Until that work and the native Windows matrix pass, the default production host remains fail-closed.
+
+
+## 10. Direct CNG public-key bootstrap
+
+The Windows host can now read the publisher-policy verification key directly from the Microsoft Software KSP using Windows PowerShell/.NET CNG APIs. It does not launch \`OfficeKit.CngHost.exe\` to verify that executable, avoiding a circular trust dependency.
+
+The reader requires:
+- The deterministic installation-scoped machine key name.
+- Machine scope, RSA-3072, signing-only usage and no private-key export.
+- The exact protected owner/group/DACL descriptor provisioned by PR #135.
+- Public modulus/exponent only; it reconstructs an RSA-3072 SPKI in Node.
+- A bounded, non-interactive PowerShell invocation with no shell expansion or environment-supplied key name.
+
+\`loadPublisherPolicy\` reads a bounded regular policy file, rejects symlinks, retrieves the public key directly from CNG, and verifies the signed canonical envelope against the expected installation ID and edition. Windows CI provisions a disposable machine CNG key, signs a v1 payload, reads the key directly through PowerShell, verifies the envelope, and removes the key with explicit installation-ID confirmation.
+
+This loader is not yet wired into \`createWindowsHost\`. The default host remains fail-closed until the following stage implements WinTrust verification of the helper, binds the signer certificate to the exact verified signature index, applies the two revocation modes and runs the complete native Windows positive/negative matrix.

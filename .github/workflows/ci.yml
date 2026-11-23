@@ -59,6 +59,11 @@ jobs:
       - name: Publish Windows CNG host
         if: runner.os == 'Windows'
         run: dotnet publish native/windows/OfficeKit.CngHost/OfficeKit.CngHost.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/windows-cng
+      - name: Exercise authenticated publisher policy CNG bootstrap
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
+        run: node --test packages/windows-host/test/publisher-policy.integration.test.mjs
       - name: Validate TPM capability response parser
         if: runner.os == 'Windows'
         run: dotnet run --project native/windows/OfficeKit.CngHost.ProtocolTests/OfficeKit.CngHost.ProtocolTests.csproj --configuration Release

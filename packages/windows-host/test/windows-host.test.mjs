@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
 import { constants, createHash, generateKeyPairSync, sign as signData } from "node:crypto";
-import { createPublisherPolicyPayload, createPublisherPolicyEnvelope, verifyPublisherPolicyEnvelope } from "../src/index.mjs";
+import { createPublisherPolicyPayload, createPublisherPolicyEnvelope, verifyPublisherPolicyEnvelope, readPublisherPolicyPublicKey, loadPublisherPolicy } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
 let DatabaseSync;
@@ -940,4 +940,107 @@ test("publisher policy rejects unsupported signatures, revocation modes and malf
     expectedInstallationId: publisherPolicyTestInstallationId,
     expectedEdition: "universal"
   }), /publisher_policy_envelope_noncanonical/);
+});
+
+
+test("publisher policy public-key reader validates machine CNG metadata and derives the RSA SPKI", () => {
+  const jwk = publisherPolicyTestKeyPair.publicKey.export({ format: "jwk" });
+  const installationId = publisherPolicyTestInstallationId;
+  const expectedKeyName = `okp-${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}`;
+  const expectedSddl = "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)";
+  const record = {
+    keyName: expectedKeyName,
+    keySize: 3072,
+    machineScope: true,
+    algorithmGroup: "RSA",
+    exportPolicy: 0,
+    keyUsage: 2,
+    securityDescriptorSddl: expectedSddl,
+    modulus: Buffer.from(jwk.n, "base64url").toString("base64"),
+    exponent: Buffer.from(jwk.e, "base64url").toString("base64")
+  };
+  let invocation;
+  const keyInfo = readPublisherPolicyPublicKey(installationId, {
+    spawnImpl: (command, args, options) => {
+      invocation = { command, args, options };
+      return { status: 0, stdout: JSON.stringify(record), stderr: "" };
+    }
+  });
+  assert.equal(keyInfo.keyName, expectedKeyName);
+  assert.equal(keyInfo.keySize, 3072);
+  assert.equal(keyInfo.machineScope, true);
+  assert.equal(keyInfo.privateKeyExportable, false);
+  assert.deepEqual(keyInfo.publicKeySpki, publisherPolicyTestPublicSpki);
+  assert.equal(invocation.command, "powershell.exe");
+  assert.equal(invocation.options.timeout, 15000);
+  assert.ok(invocation.args.includes("-NoProfile"));
+  assert.ok(invocation.args.includes("-NonInteractive"));
+  assert.ok(invocation.args.at(-1).includes("CngKey]::Open"));
+  assert.ok(invocation.args.at(-1).includes("Security Descr"));
+});
+
+test("publisher policy public-key reader rejects wrong machine scope, export policy and ACL", () => {
+  const jwk = publisherPolicyTestKeyPair.publicKey.export({ format: "jwk" });
+  const installationId = publisherPolicyTestInstallationId;
+  const keyName = `okp-${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}`;
+  const base = {
+    keyName,
+    keySize: 3072,
+    machineScope: true,
+    algorithmGroup: "RSA",
+    exportPolicy: 0,
+    keyUsage: 2,
+    securityDescriptorSddl: "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)",
+    modulus: Buffer.from(jwk.n, "base64url").toString("base64"),
+    exponent: Buffer.from(jwk.e, "base64url").toString("base64")
+  };
+  for (const [patch, pattern] of [
+    [{ machineScope: false }, /publisher_policy_key_metadata_invalid/],
+    [{ exportPolicy: 1 }, /publisher_policy_key_metadata_invalid/],
+    [{ keyUsage: 3 }, /publisher_policy_key_metadata_invalid/],
+    [{ securityDescriptorSddl: "O:SYD:(A;;GA;;;WD)" }, /publisher_policy_key_acl_invalid/],
+    [{ keyName: "another-key" }, /publisher_policy_key_metadata_invalid/]
+  ]) {
+    assert.throws(() => readPublisherPolicyPublicKey(installationId, {
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify({ ...base, ...patch }), stderr: "" })
+    }), pattern);
+  }
+});
+
+test("loadPublisherPolicy authenticates a canonical manifest using the machine-key public material", () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-publisher-policy-"));
+  const installationId = publisherPolicyTestInstallationId;
+  const policyPath = join(directory, "publisher-policy.json");
+  const payload = createPublisherPolicyPayload(publisherPolicyTestBase);
+  const signature = signData("sha256", payload, {
+    key: publisherPolicyTestKeyPair.privateKey,
+    padding: constants.RSA_PKCS1_PADDING
+  });
+  const envelope = createPublisherPolicyEnvelope({ payload, signature });
+  writeFileSync(policyPath, envelope);
+  const jwk = publisherPolicyTestKeyPair.publicKey.export({ format: "jwk" });
+  const keyName = `okp-${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}`;
+  const record = {
+    keyName,
+    keySize: 3072,
+    machineScope: true,
+    algorithmGroup: "RSA",
+    exportPolicy: 0,
+    keyUsage: 2,
+    securityDescriptorSddl: "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)",
+    modulus: Buffer.from(jwk.n, "base64url").toString("base64"),
+    exponent: Buffer.from(jwk.e, "base64url").toString("base64")
+  };
+  try {
+    const policy = loadPublisherPolicy({
+      policyPath,
+      installationId,
+      edition: "universal",
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify(record), stderr: "" })
+    });
+    assert.equal(policy.installationId, installationId);
+    assert.equal(policy.publisherSpkiSha256, publisherPolicyTestBase.publisherSpkiSha256);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
