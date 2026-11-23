@@ -85,7 +85,7 @@ export function attachAvatarQualityMetadata(root, sourceId = "avatar-studio") {
     }),
     measuredProfileFit: evaluateAvatarQuality(metrics),
     selectionPolicy: "runtime-owned",
-    tierAssetStatus: "generated-on-demand; selected-profile-geometry-export"
+    tierAssetStatus: "generated-on-demand; selected-profile-geometry-material-export; texture-size-gated"
   };
   return metrics;
 }
