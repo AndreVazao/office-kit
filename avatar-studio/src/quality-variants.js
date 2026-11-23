@@ -602,6 +602,76 @@ function materialTextureAudit(material, maxSize) {
   return { textureCount: textures.size, overBudget };
 }
 
+function cloneUniformValue(value, textureMap) {
+  if (value?.isTexture) return textureMap.get(value) || value;
+  if (Array.isArray(value)) return value.map((entry) => cloneUniformValue(entry, textureMap));
+  if (value && typeof value === "object") {
+    if (value.isVector2 || value.isVector3 || value.isVector4 || value.isColor || value.isMatrix3 || value.isMatrix4) return value.clone();
+    const copy = {};
+    for (const [key, entry] of Object.entries(value)) copy[key] = cloneUniformValue(entry, textureMap);
+    return copy;
+  }
+  return value;
+}
+
+function makeTextureCanvas(image, width, height) {
+  if (typeof document === "undefined" || !image ||
+      !(image.naturalWidth || image.videoWidth || image.width) ||
+      !(image.naturalHeight || image.videoHeight || image.height) ||
+      image.data || ArrayBuffer.isView(image) || Array.isArray(image)) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) return null;
+  try { context.drawImage(image, 0, 0, width, height); } catch { return null; }
+  return canvas;
+}
+
+function prepareMaterialTextureVariant(material, maxSize) {
+  if (!material) return { material, changed: false, unsupported: [] };
+  const textureMap = new Map();
+  const unsupported = [];
+  const prepareTexture = (texture, slot) => {
+    if (!texture?.isTexture || textureMap.has(texture)) return;
+    const image = texture.image;
+    const width = image?.naturalWidth || image?.videoWidth || image?.width || 0;
+    const height = image?.naturalHeight || image?.videoHeight || image?.height || 0;
+    if (width && height && Math.max(width, height) <= maxSize) return;
+    if (!width || !height) { unsupported.push({ slot, width, height }); return; }
+    const scale = maxSize / Math.max(width, height);
+    const canvas = makeTextureCanvas(image, Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
+    if (!canvas) { unsupported.push({ slot, width, height }); return; }
+    const resized = texture.clone();
+    resized.image = canvas;
+    resized.source = new THREE.Source(canvas);
+    resized.needsUpdate = true;
+    textureMap.set(texture, resized);
+  };
+  for (const slot of AVATAR_TEXTURE_SLOTS) prepareTexture(material[slot], slot);
+  const visited = new Set();
+  const scan = (value, path, depth = 0) => {
+    if (!value || typeof value !== "object" || depth > 8 || visited.has(value)) return;
+    if (value.isTexture) { prepareTexture(value, path); return; }
+    visited.add(value);
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => scan(entry?.value ?? entry, path + "[" + index + "]", depth + 1));
+      return;
+    }
+    for (const [key, entry] of Object.entries(value)) scan(entry?.value ?? entry, path + "." + key, depth + 1);
+  };
+  scan(material.uniforms, "uniforms");
+  if (!textureMap.size) return { material, changed: false, unsupported };
+  const variant = material.clone();
+  for (const slot of AVATAR_TEXTURE_SLOTS) if (textureMap.has(material[slot])) variant[slot] = textureMap.get(material[slot]);
+  if (material.uniforms) {
+    variant.uniforms = cloneUniformValue(material.uniforms, textureMap);
+    variant.uniformsNeedUpdate = true;
+  }
+  variant.needsUpdate = true;
+  return { material: variant, changed: true, unsupported, textures: [...textureMap.values()] };
+}
+
 function materialClassKey(material, precision) {
   const quantize = (value) => Number((Math.round(value / precision) * precision).toFixed(3));
   return JSON.stringify({
@@ -634,6 +704,8 @@ export function applyAvatarMaterialVariant(root, profileId) {
 
   const meshes = [];
   const originalMaterials = [];
+  const textureVariantMaterials = new Set();
+  const textureVariantTextures = new Set();
   const originalGeometries = [];
   const sourceMaterials = new Set();
   const auditedMaterials = new Set();
@@ -644,6 +716,20 @@ export function applyAvatarMaterialVariant(root, profileId) {
   root.traverse((mesh) => {
     if (!mesh.isMesh || !mesh.visible || !mesh.material) return;
     meshes.push(mesh);
+    const sourceMaterialValue = mesh.material;
+    const sourceList = Array.isArray(sourceMaterialValue) ? sourceMaterialValue : [sourceMaterialValue];
+    const preparedList = sourceList.map((sourceMaterial) => {
+      const prepared = prepareMaterialTextureVariant(sourceMaterial, profile.textureMaxSize);
+      if (prepared.changed) {
+        textureVariantMaterials.add(prepared.material);
+        for (const texture of prepared.textures || []) textureVariantTextures.add(texture);
+      }
+      return prepared.material;
+    });
+    if (preparedList.some((material, index) => material !== sourceList[index])) {
+      originalMaterials.push({ mesh, material: sourceMaterialValue });
+      mesh.material = Array.isArray(sourceMaterialValue) ? preparedList : preparedList[0];
+    }
     for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
       if (!material) continue;
       sourceMaterials.add(material);
@@ -733,12 +819,14 @@ export function applyAvatarMaterialVariant(root, profileId) {
       mesh.material = variantMaterial;
     }
   } catch (error) {
-    for (const { mesh, material } of originalMaterials) mesh.material = material;
+    for (const { mesh, material } of [...originalMaterials].reverse()) mesh.material = material;
     for (const { mesh, geometry, variantGeometry } of originalGeometries) {
       mesh.geometry = geometry;
       variantGeometry.dispose();
     }
     for (const material of variantMaterials) material.dispose();
+    for (const material of textureVariantMaterials) material.dispose();
+    for (const texture of textureVariantTextures) texture.dispose();
     throw error;
   }
 
@@ -765,12 +853,14 @@ export function applyAvatarMaterialVariant(root, profileId) {
     restore() {
       if (restored) return;
       restored = true;
-      for (const { mesh, material } of originalMaterials) mesh.material = material;
+      for (const { mesh, material } of [...originalMaterials].reverse()) mesh.material = material;
       for (const { mesh, geometry, variantGeometry } of originalGeometries) {
         mesh.geometry = geometry;
         variantGeometry.dispose();
       }
       for (const material of variantMaterials) material.dispose();
+      for (const material of textureVariantMaterials) material.dispose();
+      for (const texture of textureVariantTextures) texture.dispose();
     }
   };
 }
