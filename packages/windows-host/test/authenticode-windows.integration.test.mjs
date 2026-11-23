@@ -11,6 +11,15 @@ const skipReason = process.platform !== "win32" || !process.env.WINDIR
   ? "Native WinTrust integration requires Windows."
   : false;
 
+function runWinTrustWithTestDiagnostics(command, args, options) {
+  const result = spawnSync(command, args, options);
+  if (result.error || result.status !== 0) {
+    const detail = String(result.stderr ?? "").replace(/[\\r\\n\\t]+/g, " ").slice(0, 1200);
+    throw new Error("test_wintrust_process_failed:" + (result.error?.code ?? result.status ?? "unknown") + ":" + detail);
+  }
+  return result;
+}
+
 function getSignedFixtureSignerCertificate(filePath) {
   const escapedPath = filePath.replace(/'/g, "''");
   // This API only supplies the expected certificate for a known Authenticode-signed
@@ -52,6 +61,7 @@ test("native WinTrust verifies the primary signed Node.js runtime binary and rej
     .digest("hex");
 
   assert.equal(verifyAuthenticodeHelper(signedFixturePath, {
+    spawnImpl: runWinTrustWithTestDiagnostics,
     expectedSpkiSha256,
     signatureIndex: 0,
     revocationMode: "online-chain-exclude-root-fail-closed"
@@ -73,6 +83,7 @@ test("native WinTrust verifies the primary signed Node.js runtime binary and rej
     bytes[0] = bytes[0] ^ 0x01;
     writeFileSync(tamperedPath, bytes);
     assert.throws(() => verifyAuthenticodeHelper(tamperedPath, {
+      spawnImpl: runWinTrustWithTestDiagnostics,
       expectedSpkiSha256,
       signatureIndex: 0,
       revocationMode: "cache-only-chain-exclude-root-fail-closed"
