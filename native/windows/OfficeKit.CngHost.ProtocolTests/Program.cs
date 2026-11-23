@@ -60,6 +60,10 @@ internal static class Program
         var duplicate = BuildResponse(moreData: 0, 0x00000122, 0x00000122);
         AssertRejected(duplicate, "tpm_command_code_duplicate");
 
+        Assert(!CngAlgorithmGroupPolicy.IsRsa<string>(null, "RSA"), "null CNG algorithm group is rejected");
+        Assert(CngAlgorithmGroupPolicy.IsRsa("RSA", "RSA"), "RSA CNG algorithm group is accepted");
+        Assert(!CngAlgorithmGroupPolicy.IsRsa("ECDH", "RSA"), "non-RSA CNG algorithm group is rejected");
+
         Console.WriteLine($"TPM capability response parser passed {_assertions} assertions.");
         return 0;
     }
