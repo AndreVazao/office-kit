@@ -48,7 +48,7 @@ The Studio does not detect the user's device and does not select a runtime profi
 
 ## Quality-variant structural check
 
-Serve the directory over HTTP, then open `/quality-variant-check.html`. The isolated browser harness builds a skinned test mesh with float UVs, normalized integer UV2s, vertex colors, tangents, a morph target, and two material groups, runs Ultra/High/Medium/Low through the same production reducer, checks that every profile reaches its declared triangle budget, validates index/material/skin/morph/attribute invariants, and confirms that the original geometry is restored after every profile. This is a manual browser acceptance tool; it is not part of the root Office Kit CI and does not replace visual inspection of real avatar exports.
+Serve the directory over HTTP, then open `/quality-variant-check.html`. The isolated browser harness builds a skinned test mesh with float UVs, normalized integer UV2s, vertex colors, tangents, a morph target, and two material groups, runs Ultra/High/Medium/Low through the same production reducer, checks that every profile reaches its declared triangle budget, validates index/material/skin/morph/attribute invariants, confirms that the original geometry is restored after every profile, and deliberately injects an invalid material reference to verify rollback on validation failure. This is a manual browser acceptance tool; it is not part of the root Office Kit CI and does not replace visual inspection of real avatar exports.
 
 The export validator rejects malformed indices, invalid material groups, non-finite positions, missing skin attributes, invalid bone references, and non-normalized skin weights before allowing a profile export to proceed. Its report is embedded in the GLB metadata.
 
