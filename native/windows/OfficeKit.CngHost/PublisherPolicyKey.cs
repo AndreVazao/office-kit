@@ -29,7 +29,7 @@ internal static class PublisherPolicyKey
     private const string KeyNamePrefix = "okp-";
 
     internal const string ExpectedSecurityDescriptorSddl =
-        "O:SYG:SYD:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GR;;;BU)";
+        "O:BAG:SYD:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GR;;;BU)";
 
     private static readonly CngProvider Provider = new(ProviderName);
 
