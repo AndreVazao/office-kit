@@ -142,9 +142,9 @@ async function main() {
       hostFactory: nativeHostOptions => createWindowsHost({
         ...nativeHostOptions,
         helperPath,
-        publisherPolicyLoader: () => ({
-          installationId: "officekit-00000000000000000000000000000000",
-          edition: expectedKey,
+        publisherPolicyLoader: ({ installationId, edition }) => ({
+          installationId,
+          edition,
           signatureIndex: 0,
           publisherSpkiSha256: "a".repeat(64),
           revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
