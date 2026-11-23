@@ -542,10 +542,6 @@ $("export-glb").addEventListener("click", () => {
         link.click();
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-        const withinBudget = result && exportCharacter.userData.officeKitAvatar.exportedVariant.withinTriangleBudget;
-        if (!withinBudget) {
-          alert("O GLB foi exportado, mas a geometria ainda excede o orçamento de triângulos deste perfil. Consulte a auditoria antes de o distribuir.");
-        }
       } catch (error) {
         console.error("GLB download preparation failed", error);
         alert("O modelo foi gerado, mas não foi possível preparar a transferência do ficheiro.");
