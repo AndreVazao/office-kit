@@ -518,6 +518,7 @@ $("export-glb").addEventListener("click", () => {
       optimizedVertices: qualityVariant.optimizedVertices,
       triangleBudget: qualityVariant.triangleBudget,
       withinTriangleBudget: qualityVariant.withinTriangleBudget,
+      meshTriangleReports: qualityVariant.meshReports,
       materialCount: materialVariant.materialCount,
       sourceMaterialCount: materialVariant.sourceMaterialCount,
       materialBudget: materialVariant.materialBudget,
