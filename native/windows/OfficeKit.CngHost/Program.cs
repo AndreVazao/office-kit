@@ -56,6 +56,10 @@ internal static class Program
             "secret-decrypt-key" => SecretDecryptKey(installationId, RequiredString(request, "namespace"), Decode(RequiredString(request, "wrappedKey"))),
             "secret-check-export" => SecretCheckExport(installationId, RequiredString(request, "namespace")),
             "secret-delete-key" => SecretDeleteKey(installationId, RequiredString(request, "namespace")),
+            "publisher-policy-provision" => PublisherPolicyKey.Provision(installationId),
+            "publisher-policy-public-key" => PublisherPolicyKey.ReadPublicKey(installationId),
+            "publisher-policy-sign" => PublisherPolicyKey.Sign(installationId, Decode(RequiredString(request, "payload"))),
+            "publisher-policy-delete" => PublisherPolicyKey.Delete(installationId, RequiredString(request, "confirmInstallationId")),
             _ => throw new ArgumentException("unsupported_command")
         };
     }

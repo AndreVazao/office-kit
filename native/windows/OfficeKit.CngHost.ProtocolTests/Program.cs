@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Security.Cryptography;
+using System.Text;
 
 internal static class Program
 {
@@ -64,8 +66,51 @@ internal static class Program
         Assert(CngAlgorithmGroupPolicy.IsRsa("RSA", "RSA"), "RSA CNG algorithm group is accepted");
         Assert(!CngAlgorithmGroupPolicy.IsRsa("ECDH", "RSA"), "non-RSA CNG algorithm group is rejected");
 
+        TestPublisherPolicyMachineKey();
+
         Console.WriteLine($"TPM capability response parser passed {_assertions} assertions.");
         return 0;
+    }
+
+    private static void TestPublisherPolicyMachineKey()
+    {
+        var installationId = "protocol-test-" + Guid.NewGuid().ToString("N");
+        var otherInstallationId = "protocol-test-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            var provisioned = PublisherPolicyKey.Provision(installationId);
+            Assert(provisioned.MachineScope, "publisher policy key uses machine scope");
+            Assert(provisioned.KeySize == 3072, "publisher policy key is RSA 3072");
+            Assert(!provisioned.PrivateKeyExportable, "publisher policy private key is non-exportable");
+            Assert(string.Equals(provisioned.SecurityDescriptorSddl, PublisherPolicyKey.ExpectedSecurityDescriptorSddl, StringComparison.OrdinalIgnoreCase),
+                "publisher policy key has the exact installer-only security descriptor");
+
+            var payload = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"purpose\":\"protocol-test\"}");
+            var signature = PublisherPolicyKey.SignPayload(installationId, payload);
+            using var verifier = RSA.Create();
+            verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(provisioned.PublicKeySpki), out var read);
+            Assert(read == Convert.FromBase64String(provisioned.PublicKeySpki).Length,
+                "publisher policy SPKI is fully consumed");
+            Assert(verifier.VerifyData(payload, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
+                "machine CNG key signs policy payloads with SHA-256");
+
+            var second = PublisherPolicyKey.Provision(otherInstallationId);
+            Assert(second.KeyName != provisioned.KeyName, "publisher policy keys are installation scoped");
+            Assert(second.PublicKeySpki != provisioned.PublicKeySpki, "different installations receive different publisher policy keys");
+
+            var duplicateRejected = false;
+            try { _ = PublisherPolicyKey.Provision(installationId); }
+            catch (InvalidOperationException error) when (error.Message == "publisher_policy_key_already_exists")
+            {
+                duplicateRejected = true;
+            }
+            Assert(duplicateRejected, "publisher policy provisioning never overwrites or regenerates an existing key");
+        }
+        finally
+        {
+            PublisherPolicyKey.DeleteForTests(installationId);
+            PublisherPolicyKey.DeleteForTests(otherInstallationId);
+        }
     }
 
     private static byte[] BuildResponse(byte moreData, params uint[] commandCodes)
