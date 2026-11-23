@@ -787,7 +787,8 @@ function runWinTrustVerification(helperPath, { revocationMode, spawnImpl = spawn
     throw new Error("windows_host_authenticode_verification_failed:" + unsignedStatus.toString(16).padStart(8, "0"));
   }
   if (record.verifiedSigIndex !== 0) {
-    throw new Error("windows_host_authenticode_signature_index_mismatch");
+    throw new Error("windows_host_authenticode_signature_index_mismatch:"
+      + String(record.verifiedSigIndex) + ":" + String(record.secondarySignatureCount));
   }
   if (!Number.isSafeInteger(record.secondarySignatureCount) || record.secondarySignatureCount < 0) {
     throw new Error("windows_host_authenticode_secondary_signature_count_invalid");
