@@ -7,6 +7,7 @@ const state = document.getElementById("identity-state");
 const progress = document.getElementById("identity-progress");
 const resetButton = document.getElementById("identity-reset");
 const removeButton = document.getElementById("identity-remove");
+const applyButton = document.getElementById("identity-apply");
 
 const landmarks = [
   "Linha do cabelo",
@@ -28,6 +29,7 @@ let points = [];
 function updateProgress() {
   progress.textContent = points.length + "/" + landmarks.length + " referências faciais assinaladas";
   state.textContent = image ? "Fotografia carregada localmente" : "Sem fotografia";
+  applyButton.disabled = !image || points.length !== landmarks.length;
 }
 
 function draw() {
@@ -110,6 +112,30 @@ resetButton.addEventListener("click", () => {
   points = [];
   draw();
   if (image) state.textContent = "Marque: " + landmarks[0];
+});
+
+applyButton.addEventListener("click", () => {
+  if (!image || points.length !== landmarks.length) return;
+  if (document.getElementById("preset")?.value === "robot") {
+    state.textContent = "Seleciona primeiro um avatar humano.";
+    return;
+  }
+
+  const faceHeight = Math.abs(points[9].y - points[0].y);
+  const cheekWidth = Math.abs(points[7].x - points[6].x);
+  const eyeDistance = Math.abs(points[4].x - points[3].x);
+  if (faceHeight < 0.08 || cheekWidth < 0.04 || eyeDistance < 0.02) {
+    state.textContent = "Referências demasiado próximas ou incompletas; volta a marcar os pontos.";
+    return;
+  }
+
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const measurements = {
+    faceWidth: clamp((cheekWidth / faceHeight) / 0.77, 0.86, 1.18),
+    eyeSpacing: clamp((eyeDistance / cheekWidth) / 0.40, 0.82, 1.18)
+  };
+  window.dispatchEvent(new CustomEvent("avatar:identity-measurements", { detail: measurements }));
+  state.textContent = "Proporções iniciais aplicadas ao avatar. Afina os controlos manualmente.";
 });
 
 function removeImage() {
