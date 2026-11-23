@@ -64,6 +64,9 @@ jobs:
         env:
           OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/publisher-policy.integration.test.mjs
+      - name: Exercise native WinTrust primary signature and revocation
+        if: runner.os == 'Windows'
+        run: node --test packages/windows-host/test/authenticode-windows.integration.test.mjs
       - name: Validate TPM capability response parser
         if: runner.os == 'Windows'
         run: dotnet run --project native/windows/OfficeKit.CngHost.ProtocolTests/OfficeKit.CngHost.ProtocolTests.csproj --configuration Release
