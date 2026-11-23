@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../OfficeKit.CngHost/TpmCapabilityResponseParser.cs" Link="TpmCapabilityResponseParser.cs" />
+    <Compile Include="../OfficeKit.CngHost/CngAlgorithmGroupPolicy.cs" Link="CngAlgorithmGroupPolicy.cs" />
   </ItemGroup>
 </Project>
