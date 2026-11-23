@@ -38,9 +38,12 @@
       const indices = [];
       const skinIndices = [];
       const skinWeights = [];
+      const morphPositions = [];
       for (let y = 0; y <= segments; y += 1) {
         for (let x = 0; x <= segments; x += 1) {
-          positions.push(x / segments, y / segments, Math.sin(x * 0.12) * Math.cos(y * 0.09) * 0.025);
+          const z = Math.sin(x * 0.12) * Math.cos(y * 0.09) * 0.025;
+          positions.push(x / segments, y / segments, z);
+          morphPositions.push(x / segments, y / segments + Math.sin(x * 0.08) * 0.002, z);
           uvs.push(x / segments, y / segments);
           skinIndices.push(0, 0, 0, 0);
           skinWeights.push(1, 0, 0, 0);
@@ -60,6 +63,7 @@
       geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
       geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(skinIndices, 4));
       geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(skinWeights, 4));
+      geometry.morphAttributes.position = [new THREE.Float32BufferAttribute(morphPositions, 3)];
       geometry.setIndex(indices);
       geometry.addGroup(0, indices.length / 2, 0);
       geometry.addGroup(indices.length / 2, indices.length / 2, 1);
@@ -93,7 +97,8 @@
           const skinIndex = fixture.mesh.geometry.getAttribute("skinIndex");
           const skinWeight = fixture.mesh.geometry.getAttribute("skinWeight");
           const groups = fixture.mesh.geometry.groups.length;
-          const passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2);
+          const morph = fixture.mesh.geometry.morphAttributes.position?.[0];
+          const passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && morph?.count === fixture.mesh.geometry.getAttribute("position").count && variant.withinTriangleBudget);
           lines.push({
             profile: profileId,
             sourceTriangles: variant.sourceTriangles,
@@ -102,15 +107,16 @@
             withinBudget: variant.withinTriangleBudget,
             skinnedMeshesValidated: variant.validation.skinnedMeshes,
             materialGroups: groups,
+            morphVertices: morph?.count || 0,
             result: passed ? "PASS" : "FAIL"
           });
           variant.restore();
           if (fixture.mesh.geometry !== fixture.originalGeometry) throw new Error("A geometria original não foi restaurada.");
         }
         fixture.originalGeometry.dispose();
-        output.innerHTML = '<span class="pass">PASS — validação estrutural concluída</span>\n' + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+        output.textContent = "PASS — validação estrutural e orçamentos concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\\n");
       } catch (error) {
-        output.innerHTML = '<span class="fail">FAIL — ' + String(error.message || error) + '</span>\n' + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+        output.textContent = "FAIL — " + String(error.message || error) + "\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\\n");
         console.error(error);
       } finally {
         button.disabled = false;
