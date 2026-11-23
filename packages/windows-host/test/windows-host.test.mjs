@@ -384,6 +384,7 @@ test("WinTrust verifier ignores environment pins and requires the authenticated 
     assert.ok(script.includes("WSS_VERIFY_SPECIFIC"));
     assert.ok(script.includes("WTHelperGetProvSignerFromChain"));
     assert.ok(script.includes("WTHelperGetProvCertFromChain"));
+    assert.ok(script.includes("new IntPtr(-1)"));
     assert.ok(script.includes("[uint32]8320"));
     assert.ok(!script.includes("Get-AuthenticodeSignature"));
   } finally {
