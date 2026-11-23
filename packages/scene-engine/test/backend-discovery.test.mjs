@@ -39,7 +39,8 @@ test("rejects URLs containing credentials, query strings, fragments and unsuppor
     "https://example.test/api#private",
     "https://example.test/api?",
     "https://example.test/api#",
-    "https://example.test/api\\n",
+    "https://example.test/api\n",
+    "\thttps://example.test/api",
     "ws://127.0.0.1:8080",
     "wss://example.test/socket",
     "http://example.test/api"
