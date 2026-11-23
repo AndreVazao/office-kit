@@ -111,7 +111,9 @@
             const morph = fixture.mesh.geometry.morphAttributes.position?.[0];
             const positionCount = fixture.mesh.geometry.getAttribute("position").count;
             const extraAttributesValid = ["uv2", "color", "tangent"].every((name) => fixture.mesh.geometry.getAttribute(name)?.count === positionCount);
-            passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && extraAttributesValid && morph?.count === positionCount && variant.withinTriangleBudget);
+            passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && extraAttributesValid && morph?.count === positionCount &&
+              variant.meshReports.reduce((sum, report) => sum + report.outputTriangles, 0) === variant.optimizedTriangles &&
+              variant.withinTriangleBudget);
             lines.push({
               profile: profileId,
               sourceTriangles: variant.sourceTriangles,
@@ -122,6 +124,7 @@
               materialGroups: groups,
               morphVertices: morph?.count || 0,
               extraAttributesValid,
+              meshBudgetReports: variant.meshReports,
               result: passed ? "PASS" : "FAIL"
             });
           } finally {
