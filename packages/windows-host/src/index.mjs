@@ -277,7 +277,7 @@ export function readPublisherPolicyPublicKey(installationId, {
 } = {}) {
   const keyName = publisherPolicyKeyName(installationId);
   const expectedSddl = PUBLISHER_POLICY_KEY_SDDL;
-  const readerSource = String.raw\`using System;
+  const readerSource = String.raw`using System;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 public static class OfficeKitCngPolicyAclReader
@@ -317,19 +317,19 @@ public static class OfficeKitCngPolicyAclReader
             if (providerHandle != IntPtr.Zero) NCryptFreeObject(providerHandle);
         }
     }
-}\`;
+}`;
 
   const script = [
     "$ErrorActionPreference = 'Stop'",
-    \`$keyName = '\${keyName}'\`,
-    \`$readerSource = '\${readerSource}'\`,
+    `$keyName = '${keyName}'`,
+    `$readerSource = '${readerSource}'`,
     "Add-Type -TypeDefinition $readerSource -Language CSharp",
     "$provider = [System.Security.Cryptography.CngProvider]::MicrosoftSoftwareKeyStorageProvider",
     "$key = [System.Security.Cryptography.CngKey]::Open($keyName, $provider, [System.Security.Cryptography.CngKeyOpenOptions]::MachineKey)",
     "try {",
     "  if ($key.KeyName -ne $keyName -or -not $key.IsMachineKey -or $key.KeySize -ne 3072 -or [int]$key.ExportPolicy -ne 0 -or [int]$key.KeyUsage -ne 2 -or $key.AlgorithmGroup.ToString() -ne 'RSA') { exit 3 }",
     "  $sddl = [OfficeKitCngPolicyAclReader]::Read($keyName)",
-    \`  if ($sddl -ine '\${expectedSddl}') { exit 4 }\`,
+    `  if ($sddl -ine '${expectedSddl}') { exit 4 }`,
     "  $rsa = [System.Security.Cryptography.RSACng]::new($key)",
     "  $parameters = $rsa.ExportParameters($false)",
     "  $result = [ordered]@{ keyName = $key.KeyName; keySize = $key.KeySize; machineScope = $key.IsMachineKey; algorithmGroup = $key.AlgorithmGroup.ToString(); exportPolicy = [int]$key.ExportPolicy; keyUsage = [int]$key.KeyUsage; securityDescriptorSddl = $sddl; modulus = [Convert]::ToBase64String($parameters.Modulus); exponent = [Convert]::ToBase64String($parameters.Exponent) }",
