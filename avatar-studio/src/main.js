@@ -477,6 +477,9 @@ $("export-glb").addEventListener("click", () => {
     const exportPose = poseMode?.value || "idle";
     const selectedQuality = $("export-quality")?.value || "high";
     qualityVariant = applyAvatarQualityVariant(exportCharacter, selectedQuality);
+    if (!qualityVariant.withinTriangleBudget) {
+      throw new Error("O perfil " + selectedQuality + " não atingiu o orçamento de " + qualityVariant.triangleBudget + " triângulos (resultado: " + qualityVariant.optimizedTriangles + "). Exportação bloqueada para evitar um ficheiro fora das especificações.");
+    }
     exportCharacter.userData.officeKitAvatar = exportCharacter.userData.officeKitAvatar || {};
     exportCharacter.userData.officeKitAvatar.exportedVariant = {
       id: qualityVariant.profileId,
@@ -528,7 +531,7 @@ $("export-glb").addEventListener("click", () => {
     qualityVariant?.restore();
     qualityVariant = null;
     restoreButton();
-    alert("Não foi possível preparar a exportação GLB. Consulte a consola do navegador.");
+    alert(error instanceof Error ? error.message : "Não foi possível preparar a exportação GLB. Consulte a consola do navegador.");
   }
 });
 
