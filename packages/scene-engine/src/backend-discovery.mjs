@@ -62,7 +62,7 @@ function isLoopbackHostname(hostname) {
 function safeHttpUrl(value, field, errors, { optional = false } = {}) {
   if (value === undefined && optional) return null;
   if (!nonEmpty(value) || value.length > 2048 || /[\u0000-\u0020\u007f]/u.test(value)) {
-    errors.push(\`\${field} must be a bounded URL without whitespace or control characters.\`);
+    errors.push(field + " must be a bounded URL without whitespace or control characters.");
     return null;
   }
   try {
