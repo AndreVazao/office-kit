@@ -271,6 +271,7 @@ export function validateAvatarQualityVariant(root) {
       }
     }
     if (index) {
+      if (index.count % 3 !== 0) failures.push(mesh.name + ": índice com contagem incompatível com triângulos.");
       for (let i = 0; i < index.count; i += 1) {
         const vertex = index.getX(i);
         if (!Number.isInteger(vertex) || vertex < 0 || vertex >= position.count) {
@@ -278,24 +279,50 @@ export function validateAvatarQualityVariant(root) {
           break;
         }
       }
+    } else if (position.count % 3 !== 0) {
+      failures.push(mesh.name + ": vértices não indexados sem contagem de triângulos válida.");
     }
-    for (const group of geometry.groups || []) {
-      const limit = index ? index.count : position.count;
-      if (group.start < 0 || group.count < 0 || group.start + group.count > limit || group.count % 3 !== 0) {
+    const limit = index ? index.count : position.count;
+    const ranges = [...(geometry.groups || [])].sort((a, b) => a.start - b.start);
+    let previousEnd = 0;
+    for (const group of ranges) {
+      if (!Number.isInteger(group.start) || !Number.isInteger(group.count) || !Number.isInteger(group.materialIndex) ||
+          group.start < 0 || group.count < 0 || group.start + group.count > limit || group.count % 3 !== 0) {
         failures.push(mesh.name + ": grupo de material inválido.");
         break;
       }
+      if (group.start < previousEnd) {
+        failures.push(mesh.name + ": grupos de material sobrepostos.");
+        break;
+      }
+      previousEnd = group.start + group.count;
       const materialCount = Array.isArray(mesh.material) ? mesh.material.length : 1;
       if (group.materialIndex < 0 || group.materialIndex >= materialCount) {
         failures.push(mesh.name + ": índice de material inexistente.");
         break;
       }
     }
-    for (let vertex = 0; vertex < position.count; vertex += 1) {
-      for (let component = 0; component < position.itemSize; component += 1) {
-        if (!Number.isFinite(position.getComponent(vertex, component))) {
-          failures.push(mesh.name + ": posição não finita.");
-          break;
+    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+      for (let vertex = 0; vertex < attribute.count; vertex += 1) {
+        for (let component = 0; component < attribute.itemSize; component += 1) {
+          if (!Number.isFinite(attribute.getComponent(vertex, component))) {
+            failures.push(mesh.name + ": atributo " + name + " contém valor não finito.");
+            vertex = attribute.count;
+            break;
+          }
+        }
+      }
+    }
+    for (const [name, morphs] of Object.entries(geometry.morphAttributes || {})) {
+      for (const morph of morphs) {
+        for (let vertex = 0; vertex < morph.count; vertex += 1) {
+          for (let component = 0; component < morph.itemSize; component += 1) {
+            if (!Number.isFinite(morph.getComponent(vertex, component))) {
+              failures.push(mesh.name + ": morph target " + name + " contém valor não finito.");
+              vertex = morph.count;
+              break;
+            }
+          }
         }
       }
     }
@@ -313,7 +340,12 @@ export function validateAvatarQualityVariant(root) {
         let totalWeight = 0;
         for (let component = 0; component < skinWeight.itemSize; component += 1) {
           const weight = skinWeight.getComponent(vertex, component);
-          const bone = Math.round(skinIndex.getComponent(vertex, component));
+          const rawBone = skinIndex.getComponent(vertex, component);
+          const bone = Math.round(rawBone);
+          if (!Number.isFinite(rawBone) || Math.abs(rawBone - bone) > 1e-6) {
+            failures.push(mesh.name + ": índice ósseo não inteiro.");
+            break;
+          }
           if (!Number.isFinite(weight) || weight < -1e-6) {
             failures.push(mesh.name + ": peso ósseo inválido.");
             break;
