@@ -74,3 +74,5 @@ export { SqliteMonotonicCheckpointJournal } from "./sqlite-monotonic-checkpoint-
 export { MonotonicIncidentWriter } from "./monotonic-incident-writer.mjs";
 
 export { createInProcessExclusiveLockProvider } from "./exclusive-operation-lock.mjs";
+
+export { normalizeBackendCandidate, assessBackendCandidate, backendDiscoveryContract } from "./backend-discovery.mjs";

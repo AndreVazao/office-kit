@@ -1,6 +1,15 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-22
+Última atualização: 2026-11-23
+
+## Universal backend discovery contract — 2026-11-23
+- Main HEAD confirmado: `273f571284b239c600eb617763c441db61c9a715`; CI #45064940135 e regressão visual #45064940141 passaram nesse SHA.
+- PR #127 introduz o contrato neutro de descoberta no core genérico. O checkpoint de código `9eacf844aaa1ae272a832de6bf132882414db620` passou CI #45189472339 (Linux/Windows, Node 22/26.13.1) e visual #45189472356. A sincronização documental posterior exige nova validação no HEAD final da PR.
+- A primeira CI #45165638081 falhou nos quatro jobs porque `backend-discovery.mjs` não estava nas allowlists dos três pacotes; corrigido incluindo o módulo genérico em Universal, DGM-MAT e VST.
+- O contrato não faz I/O, pesquisa de rede, HTTP, autenticação, importação dinâmica ou ativação. Endpoints remotos exigem HTTPS; HTTP só é permitido para loopback.
+- Referências são identificadores opacos; evidência usa códigos enumerados; campos arbitrários de credenciais são recusados. Capacidades declaradas são claims não confiáveis, nunca permissões concedidas.
+- O modo inicial permanece read-only. `send_commands` pode ser descrito como claim do backend, mas não é concedido nem executado pela descoberta.
+- PR #127 permanece draft e não integrada; pesquisa real de fontes, probes com consentimento, catálogo vivo, UX de escolha e ativação continuam pendentes.
 
 ## VST cockpit integration — 2026-11-22
 - Main HEAD: `e864532170a7fbbe3a1255fe36ac9191b772a8c2`.

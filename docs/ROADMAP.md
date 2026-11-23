@@ -47,7 +47,16 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Não fazer varrimento indiscriminado de rede, contornar autenticação nem guardar segredos.
 - Testar falsos positivos, endpoint inválido, autenticação ausente, permissões, timeout e exposição de dados.
 
-**Estado:** requisito futuro documentado, ainda não implementado.
+**Estado em 2026-11-23:** contrato neutro v1 implementado na PR #127 (draft, ainda não integrada). O incremento normaliza candidatos e quatro resultados independentes sem executar I/O. A primeira falha de CI (allowlist incompleta) foi corrigida; CI e regressão visual passaram no checkpoint de código `9eacf844aaa1ae272a832de6bf132882414db620`. A sincronização documental posterior ainda requer validação no HEAD final da PR.
+
+- [x] Contrato neutro de candidato, fontes, evidência, capacidades e estados de validação.
+- [x] Inclusão do módulo genérico nas três allowlists de edição.
+- [x] Regras de endpoint: HTTPS remoto, HTTP loopback, sem credenciais/query/fragment.
+- [x] Evidência enumerada e capacidades declaradas sem concessão de permissões.
+- [ ] Conectores reais de fontes e catálogo versionado.
+- [ ] Health-check de leitura com consentimento, timeout e escopo explícito.
+- [ ] Assistente de escolha/ativação humana.
+- [ ] Testes de segurança e integração em ambientes reais.
 
 ## Fase 6 — runtime e adaptador de referência
 - Definir interface pública de adaptador.
