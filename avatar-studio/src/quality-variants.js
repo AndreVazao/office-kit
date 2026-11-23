@@ -29,6 +29,11 @@ function makeClusteredGeometry(source, cellSize) {
   const normal = source.getAttribute("normal");
   const skinIndex = source.getAttribute("skinIndex");
   const skinWeight = source.getAttribute("skinWeight");
+  const bounds = new THREE.Box3().setFromBufferAttribute(position);
+  const dimensions = new THREE.Vector3();
+  bounds.getSize(dimensions);
+  const diagonal = Math.max(dimensions.length(), POSITION_EPSILON);
+  const uvCellSize = Math.max(cellSize / diagonal, 1e-4);
   const groups = source.groups?.length
     ? source.groups.map((group) => ({ start: group.start, count: group.count, materialIndex: group.materialIndex || 0 }))
     : [{ start: 0, count: sourceIndex ? sourceIndex.count : vertexCount, materialIndex: 0 }];
@@ -41,7 +46,9 @@ function makeClusteredGeometry(source, cellSize) {
     const x = position.getX(sourceVertex);
     const y = position.getY(sourceVertex);
     const z = position.getZ(sourceVertex);
-    const uvKey = uv ? Math.round(uv.getX(sourceVertex) * 10000) + ":" + Math.round(uv.getY(sourceVertex) * 10000) : "";
+    // Quantize UVs at the same relative LOD scale: nearby points inside a UV
+    // island can merge, while the 0/1 seam remains in a different bucket.
+    const uvKey = uv ? Math.round(uv.getX(sourceVertex) / uvCellSize) + ":" + Math.round(uv.getY(sourceVertex) / uvCellSize) : "";
     const normalKey = normal ? [Math.round(normal.getX(sourceVertex) * 20), Math.round(normal.getY(sourceVertex) * 20), Math.round(normal.getZ(sourceVertex) * 20)].join(":") : "";
     const key = [
       materialIndex,
