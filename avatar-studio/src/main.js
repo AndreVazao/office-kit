@@ -458,6 +458,18 @@ for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hai
   $(id).addEventListener("change", renderCharacter);
 }
 
+window.addEventListener("avatar:identity-measurements", (event) => {
+  if (currentPreset === "robot") return;
+  const measurements = event.detail || {};
+  const controls = { "face-width": measurements.faceWidth, "eye-spacing": measurements.eyeSpacing };
+  for (const [id, value] of Object.entries(controls)) {
+    const input = $(id);
+    if (!input || !Number.isFinite(value)) continue;
+    input.value = String(THREE.MathUtils.clamp(value, Number(input.min), Number(input.max)));
+  }
+  renderCharacter();
+});
+
 $("export-glb").addEventListener("click", () => {
   const button = $("export-glb");
   const originalLabel = button.textContent;
