@@ -46,6 +46,12 @@ The Studio does not detect the user's device and does not select a runtime profi
 
 **Current limitation:** the editor audit reports source-model fit, while each explicit GLB export applies the selected geometry profile. A profile export is not proof of device performance or visual equivalence. The runtime still makes the device-specific selection; Avatar Studio only authors and exports variants.
 
+## Quality-variant structural check
+
+Serve the directory over HTTP, then open `/quality-variant-check.html`. The isolated browser harness builds a skinned test mesh with UVs and two material groups, runs Ultra/High/Medium/Low through the same production reducer, validates index/material/skin-weight invariants, and confirms that the original geometry is restored after every profile. This is a manual browser acceptance tool; it is not part of the root Office Kit CI and does not replace visual inspection of real avatar exports.
+
+The export validator rejects malformed indices, invalid material groups, non-finite positions, missing skin attributes, invalid bone references, and non-normalized skin weights before allowing a profile export to proceed. Its report is embedded in the GLB metadata.
+
 ## CEO identity-reference workflow
 
 The right-hand identity panel accepts a local JPEG, PNG, or WebP reference image (maximum 15 MB). The image is decoded and drawn in the browser only; it is not uploaded, committed, persisted, or transmitted by this module. The user can mark ten facial reference points on the image to create a manual landmark guide. Only the current browser session holds the selected image and points.
