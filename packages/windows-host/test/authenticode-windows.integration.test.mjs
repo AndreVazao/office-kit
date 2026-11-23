@@ -11,7 +11,7 @@ const skipReason = process.platform !== "win32" || !process.env.WINDIR
   ? "Native WinTrust integration requires Windows."
   : false;
 
-function getSystemPowerShellSignerCertificate(filePath) {
+function getSignedFixtureSignerCertificate(filePath) {
   const escapedPath = filePath.replace(/'/g, "''");
   // This API only supplies the expected certificate for a known Microsoft-signed
   // CI fixture. The production verifier independently validates the PE signature
@@ -42,22 +42,16 @@ function getSystemPowerShellSignerCertificate(filePath) {
   return Buffer.from(String(result.stdout ?? "").trim(), "base64");
 }
 
-test("native WinTrust verifies the primary Microsoft-signed PowerShell binary and rejects tampering", {
+test("native WinTrust verifies the primary signed Node.js runtime binary and rejects tampering", {
   skip: skipReason
 }, () => {
-  const systemPowerShell = join(
-    process.env.WINDIR,
-    "System32",
-    "WindowsPowerShell",
-    "v1.0",
-    "powershell.exe"
-  );
-  const signerCertificate = new X509Certificate(getSystemPowerShellSignerCertificate(systemPowerShell));
+  const signedFixturePath = process.execPath;
+  const signerCertificate = new X509Certificate(getSignedFixtureSignerCertificate(signedFixturePath));
   const expectedSpkiSha256 = createHash("sha256")
     .update(signerCertificate.publicKey.export({ type: "spki", format: "der" }))
     .digest("hex");
 
-  assert.equal(verifyAuthenticodeHelper(systemPowerShell, {
+  assert.equal(verifyAuthenticodeHelper(signedFixturePath, {
     expectedSpkiSha256,
     signatureIndex: 0,
     revocationMode: "online-chain-exclude-root-fail-closed"
@@ -74,7 +68,7 @@ test("native WinTrust verifies the primary Microsoft-signed PowerShell binary an
   const directory = mkdtempSync(join(tmpdir(), "office-kit-wintrust-tamper-"));
   try {
     const tamperedPath = join(directory, "tampered-powershell.exe");
-    copyFileSync(systemPowerShell, tamperedPath);
+    copyFileSync(signedFixturePath, tamperedPath);
     const bytes = readFileSync(tamperedPath);
     bytes[0] = bytes[0] ^ 0x01;
     writeFileSync(tamperedPath, bytes);
