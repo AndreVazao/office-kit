@@ -621,7 +621,7 @@ public static class OfficeKitWinTrustVerifier
     {
         if (data.hWVTStateData == IntPtr.Zero) return;
         data.dwStateAction = 2;
-        _ = WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
+        WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
         data.hWVTStateData = IntPtr.Zero;
     }
 
@@ -671,7 +671,7 @@ public static class OfficeKitWinTrustVerifier
             data.pSignatureSettings = signatureSettingsPointer;
 
             // Count secondary signatures without authorizing any of them.
-            _ = WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
+            WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
             signatureSettings = (WINTRUST_SIGNATURE_SETTINGS)Marshal.PtrToStructure(
                 signatureSettingsPointer, typeof(WINTRUST_SIGNATURE_SETTINGS));
             secondarySignatureCount = signatureSettings.cSecondarySigs;
