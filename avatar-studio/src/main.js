@@ -485,6 +485,7 @@ $("export-glb").addEventListener("click", () => {
       optimizedVertices: qualityVariant.optimizedVertices,
       triangleBudget: qualityVariant.triangleBudget,
       withinTriangleBudget: qualityVariant.withinTriangleBudget,
+      validation: qualityVariant.validation,
       simplification: "skinning-aware-vertex-clustering"
     };
     const exporter = new GLTFExporter();
