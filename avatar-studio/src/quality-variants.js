@@ -511,6 +511,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
   const meshes = [];
   const originalMaterials = [];
   const sourceMaterials = new Set();
+  const auditedMaterials = new Set();
   const nonConvertibleMaterials = new Set();
   const textureIssues = [];
   let textureCount = 0;
@@ -521,9 +522,15 @@ export function applyAvatarMaterialVariant(root, profileId) {
     for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
       if (!material) continue;
       sourceMaterials.add(material);
-      const audit = materialTextureAudit(material, profile.textureMaxSize);
-      textureCount += audit.textureCount;
-      for (const issue of audit.overBudget) textureIssues.push({ material: material.name || material.type, ...issue });
+      let audit = { textureCount: 0, overBudget: [] };
+      if (!auditedMaterials.has(material)) {
+        audit = materialTextureAudit(material, profile.textureMaxSize);
+        auditedMaterials.add(material);
+        textureCount += audit.textureCount;
+        for (const issue of audit.overBudget) textureIssues.push({ material: material.name || material.type, ...issue });
+      } else {
+        audit.textureCount = materialTextureAudit(material, profile.textureMaxSize).textureCount;
+      }
       if (Array.isArray(mesh.material) || !material.isMeshStandardMaterial || !material.color || audit.textureCount > 0) {
         nonConvertibleMaterials.add(material);
       }
