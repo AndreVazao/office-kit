@@ -85,7 +85,7 @@ internal static class Program
             Assert(provisioned.SecurityDescriptorSddl == PublisherPolicyKey.ExpectedSecurityDescriptorSddl,
                 "publisher policy key has the exact installer-only security descriptor");
 
-            var payload = Encoding.UTF8.GetBytes("{\\"schemaVersion\\":1,\\"purpose\\":\\"protocol-test\\"}");
+            var payload = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"purpose\":\"protocol-test\"}");
             var signature = PublisherPolicyKey.SignBytesForTests(installationId, payload);
             using var verifier = RSA.Create();
             verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(provisioned.PublicKeySpki), out var read);
