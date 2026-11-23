@@ -202,7 +202,7 @@ internal static class PublisherPolicyKey
     {
         if (!ConvertStringSecurityDescriptorToSecurityDescriptor(
                 sddl, 1, out var descriptor, out var descriptorSize))
-            throw new CryptographicException(Marshal.GetLastWin32Error(), "publisher_policy_acl_encode_failed");
+            throw new CryptographicException($"publisher_policy_acl_encode_failed:0x{Marshal.GetLastWin32Error():X8}");
 
         try
         {
@@ -283,7 +283,7 @@ internal static class PublisherPolicyKey
     private static void ThrowIfNcryptFailed(int status, string error)
     {
         if (status != 0)
-            throw new CryptographicException(status, error);
+            throw new CryptographicException($"{error}:0x{status:X8}");
     }
 
     [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
