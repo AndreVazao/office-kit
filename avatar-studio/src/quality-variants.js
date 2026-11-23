@@ -643,8 +643,10 @@ function prepareMaterialTextureVariant(material, maxSize) {
     const canvas = makeTextureCanvas(image, Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
     if (!canvas) { unsupported.push({ slot, width, height }); return; }
     const resized = texture.clone();
-    resized.image = canvas;
+    // Texture.clone() shares its Source object in Three.js. Replace Source
+    // before assigning image, otherwise the setter would mutate the original.
     resized.source = new THREE.Source(canvas);
+    resized.image = canvas;
     resized.needsUpdate = true;
     textureMap.set(texture, resized);
   };
