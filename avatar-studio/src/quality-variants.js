@@ -550,6 +550,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
     }
   }
 
+  for (const material of nonConvertibleMaterials) eligibleMaterials.delete(material);
   const fixedMaterialCount = nonConvertibleMaterials.size;
   if (precision > 0 && eligibleMaterials.size > 0) {
     while (precision < 1) {
