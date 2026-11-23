@@ -142,6 +142,13 @@ async function main() {
       hostFactory: nativeHostOptions => createWindowsHost({
         ...nativeHostOptions,
         helperPath,
+        publisherPolicyLoader: () => ({
+          installationId: "officekit-00000000000000000000000000000000",
+          edition: expectedKey,
+          signatureIndex: 0,
+          publisherSpkiSha256: "a".repeat(64),
+          revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+        }),
         verifyHelper: path => {
           verifyTestOnlyAuthenticode(path, signerThumbprint);
           return true;
