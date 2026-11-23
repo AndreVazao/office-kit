@@ -638,7 +638,7 @@ public static class OfficeKitWinTrustVerifier
         WINTRUST_DATA data = new WINTRUST_DATA();
         Guid actionId = new Guid("00AAC56B-CD44-11D0-8CC2-00C04FC295EE");
         uint secondarySignatureCount = 0;
-        uint verifiedSignatureIndex = UInt32.MaxValue;
+        uint verifiedSignatureIndex = 0;
         int status = unchecked((int)0x800B0100);
         string signerCertificateBase64 = null;
 
@@ -656,7 +656,7 @@ public static class OfficeKitWinTrustVerifier
             signatureSettings.cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_SIGNATURE_SETTINGS));
             signatureSettings.dwIndex = 0;
             signatureSettings.dwFlags = 0x00000003; // WSS_VERIFY_SPECIFIC | WSS_GET_SECONDARY_SIG_COUNT
-            signatureSettings.dwVerifiedSigIndex = UInt32.MaxValue;
+            signatureSettings.dwVerifiedSigIndex = 0;
 
             signatureSettingsPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_SIGNATURE_SETTINGS)));
             Marshal.StructureToPtr(signatureSettings, signatureSettingsPointer, false);
