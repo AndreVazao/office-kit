@@ -19,6 +19,12 @@ function makeClusteredGeometry(source, cellSize) {
   const sourceIndex = source.getIndex();
   const vertexCount = position.count;
   const attributes = Object.entries(source.attributes);
+  const morphEntries = Object.entries(source.morphAttributes || {});
+  for (const [name, morphs] of morphEntries) {
+    for (const morph of morphs) {
+      if (morph.count !== vertexCount) throw new Error("Morph target " + name + " does not match source vertex count.");
+    }
+  }
   const uv = source.getAttribute("uv");
   const normal = source.getAttribute("normal");
   const skinIndex = source.getAttribute("skinIndex");
@@ -56,6 +62,14 @@ function makeClusteredGeometry(source, cellSize) {
           values[component] += attributeValue(attribute, sourceVertex, component);
         }
       }
+      for (const [name, morphs] of morphEntries) {
+        morphs.forEach((attribute, morphIndex) => {
+          const values = record.morphValues[name][morphIndex];
+          for (let component = 0; component < attribute.itemSize; component += 1) {
+            values[component] += attributeValue(attribute, sourceVertex, component);
+          }
+        });
+      }
       if (skinIndex && skinWeight) {
         for (let component = 0; component < skinIndex.itemSize; component += 1) {
           const bone = Math.round(skinIndex.getComponent(sourceVertex, component));
@@ -76,6 +90,16 @@ function makeClusteredGeometry(source, cellSize) {
       }
       values[name] = components;
     }
+    const morphValues = {};
+    for (const [name, morphs] of morphEntries) {
+      morphValues[name] = morphs.map((attribute) => {
+        const values = [];
+        for (let component = 0; component < attribute.itemSize; component += 1) {
+          values.push(attributeValue(attribute, sourceVertex, component));
+        }
+        return values;
+      });
+    }
     const influences = new Map();
     if (skinIndex && skinWeight) {
       for (let component = 0; component < skinIndex.itemSize; component += 1) {
@@ -84,7 +108,7 @@ function makeClusteredGeometry(source, cellSize) {
         if (weight > 0) influences.set(bone, (influences.get(bone) || 0) + weight);
       }
     }
-    vertices.push({ values, influences, count: 1 });
+    vertices.push({ values, morphValues, influences, count: 1 });
     buckets.set(key, target);
     return target;
   };
@@ -118,6 +142,20 @@ function makeClusteredGeometry(source, cellSize) {
     result.setAttribute(name, new THREE.BufferAttribute(output, attribute.itemSize, attribute.normalized));
   }
 
+  for (const [name, morphs] of morphEntries) {
+    result.morphAttributes[name] = morphs.map((attribute, morphIndex) => {
+      const ArrayType = attribute.array.constructor;
+      const output = new ArrayType(vertices.length * attribute.itemSize);
+      vertices.forEach((record, vertex) => {
+        const values = record.morphValues[name][morphIndex];
+        for (let component = 0; component < attribute.itemSize; component += 1) {
+          output[vertex * attribute.itemSize + component] = values[component] / record.count;
+        }
+      });
+      return new THREE.BufferAttribute(output, attribute.itemSize, attribute.normalized);
+    });
+  }
+
   if (skinIndex && skinWeight) {
     const indices = new Uint16Array(vertices.length * 4);
     const weights = new Float32Array(vertices.length * 4);
@@ -149,6 +187,14 @@ function makeClusteredGeometry(source, cellSize) {
   result.morphTargetsRelative = source.morphTargetsRelative;
   result.computeBoundingBox();
   result.computeBoundingSphere();
+  if (result.getAttribute("tangent")) {
+    const tangents = result.getAttribute("tangent");
+    for (let i = 0; i < tangents.count; i += 1) {
+      const length = Math.hypot(tangents.getX(i), tangents.getY(i), tangents.getZ(i)) || 1;
+      tangents.setXYZ(i, tangents.getX(i) / length, tangents.getY(i) / length, tangents.getZ(i) / length);
+      if (tangents.itemSize > 3) tangents.setW(i, tangents.getW(i) < 0 ? -1 : 1);
+    }
+  }
   if (result.getAttribute("normal")) {
     // Preserve averaged source normals; normalize them after clustering.
     const normals = result.getAttribute("normal");
@@ -206,6 +252,17 @@ export function validateAvatarQualityVariant(root) {
     report.triangles += geometryTriangles(geometry);
     report.vertices += position.count;
     const index = geometry.getIndex();
+    if (position.count === 0 || geometryTriangles(geometry) === 0) {
+      failures.push(mesh.name + ": geometria sem triângulos exportáveis.");
+    }
+    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+      if (attribute.count !== position.count) failures.push(mesh.name + ": atributo " + name + " incompatível com a geometria.");
+    }
+    for (const [name, morphs] of Object.entries(geometry.morphAttributes || {})) {
+      for (const morph of morphs) {
+        if (morph.count !== position.count) failures.push(mesh.name + ": morph target " + name + " incompatível.");
+      }
+    }
     if (index) {
       for (let i = 0; i < index.count; i += 1) {
         const vertex = index.getX(i);
@@ -239,11 +296,12 @@ export function validateAvatarQualityVariant(root) {
       report.skinnedMeshes += 1;
       const skinIndex = geometry.getAttribute("skinIndex");
       const skinWeight = geometry.getAttribute("skinWeight");
-      if (!skinIndex || !skinWeight || skinIndex.count !== position.count || skinWeight.count !== position.count || skinIndex.itemSize !== skinWeight.itemSize) {
+      if (!skinIndex || !skinWeight || skinIndex.count !== position.count || skinWeight.count !== position.count || skinIndex.itemSize !== 4 || skinWeight.itemSize !== 4) {
         failures.push(mesh.name + ": atributos de skinning ausentes ou incompatíveis.");
         return;
       }
       const boneCount = mesh.skeleton?.bones?.length || 0;
+      if (!boneCount) failures.push(mesh.name + ": esqueleto sem ossos.");
       for (let vertex = 0; vertex < position.count; vertex += 1) {
         let totalWeight = 0;
         for (let component = 0; component < skinWeight.itemSize; component += 1) {
