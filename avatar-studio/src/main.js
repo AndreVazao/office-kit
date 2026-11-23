@@ -502,7 +502,13 @@ $("export-glb").addEventListener("click", () => {
       throw new Error("O perfil " + selectedQuality + " excede o orçamento de materiais: " + materialVariant.materialCount + "/" + materialVariant.materialBudget + ". Exportação bloqueada.");
     }
     if (!materialVariant.withinTextureBudget) {
-      throw new Error("Existem texturas acima do limite de " + materialVariant.textureMaxSize + " px ou sem dimensões verificáveis. Exportação bloqueada.");
+      const issue = materialVariant.textureIssues[0];
+      const detail = issue
+        ? issue.width && issue.height
+          ? issue.slot + " (" + issue.width + "×" + issue.height + " px)"
+          : issue.slot + " (dimensões não verificáveis)"
+        : "textura não identificada";
+      throw new Error("A textura " + detail + " excede o limite de " + materialVariant.textureMaxSize + " px do perfil " + selectedQuality + ". Exportação bloqueada.");
     }
     exportCharacter.userData.officeKitAvatar = exportCharacter.userData.officeKitAvatar || {};
     exportCharacter.userData.officeKitAvatar.exportedVariant = {
