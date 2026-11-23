@@ -289,7 +289,7 @@ function allocateTriangleBudgets(meshes, totalBudget) {
 
 function simplifyToBudget(source, targetTriangles) {
   const sourceTriangles = geometryTriangles(source);
-  if (sourceTriangles <= targetTriangles || targetTriangles < 4) return source.clone();
+  if (sourceTriangles <= targetTriangles || targetTriangles < 1) return source.clone();
   const position = source.getAttribute("position");
   const bounds = new THREE.Box3().setFromBufferAttribute(position, 0);
   const size = new THREE.Vector3();
