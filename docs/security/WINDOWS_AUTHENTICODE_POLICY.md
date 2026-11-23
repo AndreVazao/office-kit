@@ -174,3 +174,28 @@ The reader requires:
 \`loadPublisherPolicy\` reads a bounded regular policy file, rejects symlinks, retrieves the public key directly from CNG, and verifies the signed canonical envelope against the expected installation ID and edition. Windows CI provisions a disposable machine CNG key, signs a v1 payload, reads the key directly through PowerShell, verifies the envelope, and removes the key with explicit installation-ID confirmation.
 
 This loader is not yet wired into \`createWindowsHost\`. The default host remains fail-closed until the following stage implements WinTrust verification of the helper, binds the signer certificate to the exact verified signature index, applies the two revocation modes and runs the complete native Windows positive/negative matrix.
+
+## 11. Native WinTrust and startup-policy integration checkpoint — 2026-11-23
+
+PR #139 adds the following implementation on top of the canonical policy envelope and direct CNG public-key reader:
+
+- The host creates/reads its installation identity, then loads `publisher-policy.json` from the installation data root and validates the envelope against the installation-scoped CNG machine key and the explicit edition.
+- The host verifies the helper before opening SQLite. Missing or invalid policy is a hard failure; there is no environment-variable fallback.
+- Universal uses the `universal` policy identity. The VST and DGM-MAT Windows composition wrappers explicitly select their own `vst` and `dgmat` policy identities.
+- The native verifier uses Authenticode generic verify-v2, `WTD_UI_NONE`, `INVALID_HANDLE_VALUE`, explicit primary signature index `0`, and the WinTrust provider state to extract the signer certificate from the exact verified signature.
+- The extracted certificate SPKI SHA-256 must match the signed policy pin. The verifier closes WinTrust provider state in a `finally` path.
+- Runtime startup uses cache-only chain revocation excluding the root and fails closed when revocation evidence is unavailable. The online install/update mode is implemented as a separate verifier mode with a longer bounded timeout.
+- The PowerShell child process has bounded execution time and bounded output. A timeout, abnormal exit, malformed response, signature failure, wrong index, revoked publisher, unavailable revocation evidence or publisher mismatch rejects the helper.
+- Test-only policy loaders and signature verifiers are injected explicitly in isolated test harnesses. They do not change production defaults.
+
+### Remaining acceptance gaps
+
+PR #139 is not production approval and must not be treated as permission to distribute the Windows host. The following remain required:
+
+1. The elevated installer/update flow in #104 must verify its own package under Windows Authenticode before provisioning the CNG policy key and writing the signed policy envelope. Provisioning must be atomic, ACL-protected and recoverable without ordinary-startup key regeneration.
+2. The online verifier mode must be called by the real installer/update path; it is currently exercised by the native Windows integration test, not by a production installer.
+3. Complete the native Windows test matrix for expired certificates, positively revoked certificates, unknown/unavailable revocation status, untrusted signers, multiple signatures with different publishers, primary-invalid/secondary-valid binaries, missing/altered policy, and process timeout/termination.
+4. Validate the native WinTrust helper APIs on every supported Windows baseline. If the provider helper exports are unavailable or return ambiguous state, startup must fail closed; there is no PowerShell or secondary-signature fallback.
+5. Run the final integration on a physical Windows PC and with the actual commercially signed installer/helper. GitHub-hosted CI and Microsoft-signed system binaries do not prove the user's installed environment or commercial distribution chain.
+
+The Windows CI run associated with PR #139 must be checked on its exact final HEAD. Until every applicable Linux/Windows Node 22/26 job, native CNG policy test, native WinTrust test and visual regression passes on one SHA, the PR must remain unmerged. Issue #110 remains open until installer provisioning and the full native test matrix are complete.
