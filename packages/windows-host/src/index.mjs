@@ -491,7 +491,7 @@ function runChecked(command, args, spawnImpl, timeout = 15_000) {
     encoding: "utf8",
     windowsHide: true,
     shell: false,
-    timeout: 15_000,
+    timeout,
     maxBuffer: 1024 * 1024
   });
   if (result.error?.code === "ETIMEDOUT") {
