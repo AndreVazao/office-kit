@@ -114,8 +114,8 @@ test("Windows Authenticode verifier rejects an unsigned helper", {
   writeFileSync(helperPath, "not a PE executable");
   try {
     assert.throws(() => verifyAuthenticodeHelper(helperPath, {
-      expectedThumbprint: "A".repeat(40)
-    }), /windows_host_command_failed_powershell/);
+      expectedSpkiSha256: "a".repeat(64)
+    }), /windows_host_authenticode_verification_failed/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
