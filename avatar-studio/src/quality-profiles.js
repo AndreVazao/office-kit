@@ -2,7 +2,7 @@
  * Device-independent avatar delivery profiles and source-geometry audit.
  *
  * The Office Kit runtime alone selects a profile for a device/session.
- * This module measures the source model; it does not claim to decimate it.
+ * Avatar Studio measures source assets and exports explicitly selected variants.
  */
 export const AVATAR_QUALITY_PROFILES = Object.freeze({
   ultra: Object.freeze({ id:"ultra", label:"Ultra", target:"Desktop potente / ecrã de alta resolução", triangleBudget:120000, materialBudget:16, textureMaxSize:4096, shadowQuality:"high", facialDetail:"full", fingerDetail:"full", hairDetail:"full", animation:"full", recommendedPixelRatio:2 }),
