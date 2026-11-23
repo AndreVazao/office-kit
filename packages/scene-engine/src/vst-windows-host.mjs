@@ -53,7 +53,7 @@ export function createWindowsVstHost({
     getAccessToken
   });
 
-  const host = hostFactory(hostOptions);
+  const host = hostFactory({ ...hostOptions, edition: "vst" });
   if (!host || typeof host.close !== "function" || typeof host.health !== "function" || !host.ready) {
     try { void Promise.resolve(host?.close?.()).catch(() => {}); } catch {}
     throw new TypeError("vst_windows_host_lifecycle_unavailable");
