@@ -245,6 +245,26 @@
         oversizedTexture.dispose();
         if (!textureRejected) throw new Error("O perfil Low não rejeitou a textura acima do limite.");
 
+        const uniformRoot = new THREE.Group();
+        const uniformTexture = new THREE.DataTexture(new Uint8Array(1024 * 1024 * 4), 1024, 1024, THREE.RGBAFormat);
+        const shaderMaterial = new THREE.ShaderMaterial({
+          uniforms: { uAvatarTexture: { value: uniformTexture } },
+          vertexShader: "void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+          fragmentShader: "uniform sampler2D uAvatarTexture; void main(){ gl_FragColor = texture2D(uAvatarTexture, vec2(0.5)); }"
+        });
+        const shaderMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), shaderMaterial);
+        uniformRoot.add(shaderMesh);
+        const uniformVariant = applyAvatarMaterialVariant(uniformRoot, "low");
+        const uniformTextureRejected = !uniformVariant.withinTextureBudget &&
+          uniformVariant.textureCount === 1 &&
+          uniformVariant.textureIssues[0]?.slot.includes("uniforms.uAvatarTexture");
+        lines.push({ shaderUniformTextureRejected: uniformTextureRejected, textureCount: uniformVariant.textureCount, result: uniformTextureRejected ? "PASS" : "FAIL" });
+        uniformVariant.restore();
+        shaderMesh.geometry.dispose();
+        shaderMaterial.dispose();
+        uniformTexture.dispose();
+        if (!uniformTextureRejected) throw new Error("Uma textura em ShaderMaterial.uniforms não foi auditada.");
+
         output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
