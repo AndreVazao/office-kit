@@ -111,3 +111,6 @@ input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #5689ee; }
 .quality-profile.exceeds strong { color: #f0b36d; }
 .quality-disclaimer { margin: 10px 0 0; color: #91a4c2; font-size: 8px; line-height: 1.55; }
 @media (max-width: 1050px) { .quality-card { grid-column: 1 / -1; } }
+
+.identity-apply { width: 100%; margin-top: 8px; padding: 9px 10px; border: 1px solid #547bb6; border-radius: 7px; background: #244b83; color: #f0f5ff; font-size: 10px; font-weight: 700; }
+.identity-apply:disabled { opacity: .42; cursor: not-allowed; }
