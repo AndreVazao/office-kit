@@ -277,17 +277,59 @@ export function readPublisherPolicyPublicKey(installationId, {
 } = {}) {
   const keyName = publisherPolicyKeyName(installationId);
   const expectedSddl = PUBLISHER_POLICY_KEY_SDDL;
+  const readerSource = String.raw\`using System;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+public static class OfficeKitCngPolicyAclReader
+{
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int NCryptOpenStorageProvider(out IntPtr providerHandle, string providerName, int flags);
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int NCryptOpenKey(IntPtr providerHandle, out IntPtr keyHandle, string keyName, int legacyKeySpec, int flags);
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int NCryptGetProperty(IntPtr objectHandle, string propertyName, byte[] output, int outputLength, out int resultLength, int flags);
+    [DllImport("ncrypt.dll", ExactSpelling = true)]
+    private static extern int NCryptFreeObject(IntPtr objectHandle);
+
+    public static string Read(string keyName)
+    {
+        IntPtr providerHandle = IntPtr.Zero;
+        IntPtr keyHandle = IntPtr.Zero;
+        try
+        {
+            int status = NCryptOpenStorageProvider(out providerHandle, "Microsoft Software Key Storage Provider", 0);
+            if (status != 0) throw new InvalidOperationException("ncrypt_provider_open:0x" + status.ToString("X8"));
+            status = NCryptOpenKey(providerHandle, out keyHandle, keyName, 0, 0x20 | 0x40);
+            if (status != 0) throw new InvalidOperationException("ncrypt_key_open:0x" + status.ToString("X8"));
+            byte[] buffer = new byte[4096];
+            int length;
+            status = NCryptGetProperty(keyHandle, "Security Descr", buffer, buffer.Length, out length, 0x1 | 0x2 | 0x4);
+            if (status != 0) throw new InvalidOperationException("ncrypt_acl_read:0x" + status.ToString("X8"));
+            if (length <= 0 || length > buffer.Length) throw new InvalidOperationException("ncrypt_acl_size_invalid");
+            byte[] descriptor = new byte[length];
+            Array.Copy(buffer, descriptor, length);
+            RawSecurityDescriptor raw = new RawSecurityDescriptor(descriptor, 0);
+            return raw.GetSddlForm(AccessControlSections.All);
+        }
+        finally
+        {
+            if (keyHandle != IntPtr.Zero) NCryptFreeObject(keyHandle);
+            if (providerHandle != IntPtr.Zero) NCryptFreeObject(providerHandle);
+        }
+    }
+}\`;
+
   const script = [
     "$ErrorActionPreference = 'Stop'",
-    `$keyName = '${keyName}'`,
+    \`$keyName = '\${keyName}'\`,
+    \`$readerSource = '\${readerSource}'\`,
+    "Add-Type -TypeDefinition $readerSource -Language CSharp",
     "$provider = [System.Security.Cryptography.CngProvider]::MicrosoftSoftwareKeyStorageProvider",
     "$key = [System.Security.Cryptography.CngKey]::Open($keyName, $provider, [System.Security.Cryptography.CngKeyOpenOptions]::MachineKey)",
     "try {",
     "  if ($key.KeyName -ne $keyName -or -not $key.IsMachineKey -or $key.KeySize -ne 3072 -or [int]$key.ExportPolicy -ne 0 -or [int]$key.KeyUsage -ne 2 -or $key.AlgorithmGroup.ToString() -ne 'RSA') { exit 3 }",
-    "  $descriptor = $key.GetProperty('Security Descr', [System.Security.Cryptography.CngPropertyOptions]::None)",
-    "  $rawDescriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new($descriptor, 0)",
-    "  $sddl = $rawDescriptor.GetSddlForm([System.Security.AccessControl.AccessControlSections]::All)",
-    `  if ($sddl -ine '${expectedSddl}') { exit 4 }`,
+    "  $sddl = [OfficeKitCngPolicyAclReader]::Read($keyName)",
+    \`  if ($sddl -ine '\${expectedSddl}') { exit 4 }\`,
     "  $rsa = [System.Security.Cryptography.RSACng]::new($key)",
     "  $parameters = $rsa.ExportParameters($false)",
     "  $result = [ordered]@{ keyName = $key.KeyName; keySize = $key.KeySize; machineScope = $key.IsMachineKey; algorithmGroup = $key.AlgorithmGroup.ToString(); exportPolicy = [int]$key.ExportPolicy; keyUsage = [int]$key.KeyUsage; securityDescriptorSddl = $sddl; modulus = [Convert]::ToBase64String($parameters.Modulus); exponent = [Convert]::ToBase64String($parameters.Exponent) }",
