@@ -359,12 +359,17 @@ export function validateAvatarQualityVariant(root) {
     let previousEnd = 0;
     for (const group of ranges) {
       if (!Number.isInteger(group.start) || !Number.isInteger(group.count) || !Number.isInteger(group.materialIndex) ||
-          group.start < 0 || group.count < 0 || group.start + group.count > limit || group.count % 3 !== 0) {
+          group.start < 0 || group.count < 0 || group.start + group.count > limit ||
+          group.start % 3 !== 0 || group.count % 3 !== 0) {
         failures.push(mesh.name + ": grupo de material inválido.");
         break;
       }
       if (group.start < previousEnd) {
         failures.push(mesh.name + ": grupos de material sobrepostos.");
+        break;
+      }
+      if (group.start > previousEnd) {
+        failures.push(mesh.name + ": grupos de material deixam triângulos sem atribuição.");
         break;
       }
       previousEnd = group.start + group.count;
@@ -373,6 +378,9 @@ export function validateAvatarQualityVariant(root) {
         failures.push(mesh.name + ": índice de material inexistente.");
         break;
       }
+    }
+    if (ranges.length && previousEnd !== limit) {
+      failures.push(mesh.name + ": grupos de material não cobrem toda a geometria.");
     }
     for (const [name, attribute] of Object.entries(geometry.attributes)) {
       for (let vertex = 0; vertex < attribute.count; vertex += 1) {
