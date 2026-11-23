@@ -118,8 +118,13 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
     [...expectedPaths].sort()
   );
   for (const call of calls.slice(1)) {
+    const path = new URL(call.url).pathname;
     assert.equal(call.init.method, "GET");
-    assert.equal(call.init.headers["X-Token"], "vst-local-token-0123456789");
+    if (path === "/health") {
+      assert.equal(Object.hasOwn(call.init.headers, "X-Token"), false);
+    } else {
+      assert.equal(call.init.headers["X-Token"], "vst-local-token-0123456789");
+    }
     assert.equal(call.init.cache, "no-store");
     assert.equal(call.init.credentials, "omit");
     assert.equal(call.init.redirect, "error");
@@ -128,8 +133,13 @@ test("cockpit snapshot reads only the authenticated read-only VST route allowlis
   assert.equal(snapshot.authority.executionAuthorized, false);
   assert.equal(snapshot.authority.ordersSubmitted, false);
   assert.equal(snapshot.authority.riskBearingActionsAllowed, false);
+  assert.equal(snapshot.sections.health.state, "available");
+  assert.equal(snapshot.sections.health.access, "public");
   assert.equal(snapshot.sections.status.state, "available");
+  assert.equal(snapshot.sections.status.access, "private");
   assert.equal(snapshot.sections.status.data.ok, true);
+  assert.deepEqual(vstAdapterContract.publicPaths, ["/health"]);
+  assert.equal(vstAdapterContract.privatePaths.includes("/health"), false);
   assert.equal(snapshot.sections.research.state, "available");
   assert.equal(snapshot.sections.humanInteractionPending.state, "available");
   assert.deepEqual(adapter.capabilities, ["read_state", "assistant_message"]);
