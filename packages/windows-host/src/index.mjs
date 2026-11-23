@@ -53,7 +53,7 @@ function publisherPolicyKeyName(installationId) {
   if (typeof installationId !== "string" || !INSTALLATION_ID_PATTERN.test(installationId)) {
     throw new TypeError("publisher_policy_installation_id_invalid");
   }
-  return \`okp-\${createHash("sha256").update(installationId, "utf8").digest("hex").slice(0, 32)}\`;
+  return `okp-${createHash("sha256").update(installationId, "utf8").digest("hex").slice(0, 32)}`;
 }
 
 function assertExactKeys(value, expectedKeys, errorCode) {
