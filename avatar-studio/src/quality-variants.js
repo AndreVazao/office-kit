@@ -520,16 +520,48 @@ export function applyAvatarQualityVariant(root, profileId) {
 const AVATAR_TEXTURE_SLOTS = [
   "map", "alphaMap", "aoMap", "bumpMap", "displacementMap", "emissiveMap",
   "envMap", "lightMap", "metalnessMap", "normalMap", "roughnessMap",
-  "specularMap", "clearcoatMap", "clearcoatNormalMap", "clearcoatRoughnessMap"
+  "specularMap", "clearcoatMap", "clearcoatNormalMap", "clearcoatRoughnessMap",
+  "anisotropyMap", "gradientMap", "iridescenceMap", "iridescenceThicknessMap",
+  "matcap", "sheenColorMap", "sheenRoughnessMap", "specularColorMap",
+  "specularIntensityMap", "transmissionMap", "thicknessMap"
 ];
 
 function materialTextureAudit(material, maxSize) {
   const overBudget = [];
-  let textureCount = 0;
-  for (const slot of AVATAR_TEXTURE_SLOTS) {
-    const texture = material?.[slot];
-    if (!texture?.isTexture) continue;
-    textureCount += 1;
+  const textures = new Map();
+  const visited = new Set();
+  const registerTexture = (texture, slot) => {
+    if (!texture?.isTexture) return;
+    if (!textures.has(texture)) textures.set(texture, slot);
+  };
+
+  for (const slot of AVATAR_TEXTURE_SLOTS) registerTexture(material?.[slot], slot);
+
+  // Custom ShaderMaterial and RawShaderMaterial textures can live inside
+  // nested uniforms rather than on standard material map properties.
+  const inspectUniforms = (value, path, depth = 0) => {
+    if (!value || typeof value !== "object" || depth > 8) return;
+    if (value.isTexture) {
+      registerTexture(value, path);
+      return;
+    }
+    if (visited.has(value)) return;
+    visited.add(value);
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => inspectUniforms(entry?.value ?? entry, path + "[" + index + "]", depth + 1));
+      return;
+    }
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === "image" || key === "source" || key === "data" || key === "value" && entry?.isTexture) {
+        if (entry?.isTexture) registerTexture(entry, path + "." + key);
+        continue;
+      }
+      inspectUniforms(entry?.value ?? entry, path + "." + key, depth + 1);
+    }
+  };
+  inspectUniforms(material?.uniforms, "uniforms");
+
+  for (const [texture, slot] of textures) {
     const image = texture.image;
     const width = image?.naturalWidth || image?.videoWidth || image?.width || 0;
     const height = image?.naturalHeight || image?.videoHeight || image?.height || 0;
@@ -537,7 +569,7 @@ function materialTextureAudit(material, maxSize) {
       overBudget.push({ slot, width, height, maxSize });
     }
   }
-  return { textureCount, overBudget };
+  return { textureCount: textures.size, overBudget };
 }
 
 function materialClassKey(material, precision) {
