@@ -524,6 +524,7 @@ $("export-glb").addEventListener("click", () => {
       materialBudget: materialVariant.materialBudget,
       withinMaterialBudget: materialVariant.withinMaterialBudget,
       textureCount: materialVariant.textureCount,
+      resizedTextureCount: materialVariant.resizedTextureCount,
       textureMaxSize: materialVariant.textureMaxSize,
       withinTextureBudget: materialVariant.withinTextureBudget,
       materialPrecision: materialVariant.precision,
