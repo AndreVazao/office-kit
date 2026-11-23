@@ -827,7 +827,7 @@ const publisherPolicyTestKeyPair = generateKeyPairSync("rsa", {
   publicExponent: 65537
 });
 const publisherPolicyTestPublicSpki = publisherPolicyTestKeyPair.publicKey.export({ type: "spki", format: "der" });
-const publisherPolicyTestInstallationId = \`officekit-\${"a".repeat(32)}\`;
+const publisherPolicyTestInstallationId = `officekit-${"a".repeat(32)}`;
 const publisherPolicyTestBase = Object.freeze({
   edition: "universal",
   installationId: publisherPolicyTestInstallationId,
@@ -855,7 +855,7 @@ test("publisher policy v1 signs canonical installation-scoped payloads with RSA-
   });
   assert.equal(policy.schemaVersion, 1);
   assert.equal(policy.productId, "office-kit");
-  assert.equal(policy.keyName, \`okp-\${createHash("sha256").update(publisherPolicyTestInstallationId).digest("hex").slice(0, 32)}\`);
+  assert.equal(policy.keyName, `okp-${createHash("sha256").update(publisherPolicyTestInstallationId).digest("hex").slice(0, 32)}`);
   assert.equal(policy.signatureIndex, 0);
   assert.deepEqual(policy.revocationPolicy, {
     installUpdate: "online-chain-exclude-root-fail-closed",
@@ -891,7 +891,7 @@ test("publisher policy cannot be replayed across installation IDs or editions", 
   assert.throws(() => verifyPublisherPolicyEnvelope({
     envelope,
     publicKeySpki: publisherPolicyTestPublicSpki,
-    expectedInstallationId: \`officekit-\${"b".repeat(32)}\`,
+    expectedInstallationId: `officekit-${"b".repeat(32)}`,
     expectedEdition: "universal"
   }), /publisher_policy_installation_mismatch/);
   assert.throws(() => verifyPublisherPolicyEnvelope({
@@ -931,7 +931,7 @@ test("publisher policy rejects unsupported signatures, revocation modes and malf
   }), /publisher_policy_revocation_policy_invalid/);
 
   const duplicateKeyEnvelope = Buffer.from(
-    \`{"format":"officekit-publisher-policy-envelope-v1","format":"officekit-publisher-policy-envelope-v1","keyName":"\${outer.keyName}","payload":"\${outer.payload}","signature":"\${outer.signature}"}\`,
+    `{"format":"officekit-publisher-policy-envelope-v1","format":"officekit-publisher-policy-envelope-v1","keyName":"${outer.keyName}","payload":"${outer.payload}","signature":"${outer.signature}"}`,
     "utf8"
   );
   assert.throws(() => verifyPublisherPolicyEnvelope({
