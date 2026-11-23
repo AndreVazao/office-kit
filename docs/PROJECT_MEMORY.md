@@ -2,23 +2,29 @@
 
 Última atualização: 2026-11-23
 
-## Universal backend discovery contract — 2026-11-23
-- Main HEAD confirmado: `273f571284b239c600eb617763c441db61c9a715`; CI #45064940135 e regressão visual #45064940141 passaram nesse SHA.
-- PR #127 introduz o contrato neutro de descoberta no core genérico. O checkpoint de código `9eacf844aaa1ae272a832de6bf132882414db620` passou CI #45189472339 (Linux/Windows, Node 22/26.13.1) e visual #45189472356. A sincronização documental posterior exige nova validação no HEAD final da PR.
-- A primeira CI #45165638081 falhou nos quatro jobs porque `backend-discovery.mjs` não estava nas allowlists dos três pacotes; corrigido incluindo o módulo genérico em Universal, DGM-MAT e VST.
-- O contrato não faz I/O, pesquisa de rede, HTTP, autenticação, importação dinâmica ou ativação. Endpoints remotos exigem HTTPS; HTTP só é permitido para loopback.
-- Referências são identificadores opacos; evidência usa códigos enumerados; campos arbitrários de credenciais são recusados. Capacidades declaradas são claims não confiáveis, nunca permissões concedidas.
-- O modo inicial permanece read-only. `send_commands` pode ser descrito como claim do backend, mas não é concedido nem executado pela descoberta.
-- PR #127 permanece draft e não integrada; pesquisa real de fontes, probes com consentimento, catálogo vivo, UX de escolha e ativação continuam pendentes.
+## Checkpoint global — 2026-11-23
+- Main HEAD confirmado: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e`; a comparação `main...68bb09ea` é idêntica.
+- PR #127 (Universal backend discovery contract) está fechada como merged. HEAD final da PR: `21d91276fc7d8e0c1bf39294ea5adb5712e7d929`. CI #45191831553 e regressão visual #45191831480 passaram nesse SHA exato. O commit atual da main é `68bb09ea`.
+- A matriz CI passou em Linux e Windows com Node 22 e Node 26.13.1. Os jobs Windows executaram CNG, parser TPM e E2E dos bundles Universal, DGM-MAT e VST; os passos Windows foram corretamente ignorados nos jobs Linux.
+- O contrato de descoberta é genérico e puro: não executa rede, HTTP, autenticação, importação dinâmica, comandos ou ativação. Recusa URLs com credenciais/query/fragment, exige HTTPS remoto e permite HTTP apenas em loopback. Capacidades são claims não confiáveis; a descoberta não concede permissões.
+- A implementação atual é apenas o contrato/normalizador. Conectores reais de fontes, catálogo vivo, probes de leitura com consentimento e UX de seleção/ativação continuam pendentes.
+- PR #108 permanece aberta em Draft e isolada em `avatar-studio/`, HEAD `c2cbe300752c9d4949d5b5df395c1fdef03794bb`. CI #45166789646 e visual #45166789723 passaram nesse SHA. O harness de browser, inspeção visual dos GLB, stress de deformação e aceitação externa continuam pendentes; não promover a PR nem declarar o Avatar Studio pronto.
+- As PRs #118, #119, #120 e #122 integraram as fases 1, 2, 3 e 5a do cockpit VST. A Fase 4 continua bloqueada pela issue #121.
+- Lacuna VST ainda presente na main: `/health` está em `COCKPIT_ENDPOINTS`; o helper privado usado pelo adapter envia `X-Token` a todos os endpoints e um 401 marca `authenticationRejected`. PR #126 foi fechada sem merge; PR #125 também não foi integrada. A separação health público/autenticação privada continua pendente e deve ser corrigida antes de considerar o diagnóstico público correto.
+- VST permanece loopback-only em `http://127.0.0.1:8765`. Tailscale/remote continua desativado até cumprir a issue #124; não aceitar URLs remotos arbitrários nem enviar owner token por HTTP LAN.
+- PAPER controls continuam desativados. Não encaminhar start/pause/resume/stop através de `/assistant/message`; a issue #121 exige uma garantia PAPER-only atómica no backend.
+- Issues abertas de produção acompanhadas: #57, #58, #104, #109, #110, #121 e #124.
 
 ## VST cockpit integration — 2026-11-22
-- Main HEAD: `e864532170a7fbbe3a1255fe36ac9191b772a8c2`.
+- Main HEAD atual: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e` (inclui o contrato Universal de descoberta da PR #127).
 - PR #118 integrated authenticated read-only cockpit endpoints and memory-only VST session token.
 - PR #119 integrated the restricted authenticated `POST /assistant/message` bridge, backend request IDs, permission distinction and unknown-outcome reconciliation.
 - PR #120 integrated real research queue task normalization and department evidence availability. Task progress is shown only if supplied by VST; agent inventory remains explicitly unavailable.
 - Issue #121 blocks PAPER controls: the current VST API does not guarantee an atomic PAPER-only boundary for all start/pause/resume/stop operations. Office Kit must not invoke these routes or route controls through assistant messages.
 - PR #122 merged as `ee3540c05ccf3f00478b8f2c67f9133c1a80ab42` from final HEAD `48114a47a113bd53b75aa2a2c061d0362db1a0f2`; CI #45064563249 and visual regression #45064563221 passed. VST host diagnostics use the OfficeHealthRecoveryEngine; recovery reconnects only the local adapter and requires a fresh synchronized observer snapshot. It must not restart VST, renew credentials, write to backend or retry after authentication rejection.
-- VST backend, DGM-MAT, Universal and Avatar Studio are not modified by this integration. LAN/Tailscale and live E2E remain pending.
+- Public health/auth separation remains unimplemented on main: the current adapter sends the private session token to `/health` and treats its 401 as private authentication rejection. PR #126 was closed without merge; retain this as a security/diagnostic correction.
+- VST backend, DGM-MAT, Universal and Avatar Studio are not modified by the VST integration. LAN/Tailscale and live E2E remain pending.
+
 
 ## Produto e invariantes
 - Office Kit é genérico e backend-independent; não pode depender de Sovereign Trader, DGM-MAT, Vercel ou Tailscale no core.

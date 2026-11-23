@@ -544,3 +544,18 @@ This is evidence for same-host multi-process serialization on a local filesystem
 ## 2026-11-22 — Remove environment-controlled publisher pin from production startup
 
 A follow-up change removes `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` as an implicit input to `verifyAuthenticodeHelper` and removes the corresponding environment-variable prerequisite from the DGM-MAT/VST portable launcher. The default `createWindowsHost` verifier supplies no publisher identity, so it fails closed with `windows_host_publisher_policy_unavailable` before SQLite is opened. An explicit thumbprint remains available only to isolated tests of the PowerShell verifier. Test harnesses may still set the environment variable for their separate injected verifier; that value is not consumed by the production host. This does not yet implement installer-authenticated SHA-256 SPKI policy, signature-index binding or revocation policy. The change remains subject to Windows/Linux CI and visual regression on its final PR HEAD.
+
+## VST public health, private authentication and remote transport — 2026-11-23
+
+The current main adapter has a known public/private boundary gap. In `packages/scene-engine/src/vst-readonly-adapter.mjs`, `/health` is still included in `COCKPIT_ENDPOINTS`; the shared private `#get` path sends `X-Token` to every cockpit endpoint and treats HTTP 401 as `authenticationRejected`. The adapter tests currently assert that every cockpit GET, including `/health`, carries the private token. This does not match the VST backend contract where `GET /health` is public.
+
+Required target boundary:
+- `GET /health` is a public liveness/reachability probe. It must not receive `X-Token`, must not consult or mutate the private session-authentication state, and must never establish authenticated access or adapter compatibility.
+- `GET /observer/summary` remains the authenticated private observer check. A successful response with the expected envelope is required for a synchronized private session.
+- Other private cockpit routes continue to use the owner-approved in-memory session token and the backend's `read_private_state` scope.
+- A public health 401/403/5xx or timeout must be reported as a public-probe result only; it must not invalidate the private session. A private endpoint 401 may still reject that session.
+- PR #126 was closed without merge; PR #125 was also closed without merge. The separation is not implemented on main and remains a correction to make before claiming public/private health separation.
+
+PAPER control remains disabled. Issue #121 documents that the existing VST routes do not atomically guarantee PAPER mode for start/pause/resume/stop. The Office Kit must not expose these controls or route them through `/assistant/message` until the backend enforces the PAPER-only condition atomically, rejects REAL/UNKNOWN/SAFE_MODE states and returns authoritative post-operation state.
+
+Remote VST connectivity remains disabled; the adapter accepts only exact loopback `http://127.0.0.1:8765`. Issue #124 tracks a future private Tailscale Serve HTTPS path using a VST-issued paired-device token, server-side owner/device/scope/revocation checks and verified ingress identity. Do not trust client-supplied Tailscale identity headers, send owner tokens over raw LAN HTTP, allow arbitrary remote URLs or expose the VST listener publicly. Physical Windows-PC and Android E2E over the actual tailnet are required before remote readiness is claimed.
