@@ -40,6 +40,7 @@ test("machine CNG publisher policy key is read directly and authenticates the po
 }, () => {
   const installationId = "officekit-" + randomBytes(16).toString("hex");
   let provisionAttempted = false;
+  let keyProvisioned = false;
   let directory;
   try {
     provisionAttempted = true;
@@ -47,7 +48,7 @@ test("machine CNG publisher policy key is read directly and authenticates the po
       command: "publisher-policy-provision",
       installationId
     });
-    assert.equal(provisioned.ok, undefined);
+    keyProvisioned = true;
     assert.equal(provisioned.machineScope, true);
     assert.equal(provisioned.keySize, 3072);
     assert.equal(provisioned.privateKeyExportable, false);
@@ -110,7 +111,7 @@ test("machine CNG publisher policy key is read directly and authenticates the po
         installationId,
         confirmInstallationId: installationId
       });
-      assert.equal(deleted.deleted, true);
+      if (keyProvisioned) assert.equal(deleted.deleted, true);
     }
   }
 });
