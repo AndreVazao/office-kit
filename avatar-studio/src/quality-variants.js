@@ -13,6 +13,19 @@ function attributeValue(attribute, index, component) {
   return attribute.getComponent(index, component);
 }
 
+function normalizedAttributeValue(attribute, index, component) {
+  const value = attributeValue(attribute, index, component);
+  if (!attribute.normalized) return value;
+  const array = attribute.array;
+  if (array instanceof Uint8Array || array instanceof Uint8ClampedArray) return value / 255;
+  if (array instanceof Uint16Array) return value / 65535;
+  if (array instanceof Uint32Array) return value / 4294967295;
+  if (array instanceof Int8Array) return Math.max(value / 127, -1);
+  if (array instanceof Int16Array) return Math.max(value / 32767, -1);
+  if (array instanceof Int32Array) return Math.max(value / 2147483647, -1);
+  return value;
+}
+
 function makeClusteredGeometry(source, cellSize) {
   const position = source.getAttribute("position");
   if (!position) return source.clone();
@@ -51,14 +64,14 @@ function makeClusteredGeometry(source, cellSize) {
     const z = position.getZ(sourceVertex);
     // Quantize UVs at the same relative LOD scale: nearby points inside a UV
     // island can merge, while the 0/1 seam remains in a different bucket.
-    const uvKey = uv ? Math.round(uv.getX(sourceVertex) / uvCellSize) + ":" + Math.round(uv.getY(sourceVertex) / uvCellSize) : "";
-    const uv2Key = uv2 ? Math.round(uv2.getX(sourceVertex) / uvCellSize) + ":" + Math.round(uv2.getY(sourceVertex) / uvCellSize) : "";
+    const uvKey = uv ? Math.round(normalizedAttributeValue(uv, sourceVertex, 0) / uvCellSize) + ":" + Math.round(normalizedAttributeValue(uv, sourceVertex, 1) / uvCellSize) : "";
+    const uv2Key = uv2 ? Math.round(normalizedAttributeValue(uv2, sourceVertex, 0) / uvCellSize) + ":" + Math.round(normalizedAttributeValue(uv2, sourceVertex, 1) / uvCellSize) : "";
     const normalKey = normal ? [Math.round(normal.getX(sourceVertex) * 20), Math.round(normal.getY(sourceVertex) * 20), Math.round(normal.getZ(sourceVertex) * 20)].join(":") : "";
     const tangentKey = tangent
       ? [Math.round(tangent.getX(sourceVertex) * 20), Math.round(tangent.getY(sourceVertex) * 20), Math.round(tangent.getZ(sourceVertex) * 20), tangent.itemSize > 3 && tangent.getW(sourceVertex) < 0 ? -1 : 1].join(":")
       : "";
     const colorKey = color
-      ? Array.from({ length: color.itemSize }, (_, component) => Math.round(color.getComponent(sourceVertex, component) * 255)).join(":")
+      ? Array.from({ length: color.itemSize }, (_, component) => Math.round(normalizedAttributeValue(color, sourceVertex, component) * 255)).join(":")
       : "";
     const key = [
       materialIndex,
