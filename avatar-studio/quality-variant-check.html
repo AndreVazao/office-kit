@@ -35,6 +35,9 @@
       const segments = 128;
       const positions = [];
       const uvs = [];
+      const uv2s = [];
+      const colors = [];
+      const tangents = [];
       const indices = [];
       const skinIndices = [];
       const skinWeights = [];
@@ -45,6 +48,9 @@
           positions.push(x / segments, y / segments, z);
           morphPositions.push(x / segments, y / segments + Math.sin(x * 0.08) * 0.002, z);
           uvs.push(x / segments, y / segments);
+          uv2s.push(Math.round(x / segments * 65535), Math.round(y / segments * 65535));
+          colors.push(Math.round(180 + 75 * x / segments), Math.round(180 + 75 * y / segments), 210);
+          tangents.push(1, 0, 0, 1);
           skinIndices.push(0, 0, 0, 0);
           skinWeights.push(1, 0, 0, 0);
         }
@@ -61,6 +67,9 @@
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
       geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setAttribute("uv2", new THREE.Uint16BufferAttribute(uv2s, 2, true));
+      geometry.setAttribute("color", new THREE.Uint8BufferAttribute(colors, 3, true));
+      geometry.setAttribute("tangent", new THREE.Float32BufferAttribute(tangents, 4));
       geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(skinIndices, 4));
       geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(skinWeights, 4));
       geometry.morphAttributes.position = [new THREE.Float32BufferAttribute(morphPositions, 3)];
@@ -100,7 +109,9 @@
             const skinWeight = fixture.mesh.geometry.getAttribute("skinWeight");
             const groups = fixture.mesh.geometry.groups.length;
             const morph = fixture.mesh.geometry.morphAttributes.position?.[0];
-            passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && morph?.count === fixture.mesh.geometry.getAttribute("position").count && variant.withinTriangleBudget);
+            const positionCount = fixture.mesh.geometry.getAttribute("position").count;
+            const extraAttributesValid = ["uv2", "color", "tangent"].every((name) => fixture.mesh.geometry.getAttribute(name)?.count === positionCount);
+            passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && extraAttributesValid && morph?.count === positionCount && variant.withinTriangleBudget);
             lines.push({
               profile: profileId,
               sourceTriangles: variant.sourceTriangles,
@@ -110,6 +121,7 @@
               skinnedMeshesValidated: variant.validation.skinnedMeshes,
               materialGroups: groups,
               morphVertices: morph?.count || 0,
+              extraAttributesValid,
               result: passed ? "PASS" : "FAIL"
             });
           } finally {
