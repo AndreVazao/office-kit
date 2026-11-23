@@ -304,6 +304,57 @@
         sourceTexture.dispose();
         if (!resizePassed || !restoredTexture) throw new Error("A redução de textura não preservou a origem ou não restaurou o material.");
 
+        const multiShaderRoot = new THREE.Group();
+        const makeSourceTexture = (width, height, colour) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d");
+          context.fillStyle = colour;
+          context.fillRect(0, 0, width, height);
+          return { canvas, texture: new THREE.CanvasTexture(canvas) };
+        };
+        const shaderSourceA = makeSourceTexture(1024, 256, "#2468ac");
+        const shaderSourceB = makeSourceTexture(1024, 1024, "#ac6824");
+        const multiShaderMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            uAvatarTextureA: { value: shaderSourceA.texture },
+            uAvatarTextureB: { value: shaderSourceB.texture }
+          },
+          vertexShader: "void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+          fragmentShader: "uniform sampler2D uAvatarTextureA; uniform sampler2D uAvatarTextureB; void main(){ vec4 a = texture2D(uAvatarTextureA, vec2(0.5)); vec4 b = texture2D(uAvatarTextureB, vec2(0.5)); gl_FragColor = mix(a, b, 0.5); }"
+        });
+        const multiShaderMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), multiShaderMaterial);
+        multiShaderRoot.add(multiShaderMesh);
+        const multiShaderVariant = applyAvatarMaterialVariant(multiShaderRoot, "low");
+        const resizedShaderA = multiShaderMesh.material.uniforms.uAvatarTextureA.value;
+        const resizedShaderB = multiShaderMesh.material.uniforms.uAvatarTextureB.value;
+        const multiShaderPassed = multiShaderVariant.withinTextureBudget &&
+          multiShaderVariant.resizedTextureCount === 2 &&
+          resizedShaderA !== shaderSourceA.texture &&
+          resizedShaderB !== shaderSourceB.texture &&
+          resizedShaderA.image.width === 512 && resizedShaderA.image.height === 128 &&
+          resizedShaderB.image.width === 512 && resizedShaderB.image.height === 512 &&
+          shaderSourceA.texture.image === shaderSourceA.canvas &&
+          shaderSourceB.texture.image === shaderSourceB.canvas;
+        lines.push({
+          multipleShaderTexturesResized: multiShaderPassed,
+          resizedTextureCount: multiShaderVariant.resizedTextureCount,
+          firstOutput: resizedShaderA.image.width + "x" + resizedShaderA.image.height,
+          secondOutput: resizedShaderB.image.width + "x" + resizedShaderB.image.height,
+          originalsPreserved: shaderSourceA.texture.image === shaderSourceA.canvas && shaderSourceB.texture.image === shaderSourceB.canvas,
+          result: multiShaderPassed ? "PASS" : "FAIL"
+        });
+        multiShaderVariant.restore();
+        const multiShaderRestored =
+          multiShaderMesh.material.uniforms.uAvatarTextureA.value === shaderSourceA.texture &&
+          multiShaderMesh.material.uniforms.uAvatarTextureB.value === shaderSourceB.texture;
+        multiShaderMesh.geometry.dispose();
+        multiShaderMaterial.dispose();
+        shaderSourceA.texture.dispose();
+        shaderSourceB.texture.dispose();
+        if (!multiShaderPassed || !multiShaderRestored) throw new Error("O shader com várias texturas não preservou as origens ou não restaurou os uniforms.");
+
         output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
