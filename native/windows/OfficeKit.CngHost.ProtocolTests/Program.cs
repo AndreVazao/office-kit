@@ -61,8 +61,8 @@ internal static class Program
         AssertRejected(duplicate, "tpm_command_code_duplicate");
 
         Assert(!CngAlgorithmGroupPolicy.IsRsa(null), "null CNG algorithm group is rejected");
-        Assert(CngAlgorithmGroupPolicy.IsRsa(CngAlgorithmGroup.Rsa), "RSA CNG algorithm group is accepted");
-        Assert(!CngAlgorithmGroupPolicy.IsRsa(new CngAlgorithmGroup("ECDH")), "non-RSA CNG algorithm group is rejected");
+        Assert(CngAlgorithmGroupPolicy.IsRsa("RSA"), "RSA CNG algorithm group is accepted");
+        Assert(!CngAlgorithmGroupPolicy.IsRsa("ECDH"), "non-RSA CNG algorithm group is rejected");
 
         Console.WriteLine($"TPM capability response parser passed {_assertions} assertions.");
         return 0;
