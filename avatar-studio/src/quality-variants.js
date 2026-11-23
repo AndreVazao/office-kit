@@ -275,7 +275,10 @@ function allocateTriangleBudgets(meshes, totalBudget) {
 
   fractions.sort((a, b) => b.fraction - a.fraction);
   while (assigned < distributable) {
-    const candidate = fractions.find((entry) => allocations[entry.index] < active.find((mesh) => mesh.index === entry.index).triangles);
+    const candidate = fractions.find((entry) =>
+      entry.fraction >= 0 &&
+      allocations[entry.index] < active.find((mesh) => mesh.index === entry.index).triangles
+    );
     if (!candidate) break;
     allocations[candidate.index] += 1;
     assigned += 1;
