@@ -26,7 +26,7 @@
   <script type="module">
     import * as THREE from "three";
     import { AVATAR_QUALITY_ORDER } from "./src/quality-profiles.js";
-    import { applyAvatarQualityVariant } from "./src/quality-variants.js";
+    import { applyAvatarMaterialVariant, applyAvatarQualityVariant } from "./src/quality-variants.js";
 
     const output = document.querySelector("#output");
     const button = document.querySelector("#run");
@@ -146,7 +146,51 @@
           throw new Error("A validação não rejeitou o material inválido ou não restaurou a geometria original.");
         }
         fixture.originalGeometry.dispose();
-        output.textContent = "PASS — perfis, orçamentos, atributos e rollback concluídos\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+
+        const materialRoot = new THREE.Group();
+        const materialGeometryA = new THREE.BoxGeometry(1, 1, 1);
+        const materialGeometryB = new THREE.BoxGeometry(1, 1, 1);
+        const originalMaterialA = new THREE.MeshStandardMaterial({ color: 0xd04444, roughness: 0.72, metalness: 0 });
+        const originalMaterialB = new THREE.MeshStandardMaterial({ color: 0x4477d0, roughness: 0.72, metalness: 0 });
+        const materialMeshA = new THREE.Mesh(materialGeometryA, originalMaterialA);
+        const materialMeshB = new THREE.Mesh(materialGeometryB, originalMaterialB);
+        materialMeshA.position.x = -0.75;
+        materialMeshB.position.x = 0.75;
+        materialRoot.add(materialMeshA, materialMeshB);
+        for (const profileId of AVATAR_QUALITY_ORDER) {
+          const geometryVariant = applyAvatarQualityVariant(materialRoot, profileId);
+          let materialVariant = null;
+          let materialPassed = false;
+          try {
+            materialVariant = applyAvatarMaterialVariant(materialRoot, profileId);
+            const colorsA = materialMeshA.geometry.getAttribute("color");
+            const colorsB = materialMeshB.geometry.getAttribute("color");
+            materialPassed = materialVariant.withinMaterialBudget &&
+              materialVariant.withinTextureBudget &&
+              materialVariant.materialCount <= materialVariant.materialBudget &&
+              (profileId === "ultra" || (materialMeshA.material === materialMeshB.material && colorsA?.count === materialMeshA.geometry.getAttribute("position").count && colorsB?.count === materialMeshB.geometry.getAttribute("position").count));
+            lines.push({
+              materialProfile: profileId,
+              sourceMaterials: materialVariant.sourceMaterialCount,
+              outputMaterials: materialVariant.materialCount,
+              materialBudget: materialVariant.materialBudget,
+              convertedMeshes: materialVariant.convertedMeshCount,
+              result: materialPassed ? "PASS" : "FAIL"
+            });
+          } finally {
+            materialVariant?.restore();
+            geometryVariant.restore();
+          }
+          if (!materialPassed || materialMeshA.geometry !== materialGeometryA || materialMeshB.geometry !== materialGeometryB ||
+              materialMeshA.material !== originalMaterialA || materialMeshB.material !== originalMaterialB) {
+            throw new Error("O perfil " + profileId + " falhou na consolidação/restauração de materiais.");
+          }
+        }
+        materialGeometryA.dispose();
+        materialGeometryB.dispose();
+        originalMaterialA.dispose();
+        originalMaterialB.dispose();
+        output.textContent = "PASS — geometria, materiais, orçamentos e rollback concluídos\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
         console.error(error);
