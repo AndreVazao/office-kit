@@ -130,8 +130,23 @@
           if (fixture.mesh.geometry !== fixture.originalGeometry) throw new Error("A geometria original não foi restaurada.");
           if (!passed) throw new Error("O perfil " + profileId + " falhou nos invariantes ou no orçamento de triângulos.");
         }
+        const originalMaterialIndex = fixture.originalGeometry.groups[0].materialIndex;
+        fixture.originalGeometry.groups[0].materialIndex = 99;
+        let rollbackRejected = false;
+        let invalidVariant = null;
+        try {
+          invalidVariant = applyAvatarQualityVariant(fixture.root, "high");
+        } catch {
+          rollbackRejected = true;
+        } finally {
+          invalidVariant?.restore();
+          fixture.originalGeometry.groups[0].materialIndex = originalMaterialIndex;
+        }
+        if (!rollbackRejected || fixture.mesh.geometry !== fixture.originalGeometry) {
+          throw new Error("A validação não rejeitou o material inválido ou não restaurou a geometria original.");
+        }
         fixture.originalGeometry.dispose();
-        output.textContent = "PASS — validação estrutural e orçamentos concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\\n");
+        output.textContent = "PASS — perfis, orçamentos, atributos e rollback concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\\n");
         console.error(error);
