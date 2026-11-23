@@ -17,6 +17,10 @@ const COCKPIT_ENDPOINTS = Object.freeze({
   humanInteractionPending: "/human-interaction/pending"
 });
 const ALLOWED_PATHS = new Set(["/observer/summary", ...Object.values(COCKPIT_ENDPOINTS)]);
+const PUBLIC_PATHS = Object.freeze(["/health"]);
+const PRIVATE_PATHS = Object.freeze([...ALLOWED_PATHS].filter(path => !PUBLIC_PATHS.includes(path)));
+const PUBLIC_PATH_SET = new Set(PUBLIC_PATHS);
+const PRIVATE_PATH_SET = new Set(PRIVATE_PATHS);
 const ASSISTANT_PATH = "/assistant/message";
 const ASSISTANT_DEPARTMENTS = new Set([
   "brain", "markets", "radar", "research", "paper", "risk", "recovery", "audit", "human"
@@ -677,26 +681,34 @@ export class VstReadOnlyAdapter {
   }
 
   async #get(path, { signal } = {}) {
-    if (!ALLOWED_PATHS.has(path)) throw new Error("vst_route_not_allowlisted");
+    const isPublicPath = PUBLIC_PATH_SET.has(path);
+    const requiresPrivateScope = PRIVATE_PATH_SET.has(path);
+    if (!ALLOWED_PATHS.has(path) || (!isPublicPath && !requiresPrivateScope)) {
+      throw new Error("vst_route_not_allowlisted");
+    }
     return runWithDeadline(async signal => {
-      let token;
-      try {
-        token = await this.getAccessToken({ signal });
-      } catch (error) {
+      let token = null;
+      if (requiresPrivateScope) {
+        try {
+          token = await this.getAccessToken({ signal });
+        } catch (error) {
+          if (signal.aborted) throw new Error("vst_request_timeout");
+          throw new Error(safeErrorCode(error, "vst_token_provider_failed"));
+        }
         if (signal.aborted) throw new Error("vst_request_timeout");
-        throw new Error(safeErrorCode(error, "vst_token_provider_failed"));
-      }
-      if (signal.aborted) throw new Error("vst_request_timeout");
-      if (typeof token !== "string" || token.length < 16 || token.length > 8_192
-        || token.trim() !== token || /\s/.test(token)) {
-        throw new Error("vst_local_token_unavailable");
+        if (typeof token !== "string" || token.length < 16 || token.length > 8_192
+          || token.trim() !== token || /\\s/.test(token)) {
+          throw new Error("vst_local_token_unavailable");
+        }
       }
 
       let response;
       try {
         response = await this.fetchImpl(this.baseUrl + path, {
           method: "GET",
-          headers: { "X-Token": token, Accept: "application/json" },
+          headers: requiresPrivateScope
+            ? { "X-Token": token, Accept: "application/json" }
+            : { Accept: "application/json" },
           cache: "no-store",
           credentials: "omit",
           redirect: "error",
@@ -713,13 +725,12 @@ export class VstReadOnlyAdapter {
       if (!response || !response.ok) {
         const status = Number.isInteger(response?.status) && response.status >= 0 && response.status <= 599
           ? response.status : 0;
-        if (status === 401) {
+        if (status === 401 && requiresPrivateScope) {
           this.authenticationRejected = true;
           throw new Error("vst_auth_rejected");
         }
         throw new Error("vst_http_" + status);
       }
-
       const contentType = response.headers?.get?.("content-type") ?? "";
       if (!contentType.toLowerCase().includes("application/json")) {
         throw new Error("vst_invalid_content_type");
@@ -933,6 +944,7 @@ export class VstReadOnlyAdapter {
           const sanitizedData = sanitizeCockpitPayload(data, "", 0, { nodes: 0 }, key);
           sections[index] = Object.freeze({
             state: "available",
+            access: PUBLIC_PATH_SET.has(path) ? "public" : "private",
             path,
             receivedAt: new Date(this.now()).toISOString(),
             data: sanitizedData
@@ -941,6 +953,7 @@ export class VstReadOnlyAdapter {
           if (this.authenticationRejected || controller.signal.aborted) throw error;
           sections[index] = Object.freeze({
             state: "unavailable",
+            access: PUBLIC_PATH_SET.has(path) ? "public" : "private",
             path,
             receivedAt: new Date(this.now()).toISOString(),
             error: safeErrorCode(error, "vst_endpoint_unavailable")
@@ -1075,6 +1088,8 @@ export const vstAdapterContract = Object.freeze({
   assistantMessagePaperControlsBlocked: true,
   assistantMessageAutomaticRetry: false,
   allowedPaths: Object.freeze([...ALLOWED_PATHS]),
+  publicPaths: PUBLIC_PATHS,
+  privatePaths: PRIVATE_PATHS,
   cockpitReadPaths: Object.freeze(Object.values(COCKPIT_ENDPOINTS)),
   authenticationHeader: "X-Token",
   requiredScope: "read_private_state",
