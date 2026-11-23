@@ -289,7 +289,7 @@ internal static class PublisherPolicyKey
     [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int NCryptOpenStorageProvider(out IntPtr providerHandle, string providerName, int flags);
 
-    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int NCryptCreatePersistedKey(
         IntPtr providerHandle,
         out IntPtr keyHandle,
@@ -299,7 +299,7 @@ internal static class PublisherPolicyKey
         int flags
     );
 
-    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int NCryptSetProperty(
         IntPtr objectHandle,
         string propertyName,
@@ -308,7 +308,7 @@ internal static class PublisherPolicyKey
         int flags
     );
 
-    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
+    [DllImport("ncrypt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int NCryptGetProperty(
         IntPtr objectHandle,
         string propertyName,
@@ -318,13 +318,13 @@ internal static class PublisherPolicyKey
         int flags
     );
 
-    [DllImport("ncrypt.dll")]
+    [DllImport("ncrypt.dll", ExactSpelling = true)]
     private static extern int NCryptFinalizeKey(IntPtr keyHandle, int flags);
 
-    [DllImport("ncrypt.dll")]
+    [DllImport("ncrypt.dll", ExactSpelling = true)]
     private static extern int NCryptDeleteKey(IntPtr keyHandle, int flags);
 
-    [DllImport("ncrypt.dll")]
+    [DllImport("ncrypt.dll", ExactSpelling = true)]
     private static extern int NCryptFreeObject(IntPtr objectHandle);
 
     [DllImport("advapi32.dll", EntryPoint = "ConvertStringSecurityDescriptorToSecurityDescriptorW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
