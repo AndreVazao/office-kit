@@ -2,7 +2,8 @@
 
 ## Current integration status — 2026-11-22
 
-- **Main HEAD:** `ee3540c05ccf3f00478b8f2c67f9133c1a80ab42` (PR #122 squash merge).
+- **Main HEAD:** `273f571284b239c600eb617763c441db61c9a715` (documentação da integração VST Phase 5a após PR #122; CI #45064940135 e visual #45064940141 passaram neste SHA).
+- **Universal backend discovery — PR #127:** draft, não integrada. O checkpoint de código `9eacf844aaa1ae272a832de6bf132882414db620` passou CI #45189472339 em Linux/Windows Node 22/26.13.1 e visual #45189472356. O módulo neutro foi acrescentado às allowlists Universal/DGM-MAT/VST; a CI anterior #45165638081 tinha detetado essa omissão. O contrato não executa rede/I/O, recusa credenciais e endpoints remotos HTTP, trata evidência como códigos enumerados e não concede capacidades. A sincronização documental desta PR exige nova CI/visual no HEAD final antes de merge.
 - **PR #117:** merged as `5ed0d6746d85414203d496d82cfff4c8ed12ed68` from final HEAD `c3eb712e4db502cc5bc0e46ca521e179aae69a45`. CI #45026524512 passed Linux/Windows Node 22/26.13.1; visual regression #45026524556 passed.
 - **PR #118:** merged as `c71a17728f0b2b35ac0fee5c96cc86575ce459cb` from final HEAD `57249326152a1c75454ba80f3ac683424d4501e0`. CI #45038656493 passed Linux/Windows Node 22/26.13.1; visual regression #45038656428 passed.
 - **PR #116:** merged as `540d7e3d4cec6ffe5df63587951c3c0b1d84a158`; environment-controlled publisher pin removed. Windows host remains fail-closed before SQLite until issue #110's authenticated installer policy exists.
