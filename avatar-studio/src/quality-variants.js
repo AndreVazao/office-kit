@@ -456,12 +456,13 @@ export function applyAvatarQualityVariant(root, profileId) {
   let optimizedTriangles = 0;
   let optimizedVertices = 0;
   let validation = null;
+  const meshReports = [];
 
   try {
-    for (const mesh of meshes) {
+    meshes.forEach((mesh, meshIndex) => {
       const original = mesh.geometry;
       const meshTriangles = geometryTriangles(original);
-      const meshTarget = meshBudgets[meshes.indexOf(mesh)];
+      const meshTarget = meshBudgets[meshIndex];
       const optimized = profileId === "ultra" ? original.clone() : simplifyToBudget(original, meshTarget);
       if (mesh.isSkinnedMesh && (!optimized.getAttribute("skinIndex") || !optimized.getAttribute("skinWeight"))) {
         optimized.dispose();
@@ -469,10 +470,18 @@ export function applyAvatarQualityVariant(root, profileId) {
       }
       originals.push({ mesh, geometry: original });
       mesh.geometry = optimized;
-      optimizedTriangles += geometryTriangles(optimized);
+      const outputTriangles = geometryTriangles(optimized);
+      optimizedTriangles += outputTriangles;
       optimizedVertices += optimized.getAttribute("position")?.count || 0;
+      meshReports.push({
+        name: mesh.name || "unnamed",
+        sourceTriangles: meshTriangles,
+        targetTriangles: meshTarget,
+        outputTriangles,
+        withinBudget: outputTriangles <= meshTarget
+      });
       if (mesh.isSkinnedMesh) optimized.normalizeSkinWeights();
-    }
+    });
     validation = validateAvatarQualityVariant(root);
   } catch (error) {
     for (const { mesh, geometry } of originals) {
@@ -491,6 +500,7 @@ export function applyAvatarQualityVariant(root, profileId) {
     triangleBudget: profile.triangleBudget,
     withinTriangleBudget: optimizedTriangles <= profile.triangleBudget,
     meshCount: meshes.length,
+    meshReports,
     validation,
     restore() {
       if (restored) return;
