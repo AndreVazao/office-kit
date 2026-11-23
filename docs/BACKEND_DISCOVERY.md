@@ -57,11 +57,14 @@ Começar com fontes explícitas e determinísticas. Pesquisa documental, catálo
 O módulo `packages/scene-engine/src/backend-discovery.mjs` normaliza candidatos provenientes de fontes explicitamente selecionadas e combina resultados de validação independentes. Não executa pesquisa de rede, pedidos HTTP, importação dinâmica, autenticação nem ativação.
 
 - Fontes permitidas são enumeradas; um tipo de fonte arbitrário (por exemplo, varrimento genérico) é recusado.
-- URLs rejeitam credenciais embutidas, query strings e fragments para reduzir fugas de segredos.
-- Capacidades são limitadas a um vocabulário neutro e desconhecidas são recusadas.
+- URLs rejeitam credenciais embutidas, query strings e fragments; HTTP só é aceite para loopback e endpoints remotos exigem HTTPS. WebSocket não faz parte deste contrato v1.
+- `sourceReference` é um identificador opaco e `evidence` usa códigos enumerados; campos arbitrários de credenciais são recusados.
+- Capacidades são limitadas a um vocabulário neutro e desconhecidas são recusadas. São declarações não confiáveis, nunca permissões concedidas.
 - Reachability, autenticação, compatibilidade do adaptador e snapshot são verificações independentes.
 - Um endpoint público de health pode provar apenas reachability; nunca prova autenticação nem compatibilidade.
 - O estado `validated` só é atribuído quando as quatro verificações passam.
 - Descoberta não executa comandos, não guarda credenciais e não ativa uma ligação.
+- O modo inicial do adaptador permanece `read-only`; `send_commands`, quando declarado pelo backend, não é autorização nem capacidade concedida.
+- Resultados de validação inválidos, timeouts, falhas de reachability, autenticação e snapshot permanecem estados distintos.
 
 O módulo é uma base de dados/contrato puro. Os conectores reais de fontes, probes consentidos e a interface de escolha humana serão incrementos separados.
