@@ -15,7 +15,6 @@ function getSystemPowerShellSignerCertificate(filePath) {
   const escapedPath = filePath.replace(/'/g, "''");
   const script = [
     "$ErrorActionPreference = 'Stop'",
-    "Import-Module Microsoft.PowerShell.Security -ErrorAction Stop",
     "$signature = Get-AuthenticodeSignature -LiteralPath '" + escapedPath + "'",
     "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 3 }",
     "[Console]::Out.Write([Convert]::ToBase64String($signature.SignerCertificate.RawData))"
