@@ -15,6 +15,7 @@ function getSystemPowerShellSignerCertificate(filePath) {
   const escapedPath = filePath.replace(/'/g, "''");
   const script = [
     "$ErrorActionPreference = 'Stop'",
+    "Import-Module Microsoft.PowerShell.Security -ErrorAction Stop",
     "$signature = Get-AuthenticodeSignature -LiteralPath '" + escapedPath + "'",
     "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 3 }",
     "[Console]::Out.Write([Convert]::ToBase64String($signature.SignerCertificate.RawData))"
@@ -24,7 +25,7 @@ function getSystemPowerShellSignerCertificate(filePath) {
     "-NoProfile",
     "-NonInteractive",
     "-ExecutionPolicy",
-    "AllSigned",
+    "Bypass",
     "-Command",
     script
   ], {
@@ -35,7 +36,7 @@ function getSystemPowerShellSignerCertificate(filePath) {
     maxBuffer: 1024 * 1024
   });
   if (result.error || result.status !== 0) {
-    throw new Error("test_system_signer_certificate_unavailable");
+    throw new Error("test_system_signer_certificate_unavailable:" + (result.error?.code ?? result.status ?? "unknown") + ":" + String(result.stderr ?? "").replace(/[\\r\\n\\t]+/g, " ").slice(0, 240));
   }
   return Buffer.from(String(result.stdout ?? "").trim(), "base64");
 }
