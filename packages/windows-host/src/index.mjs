@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { constants, createHash, createHmac, createPublicKey, randomBytes, randomUUID, verify as verifySignature } from "node:crypto";
 import {
   closeSync,
   fsyncSync,
@@ -30,6 +30,244 @@ import { SqliteMonotonicCheckpointCoordinator } from "../../scene-engine/src/sql
 import { MonotonicIncidentWriter } from "../../scene-engine/src/monotonic-incident-writer.mjs";
 
 const INSTALLATION_ID_PATTERN = /^officekit-[a-f0-9]{32}$/;
+
+const PUBLISHER_POLICY_FORMAT = "officekit-publisher-policy-envelope-v1";
+const PUBLISHER_POLICY_EDITION_SET = new Set(["universal", "dgmat", "vst"]);
+const PUBLISHER_POLICY_INSTALL_REVOCATION = "online-chain-exclude-root-fail-closed";
+const PUBLISHER_POLICY_RUNTIME_REVOCATION = "cache-only-chain-exclude-root-fail-closed";
+const PUBLISHER_POLICY_PAYLOAD_KEYS = [
+  "schemaVersion",
+  "productId",
+  "edition",
+  "installationId",
+  "keyName",
+  "policyVersion",
+  "createdAt",
+  "publisherSpkiSha256",
+  "signatureIndex",
+  "revocationPolicy"
+];
+const PUBLISHER_POLICY_ENVELOPE_KEYS = ["format", "keyName", "payload", "signature"];
+
+function publisherPolicyKeyName(installationId) {
+  if (typeof installationId !== "string" || !INSTALLATION_ID_PATTERN.test(installationId)) {
+    throw new TypeError("publisher_policy_installation_id_invalid");
+  }
+  return `okp-${createHash("sha256").update(installationId, "utf8").digest("hex").slice(0, 32)}`;
+}
+
+function assertExactKeys(value, expectedKeys, errorCode) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError(errorCode);
+  }
+  const actual = Object.keys(value);
+  if (actual.length !== expectedKeys.length || expectedKeys.some(key => !Object.hasOwn(value, key))) {
+    throw new TypeError(errorCode);
+  }
+}
+
+function toPolicyBytes(value, errorCode, maxBytes) {
+  if (!Buffer.isBuffer(value) && !(value instanceof Uint8Array) && typeof value !== "string") {
+    throw new TypeError(errorCode);
+  }
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  if (bytes.length < 1 || bytes.length > maxBytes) throw new RangeError(errorCode);
+  return bytes;
+}
+
+function decodeCanonicalBase64(value, errorCode, maxBytes) {
+  if (typeof value !== "string" || value.length === 0 || value.length > Math.ceil(maxBytes * 4 / 3) + 8) {
+    throw new TypeError(errorCode);
+  }
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+    throw new TypeError(errorCode);
+  }
+  const bytes = Buffer.from(value, "base64");
+  if (bytes.length < 1 || bytes.length > maxBytes || bytes.toString("base64") !== value) {
+    throw new TypeError(errorCode);
+  }
+  return bytes;
+}
+
+function validatePublisherPolicyFields(policy) {
+  assertExactKeys(policy, PUBLISHER_POLICY_PAYLOAD_KEYS, "publisher_policy_payload_schema_invalid");
+  if (policy.schemaVersion !== 1 || policy.productId !== "office-kit") {
+    throw new TypeError("publisher_policy_payload_version_invalid");
+  }
+  if (!PUBLISHER_POLICY_EDITION_SET.has(policy.edition)) {
+    throw new TypeError("publisher_policy_edition_invalid");
+  }
+  if (typeof policy.installationId !== "string" || !INSTALLATION_ID_PATTERN.test(policy.installationId)) {
+    throw new TypeError("publisher_policy_installation_id_invalid");
+  }
+  if (policy.keyName !== publisherPolicyKeyName(policy.installationId)) {
+    throw new TypeError("publisher_policy_key_name_invalid");
+  }
+  if (!Number.isSafeInteger(policy.policyVersion) || policy.policyVersion < 1) {
+    throw new TypeError("publisher_policy_version_invalid");
+  }
+  if (typeof policy.createdAt !== "string") {
+    throw new TypeError("publisher_policy_created_at_invalid");
+  }
+  const createdAt = new Date(policy.createdAt);
+  if (!Number.isFinite(createdAt.getTime()) || createdAt.toISOString() !== policy.createdAt) {
+    throw new TypeError("publisher_policy_created_at_invalid");
+  }
+  if (typeof policy.publisherSpkiSha256 !== "string" || !/^[0-9a-f]{64}$/.test(policy.publisherSpkiSha256)) {
+    throw new TypeError("publisher_policy_publisher_spki_invalid");
+  }
+  if (policy.signatureIndex !== 0) {
+    throw new TypeError("publisher_policy_signature_index_unsupported");
+  }
+  assertExactKeys(policy.revocationPolicy, ["installUpdate", "runtimeStartup"], "publisher_policy_revocation_schema_invalid");
+  if (policy.revocationPolicy.installUpdate !== PUBLISHER_POLICY_INSTALL_REVOCATION
+      || policy.revocationPolicy.runtimeStartup !== PUBLISHER_POLICY_RUNTIME_REVOCATION) {
+    throw new TypeError("publisher_policy_revocation_policy_invalid");
+  }
+  return policy;
+}
+
+function parseCanonicalPublisherPolicyPayload(payloadBytes) {
+  const bytes = toPolicyBytes(payloadBytes, "publisher_policy_payload_size_invalid", 65536);
+  const text = bytes.toString("utf8");
+  if (!Buffer.from(text, "utf8").equals(bytes)) throw new TypeError("publisher_policy_payload_encoding_invalid");
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new TypeError("publisher_policy_payload_json_invalid");
+  }
+  validatePublisherPolicyFields(parsed);
+
+  const canonical = {
+    schemaVersion: parsed.schemaVersion,
+    productId: parsed.productId,
+    edition: parsed.edition,
+    installationId: parsed.installationId,
+    keyName: parsed.keyName,
+    policyVersion: parsed.policyVersion,
+    createdAt: parsed.createdAt,
+    publisherSpkiSha256: parsed.publisherSpkiSha256,
+    signatureIndex: parsed.signatureIndex,
+    revocationPolicy: {
+      installUpdate: parsed.revocationPolicy.installUpdate,
+      runtimeStartup: parsed.revocationPolicy.runtimeStartup
+    }
+  };
+  if (JSON.stringify(canonical) !== text) throw new TypeError("publisher_policy_payload_noncanonical");
+  return Object.freeze({
+    ...canonical,
+    revocationPolicy: Object.freeze(canonical.revocationPolicy)
+  });
+}
+
+export function createPublisherPolicyPayload(input) {
+  assertExactKeys(input, ["edition", "installationId", "policyVersion", "createdAt", "publisherSpkiSha256"],
+    "publisher_policy_input_schema_invalid");
+  const installationId = input.installationId;
+  const policy = {
+    schemaVersion: 1,
+    productId: "office-kit",
+    edition: input.edition,
+    installationId,
+    keyName: publisherPolicyKeyName(installationId),
+    policyVersion: input.policyVersion,
+    createdAt: input.createdAt,
+    publisherSpkiSha256: typeof input.publisherSpkiSha256 === "string"
+      ? input.publisherSpkiSha256.toLowerCase()
+      : input.publisherSpkiSha256,
+    signatureIndex: 0,
+    revocationPolicy: {
+      installUpdate: PUBLISHER_POLICY_INSTALL_REVOCATION,
+      runtimeStartup: PUBLISHER_POLICY_RUNTIME_REVOCATION
+    }
+  };
+  validatePublisherPolicyFields(policy);
+  return Buffer.from(JSON.stringify(policy), "utf8");
+}
+
+export function createPublisherPolicyEnvelope({ payload, signature } = {}) {
+  const payloadBytes = toPolicyBytes(payload, "publisher_policy_payload_size_invalid", 65536);
+  const policy = parseCanonicalPublisherPolicyPayload(payloadBytes);
+  const signatureBytes = toPolicyBytes(signature, "publisher_policy_signature_invalid", 1024);
+  if (signatureBytes.length !== 384) throw new TypeError("publisher_policy_signature_size_invalid");
+  const envelope = {
+    format: PUBLISHER_POLICY_FORMAT,
+    keyName: policy.keyName,
+    payload: payloadBytes.toString("base64"),
+    signature: signatureBytes.toString("base64")
+  };
+  return Buffer.from(JSON.stringify(envelope), "utf8");
+}
+
+export function verifyPublisherPolicyEnvelope({
+  envelope,
+  publicKeySpki,
+  expectedInstallationId,
+  expectedEdition
+} = {}) {
+  const envelopeBytes = toPolicyBytes(envelope, "publisher_policy_envelope_size_invalid", 131072);
+  const envelopeText = envelopeBytes.toString("utf8");
+  if (!Buffer.from(envelopeText, "utf8").equals(envelopeBytes)) {
+    throw new TypeError("publisher_policy_envelope_encoding_invalid");
+  }
+
+  let parsedEnvelope;
+  try {
+    parsedEnvelope = JSON.parse(envelopeText);
+  } catch {
+    throw new TypeError("publisher_policy_envelope_json_invalid");
+  }
+  assertExactKeys(parsedEnvelope, PUBLISHER_POLICY_ENVELOPE_KEYS, "publisher_policy_envelope_schema_invalid");
+  const canonicalEnvelope = {
+    format: parsedEnvelope.format,
+    keyName: parsedEnvelope.keyName,
+    payload: parsedEnvelope.payload,
+    signature: parsedEnvelope.signature
+  };
+  if (JSON.stringify(canonicalEnvelope) !== envelopeText || parsedEnvelope.format !== PUBLISHER_POLICY_FORMAT) {
+    throw new TypeError("publisher_policy_envelope_noncanonical");
+  }
+
+  const payloadBytes = decodeCanonicalBase64(parsedEnvelope.payload, "publisher_policy_payload_base64_invalid", 65536);
+  const signatureBytes = decodeCanonicalBase64(parsedEnvelope.signature, "publisher_policy_signature_base64_invalid", 1024);
+  if (signatureBytes.length !== 384) throw new TypeError("publisher_policy_signature_size_invalid");
+
+  const policy = parseCanonicalPublisherPolicyPayload(payloadBytes);
+  if (parsedEnvelope.keyName !== policy.keyName) throw new TypeError("publisher_policy_envelope_key_mismatch");
+  if (expectedInstallationId !== policy.installationId) throw new TypeError("publisher_policy_installation_mismatch");
+  if (expectedEdition !== policy.edition) throw new TypeError("publisher_policy_edition_mismatch");
+
+  let publicKey;
+  try {
+    const spkiBytes = typeof publicKeySpki === "string"
+      ? decodeCanonicalBase64(publicKeySpki, "publisher_policy_verification_key_invalid", 8192)
+      : toPolicyBytes(publicKeySpki, "publisher_policy_verification_key_invalid", 8192);
+    publicKey = createPublicKey({ key: spkiBytes, format: "der", type: "spki" });
+  } catch {
+    throw new TypeError("publisher_policy_verification_key_invalid");
+  }
+  if (publicKey.asymmetricKeyType !== "rsa" || publicKey.asymmetricKeyDetails?.modulusLength !== 3072) {
+    throw new TypeError("publisher_policy_verification_key_invalid");
+  }
+
+  let valid = false;
+  try {
+    valid = verifySignature(
+      "sha256",
+      payloadBytes,
+      { key: publicKey, padding: constants.RSA_PKCS1_PADDING },
+      signatureBytes
+    );
+  } catch {
+    valid = false;
+  }
+  if (!valid) throw new TypeError("publisher_policy_signature_invalid");
+
+  return policy;
+}
+
 
 function createUnsupportedMonotonicAnchorProvider() {
   return Object.freeze({

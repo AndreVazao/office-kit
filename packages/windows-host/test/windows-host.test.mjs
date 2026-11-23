@@ -4,6 +4,8 @@ import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
+import { constants, createHash, generateKeyPairSync, sign as signData } from "node:crypto";
+import { createPublisherPolicyPayload, createPublisherPolicyEnvelope, verifyPublisherPolicyEnvelope } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
 let DatabaseSync;
@@ -817,4 +819,125 @@ test("Windows host rejects a locally valid truncated incident prefix against the
     await host?.close();
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+
+const publisherPolicyTestKeyPair = generateKeyPairSync("rsa", {
+  modulusLength: 3072,
+  publicExponent: 65537
+});
+const publisherPolicyTestPublicSpki = publisherPolicyTestKeyPair.publicKey.export({ type: "spki", format: "der" });
+const publisherPolicyTestInstallationId = `officekit-${"a".repeat(32)}`;
+const publisherPolicyTestBase = Object.freeze({
+  edition: "universal",
+  installationId: publisherPolicyTestInstallationId,
+  policyVersion: 1,
+  createdAt: "2026-11-23T16:30:00.000Z",
+  publisherSpkiSha256: "ab".repeat(32)
+});
+
+function signedPublisherPolicy(overrides = {}) {
+  const payload = createPublisherPolicyPayload({ ...publisherPolicyTestBase, ...overrides });
+  const signature = signData("sha256", payload, {
+    key: publisherPolicyTestKeyPair.privateKey,
+    padding: constants.RSA_PKCS1_PADDING
+  });
+  return createPublisherPolicyEnvelope({ payload, signature });
+}
+
+test("publisher policy v1 signs canonical installation-scoped payloads with RSA-3072 SHA-256", () => {
+  const envelope = signedPublisherPolicy();
+  const policy = verifyPublisherPolicyEnvelope({
+    envelope,
+    publicKeySpki: publisherPolicyTestPublicSpki,
+    expectedInstallationId: publisherPolicyTestInstallationId,
+    expectedEdition: "universal"
+  });
+  assert.equal(policy.schemaVersion, 1);
+  assert.equal(policy.productId, "office-kit");
+  assert.equal(policy.keyName, `okp-${createHash("sha256").update(publisherPolicyTestInstallationId).digest("hex").slice(0, 32)}`);
+  assert.equal(policy.signatureIndex, 0);
+  assert.deepEqual(policy.revocationPolicy, {
+    installUpdate: "online-chain-exclude-root-fail-closed",
+    runtimeStartup: "cache-only-chain-exclude-root-fail-closed"
+  });
+});
+
+test("publisher policy rejects payload tampering and signatures from a different machine key", () => {
+  const envelope = signedPublisherPolicy();
+  const outer = JSON.parse(envelope.toString("utf8"));
+  const payload = JSON.parse(Buffer.from(outer.payload, "base64").toString("utf8"));
+  payload.publisherSpkiSha256 = "cd".repeat(32);
+  outer.payload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  const tamperedEnvelope = Buffer.from(JSON.stringify(outer), "utf8");
+  assert.throws(() => verifyPublisherPolicyEnvelope({
+    envelope: tamperedEnvelope,
+    publicKeySpki: publisherPolicyTestPublicSpki,
+    expectedInstallationId: publisherPolicyTestInstallationId,
+    expectedEdition: "universal"
+  }), /publisher_policy_signature_invalid/);
+
+  const wrongKey = generateKeyPairSync("rsa", { modulusLength: 3072, publicExponent: 65537 });
+  assert.throws(() => verifyPublisherPolicyEnvelope({
+    envelope,
+    publicKeySpki: wrongKey.publicKey.export({ type: "spki", format: "der" }),
+    expectedInstallationId: publisherPolicyTestInstallationId,
+    expectedEdition: "universal"
+  }), /publisher_policy_signature_invalid/);
+});
+
+test("publisher policy cannot be replayed across installation IDs or editions", () => {
+  const envelope = signedPublisherPolicy();
+  assert.throws(() => verifyPublisherPolicyEnvelope({
+    envelope,
+    publicKeySpki: publisherPolicyTestPublicSpki,
+    expectedInstallationId: `officekit-${"b".repeat(32)}`,
+    expectedEdition: "universal"
+  }), /publisher_policy_installation_mismatch/);
+  assert.throws(() => verifyPublisherPolicyEnvelope({
+    envelope,
+    publicKeySpki: publisherPolicyTestPublicSpki,
+    expectedInstallationId: publisherPolicyTestInstallationId,
+    expectedEdition: "vst"
+  }), /publisher_policy_edition_mismatch/);
+});
+
+test("publisher policy rejects unsupported signatures, revocation modes and malformed canonical JSON", () => {
+  assert.throws(() => createPublisherPolicyPayload({
+    ...publisherPolicyTestBase,
+    signatureIndex: 1
+  }), /publisher_policy_input_schema_invalid/);
+  assert.throws(() => createPublisherPolicyPayload({
+    ...publisherPolicyTestBase,
+    publisherSpkiSha256: "not-a-digest"
+  }), /publisher_policy_publisher_spki_invalid/);
+  assert.throws(() => createPublisherPolicyPayload({
+    ...publisherPolicyTestBase,
+    createdAt: "2026-11-23"
+  }), /publisher_policy_created_at_invalid/);
+
+  const envelope = signedPublisherPolicy();
+  const outer = JSON.parse(envelope.toString("utf8"));
+  const payload = JSON.parse(Buffer.from(outer.payload, "base64").toString("utf8"));
+  payload.revocationPolicy.runtimeStartup = "soft-fail";
+  const invalidPayload = Buffer.from(JSON.stringify(payload), "utf8");
+  const invalidSignature = signData("sha256", invalidPayload, {
+    key: publisherPolicyTestKeyPair.privateKey,
+    padding: constants.RSA_PKCS1_PADDING
+  });
+  assert.throws(() => createPublisherPolicyEnvelope({
+    payload: invalidPayload,
+    signature: invalidSignature
+  }), /publisher_policy_revocation_policy_invalid/);
+
+  const duplicateKeyEnvelope = Buffer.from(
+    `{"format":"officekit-publisher-policy-envelope-v1","format":"officekit-publisher-policy-envelope-v1","keyName":"${outer.keyName}","payload":"${outer.payload}","signature":"${outer.signature}"}`,
+    "utf8"
+  );
+  assert.throws(() => verifyPublisherPolicyEnvelope({
+    envelope: duplicateKeyEnvelope,
+    publicKeySpki: publisherPolicyTestPublicSpki,
+    expectedInstallationId: publisherPolicyTestInstallationId,
+    expectedEdition: "universal"
+  }), /publisher_policy_envelope_noncanonical/);
 });
