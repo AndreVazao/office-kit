@@ -148,6 +148,18 @@
         if (!rollbackRejected || fixture.mesh.geometry !== fixture.originalGeometry) {
           throw new Error("A validação não rejeitou o material inválido ou não restaurou a geometria original.");
         }
+        const originalSecondGroupStart = fixture.originalGeometry.groups[1].start;
+        fixture.originalGeometry.groups[1].start += 3;
+        let incompleteGroupsRejected = false;
+        try {
+          applyAvatarQualityVariant(fixture.root, "low");
+        } catch (error) {
+          incompleteGroupsRejected = String(error.message || error).includes("cobertura incompleta");
+        } finally {
+          fixture.originalGeometry.groups[1].start = originalSecondGroupStart;
+        }
+        lines.push({ incompleteMaterialGroupsRejected: incompleteGroupsRejected, result: incompleteGroupsRejected ? "PASS" : "FAIL" });
+        if (!incompleteGroupsRejected) throw new Error("A redução aceitou grupos de material com triângulos sem atribuição.");
         fixture.originalGeometry.dispose();
 
         const budgetRoot = new THREE.Group();
