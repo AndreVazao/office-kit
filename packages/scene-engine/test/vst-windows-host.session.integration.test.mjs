@@ -223,7 +223,13 @@ test("VST session token stays ephemeral across cockpit GETs and restricted assis
     assert.equal(snapshot.departmentEvidence.find(item => item.department === "research").evidenceState, "available");
     assert.ok(requests.length >= 13);
     assert.ok(requests.filter(item => item.method === "GET").length >= 13);
-    assert.ok(requests.every(item => item.token === ownerToken));
+    const getRequests = requests.filter(item => item.method === "GET");
+    assert.ok(getRequests.every(item => {
+      const path = new URL(item.url).pathname;
+      return path === "/health" ? item.token === null : item.token === ownerToken;
+    }));
+    assert.ok(getRequests.some(item => new URL(item.url).pathname === "/health" && item.token === null));
+    assert.ok(requests.filter(item => item.method === "POST").every(item => item.token === ownerToken));
     assert.equal(JSON.stringify(snapshot).includes(ownerToken), false);
 
     const assistant = await composed.sendAssistantMessage({

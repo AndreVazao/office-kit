@@ -106,7 +106,12 @@ test("VST host keeps the owner token in session memory and exposes read-only coc
     assert.equal(snapshot.sections.status.state, "available");
     assert.ok(calls.some(call => call.url.endsWith("/status") && call.method === "GET"));
     assert.ok(calls.every(call => call.method === "GET"));
-    assert.ok(calls.every(call => call.token === ownerToken));
+    const cockpitGets = calls.filter(call => call.method === "GET");
+    assert.ok(cockpitGets.every(call => {
+      const path = new URL(call.url).pathname;
+      return path === "/health" ? call.token === null : call.token === ownerToken;
+    }));
+    assert.ok(cockpitGets.some(call => new URL(call.url).pathname === "/health" && call.token === null));
     assert.equal(JSON.stringify(snapshot).includes(ownerToken), false);
 
     const health = await composed.health();
