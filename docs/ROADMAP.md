@@ -863,4 +863,4 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Keep PAPER controls disabled until the backend atomically enforces PAPER mode for every control operation (issue #121).
 - [ ] Keep remote transport disabled until the exact Tailscale Serve HTTPS, paired-device identity, scope/revocation, redirect/DNS and unknown-POST-outcome requirements in issue #124 pass.
 - [ ] Complete live VST E2E and physical Windows/Android tailnet validation.
-- [ ] Resolve Windows CNG nullable [0m`AlgorithmGroup` dereference warnings (issue #130) without suppressing nullable analysis.
+- [ ] Resolve Windows CNG nullable `AlgorithmGroup` dereference warnings (issue #130) without suppressing nullable analysis.
