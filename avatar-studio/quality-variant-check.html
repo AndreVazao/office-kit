@@ -150,6 +150,28 @@
         }
         fixture.originalGeometry.dispose();
 
+        const budgetRoot = new THREE.Group();
+        const budgetGeometryA = new THREE.PlaneGeometry(4, 4, 8, 8);
+        const budgetGeometryB = new THREE.PlaneGeometry(4, 4, 8, 8);
+        const budgetMeshA = new THREE.Mesh(budgetGeometryA, new THREE.MeshStandardMaterial());
+        const budgetMeshB = new THREE.Mesh(budgetGeometryB, new THREE.MeshStandardMaterial());
+        budgetMeshA.position.x = -3;
+        budgetMeshB.position.x = 3;
+        budgetRoot.add(budgetMeshA, budgetMeshB);
+        const budgetVariant = applyAvatarQualityVariant(budgetRoot, "low");
+        const allocated = budgetVariant.meshReports.reduce((sum, report) => sum + report.targetTriangles, 0);
+        const allocationPassed = allocated === 10 &&
+          budgetVariant.meshReports.length === 2 &&
+          budgetVariant.meshReports.every((report) => report.targetTriangles === 5) &&
+          budgetVariant.meshReports.reduce((sum, report) => sum + report.outputTriangles, 0) === budgetVariant.optimizedTriangles;
+        lines.push({ globalBudget: 10, allocated, perMesh: budgetVariant.meshReports, result: allocationPassed ? "PASS" : "FAIL" });
+        budgetVariant.restore();
+        budgetGeometryA.dispose();
+        budgetGeometryB.dispose();
+        budgetMeshA.material.dispose();
+        budgetMeshB.material.dispose();
+        if (!allocationPassed) throw new Error("O orçamento global não foi distribuído corretamente entre as malhas.");
+
         const materialRoot = new THREE.Group();
         const materialGeometryA = new THREE.BoxGeometry(1, 1, 1);
         const materialGeometryB = new THREE.BoxGeometry(1, 1, 1);
