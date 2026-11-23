@@ -47,7 +47,7 @@ O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando
 - Não fazer varrimento indiscriminado de rede, contornar autenticação nem guardar segredos.
 - Testar falsos positivos, endpoint inválido, autenticação ausente, permissões, timeout e exposição de dados.
 
-**Estado em 2026-11-23:** contrato neutro v1 implementado na PR #127 (draft, ainda não integrada). O incremento normaliza candidatos e quatro resultados independentes sem executar I/O. A primeira falha de CI (allowlist incompleta) foi corrigida; CI e regressão visual passaram no checkpoint de código `9eacf844aaa1ae272a832de6bf132882414db620`. A sincronização documental posterior ainda requer validação no HEAD final da PR.
+**Estado em 2026-11-23:** contrato neutro v1 integrado pela PR #127. HEAD final da PR `21d91276fc7d8e0c1bf39294ea5adb5712e7d929`; CI #45191831553 e regressão visual #45191831480 passaram nesse SHA exato. A main está em `68bb09ea21ff03d40c74bee49666ea34aa79fa6e`. O contrato puro não executa I/O nem rede; conectores, probes consentidos e UX de seleção/ativação continuam pendentes.
 
 - [x] Contrato neutro de candidato, fontes, evidência, capacidades e estados de validação.
 - [x] Inclusão do módulo genérico nas três allowlists de edição.
@@ -427,13 +427,14 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 - [ ] Add independent CPU/memory budgets for renderer and backend; detect hardware at install and runtime, apply hysteresis, allow manual override and recover quality as resources return.
 - [ ] Validate on low-resource Windows and stronger desktop hardware without making the test PC a feature ceiling.
 
-## Next implementation order after the portable Windows bundle gate
-1. Complete and merge the portable Windows host bundle only after Linux, Windows E2E and visual regression pass on the same HEAD.
-2. Implement the installable Windows host lifecycle (install/start/health/stop/restart/uninstall/upgrade/rollback/data retention) without touching existing DGM-MAT or VST installations.
-3. Implement hardware capability discovery and dynamic resource budgets, separating renderer cost from backend resources.
-4. Implement Office Health & Recovery incident contracts, safe diagnostic probes, redaction and bounded recovery.
-5. Implement social simulation independent of backend and renderer FPS, then renderer-tier equivalence.
-6. Implement and validate the four physical scenarios: Universal offline, DGM-MAT read-only, VST read-only and standalone offline.
+## Next implementation order after the portable Windows bundle gate — 2026-11-23
+1. Implement and validate the installer-authenticated Windows publisher policy, exact signer binding and bounded revocation policy; keep startup fail-closed until complete.
+2. Deliver independent MSI/MSIX install, upgrade, rollback/recovery, uninstall and data-retention flows for Universal, DGM-MAT and VST.
+3. Integrate signed-license verification and durable activation into each edition's host with isolated namespaces, platform identity and backup/recovery.
+4. Correct the VST public `/health` versus private authentication boundary; a public health failure must not invalidate the private session.
+5. Keep VST PAPER controls blocked until issue #121 has an atomic backend-enforced PAPER-only contract; implement remote Tailscale Serve only after issue #124 security and physical E2E gates pass.
+6. Implement a real consented TPM 2.0 monotonic provider and physical recovery tests; do not promote protected writes based on metadata probes or fake anchors.
+7. Deliver native Linux/macOS/Android hosts and platform-native keystores, then run real-device installation and lifecycle tests.
 7. Generate the Desktop Commander installation/test prompt only after the package passes automated release gates. Never use live trading or destructive DGM-MAT operations during validation.
 ### Estado do primeiro incremento de código — PR #55 branch
 - [x] Criar protótipo puro do motor social local, com seed QA, atividades variáveis e sem autoridade operacional.
@@ -854,3 +855,11 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Implement explicit install/update and offline-startup revocation policies with bounded non-interactive verification.
 - [ ] Add native Windows tests for trusted positive chain, untrusted/wrong/expired/revoked/unknown signers, tampering, multi-signature selection and policy ACL/integrity failures.
 - [ ] Keep issue #110 open and block production distribution until all remaining gates pass.
+
+
+## VST cockpit safety and transport gates — 2026-11-23
+- [x] Integrate authenticated read-only cockpit snapshot (PR #118), restricted assistant bridge (PR #119), backend-sourced research tasks/evidence (PR #120) and local adapter diagnostics/recovery (PR #122).
+- [ ] Separate public `GET /health` from private authenticated routes. Current main still sends `X-Token` to `/health` and treats its 401 as private authentication rejection; PR #126 was closed without merge. Public health proves reachability only.
+- [ ] Keep PAPER controls disabled until the backend atomically enforces PAPER mode for every control operation (issue #121).
+- [ ] Keep remote transport disabled until the exact Tailscale Serve HTTPS, paired-device identity, scope/revocation, redirect/DNS and unknown-POST-outcome requirements in issue #124 pass.
+- [ ] Complete live VST E2E and physical Windows/Android tailnet validation.
