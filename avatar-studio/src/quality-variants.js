@@ -210,7 +210,8 @@ function makeClusteredGeometry(source, cellSize) {
     const IndexType = vertices.length > 65535 ? Uint32Array : Uint16Array;
     result.setIndex(new THREE.BufferAttribute(new IndexType(flattened), 1));
   }
-  result.morphAttributes = source.morphAttributes;
+  // Keep the remapped morph attributes built above. Reassigning the source
+  // arrays here would reintroduce the old vertex count after clustering.
   result.morphTargetsRelative = source.morphTargetsRelative;
   result.computeBoundingBox();
   result.computeBoundingSphere();
@@ -233,6 +234,54 @@ function makeClusteredGeometry(source, cellSize) {
     result.computeVertexNormals();
   }
   return result;
+}
+
+function allocateTriangleBudgets(meshes, totalBudget) {
+  const active = meshes
+    .map((mesh, index) => ({ index, triangles: geometryTriangles(mesh.geometry) }))
+    .filter((entry) => entry.triangles > 0);
+  const allocations = new Array(meshes.length).fill(0);
+  if (!active.length) return allocations;
+
+  // A mesh cannot be removed by this reducer. If the total target is smaller
+  // than the number of non-empty meshes, retain one triangle per mesh and let
+  // the final global budget gate reject the export rather than hide geometry.
+  if (totalBudget < active.length) {
+    for (const entry of active) allocations[entry.index] = 1;
+    return allocations;
+  }
+
+  const sourceTotal = active.reduce((sum, entry) => sum + entry.triangles, 0);
+  const distributable = Math.min(totalBudget, sourceTotal);
+  const fractions = [];
+  let assigned = 0;
+  for (const entry of active) {
+    const exact = (entry.triangles / sourceTotal) * distributable;
+    const base = Math.max(1, Math.floor(exact));
+    allocations[entry.index] = Math.min(entry.triangles, base);
+    assigned += allocations[entry.index];
+    fractions.push({ index: entry.index, fraction: exact - Math.floor(exact), capacity: entry.triangles - allocations[entry.index] });
+  }
+
+  while (assigned > distributable) {
+    const candidate = active
+      .map((entry) => entry.index)
+      .filter((index) => allocations[index] > 1)
+      .sort((a, b) => allocations[b] - allocations[a])[0];
+    if (candidate === undefined) break;
+    allocations[candidate] -= 1;
+    assigned -= 1;
+  }
+
+  fractions.sort((a, b) => b.fraction - a.fraction);
+  while (assigned < distributable) {
+    const candidate = fractions.find((entry) => allocations[entry.index] < active.find((mesh) => mesh.index === entry.index).triangles);
+    if (!candidate) break;
+    allocations[candidate.index] += 1;
+    assigned += 1;
+    candidate.fraction = -1;
+  }
+  return allocations;
 }
 
 function simplifyToBudget(source, targetTriangles) {
@@ -403,7 +452,7 @@ export function applyAvatarQualityVariant(root, profileId) {
   });
   const sourceTriangles = meshes.reduce((sum, mesh) => sum + geometryTriangles(mesh.geometry), 0);
   const targetTriangles = Math.min(sourceTriangles, profile.triangleBudget);
-  const ratio = sourceTriangles > 0 ? targetTriangles / sourceTriangles : 1;
+  const meshBudgets = allocateTriangleBudgets(meshes, targetTriangles);
   let optimizedTriangles = 0;
   let optimizedVertices = 0;
   let validation = null;
@@ -412,7 +461,7 @@ export function applyAvatarQualityVariant(root, profileId) {
     for (const mesh of meshes) {
       const original = mesh.geometry;
       const meshTriangles = geometryTriangles(original);
-      const meshTarget = Math.max(1, Math.floor(meshTriangles * ratio));
+      const meshTarget = meshBudgets[meshes.indexOf(mesh)];
       const optimized = profileId === "ultra" ? original.clone() : simplifyToBudget(original, meshTarget);
       if (mesh.isSkinnedMesh && (!optimized.getAttribute("skinIndex") || !optimized.getAttribute("skinWeight"))) {
         optimized.dispose();
