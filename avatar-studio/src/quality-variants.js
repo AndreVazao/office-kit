@@ -869,6 +869,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
     materialCount,
     materialBudget: profile.materialBudget,
     textureCount,
+    resizedTextureCount: textureVariantTextures.size,
     textureMaxSize: profile.textureMaxSize,
     textureIssues,
     withinMaterialBudget: materialCount <= profile.materialBudget,
