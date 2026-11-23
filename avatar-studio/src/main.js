@@ -397,9 +397,13 @@ function renderCharacter() {
   $("quality-materials").textContent = qualityMetrics.materialCount.toLocaleString("pt-PT");
   $("quality-meshes").textContent = qualityMetrics.visibleMeshes.toLocaleString("pt-PT");
   $("quality-profiles").innerHTML = qualityFits.map((profile) => {
-    const status = profile.fits ? "Dentro do orçamento" : "Excede orçamento";
+    const status = profile.fits ? "Fonte compatível" : "Requer otimização";
     const ratio = Math.max(profile.triangleRatio, profile.materialRatio);
-    return `<div class="quality-profile ${profile.fits ? "fits" : "exceeds"}"><span>${profile.label}</span><strong>${status}</strong><small>${Math.round(ratio * 100)}% do limite mais restritivo</small></div>`;
+    const details = [
+      profile.triangleRatio > 1 ? "geometria" : "",
+      profile.materialRatio > 1 ? "materiais" : ""
+    ].filter(Boolean).join(" + ") || "limites da fonte";
+    return `<div class="quality-profile ${profile.fits ? "fits" : "exceeds"}"><span>${profile.label}</span><strong>${status}</strong><small>${Math.round(ratio * 100)}% do limite mais restritivo · ${details}</small></div>`;
   }).join("");
   avatarRig.setMode($("pose-mode")?.value || "idle");
   avatarRig.setVisible(Boolean($("show-rig")?.checked));
