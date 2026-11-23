@@ -578,9 +578,9 @@ public static class OfficeKitWinTrustVerifier
         public uint cbStruct;
         public uint dwIndex;
         public uint dwFlags;
-        public uint dwVerifiedSigIndex;
         public uint cSecondarySigs;
-        public uint dwCryptoPolicy;
+        public uint dwVerifiedSigIndex;
+        public IntPtr pCryptoPolicy;
     }
 
     [StructLayout(LayoutKind.Sequential)]
