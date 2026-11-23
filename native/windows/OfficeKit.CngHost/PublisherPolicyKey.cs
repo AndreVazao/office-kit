@@ -142,7 +142,7 @@ internal static class PublisherPolicyKey
         using var handle = key.Handle;
         var sddl = ReadSecurityDescriptorSddl(handle);
         if (!string.Equals(sddl, ExpectedSecurityDescriptorSddl, StringComparison.OrdinalIgnoreCase))
-            throw new CryptographicException("publisher_policy_key_acl_invalid");
+            throw new CryptographicException("publisher_policy_key_acl_invalid:" + sddl);
     }
 
     private static void CreateMachineKeyWithProtectedAcl(string keyName)
