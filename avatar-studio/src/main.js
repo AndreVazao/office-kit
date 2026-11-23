@@ -563,6 +563,8 @@ $("export-glb").addEventListener("click", () => {
     }, { binary: true, onlyVisible: true, animations });
   } catch (error) {
     console.error("GLB export setup failed", error);
+    materialVariant?.restore();
+    materialVariant = null;
     qualityVariant?.restore();
     qualityVariant = null;
     restoreButton();
