@@ -4,7 +4,7 @@ import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
-import { constants, generateKeyPairSync, sign as signData } from "node:crypto";
+import { constants, createHash, generateKeyPairSync, sign as signData } from "node:crypto";
 import { createPublisherPolicyPayload, createPublisherPolicyEnvelope, verifyPublisherPolicyEnvelope } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
