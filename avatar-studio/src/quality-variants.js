@@ -10,11 +10,7 @@ function geometryTriangles(geometry) {
 }
 
 function attributeValue(attribute, index, component) {
-  return attribute.getComponent(index, component);
-}
-
-function normalizedAttributeValue(attribute, index, component) {
-  const value = attributeValue(attribute, index, component);
+  const value = attribute.getComponent(index, component);
   if (!attribute.normalized) return value;
   const array = attribute.array;
   if (array instanceof Uint8Array || array instanceof Uint8ClampedArray) return value / 255;
@@ -24,6 +20,10 @@ function normalizedAttributeValue(attribute, index, component) {
   if (array instanceof Int16Array) return Math.max(value / 32767, -1);
   if (array instanceof Int32Array) return Math.max(value / 2147483647, -1);
   return value;
+}
+
+function normalizedAttributeValue(attribute, index, component) {
+  return attributeValue(attribute, index, component);
 }
 
 function makeClusteredGeometry(source, cellSize) {
@@ -162,8 +162,10 @@ function makeClusteredGeometry(source, cellSize) {
   const result = new THREE.BufferGeometry();
   for (const [name, attribute] of attributes) {
     if (name === "skinIndex" || name === "skinWeight") continue;
-    const ArrayType = attribute.array.constructor;
-    const output = new ArrayType(vertices.length * attribute.itemSize);
+    // Store decoded semantic values as float attributes. This avoids writing
+    // normalized values into integer arrays as raw integers (which would
+    // corrupt normals, tangents, colors and normalized UV channels).
+    const output = new Float32Array(vertices.length * attribute.itemSize);
     vertices.forEach((record, vertex) => {
       const values = record.values[name];
       for (let component = 0; component < attribute.itemSize; component += 1) {
@@ -172,20 +174,19 @@ function makeClusteredGeometry(source, cellSize) {
         output[vertex * attribute.itemSize + component] = value;
       }
     });
-    result.setAttribute(name, new THREE.BufferAttribute(output, attribute.itemSize, attribute.normalized));
+    result.setAttribute(name, new THREE.BufferAttribute(output, attribute.itemSize, false));
   }
 
   for (const [name, morphs] of morphEntries) {
     result.morphAttributes[name] = morphs.map((attribute, morphIndex) => {
-      const ArrayType = attribute.array.constructor;
-      const output = new ArrayType(vertices.length * attribute.itemSize);
+      const output = new Float32Array(vertices.length * attribute.itemSize);
       vertices.forEach((record, vertex) => {
         const values = record.morphValues[name][morphIndex];
         for (let component = 0; component < attribute.itemSize; component += 1) {
           output[vertex * attribute.itemSize + component] = values[component] / record.count;
         }
       });
-      return new THREE.BufferAttribute(output, attribute.itemSize, attribute.normalized);
+      return new THREE.BufferAttribute(output, attribute.itemSize, false);
     });
   }
 
