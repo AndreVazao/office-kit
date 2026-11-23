@@ -946,7 +946,7 @@ test("publisher policy rejects unsupported signatures, revocation modes and malf
 test("publisher policy public-key reader validates machine CNG metadata and derives the RSA SPKI", () => {
   const jwk = publisherPolicyTestKeyPair.publicKey.export({ format: "jwk" });
   const installationId = publisherPolicyTestInstallationId;
-  const expectedKeyName = \`okp-\${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}\`;
+  const expectedKeyName = `okp-${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}`;
   const expectedSddl = "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)";
   const record = {
     keyName: expectedKeyName,
@@ -982,7 +982,7 @@ test("publisher policy public-key reader validates machine CNG metadata and deri
 test("publisher policy public-key reader rejects wrong machine scope, export policy and ACL", () => {
   const jwk = publisherPolicyTestKeyPair.publicKey.export({ format: "jwk" });
   const installationId = publisherPolicyTestInstallationId;
-  const keyName = \`okp-\${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}\`;
+  const keyName = `okp-${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}`;
   const base = {
     keyName,
     keySize: 3072,
@@ -1019,7 +1019,7 @@ test("loadPublisherPolicy authenticates a canonical manifest using the machine-k
   const envelope = createPublisherPolicyEnvelope({ payload, signature });
   writeFileSync(policyPath, envelope);
   const jwk = publisherPolicyTestKeyPair.publicKey.export({ format: "jwk" });
-  const keyName = \`okp-\${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}\`;
+  const keyName = `okp-${createHash("sha256").update(installationId).digest("hex").slice(0, 32)}`;
   const record = {
     keyName,
     keySize: 3072,
