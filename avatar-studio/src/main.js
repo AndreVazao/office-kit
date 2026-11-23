@@ -4,7 +4,7 @@ import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { createAvatarRig } from "./rig.js";
 import { createAvatarAnimationClips } from "./animation-export.js";
 import { attachAvatarQualityMetadata, evaluateAvatarQuality } from "./quality-profiles.js";
-import { applyAvatarQualityVariant } from "./quality-variants.js";
+import { applyAvatarMaterialVariant, applyAvatarQualityVariant } from "./quality-variants.js";
 
 const $ = (id) => document.getElementById(id);
 const viewport = $("viewport");
@@ -482,6 +482,7 @@ $("export-glb").addEventListener("click", () => {
   };
 
   let qualityVariant = null;
+  let materialVariant = null;
   try {
     const exportCharacter = character;
     const exportPreset = currentPreset;
@@ -489,8 +490,15 @@ $("export-glb").addEventListener("click", () => {
     const exportPose = poseMode?.value || "idle";
     const selectedQuality = $("export-quality")?.value || "high";
     qualityVariant = applyAvatarQualityVariant(exportCharacter, selectedQuality);
+    materialVariant = applyAvatarMaterialVariant(exportCharacter, selectedQuality);
     if (!qualityVariant.withinTriangleBudget) {
-      throw new Error("O perfil " + selectedQuality + " não atingiu o orçamento de " + qualityVariant.triangleBudget + " triângulos (resultado: " + qualityVariant.optimizedTriangles + "). Exportação bloqueada para evitar um ficheiro fora das especificações.");
+      throw new Error("O perfil " + selectedQuality + " não atingiu o orçamento de " + qualityVariant.triangleBudget + " triângulos (resultado: " + qualityVariant.optimizedTriangles + "). Exportação bloqueada.");
+    }
+    if (!materialVariant.withinMaterialBudget) {
+      throw new Error("O perfil " + selectedQuality + " excede o orçamento de materiais: " + materialVariant.materialCount + "/" + materialVariant.materialBudget + ". Exportação bloqueada.");
+    }
+    if (!materialVariant.withinTextureBudget) {
+      throw new Error("Existem texturas acima do limite de " + materialVariant.textureMaxSize + " px ou sem dimensões verificáveis. Exportação bloqueada.");
     }
     exportCharacter.userData.officeKitAvatar = exportCharacter.userData.officeKitAvatar || {};
     exportCharacter.userData.officeKitAvatar.exportedVariant = {
@@ -500,14 +508,25 @@ $("export-glb").addEventListener("click", () => {
       optimizedVertices: qualityVariant.optimizedVertices,
       triangleBudget: qualityVariant.triangleBudget,
       withinTriangleBudget: qualityVariant.withinTriangleBudget,
+      materialCount: materialVariant.materialCount,
+      sourceMaterialCount: materialVariant.sourceMaterialCount,
+      materialBudget: materialVariant.materialBudget,
+      withinMaterialBudget: materialVariant.withinMaterialBudget,
+      textureCount: materialVariant.textureCount,
+      textureMaxSize: materialVariant.textureMaxSize,
+      withinTextureBudget: materialVariant.withinTextureBudget,
+      materialPrecision: materialVariant.precision,
+      convertedMeshCount: materialVariant.convertedMeshCount,
       validation: qualityVariant.validation,
-      simplification: "skinning-aware-vertex-clustering"
+      simplification: "skinning-aware-spatial-uv-local-vertex-clustering"
     };
     const exporter = new GLTFExporter();
     const animations = createAvatarAnimationClips(exportRig, exportPose);
     button.textContent = "A otimizar e exportar…";
     exporter.parse(exportCharacter, (result) => {
       try {
+        materialVariant?.restore();
+        materialVariant = null;
         qualityVariant?.restore();
         qualityVariant = null;
         const blob = new Blob([result], { type: "model/gltf-binary" });
@@ -527,12 +546,16 @@ $("export-glb").addEventListener("click", () => {
         console.error("GLB download preparation failed", error);
         alert("O modelo foi gerado, mas não foi possível preparar a transferência do ficheiro.");
       } finally {
+        materialVariant?.restore();
+        materialVariant = null;
         qualityVariant?.restore();
         qualityVariant = null;
         restoreButton();
       }
     }, (error) => {
       console.error("GLB export failed", error);
+      materialVariant?.restore();
+      materialVariant = null;
       qualityVariant?.restore();
       qualityVariant = null;
       restoreButton();
