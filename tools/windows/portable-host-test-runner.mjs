@@ -48,6 +48,13 @@ async function main() {
   let host;
   try {
     host = createWindowsHost({
+      publisherPolicyLoader: ({ installationId, edition }) => ({
+        installationId,
+        edition: edition ?? "universal",
+        signatureIndex: 0,
+        publisherSpkiSha256: "a".repeat(64),
+        revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+      }),
       verifyHelper: helperPath => {
         verifyTestOnlyAuthenticode(helperPath);
         return true;
