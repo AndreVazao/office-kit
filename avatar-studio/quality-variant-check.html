@@ -94,24 +94,29 @@
         const fixture = buildFixture();
         for (const profileId of AVATAR_QUALITY_ORDER) {
           const variant = applyAvatarQualityVariant(fixture.root, profileId);
-          const skinIndex = fixture.mesh.geometry.getAttribute("skinIndex");
-          const skinWeight = fixture.mesh.geometry.getAttribute("skinWeight");
-          const groups = fixture.mesh.geometry.groups.length;
-          const morph = fixture.mesh.geometry.morphAttributes.position?.[0];
-          const passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && morph?.count === fixture.mesh.geometry.getAttribute("position").count && variant.withinTriangleBudget);
-          lines.push({
-            profile: profileId,
-            sourceTriangles: variant.sourceTriangles,
-            outputTriangles: variant.optimizedTriangles,
-            triangleBudget: variant.triangleBudget,
-            withinBudget: variant.withinTriangleBudget,
-            skinnedMeshesValidated: variant.validation.skinnedMeshes,
-            materialGroups: groups,
-            morphVertices: morph?.count || 0,
-            result: passed ? "PASS" : "FAIL"
-          });
-          variant.restore();
+          let passed = false;
+          try {
+            const skinIndex = fixture.mesh.geometry.getAttribute("skinIndex");
+            const skinWeight = fixture.mesh.geometry.getAttribute("skinWeight");
+            const groups = fixture.mesh.geometry.groups.length;
+            const morph = fixture.mesh.geometry.morphAttributes.position?.[0];
+            passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && morph?.count === fixture.mesh.geometry.getAttribute("position").count && variant.withinTriangleBudget);
+            lines.push({
+              profile: profileId,
+              sourceTriangles: variant.sourceTriangles,
+              outputTriangles: variant.optimizedTriangles,
+              triangleBudget: variant.triangleBudget,
+              withinBudget: variant.withinTriangleBudget,
+              skinnedMeshesValidated: variant.validation.skinnedMeshes,
+              materialGroups: groups,
+              morphVertices: morph?.count || 0,
+              result: passed ? "PASS" : "FAIL"
+            });
+          } finally {
+            variant.restore();
+          }
           if (fixture.mesh.geometry !== fixture.originalGeometry) throw new Error("A geometria original não foi restaurada.");
+          if (!passed) throw new Error("O perfil " + profileId + " falhou nos invariantes ou no orçamento de triângulos.");
         }
         fixture.originalGeometry.dispose();
         output.textContent = "PASS — validação estrutural e orçamentos concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\\n");
