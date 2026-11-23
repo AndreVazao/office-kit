@@ -136,8 +136,8 @@
         let invalidVariant = null;
         try {
           invalidVariant = applyAvatarQualityVariant(fixture.root, "low");
-        } catch {
-          rollbackRejected = true;
+        } catch (error) {
+          rollbackRejected = String(error.message || error).includes("índice de material inexistente");
         } finally {
           invalidVariant?.restore();
           fixture.originalGeometry.groups[0].materialIndex = originalMaterialIndex;
