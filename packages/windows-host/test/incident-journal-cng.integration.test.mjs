@@ -223,6 +223,13 @@ test("Windows host keeps authenticated-only incident journaling in the native CN
     platform: "win32",
     appDataPath,
     helperPath,
+    publisherPolicyLoader: ({ installationId, edition }) => ({
+      installationId,
+      edition: edition ?? "universal",
+      signatureIndex: 0,
+      publisherSpkiSha256: "a".repeat(64),
+      revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+    }),
     verifyHelper: () => true,
     resolveUserSid: () => "S-1-5-21-100",
     applyAcl: () => {},
@@ -294,6 +301,13 @@ test("Windows host preserves CNG enrollment marker and blocks downgrade when a p
     platform: "win32",
     appDataPath,
     helperPath,
+    publisherPolicyLoader: ({ installationId, edition }) => ({
+      installationId,
+      edition: edition ?? "universal",
+      signatureIndex: 0,
+      publisherSpkiSha256: "a".repeat(64),
+      revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+    }),
     verifyHelper: () => true,
     resolveUserSid: () => "S-1-5-21-100",
     applyAcl: () => {},
