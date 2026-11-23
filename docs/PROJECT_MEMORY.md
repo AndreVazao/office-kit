@@ -3,20 +3,20 @@
 Última atualização: 2026-11-23
 
 ## Checkpoint global — 2026-11-23
-- Main HEAD confirmado: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e`; a comparação `main...68bb09ea` é idêntica.
-- PR #127 (Universal backend discovery contract) está fechada como merged. HEAD final da PR: `21d91276fc7d8e0c1bf39294ea5adb5712e7d929`. CI #45191831553 e regressão visual #45191831480 passaram nesse SHA exato. O commit atual da main é `68bb09ea`.
+- Runtime/code baseline antes da PR documental #128: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e`. A PR #128 foi squash-merged como `ea3d1d1bc56c1e2e218b8ea55c1b87b4a3517408` a partir do HEAD `55584dfee94a532a7a92724e3b0da99de80ea400`; CI #45200949378 e regressão visual #45200949448 passaram nesse HEAD exato. A PR alterou apenas os quatro documentos canónicos; o código/runtime não mudou desde o baseline `68bb09ea`.
+- PR #127 (Universal backend discovery contract) está fechada como merged. HEAD final da PR: `21d91276fc7d8e0c1bf39294ea5adb5712e7d929`. CI #45191831553 e regressão visual #45191831480 passaram nesse SHA exato. O commit de integração do contrato foi `68bb09ea`; a PR documental #128 avançou a main para `ea3d1d1b` sem alterar código/runtime.
 - A matriz CI passou em Linux e Windows com Node 22 e Node 26.13.1. Os jobs Windows executaram CNG, parser TPM e E2E dos bundles Universal, DGM-MAT e VST; os passos Windows foram corretamente ignorados nos jobs Linux.
 - O contrato de descoberta é genérico e puro: não executa rede, HTTP, autenticação, importação dinâmica, comandos ou ativação. Recusa URLs com credenciais/query/fragment, exige HTTPS remoto e permite HTTP apenas em loopback. Capacidades são claims não confiáveis; a descoberta não concede permissões.
 - A implementação atual é apenas o contrato/normalizador. Conectores reais de fontes, catálogo vivo, probes de leitura com consentimento e UX de seleção/ativação continuam pendentes.
 - PR #108 permanece aberta em Draft e isolada em `avatar-studio/`, HEAD `c2cbe300752c9d4949d5b5df395c1fdef03794bb`. CI #45166789646 e visual #45166789723 passaram nesse SHA. O harness de browser, inspeção visual dos GLB, stress de deformação e aceitação externa continuam pendentes; não promover a PR nem declarar o Avatar Studio pronto.
 - As PRs #118, #119, #120 e #122 integraram as fases 1, 2, 3 e 5a do cockpit VST. A Fase 4 continua bloqueada pela issue #121.
-- Lacuna VST ainda presente na main: `/health` está em `COCKPIT_ENDPOINTS`; o helper privado usado pelo adapter envia `X-Token` a todos os endpoints e um 401 marca `authenticationRejected`. PR #126 foi fechada sem merge; PR #125 também não foi integrada. A separação health público/autenticação privada continua pendente e deve ser corrigida antes de considerar o diagnóstico público correto.
+- Lacuna VST ainda presente na main: `/health` está em `COCKPIT_ENDPOINTS`; o helper privado usado pelo adapter envia `X-Token` a todos os endpoints e um 401 marca `authenticationRejected`. PR #126 foi fechada sem merge; PR #125 também não foi integrada. A correção está agora rastreada na issue #129 e deve ser concluída antes de considerar o diagnóstico público correto.
 - VST permanece loopback-only em `http://127.0.0.1:8765`. Tailscale/remote continua desativado até cumprir a issue #124; não aceitar URLs remotos arbitrários nem enviar owner token por HTTP LAN.
 - PAPER controls continuam desativados. Não encaminhar start/pause/resume/stop através de `/assistant/message`; a issue #121 exige uma garantia PAPER-only atómica no backend.
-- Issues abertas de produção acompanhadas: #57, #58, #104, #109, #110, #121 e #124.
+- Issues abertas de produção acompanhadas: #57, #58, #104, #109, #110, #121, #124, #129 (VST public health/auth boundary) e #130 (nullable CNG AlgorithmGroup warnings).
 
 ## VST cockpit integration — 2026-11-22
-- Main HEAD atual: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e` (inclui o contrato Universal de descoberta da PR #127).
+- Runtime/code baseline: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e` (inclui o contrato Universal de descoberta da PR #127; a PR documental #128 não alterou código).
 - PR #118 integrated authenticated read-only cockpit endpoints and memory-only VST session token.
 - PR #119 integrated the restricted authenticated `POST /assistant/message` bridge, backend request IDs, permission distinction and unknown-outcome reconciliation.
 - PR #120 integrated real research queue task normalization and department evidence availability. Task progress is shown only if supplied by VST; agent inventory remains explicitly unavailable.

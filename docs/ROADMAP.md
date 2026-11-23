@@ -859,7 +859,8 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 
 ## VST cockpit safety and transport gates — 2026-11-23
 - [x] Integrate authenticated read-only cockpit snapshot (PR #118), restricted assistant bridge (PR #119), backend-sourced research tasks/evidence (PR #120) and local adapter diagnostics/recovery (PR #122).
-- [ ] Separate public `GET /health` from private authenticated routes. Current main still sends `X-Token` to `/health` and treats its 401 as private authentication rejection; PR #126 was closed without merge. Public health proves reachability only.
+- [ ] Separate public `GET /health` from private authenticated routes. Current main still sends `X-Token` to `/health` and treats its 401 as private authentication rejection; PR #126 was closed without merge. Issue #129 tracks the correction. Public health proves reachability only.
 - [ ] Keep PAPER controls disabled until the backend atomically enforces PAPER mode for every control operation (issue #121).
 - [ ] Keep remote transport disabled until the exact Tailscale Serve HTTPS, paired-device identity, scope/revocation, redirect/DNS and unknown-POST-outcome requirements in issue #124 pass.
 - [ ] Complete live VST E2E and physical Windows/Android tailnet validation.
+- [ ] Resolve Windows CNG nullable `AlgorithmGroup` dereference warnings (issue #130) without suppressing nullable analysis.

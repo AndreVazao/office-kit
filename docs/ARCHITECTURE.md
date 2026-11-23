@@ -554,7 +554,7 @@ Required target boundary:
 - `GET /observer/summary` remains the authenticated private observer check. A successful response with the expected envelope is required for a synchronized private session.
 - Other private cockpit routes continue to use the owner-approved in-memory session token and the backend's `read_private_state` scope.
 - A public health 401/403/5xx or timeout must be reported as a public-probe result only; it must not invalidate the private session. A private endpoint 401 may still reject that session.
-- PR #126 was closed without merge; PR #125 was also closed without merge. The separation is not implemented on main and remains a correction to make before claiming public/private health separation.
+- PR #126 was closed without merge; PR #125 was also closed without merge. Issue #129 now tracks the correction. The separation is not implemented on main and remains a correction to make before claiming public/private health separation.
 
 PAPER control remains disabled. Issue #121 documents that the existing VST routes do not atomically guarantee PAPER mode for start/pause/resume/stop. The Office Kit must not expose these controls or route them through `/assistant/message` until the backend enforces the PAPER-only condition atomically, rejects REAL/UNKNOWN/SAFE_MODE states and returns authoritative post-operation state.
 
