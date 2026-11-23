@@ -295,7 +295,7 @@ export function readPublisherPolicyPublicKey(installationId, {
     "} finally { if ($rsa) { $rsa.Dispose() }; if ($key) { $key.Dispose() } }"
   ].join("; ");
 
-  const output = runChecked("powershell.exe", [
+  const commandResult = spawnImpl("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
     "-NonInteractive",
@@ -303,7 +303,20 @@ export function readPublisherPolicyPublicKey(installationId, {
     "AllSigned",
     "-Command",
     script
-  ], spawnImpl);
+  ], {
+    encoding: "utf8",
+    windowsHide: true,
+    shell: false,
+    timeout: 15_000,
+    maxBuffer: 1024 * 1024
+  });
+  if (commandResult.error || commandResult.status !== 0) {
+    const detail = String(commandResult.stderr ?? "")
+      .replace(/[\\r\\n\\t]+/g, " ")
+      .slice(0, 320);
+    throw new Error("publisher_policy_key_reader_failed:" + (detail || "powershell_exit_" + commandResult.status));
+  }
+  const output = String(commandResult.stdout ?? "").trim();
 
   let record;
   try {
