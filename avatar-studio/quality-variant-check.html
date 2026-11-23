@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avatar Studio — Quality Variant Check</title>
+  <style>
+    :root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; background: #0b1220; color: #e5edf8; }
+    body { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 22px; }
+    p { color: #aab8cc; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #8bb8ff; color: #10213a; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #111d30; padding: 16px; border-radius: 10px; min-height: 180px; }
+    .pass { color: #79d9a2; } .fail { color: #ff9292; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <h1>Avatar Studio — validação de variantes gráficas</h1>
+  <p>Teste isolado de redução geométrica, grupos de materiais, atributos UV e pesos ósseos. Não altera o editor nem o motor geral do Office Kit.</p>
+  <button id="run">Executar validação</button>
+  <pre id="output">A aguardar execução…</pre>
+  <script type="module">
+    import * as THREE from "three";
+    import { AVATAR_QUALITY_ORDER } from "./src/quality-profiles.js";
+    import { applyAvatarQualityVariant } from "./src/quality-variants.js";
+
+    const output = document.querySelector("#output");
+    const button = document.querySelector("#run");
+
+    function buildFixture() {
+      const segments = 128;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+      const skinIndices = [];
+      const skinWeights = [];
+      for (let y = 0; y <= segments; y += 1) {
+        for (let x = 0; x <= segments; x += 1) {
+          positions.push(x / segments, y / segments, Math.sin(x * 0.12) * Math.cos(y * 0.09) * 0.025);
+          uvs.push(x / segments, y / segments);
+          skinIndices.push(0, 0, 0, 0);
+          skinWeights.push(1, 0, 0, 0);
+        }
+      }
+      for (let y = 0; y < segments; y += 1) {
+        for (let x = 0; x < segments; x += 1) {
+          const a = y * (segments + 1) + x;
+          const b = a + 1;
+          const c = a + segments + 1;
+          const d = c + 1;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(skinIndices, 4));
+      geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(skinWeights, 4));
+      geometry.setIndex(indices);
+      geometry.addGroup(0, indices.length / 2, 0);
+      geometry.addGroup(indices.length / 2, indices.length / 2, 1);
+      geometry.computeVertexNormals();
+
+      const root = new THREE.Group();
+      const mesh = new THREE.SkinnedMesh(geometry, [
+        new THREE.MeshStandardMaterial({ color: 0x6b91c7 }),
+        new THREE.MeshStandardMaterial({ color: 0x83b99a })
+      ]);
+      mesh.name = "quality-fixture-skinned";
+      const bone = new THREE.Bone();
+      bone.name = "RootBone";
+      mesh.add(bone);
+      root.add(mesh);
+      const skeleton = new THREE.Skeleton([bone]);
+      mesh.bind(skeleton);
+      root.updateMatrixWorld(true);
+      skeleton.update();
+      return { root, mesh, originalGeometry: geometry, originalTriangles: indices.length / 3 };
+    }
+
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      output.textContent = "A construir malha e a testar os quatro perfis…\n";
+      const lines = [];
+      try {
+        const fixture = buildFixture();
+        for (const profileId of AVATAR_QUALITY_ORDER) {
+          const variant = applyAvatarQualityVariant(fixture.root, profileId);
+          const skinIndex = fixture.mesh.geometry.getAttribute("skinIndex");
+          const skinWeight = fixture.mesh.geometry.getAttribute("skinWeight");
+          const groups = fixture.mesh.geometry.groups.length;
+          const passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2);
+          lines.push({
+            profile: profileId,
+            sourceTriangles: variant.sourceTriangles,
+            outputTriangles: variant.optimizedTriangles,
+            triangleBudget: variant.triangleBudget,
+            withinBudget: variant.withinTriangleBudget,
+            skinnedMeshesValidated: variant.validation.skinnedMeshes,
+            materialGroups: groups,
+            result: passed ? "PASS" : "FAIL"
+          });
+          variant.restore();
+          if (fixture.mesh.geometry !== fixture.originalGeometry) throw new Error("A geometria original não foi restaurada.");
+        }
+        fixture.originalGeometry.dispose();
+        output.innerHTML = '<span class="pass">PASS — validação estrutural concluída</span>\n' + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+      } catch (error) {
+        output.innerHTML = '<span class="fail">FAIL — ' + String(error.message || error) + '</span>\n' + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+        console.error(error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
