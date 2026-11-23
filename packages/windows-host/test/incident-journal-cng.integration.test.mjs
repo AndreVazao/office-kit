@@ -128,6 +128,13 @@ test("Windows host protects incident journal MAC key with CNG and a test-only an
     platform: "win32",
     appDataPath,
     helperPath,
+    publisherPolicyLoader: ({ installationId, edition }) => ({
+        installationId,
+        edition: edition ?? "universal",
+        signatureIndex: 0,
+        publisherSpkiSha256: "a".repeat(64),
+        revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+      }),
     verifyHelper: () => true,
     resolveUserSid: () => "S-1-5-21-100",
     applyAcl: () => {},
