@@ -191,6 +191,86 @@ function simplifyToBudget(source, targetTriangles) {
 }
 
 /**
+ * Validates the structural invariants required by GLB export and skeletal playback.
+ * Throws with the mesh name when a generated variant is unsafe to export.
+ */
+export function validateAvatarQualityVariant(root) {
+  const report = { meshes: 0, skinnedMeshes: 0, triangles: 0, vertices: 0, warnings: [] };
+  const failures = [];
+  root.traverse((mesh) => {
+    if (!mesh.isMesh || !mesh.visible || !mesh.geometry) return;
+    const geometry = mesh.geometry;
+    const position = geometry.getAttribute("position");
+    if (!position) return;
+    report.meshes += 1;
+    report.triangles += geometryTriangles(geometry);
+    report.vertices += position.count;
+    const index = geometry.getIndex();
+    if (index) {
+      for (let i = 0; i < index.count; i += 1) {
+        const vertex = index.getX(i);
+        if (!Number.isInteger(vertex) || vertex < 0 || vertex >= position.count) {
+          failures.push(mesh.name + ": índice de vértice fora dos limites.");
+          break;
+        }
+      }
+    }
+    for (const group of geometry.groups || []) {
+      const limit = index ? index.count : position.count;
+      if (group.start < 0 || group.count < 0 || group.start + group.count > limit || group.count % 3 !== 0) {
+        failures.push(mesh.name + ": grupo de material inválido.");
+        break;
+      }
+      const materialCount = Array.isArray(mesh.material) ? mesh.material.length : 1;
+      if (group.materialIndex < 0 || group.materialIndex >= materialCount) {
+        failures.push(mesh.name + ": índice de material inexistente.");
+        break;
+      }
+    }
+    for (let vertex = 0; vertex < position.count; vertex += 1) {
+      for (let component = 0; component < position.itemSize; component += 1) {
+        if (!Number.isFinite(position.getComponent(vertex, component))) {
+          failures.push(mesh.name + ": posição não finita.");
+          break;
+        }
+      }
+    }
+    if (mesh.isSkinnedMesh) {
+      report.skinnedMeshes += 1;
+      const skinIndex = geometry.getAttribute("skinIndex");
+      const skinWeight = geometry.getAttribute("skinWeight");
+      if (!skinIndex || !skinWeight || skinIndex.count !== position.count || skinWeight.count !== position.count || skinIndex.itemSize !== skinWeight.itemSize) {
+        failures.push(mesh.name + ": atributos de skinning ausentes ou incompatíveis.");
+        return;
+      }
+      const boneCount = mesh.skeleton?.bones?.length || 0;
+      for (let vertex = 0; vertex < position.count; vertex += 1) {
+        let totalWeight = 0;
+        for (let component = 0; component < skinWeight.itemSize; component += 1) {
+          const weight = skinWeight.getComponent(vertex, component);
+          const bone = Math.round(skinIndex.getComponent(vertex, component));
+          if (!Number.isFinite(weight) || weight < -1e-6) {
+            failures.push(mesh.name + ": peso ósseo inválido.");
+            break;
+          }
+          if (weight > 1e-6 && (bone < 0 || bone >= boneCount)) {
+            failures.push(mesh.name + ": referência a osso inexistente.");
+            break;
+          }
+          totalWeight += weight;
+        }
+        if (Math.abs(totalWeight - 1) > 1e-3) {
+          failures.push(mesh.name + ": pesos ósseos não normalizados.");
+          break;
+        }
+      }
+    }
+  });
+  if (failures.length) throw new Error("Validação da variante falhou: " + [...new Set(failures)].join(" "));
+  return report;
+}
+
+/**
  * Temporarily replaces avatar mesh geometry with a profile-specific,
  * skinning-aware vertex-clustered variant. Call restore() after GLB export.
  */
@@ -209,6 +289,7 @@ export function applyAvatarQualityVariant(root, profileId) {
   const ratio = sourceTriangles > 0 ? targetTriangles / sourceTriangles : 1;
   let optimizedTriangles = 0;
   let optimizedVertices = 0;
+  let validation = null;
 
   try {
     for (const mesh of meshes) {
@@ -226,6 +307,7 @@ export function applyAvatarQualityVariant(root, profileId) {
       optimizedVertices += optimized.getAttribute("position")?.count || 0;
       if (mesh.isSkinnedMesh) optimized.normalizeSkinWeights();
     }
+    validation = validateAvatarQualityVariant(root);
   } catch (error) {
     for (const { mesh, geometry } of originals) {
       mesh.geometry.dispose();
@@ -243,6 +325,7 @@ export function applyAvatarQualityVariant(root, profileId) {
     triangleBudget: profile.triangleBudget,
     withinTriangleBudget: optimizedTriangles <= profile.triangleBudget,
     meshCount: meshes.length,
+    validation,
     restore() {
       if (restored) return;
       restored = true;
