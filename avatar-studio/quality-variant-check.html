@@ -277,7 +277,34 @@
         uniformTexture.dispose();
         if (!uniformTextureRejected) throw new Error("Uma textura em ShaderMaterial.uniforms não foi auditada.");
 
-        output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+        const resizeRoot = new THREE.Group();
+        const sourceCanvas = document.createElement("canvas");
+        sourceCanvas.width = 1024;
+        sourceCanvas.height = 256;
+        const sourceContext = sourceCanvas.getContext("2d");
+        sourceContext.fillStyle = "#c04020";
+        sourceContext.fillRect(0, 0, 1024, 256);
+        const sourceTexture = new THREE.CanvasTexture(sourceCanvas);
+        const resizeMaterial = new THREE.MeshStandardMaterial({ map: sourceTexture, color: 0xffffff });
+        const resizeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), resizeMaterial);
+        resizeRoot.add(resizeMesh);
+        const resizedVariant = applyAvatarMaterialVariant(resizeRoot, "low");
+        const resizedTexture = resizeMesh.material.map;
+        const resizePassed = resizedVariant.withinTextureBudget &&
+          resizedTexture !== sourceTexture &&
+          resizedTexture.image.width === 512 &&
+          resizedTexture.image.height === 128 &&
+          sourceTexture.image === sourceCanvas &&
+          sourceCanvas.width === 1024;
+        lines.push({ imageTextureDownscaled: resizePassed, output: resizedTexture.image.width + "x" + resizedTexture.image.height, sourcePreserved: sourceTexture.image === sourceCanvas, result: resizePassed ? "PASS" : "FAIL" });
+        resizedVariant.restore();
+        const restoredTexture = resizeMesh.material.map === sourceTexture;
+        resizeMesh.geometry.dispose();
+        resizeMaterial.dispose();
+        sourceTexture.dispose();
+        if (!resizePassed || !restoredTexture) throw new Error("A redução de textura não preservou a origem ou não restaurou o material.");
+
+        output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
         console.error(error);
