@@ -453,3 +453,179 @@ export function applyAvatarQualityVariant(root, profileId) {
     }
   };
 }
+
+
+const AVATAR_TEXTURE_SLOTS = [
+  "map", "alphaMap", "aoMap", "bumpMap", "displacementMap", "emissiveMap",
+  "envMap", "lightMap", "metalnessMap", "normalMap", "roughnessMap",
+  "specularMap", "clearcoatMap", "clearcoatNormalMap", "clearcoatRoughnessMap"
+];
+
+function materialTextureAudit(material, maxSize) {
+  const overBudget = [];
+  let textureCount = 0;
+  for (const slot of AVATAR_TEXTURE_SLOTS) {
+    const texture = material?.[slot];
+    if (!texture?.isTexture) continue;
+    textureCount += 1;
+    const image = texture.image;
+    const width = image?.naturalWidth || image?.videoWidth || image?.width || 0;
+    const height = image?.naturalHeight || image?.videoHeight || image?.height || 0;
+    if (!width || !height || Math.max(width, height) > maxSize) {
+      overBudget.push({ slot, width, height, maxSize });
+    }
+  }
+  return { textureCount, overBudget };
+}
+
+function materialClassKey(material, precision) {
+  const quantize = (value) => Number((Math.round(value / precision) * precision).toFixed(3));
+  return JSON.stringify({
+    type: material.type,
+    roughness: Number.isFinite(material.roughness) ? quantize(material.roughness) : null,
+    metalness: Number.isFinite(material.metalness) ? quantize(material.metalness) : null,
+    emissive: material.emissive?.getHexString?.() || "",
+    emissiveIntensity: material.emissiveIntensity ?? 1,
+    side: material.side,
+    transparent: material.transparent,
+    opacity: material.opacity,
+    alphaTest: material.alphaTest,
+    depthWrite: material.depthWrite,
+    depthTest: material.depthTest,
+    flatShading: material.flatShading,
+    wireframe: material.wireframe,
+    blending: material.blending,
+    toneMapped: material.toneMapped
+  });
+}
+
+/**
+ * Consolidates untextured single-material meshes into a small set of
+ * vertex-colour materials. The original material references are restored
+ * after GLB export; source textures are never mutated.
+ */
+export function applyAvatarMaterialVariant(root, profileId) {
+  const profile = AVATAR_QUALITY_PROFILES[profileId];
+  if (!profile) throw new RangeError("Unknown avatar quality profile: " + profileId);
+
+  const meshes = [];
+  const originalMaterials = [];
+  const sourceMaterials = new Set();
+  const nonConvertibleMaterials = new Set();
+  const textureIssues = [];
+  let textureCount = 0;
+
+  root.traverse((mesh) => {
+    if (!mesh.isMesh || !mesh.visible || !mesh.material) return;
+    meshes.push(mesh);
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      if (!material) continue;
+      sourceMaterials.add(material);
+      const audit = materialTextureAudit(material, profile.textureMaxSize);
+      textureCount += audit.textureCount;
+      for (const issue of audit.overBudget) textureIssues.push({ material: material.name || material.type, ...issue });
+      if (Array.isArray(mesh.material) || !material.isMeshStandardMaterial || !material.color || audit.textureCount > 0) {
+        nonConvertibleMaterials.add(material);
+      }
+    }
+  });
+
+  const originalMaterialCount = sourceMaterials.size;
+  const textureOverBudgetCount = textureIssues.length;
+  const stepByProfile = { ultra: 0, high: 0.1, medium: 0.2, low: 0.35 };
+  let precision = stepByProfile[profileId];
+  const eligibleMaterials = new Set();
+  for (const mesh of meshes) {
+    if (Array.isArray(mesh.material)) continue;
+    const material = mesh.material;
+    if (material?.isMeshStandardMaterial && material.color && materialTextureAudit(material, profile.textureMaxSize).textureCount === 0) {
+      eligibleMaterials.add(material);
+    }
+  }
+
+  const fixedMaterialCount = nonConvertibleMaterials.size;
+  if (precision > 0 && eligibleMaterials.size > 0) {
+    while (precision < 1) {
+      const classCount = new Set([...eligibleMaterials].map((material) => materialClassKey(material, precision))).size;
+      if (fixedMaterialCount + classCount <= profile.materialBudget) break;
+      precision = Math.min(1, Number((precision + 0.05).toFixed(2)));
+    }
+  }
+
+  const classMaterials = new Map();
+  const variantMaterials = new Set();
+  try {
+    for (const mesh of meshes) {
+      if (Array.isArray(mesh.material)) continue;
+      const original = mesh.material;
+      if (!eligibleMaterials.has(original) || precision === 0) continue;
+
+      const position = mesh.geometry?.getAttribute("position");
+      if (!position) continue;
+      const existingColor = mesh.geometry.getAttribute("color");
+      const colors = new Float32Array(position.count * 3);
+      for (let vertex = 0; vertex < position.count; vertex += 1) {
+        const baseR = original.color.r;
+        const baseG = original.color.g;
+        const baseB = original.color.b;
+        if (existingColor && original.vertexColors) {
+          colors[vertex * 3] = existingColor.getX(vertex) * baseR;
+          colors[vertex * 3 + 1] = existingColor.getY(vertex) * baseG;
+          colors[vertex * 3 + 2] = existingColor.getZ(vertex) * baseB;
+        } else {
+          colors[vertex * 3] = baseR;
+          colors[vertex * 3 + 1] = baseG;
+          colors[vertex * 3 + 2] = baseB;
+        }
+      }
+      mesh.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+
+      const key = materialClassKey(original, precision);
+      let variantMaterial = classMaterials.get(key);
+      if (!variantMaterial) {
+        variantMaterial = original.clone();
+        variantMaterial.color.setRGB(1, 1, 1);
+        variantMaterial.vertexColors = true;
+        if (Number.isFinite(original.roughness)) variantMaterial.roughness = Number((Math.round(original.roughness / precision) * precision).toFixed(3));
+        if (Number.isFinite(original.metalness)) variantMaterial.metalness = Number((Math.round(original.metalness / precision) * precision).toFixed(3));
+        variantMaterial.needsUpdate = true;
+        classMaterials.set(key, variantMaterial);
+        variantMaterials.add(variantMaterial);
+      }
+      originalMaterials.push({ mesh, material: original });
+      mesh.material = variantMaterial;
+    }
+  } catch (error) {
+    for (const { mesh, material } of originalMaterials) mesh.material = material;
+    for (const material of variantMaterials) material.dispose();
+    throw error;
+  }
+
+  const finalMaterials = new Set();
+  for (const mesh of meshes) {
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      if (material) finalMaterials.add(material);
+    }
+  }
+  const materialCount = finalMaterials.size;
+  let restored = false;
+  return {
+    profileId,
+    sourceMaterialCount: originalMaterialCount,
+    materialCount,
+    materialBudget: profile.materialBudget,
+    textureCount,
+    textureMaxSize: profile.textureMaxSize,
+    textureIssues,
+    withinMaterialBudget: materialCount <= profile.materialBudget,
+    withinTextureBudget: textureOverBudgetCount === 0,
+    precision,
+    convertedMeshCount: originalMaterials.length,
+    restore() {
+      if (restored) return;
+      restored = true;
+      for (const { mesh, material } of originalMaterials) mesh.material = material;
+      for (const material of variantMaterials) material.dispose();
+    }
+  };
+}
