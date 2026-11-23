@@ -84,6 +84,13 @@ function setup(directory, overrides = {}) {
     helperPath,
     resolveUserSid: () => "S-1-5-21-100",
     applyAcl: () => {},
+    publisherPolicyLoader: ({ installationId, edition }) => ({
+      installationId,
+      edition,
+      signatureIndex: 0,
+      publisherSpkiSha256: "a".repeat(64),
+      revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+    }),
     verifyHelper: () => true,
     runtimeFactory,
     secretVaultFactory: fakeSecretVault,
