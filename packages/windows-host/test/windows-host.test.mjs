@@ -208,6 +208,39 @@ test("Windows host exposes an installation-scoped generic CNG secret vault", asy
   }
 });
 
+test("Windows host binds helper verification to the installation and edition publisher policy", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-policy-binding-"));
+  let observed = null;
+  let host;
+  try {
+    host = setup(directory, {
+      edition: "vst",
+      publisherPolicyLoader: ({ policyPath, installationId, edition }) => ({
+        policyPath,
+        installationId,
+        edition,
+        signatureIndex: 0,
+        publisherSpkiSha256: "b".repeat(64),
+        revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+      }),
+      verifyHelper: (helperPath, policy) => {
+        observed = { helperPath, policy };
+        return true;
+      }
+    });
+    await host.ready;
+    assert.equal(observed.policy.installationId, host.installationId);
+    assert.equal(observed.policy.edition, "vst");
+    assert.equal(observed.policy.signatureIndex, 0);
+    assert.equal(observed.policy.publisherSpkiSha256, "b".repeat(64));
+    assert.equal(observed.policy.revocationPolicy.runtimeStartup, "cache-only-chain-exclude-root-fail-closed");
+    assert.equal(observed.policy.policyPath, join(directory, "OfficeKit", "publisher-policy.json"));
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Windows host rejects an untrusted helper before opening its database", () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-trust-"));
   try {
