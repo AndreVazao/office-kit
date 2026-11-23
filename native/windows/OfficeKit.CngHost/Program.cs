@@ -401,7 +401,7 @@ internal static class Program
     private static object SecretPublicKey(string installationId, string secretNamespace)
     {
         using var key = OpenOrCreateSecretKey(installationId, secretNamespace);
-        if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup?.Algorithm) || !IsPrivateKeyNonExportable(key))
+        if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup, CngAlgorithmGroup.Rsa) || !IsPrivateKeyNonExportable(key))
             throw new InvalidOperationException("secret_key_export_policy_invalid");
 
         using var rsa = new RSACng(key);
@@ -423,7 +423,7 @@ internal static class Program
     {
         var keyName = SecretKeyName(installationId, secretNamespace);
         using var key = CngKey.Open(keyName, new CngProvider(ProviderName), CngKeyOpenOptions.None);
-        if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup?.Algorithm) || !IsPrivateKeyNonExportable(key))
+        if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup, CngAlgorithmGroup.Rsa) || !IsPrivateKeyNonExportable(key))
             throw new InvalidOperationException("secret_key_export_policy_invalid");
 
         using var rsa = new RSACng(key);
@@ -453,7 +453,7 @@ internal static class Program
         try
         {
             using var key = CngKey.Open(keyName, new CngProvider(ProviderName), CngKeyOpenOptions.None);
-            if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup?.Algorithm))
+            if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup, CngAlgorithmGroup.Rsa))
                 throw new InvalidOperationException("secret_key_algorithm_invalid");
             return new { ok = true, exists = true, exportable = !IsPrivateKeyNonExportable(key) };
         }
@@ -469,7 +469,7 @@ internal static class Program
         try
         {
             using var key = CngKey.Open(keyName, new CngProvider(ProviderName), CngKeyOpenOptions.None);
-            if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup?.Algorithm) || !IsPrivateKeyNonExportable(key))
+            if (!CngAlgorithmGroupPolicy.IsRsa(key.AlgorithmGroup, CngAlgorithmGroup.Rsa) || !IsPrivateKeyNonExportable(key))
                 throw new InvalidOperationException("secret_key_policy_invalid");
             key.Delete();
             return new { ok = true, deleted = true };
