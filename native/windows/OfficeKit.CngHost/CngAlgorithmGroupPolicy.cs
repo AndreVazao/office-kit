@@ -1,7 +1,5 @@
-using System.Security.Cryptography;
-
 internal static class CngAlgorithmGroupPolicy
 {
-    public static bool IsRsa(CngAlgorithmGroup? algorithmGroup) =>
-        algorithmGroup is not null && algorithmGroup.Equals(CngAlgorithmGroup.Rsa);
+    public static bool IsRsa(string? algorithmGroup) =>
+        string.Equals(algorithmGroup, "RSA", StringComparison.OrdinalIgnoreCase);
 }
