@@ -655,7 +655,7 @@ public static class OfficeKitWinTrustVerifier
             WINTRUST_SIGNATURE_SETTINGS signatureSettings = new WINTRUST_SIGNATURE_SETTINGS();
             signatureSettings.cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_SIGNATURE_SETTINGS));
             signatureSettings.dwIndex = 0;
-            signatureSettings.dwFlags = 0x00000002; // WSS_GET_SECONDARY_SIG_COUNT
+            signatureSettings.dwFlags = 0x00000003; // WSS_VERIFY_SPECIFIC | WSS_GET_SECONDARY_SIG_COUNT
             signatureSettings.dwVerifiedSigIndex = UInt32.MaxValue;
 
             signatureSettingsPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_SIGNATURE_SETTINGS)));
@@ -663,34 +663,20 @@ public static class OfficeKitWinTrustVerifier
 
             data.cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_DATA));
             data.dwUIChoice = 2; // WTD_UI_NONE
-            data.fdwRevocationChecks = 0;
+            data.fdwRevocationChecks = 1; // WTD_REVOKE_WHOLECHAIN
             data.dwUnionChoice = 1; // WTD_CHOICE_FILE
             data.pFile = fileInfoPointer;
             data.dwStateAction = 1; // WTD_STATEACTION_VERIFY
-            data.dwProvFlags = 0;
+            data.dwProvFlags = revocationFlags;
             data.pSignatureSettings = signatureSettingsPointer;
 
-            // Count secondary signatures without authorizing any of them.
-            WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
-            signatureSettings = (WINTRUST_SIGNATURE_SETTINGS)Marshal.PtrToStructure(
-                signatureSettingsPointer, typeof(WINTRUST_SIGNATURE_SETTINGS));
-            secondarySignatureCount = signatureSettings.cSecondarySigs;
-            CloseState(ref data, ref actionId);
-
-            // Verify exactly the primary signature. No automatic secondary fallback.
-            signatureSettings.dwIndex = 0;
-            signatureSettings.dwFlags = 0x00000001; // WSS_VERIFY_SPECIFIC
-            signatureSettings.dwVerifiedSigIndex = UInt32.MaxValue;
-            Marshal.StructureToPtr(signatureSettings, signatureSettingsPointer, false);
-
-            data.hWVTStateData = IntPtr.Zero;
-            data.dwStateAction = 1;
-            data.fdwRevocationChecks = 1; // WTD_REVOKE_WHOLECHAIN
-            data.dwProvFlags = revocationFlags;
+            // Verify exactly the primary signature and collect the secondary count
+            // in the same WinTrust call. No automatic secondary fallback.
             status = WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
 
             signatureSettings = (WINTRUST_SIGNATURE_SETTINGS)Marshal.PtrToStructure(
                 signatureSettingsPointer, typeof(WINTRUST_SIGNATURE_SETTINGS));
+            secondarySignatureCount = signatureSettings.cSecondarySigs;
             verifiedSignatureIndex = signatureSettings.dwVerifiedSigIndex;
 
             if (status == 0 && verifiedSignatureIndex == 0)
