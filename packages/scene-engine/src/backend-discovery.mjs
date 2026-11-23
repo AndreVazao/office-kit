@@ -22,6 +22,14 @@ const EVIDENCE_CODES = new Set([
   "explicitly_connected_plugin",
   "opt_in_local_discovery"
 ]);
+const SOURCE_EVIDENCE = Object.freeze({
+  manual_endpoint: "owner_supplied_endpoint",
+  selected_documentation: "selected_documentation",
+  adapter_catalog: "versioned_catalog_entry",
+  connected_plugin: "explicitly_connected_plugin",
+  opt_in_local_discovery: "opt_in_local_discovery"
+});
+const SECRET_TEXT_PATTERN = /\\b(?:Bearer\\s+\\S+|(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|token|secret|password|authorization)\\s*[:=]\\s*\\S+|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})/i;
 const CANDIDATE_STATUSES = new Set([
   "discovered",
   "reachable",
@@ -52,15 +60,15 @@ function isLoopbackHostname(hostname) {
 
 function safeHttpUrl(value, field, errors, { optional = false } = {}) {
   if (value === undefined && optional) return null;
-  if (!nonEmpty(value) || value.length > 2048) {
-    errors.push(`${field} must be a non-empty URL of at most 2048 characters.`);
+  if (!nonEmpty(value) || value.length > 2048 || /[\\u0000-\\u0020\\u007f]/u.test(value)) {
+    errors.push(`${field} must be a bounded URL without whitespace or control characters.`);
     return null;
   }
   try {
     const parsed = new URL(value);
     if (!["http:", "https:"].includes(parsed.protocol)) errors.push(`${field} must use HTTP or HTTPS.`);
     if (parsed.username || parsed.password) errors.push(`${field} must not contain embedded credentials.`);
-    if (parsed.search || parsed.hash) errors.push(`${field} must not contain query strings or fragments.`);
+    if (parsed.href.includes("?") || parsed.href.includes("#")) errors.push(`${field} must not contain query strings or fragments.`);
     if (parsed.protocol === "http:" && !isLoopbackHostname(parsed.hostname)) {
       errors.push(`${field} must use HTTPS unless the target is loopback.`);
     }
@@ -115,8 +123,10 @@ export function normalizeBackendCandidate(candidate) {
   }
 
   const evidence = candidate.evidence ?? [];
-  if (!Array.isArray(evidence) || evidence.length > 16 || evidence.some(item => !EVIDENCE_CODES.has(item))) {
-    errors.push("evidence must contain only approved non-secret evidence codes.");
+  if (!Array.isArray(evidence) || evidence.length < 1 || evidence.length > 16 || evidence.some(item => !EVIDENCE_CODES.has(item))) {
+    errors.push("evidence must contain one or more approved non-secret evidence codes.");
+  } else if (SOURCE_EVIDENCE[candidate.sourceType] && !evidence.includes(SOURCE_EVIDENCE[candidate.sourceType])) {
+    errors.push("evidence must identify the selected source type.");
   }
   const observedAt = candidate.observedAt ?? null;
   if (observedAt !== null && (!nonEmpty(observedAt) || observedAt.length > 64 || !Number.isFinite(Date.parse(observedAt)))) {
@@ -200,6 +210,7 @@ export const backendDiscoveryContract = Object.freeze({
   discoveryExecutesCommands: false,
   discoveryGrantsCapabilities: false,
   capabilitiesAreUntrustedClaims: true,
+  sourceEvidenceMustBeVerifiedByProvider: true,
   initialAdapterMode: "read-only",
   storesCredentials: false,
   networkScanningByDefault: false

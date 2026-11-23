@@ -58,7 +58,7 @@ O módulo `packages/scene-engine/src/backend-discovery.mjs` normaliza candidatos
 
 - Fontes permitidas são enumeradas; um tipo de fonte arbitrário (por exemplo, varrimento genérico) é recusado.
 - URLs rejeitam credenciais embutidas, query strings e fragments; HTTP só é aceite para loopback e endpoints remotos exigem HTTPS. WebSocket não faz parte deste contrato v1.
-- `sourceReference` é um identificador opaco e `evidence` usa códigos enumerados; campos arbitrários de credenciais são recusados.
+- `sourceReference` é um identificador opaco e `evidence` usa códigos enumerados compatíveis com a fonte; o provider tem de verificar a proveniência. Campos arbitrários de credenciais, labels com URLs e texto de credenciais são recusados.
 - Capacidades são limitadas a um vocabulário neutro e desconhecidas são recusadas. São declarações não confiáveis, nunca permissões concedidas.
 - Reachability, autenticação, compatibilidade do adaptador e snapshot são verificações independentes.
 - Um endpoint público de health pode provar apenas reachability; nunca prova autenticação nem compatibilidade.

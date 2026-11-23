@@ -37,6 +37,9 @@ test("rejects URLs containing credentials, query strings, fragments and unsuppor
     "https://user:secret@example.test",
     "https://example.test/api?token=secret",
     "https://example.test/api#private",
+    "https://example.test/api?",
+    "https://example.test/api#",
+    "https://example.test/api\\n",
     "ws://127.0.0.1:8080",
     "wss://example.test/socket",
     "http://example.test/api"
@@ -51,6 +54,25 @@ test("allows local loopback HTTP and remote HTTPS only", () => {
     "http://[::1]:8080",
     "https://backend.example/api"
   ]) assert.equal(normalizeBackendCandidate(candidate({ endpoint })).valid, true);
+});
+
+test("rejects credential-like display labels and source/evidence mismatches", () => {
+  for (const name of [
+    "Bearer private-token-value",
+    "token=private-token-value",
+    "https://backend.example/path?token=private-token-value"
+  ]) assert.equal(normalizeBackendCandidate(candidate({ name })).valid, false);
+  assert.equal(normalizeBackendCandidate(candidate({ evidence: [] })).valid, false);
+  assert.equal(normalizeBackendCandidate(candidate({
+    sourceType: "selected_documentation",
+    endpoint: undefined,
+    evidence: ["owner_supplied_endpoint"]
+  })).valid, false);
+  assert.equal(normalizeBackendCandidate(candidate({
+    sourceType: "selected_documentation",
+    endpoint: undefined,
+    evidence: ["selected_documentation"]
+  })).valid, true);
 });
 
 test("rejects credential-bearing and unbounded candidate fields", () => {
@@ -103,6 +125,7 @@ test("discovery contract never grants commands, credentials or implicit activati
   assert.equal(backendDiscoveryContract.discoveryExecutesCommands, false);
   assert.equal(backendDiscoveryContract.discoveryGrantsCapabilities, false);
   assert.equal(backendDiscoveryContract.capabilitiesAreUntrustedClaims, true);
+  assert.equal(backendDiscoveryContract.sourceEvidenceMustBeVerifiedByProvider, true);
   assert.equal(backendDiscoveryContract.initialAdapterMode, "read-only");
   assert.equal(backendDiscoveryContract.storesCredentials, false);
   assert.equal(backendDiscoveryContract.networkScanningByDefault, false);

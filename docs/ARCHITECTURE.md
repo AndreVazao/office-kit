@@ -47,7 +47,7 @@ A descoberta é uma camada neutra anterior à seleção de um adaptador; não é
 - O contrato v1 normaliza candidatos recebidos de fontes explicitamente selecionadas: endpoint manual, documentação selecionada, catálogo versionado, plugin ligado ou descoberta local opt-in.
 - O normalizador é puro e não faz pedidos HTTP, varrimento de rede, autenticação, importação dinâmica, execução de comandos ou ativação.
 - Endpoints remotos exigem HTTPS. HTTP só é aceite para loopback. URLs com userinfo, query ou fragment e esquemas WebSocket são recusados.
-- Referências de origem são identificadores opacos; evidência usa códigos enumerados. Campos arbitrários de credenciais são recusados.
+- Referências de origem são identificadores opacos; evidência usa códigos enumerados compatíveis com a fonte e deve ser verificada pelo provider. Campos arbitrários de credenciais, URLs e texto de credenciais em labels são recusados.
 - Capacidades são declarações não confiáveis do candidato, não permissões. Mesmo `send_commands` não concede execução.
 - `validated` exige sucesso independente de reachability, autenticação, compatibilidade do adaptador e snapshot.
 - O modo inicial de qualquer backend permanece read-only. Uma descoberta nunca cria sessão, guarda credenciais ou liga automaticamente.
