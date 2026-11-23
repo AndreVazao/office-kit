@@ -29,7 +29,8 @@ const SOURCE_EVIDENCE = Object.freeze({
   connected_plugin: "explicitly_connected_plugin",
   opt_in_local_discovery: "opt_in_local_discovery"
 });
-const SECRET_TEXT_PATTERN = /\\b(?:Bearer\\s+\\S+|(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|token|secret|password|authorization)\\s*[:=]\\s*\\S+|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})/i;
+const SECRET_TEXT_PATTERN = /\b(?:Bearer\s+\S+|(?:api[_-]?(?:key|secret)|access[_-]?token|refresh[_-]?token|token|secret|password|authorization)\s*[:=]\s*\S+|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})/i;
+
 const CANDIDATE_STATUSES = new Set([
   "discovered",
   "reachable",
@@ -60,8 +61,8 @@ function isLoopbackHostname(hostname) {
 
 function safeHttpUrl(value, field, errors, { optional = false } = {}) {
   if (value === undefined && optional) return null;
-  if (!nonEmpty(value) || value.length > 2048 || /[\\u0000-\\u0020\\u007f]/u.test(value)) {
-    errors.push(`${field} must be a bounded URL without whitespace or control characters.`);
+  if (!nonEmpty(value) || value.length > 2048 || /[\u0000-\u0020\u007f]/u.test(value)) {
+    errors.push(\`\${field} must be a bounded URL without whitespace or control characters.\`);
     return null;
   }
   try {
@@ -133,8 +134,9 @@ export function normalizeBackendCandidate(candidate) {
     errors.push("observedAt must be a valid bounded timestamp.");
   }
   const name = candidate.name ?? candidate.id;
-  if (!nonEmpty(name) || name.length > 120 || /[\u0000-\u001f\u007f]/u.test(name)) {
-    errors.push("name must be a printable label of at most 120 characters.");
+  if (!nonEmpty(name) || name.length > 120 || /[\u0000-\u001f\u007f]/u.test(name)
+    || /https?:\/\//i.test(name) || SECRET_TEXT_PATTERN.test(name)) {
+    errors.push("name must be a printable label without URLs or credential-like text.");
   }
   const backendType = candidate.backendType ?? "unknown";
   if (!safeIdentifier(backendType)) errors.push("backendType must be a bounded opaque identifier.");
