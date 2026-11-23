@@ -4,14 +4,15 @@ using System.Security.Principal;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 
 internal sealed record PublisherPolicyKeyInfo(
-    string KeyName,
-    string PublicKeySpki,
-    string SecurityDescriptorSddl,
-    int KeySize,
-    bool MachineScope,
-    bool PrivateKeyExportable
+    [property: JsonPropertyName("keyName")] string KeyName,
+    [property: JsonPropertyName("publicKeySpki")] string PublicKeySpki,
+    [property: JsonPropertyName("securityDescriptorSddl")] string SecurityDescriptorSddl,
+    [property: JsonPropertyName("keySize")] int KeySize,
+    [property: JsonPropertyName("machineScope")] bool MachineScope,
+    [property: JsonPropertyName("privateKeyExportable")] bool PrivateKeyExportable
 );
 
 internal static class PublisherPolicyKey
@@ -112,11 +113,12 @@ internal static class PublisherPolicyKey
         using var key = CngKey.Open(keyName, Provider, CngKeyOpenOptions.MachineKey);
         ValidateKey(key);
         using var rsa = new RSACng(key);
+        using var handle = key.Handle;
         var publicKey = rsa.ExportSubjectPublicKeyInfo();
         return new PublisherPolicyKeyInfo(
             keyName,
             Convert.ToBase64String(publicKey),
-            ReadSecurityDescriptorSddl(key.Handle),
+            ReadSecurityDescriptorSddl(handle),
             key.KeySize,
             key.IsMachineKey,
             key.ExportPolicy != CngExportPolicies.None
@@ -136,7 +138,8 @@ internal static class PublisherPolicyKey
         if (key.KeyUsage != CngKeyUsages.Signing)
             throw new CryptographicException("publisher_policy_key_usage_invalid");
 
-        var sddl = ReadSecurityDescriptorSddl(key.Handle);
+        using var handle = key.Handle;
+        var sddl = ReadSecurityDescriptorSddl(handle);
         if (!string.Equals(sddl, ExpectedSecurityDescriptorSddl, StringComparison.OrdinalIgnoreCase))
             throw new CryptographicException("publisher_policy_key_acl_invalid");
     }
@@ -234,7 +237,8 @@ internal static class PublisherPolicyKey
         if (bytesRead <= 0 || bytesRead > buffer.Length)
             throw new CryptographicException("publisher_policy_key_acl_size_invalid");
 
-        var descriptor = new RawSecurityDescriptor(buffer, 0);
+        var exactBuffer = buffer.AsSpan(0, bytesRead).ToArray();
+        var descriptor = new RawSecurityDescriptor(exactBuffer, 0);
         return descriptor.GetSddlForm(AccessControlSections.All);
     }
 
