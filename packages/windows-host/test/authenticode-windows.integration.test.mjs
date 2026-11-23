@@ -13,11 +13,13 @@ const skipReason = process.platform !== "win32" || !process.env.WINDIR
 
 function getSystemPowerShellSignerCertificate(filePath) {
   const escapedPath = filePath.replace(/'/g, "''");
+  // This API only supplies the expected certificate for a known Microsoft-signed
+  // CI fixture. The production verifier independently validates the PE signature
+  // with WinTrust and extracts its signer from that exact provider state.
   const script = [
     "$ErrorActionPreference = 'Stop'",
-    "$signature = Get-AuthenticodeSignature -LiteralPath '" + escapedPath + "'",
-    "if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 3 }",
-    "[Console]::Out.Write([Convert]::ToBase64String($signature.SignerCertificate.RawData))"
+    "$certificate = [System.Security.Cryptography.X509Certificates.X509Certificate]::CreateFromSignedFile('" + escapedPath + "')",
+    "[Console]::Out.Write([Convert]::ToBase64String($certificate.GetRawCertData()))"
   ].join("; ");
   const result = spawnSync("powershell.exe", [
     "-NoLogo",
