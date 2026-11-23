@@ -547,15 +547,15 @@ A follow-up change removes `OFFICE_KIT_CNG_SIGNER_THUMBPRINT` as an implicit inp
 
 ## VST public health, private authentication and remote transport — 2026-11-23
 
-The current main adapter has a known public/private boundary gap. In `packages/scene-engine/src/vst-readonly-adapter.mjs`, `/health` is still included in `COCKPIT_ENDPOINTS`; the shared private `#get` path sends `X-Token` to every cockpit endpoint and treats HTTP 401 as `authenticationRejected`. The adapter tests currently assert that every cockpit GET, including `/health`, carries the private token. This does not match the VST backend contract where `GET /health` is public.
+PR #132 is integrated as `2dcfcb6d892ebdcf454855d736a3dc086df31869` from final PR HEAD `793c11fbd5ad8cf7992aff855ae40b62ab20a869`. CI [45207975655](https://github.com/AndreVazao/office-kit/actions/runs/45207975655) and visual regression [45207975761](https://github.com/AndreVazao/office-kit/actions/runs/45207975761) passed on that exact PR HEAD.
 
-Required target boundary:
-- `GET /health` is a public liveness/reachability probe. It must not receive `X-Token`, must not consult or mutate the private session-authentication state, and must never establish authenticated access or adapter compatibility.
-- `GET /observer/summary` remains the authenticated private observer check. A successful response with the expected envelope is required for a synchronized private session.
-- Other private cockpit routes continue to use the owner-approved in-memory session token and the backend's `read_private_state` scope.
-- A public health 401/403/5xx or timeout must be reported as a public-probe result only; it must not invalidate the private session. A private endpoint 401 may still reject that session.
-- PR #126 was closed without merge; PR #125 was also closed without merge. Issue #129 now tracks the correction. The separation is not implemented on main and remains a correction to make before claiming public/private health separation.
+The adapter now declares explicit, frozen public/private path lists:
+- `GET /health` is the only public cockpit health route. It receives no `X-Token`, does not consult the private token provider and cannot set or clear `authenticationRejected`.
+- `GET /observer/summary` and all other private cockpit routes continue to use the owner-approved in-memory session token and backend scope enforcement.
+- A public 401/403/5xx/timeout is recorded as a health-section failure only. Private endpoint authentication rejection remains fail-closed.
+- Adapter tests cover public 401, 403, 503 and timeout, subsequent private observer reads, path classification and immutability. Host and session integration tests verify that public health omits the token while private reads retain it.
+- Issue #129 is closed. This is adapter/unit/host integration evidence on GitHub runners, not a live VST backend or physical-PC E2E.
 
-PAPER control remains disabled. Issue #121 documents that the existing VST routes do not atomically guarantee PAPER mode for start/pause/resume/stop. The Office Kit must not expose these controls or route them through `/assistant/message` until the backend enforces the PAPER-only condition atomically, rejects REAL/UNKNOWN/SAFE_MODE states and returns authoritative post-operation state.
+PAPER control remains disabled. Issue #121 documents that the backend must atomically guarantee PAPER mode for every control operation, reject REAL/UNKNOWN/SAFE_MODE states and return authoritative post-operation state before Office Kit can expose those controls.
 
-Remote VST connectivity remains disabled; the adapter accepts only exact loopback `http://127.0.0.1:8765`. Issue #124 tracks a future private Tailscale Serve HTTPS path using a VST-issued paired-device token, server-side owner/device/scope/revocation checks and verified ingress identity. Do not trust client-supplied Tailscale identity headers, send owner tokens over raw LAN HTTP, allow arbitrary remote URLs or expose the VST listener publicly. Physical Windows-PC and Android E2E over the actual tailnet are required before remote readiness is claimed.
+Remote VST connectivity remains disabled; the adapter still accepts only exact loopback `http://127.0.0.1:8765`. Issue #124 tracks a future private Tailscale Serve HTTPS path using a VST-issued paired-device token, server-side owner/device/scope/revocation checks and verified ingress identity. Do not trust client-supplied Tailscale identity headers, send owner tokens over raw LAN HTTP, allow arbitrary remote URLs or expose the VST listener publicly. Physical Windows-PC and Android E2E over the actual tailnet are required before remote readiness is claimed.

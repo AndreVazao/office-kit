@@ -859,8 +859,16 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 
 ## VST cockpit safety and transport gates — 2026-11-23
 - [x] Integrate authenticated read-only cockpit snapshot (PR #118), restricted assistant bridge (PR #119), backend-sourced research tasks/evidence (PR #120) and local adapter diagnostics/recovery (PR #122).
-- [ ] Separate public `GET /health` from private authenticated routes. Current main still sends `X-Token` to `/health` and treats its 401 as private authentication rejection; PR #126 was closed without merge. Issue #129 tracks the correction. Public health proves reachability only.
+- [x] Separate public `GET /health` from private authenticated routes (PR #132, merge `2dcfcb6d892ebdcf454855d736a3dc086df31869`; CI [45207975655](https://github.com/AndreVazao/office-kit/actions/runs/45207975655), visual [45207975761](https://github.com/AndreVazao/office-kit/actions/runs/45207975761) passed on final PR HEAD). Public health sends no token and cannot reject private session authentication. Issue #129 closed.
 - [ ] Keep PAPER controls disabled until the backend atomically enforces PAPER mode for every control operation (issue #121).
 - [ ] Keep remote transport disabled until the exact Tailscale Serve HTTPS, paired-device identity, scope/revocation, redirect/DNS and unknown-POST-outcome requirements in issue #124 pass.
 - [ ] Complete live VST E2E and physical Windows/Android tailnet validation.
-- [ ] Resolve Windows CNG nullable `AlgorithmGroup` dereference warnings (issue #130) without suppressing nullable analysis.
+- [x] Resolve all four Windows CNG nullable `AlgorithmGroup` dereferences without suppressing nullable analysis (PR #133, merge `d97522e5f3797ee232e5fde74185805eb5a13aea`; CI [45211264089](https://github.com/AndreVazao/office-kit/actions/runs/45211264089), visual [45211264197](https://github.com/AndreVazao/office-kit/actions/runs/45211264197) passed on final PR HEAD). Issue #130 closed.
+
+## 2026-11-23 — verified integration checkpoint
+
+- [x] Integrate PR #132: VST public health is separated from private session authentication; exact PR HEAD CI and visual checks passed; issue #129 closed.
+- [x] Integrate PR #133: null-safe CNG algorithm-group validation and focused tests; exact PR HEAD Linux/Windows Node 22/26 CI and visual checks passed; both Windows native builds and protocol tests passed; issue #130 closed.
+- [ ] Implement issue #110 production Authenticode policy. Current Windows host remains deliberately fail-closed without an authenticated installer-provisioned publisher policy. No commercial distribution until SPKI pinning, signature-index binding, revocation behavior and native trust tests pass.
+- [ ] Complete #104 native installers/lifecycle, #109 host-integrated production licensing, #58 TPM-backed anti-rollback and physical recovery, #57 live DGM-MAT, #121 backend PAPER enforcement and #124 private VST transport.
+- [ ] Validate physical Windows installation and live VST/DGM-MAT read-only sessions. GitHub-hosted CI does not replace these tests.
