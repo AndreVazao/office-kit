@@ -279,7 +279,7 @@ export function readPublisherPolicyPublicKey(installationId, {
   const expectedSddl = PUBLISHER_POLICY_KEY_SDDL;
   const script = [
     "$ErrorActionPreference = 'Stop'",
-    \`$keyName = '\${keyName}'\`,
+    `$keyName = '${keyName}'`,
     "$provider = [System.Security.Cryptography.CngProvider]::MicrosoftSoftwareKeyStorageProvider",
     "$key = [System.Security.Cryptography.CngKey]::Open($keyName, $provider, [System.Security.Cryptography.CngKeyOpenOptions]::MachineKey)",
     "try {",
@@ -287,7 +287,7 @@ export function readPublisherPolicyPublicKey(installationId, {
     "  $descriptor = $key.GetProperty('Security Descr', [System.Security.Cryptography.CngPropertyOptions]::None)",
     "  $rawDescriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new($descriptor, 0)",
     "  $sddl = $rawDescriptor.GetSddlForm([System.Security.AccessControl.AccessControlSections]::All)",
-    \`  if ($sddl -ine '\${expectedSddl}') { exit 4 }\`,
+    `  if ($sddl -ine '${expectedSddl}') { exit 4 }`,
     "  $rsa = [System.Security.Cryptography.RSACng]::new($key)",
     "  $parameters = $rsa.ExportParameters($false)",
     "  $result = [ordered]@{ keyName = $key.KeyName; keySize = $key.KeySize; machineScope = $key.IsMachineKey; algorithmGroup = $key.AlgorithmGroup.ToString(); exportPolicy = [int]$key.ExportPolicy; keyUsage = [int]$key.KeyUsage; securityDescriptorSddl = $sddl; modulus = [Convert]::ToBase64String($parameters.Modulus); exponent = [Convert]::ToBase64String($parameters.Exponent) }",
