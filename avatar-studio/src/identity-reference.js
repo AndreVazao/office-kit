@@ -135,13 +135,69 @@ applyButton.addEventListener("click", () => {
     return;
   }
 
+  const leftRightPairs = [
+    [points[6], points[7], "maçãs do rosto"],
+    [points[10], points[11], "maxilar"],
+    [points[12], points[13], "abas do nariz"],
+    [points[3], points[4], "olhos"],
+    [points[1], points[2], "sobrancelhas"]
+  ];
+  const reversedPair = leftRightPairs.find(([left, right]) => left.x >= right.x);
+  if (reversedPair) {
+    state.textContent = "Corrige a ordem dos pontos: marca o lado esquerdo da fotografia antes do direito (" + reversedPair[2] + ").";
+    return;
+  }
+  const verticalOrderValid =
+    points[0].y < Math.min(points[1].y, points[2].y) &&
+    Math.max(points[1].y, points[2].y) < Math.min(points[3].y, points[4].y) &&
+    Math.max(points[3].y, points[4].y) < points[5].y &&
+    points[5].y < Math.min(points[8].y, points[12].y, points[13].y) &&
+    points[8].y < points[9].y;
+  if (!verticalOrderValid) {
+    state.textContent = "A ordem vertical dos pontos não corresponde ao rosto. Limpa os pontos e volta a marcá-los pela sequência indicada.";
+    return;
+  }
+
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const measurements = {
     faceWidth: clamp((cheekWidth / faceHeight) / 0.77, 0.86, 1.18),
-    jawWidth: clamp((jawWidth / cheekWidth) / 0.78, 0.86, 1.18),
-    noseSize: clamp((noseWidth / eyeDistance) / 0.34, 0.82, 1.22),
+    jawWidth: clamp((jawWidth / cheekWidth) / 0.78, 0.82, 1.22),
+    noseSize: clamp((noseWidth / eyeDistance) / 0.34, 0.78, 1.28),
     eyeSpacing: clamp((eyeDistance / cheekWidth) / 0.40, 0.82, 1.18)
   };
+
+  // Sample a small skin patch from each cheek on a private scratch canvas.
+  // The visible canvas contains numbered markers, so never sample from it.
+  const sampleCanvas = document.createElement("canvas");
+  sampleCanvas.width = canvas.width;
+  sampleCanvas.height = canvas.height;
+  const sampleContext = sampleCanvas.getContext("2d", { willReadFrequently: true });
+  sampleContext.drawImage(image, 0, 0, sampleCanvas.width, sampleCanvas.height);
+  const samples = [];
+  for (const cheek of [points[6], points[7]]) {
+    const centerX = Math.round((cheek.x + (cheek.x < 0.5 ? 0.025 : -0.025)) * sampleCanvas.width);
+    const centerY = Math.round((cheek.y - 0.015) * sampleCanvas.height);
+    const radius = Math.max(2, Math.round(sampleCanvas.width * 0.009));
+    const patch = sampleContext.getImageData(
+      Math.max(0, centerX - radius),
+      Math.max(0, centerY - radius),
+      Math.min(radius * 2 + 1, sampleCanvas.width - Math.max(0, centerX - radius)),
+      Math.min(radius * 2 + 1, sampleCanvas.height - Math.max(0, centerY - radius))
+    ).data;
+    for (let index = 0; index < patch.length; index += 4) {
+      const red = patch[index], green = patch[index + 1], blue = patch[index + 2];
+      if (red > 65 && red < 245 && red >= green * 0.92 && green > blue * 0.78) samples.push([red, green, blue]);
+    }
+  }
+  if (samples.length >= 8) {
+    const median = (channel) => {
+      const values = samples.map((sample) => sample[channel]).sort((a, b) => a - b);
+      return values[Math.floor(values.length / 2)];
+    };
+    measurements.skinColor = "#" + [0, 1, 2].map((channel) => Math.round(median(channel)).toString(16).padStart(2, "0")).join("");
+  }
+  sampleCanvas.width = 1;
+  sampleCanvas.height = 1;
   window.dispatchEvent(new CustomEvent("avatar:identity-measurements", { detail: measurements }));
   state.textContent = "Proporções iniciais aplicadas ao avatar. Afina os controlos manualmente.";
 });
