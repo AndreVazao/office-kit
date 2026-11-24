@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createWindowsSystemProcessOptions, resolveWindowsSystemExecutable } from "./windows-system-executable.mjs";
 import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
 import { detectHostHardwareCapabilities } from "./hardware-capabilities.mjs";
@@ -338,7 +339,8 @@ public static class OfficeKitCngPolicyAclReader
     "} finally { if ($rsa) { $rsa.Dispose() }; if ($key) { $key.Dispose() } }"
   ].join("; ");
 
-  const commandResult = spawnImpl("powershell.exe", [
+  const processOptions = createWindowsSystemProcessOptions();
+  const commandResult = spawnImpl(resolveWindowsSystemExecutable("powershell.exe"), [
     "-NoLogo",
     "-NoProfile",
     "-NonInteractive",
@@ -347,6 +349,7 @@ public static class OfficeKitCngPolicyAclReader
     "-Command",
     script
   ], {
+    ...processOptions,
     encoding: "utf8",
     windowsHide: true,
     shell: false,
@@ -487,7 +490,10 @@ function sqliteAdapter(database) {
 }
 
 function runChecked(command, args, spawnImpl, timeout = 15_000) {
-  const result = spawnImpl(command, args, {
+  const executablePath = resolveWindowsSystemExecutable(command);
+  const processOptions = createWindowsSystemProcessOptions();
+  const result = spawnImpl(executablePath, args, {
+    ...processOptions,
     encoding: "utf8",
     windowsHide: true,
     shell: false,
