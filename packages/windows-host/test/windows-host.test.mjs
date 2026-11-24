@@ -4,6 +4,7 @@ import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
+import { resolveWindowsSystemDirectory, resolveWindowsSystemExecutable } from "../src/windows-system-executable.mjs";
 import { constants, createHash, generateKeyPairSync, sign as signData, X509Certificate } from "node:crypto";
 import { createPublisherPolicyPayload, createPublisherPolicyEnvelope, verifyPublisherPolicyEnvelope, readPublisherPolicyPublicKey, loadPublisherPolicy } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
@@ -377,7 +378,9 @@ test("WinTrust verifier ignores environment pins and requires the authenticated 
       signatureIndex: 0,
       revocationMode: "online-chain-exclude-root-fail-closed"
     }), true);
-    assert.equal(command.name, "powershell.exe");
+    assert.equal(command.name, resolveWindowsSystemExecutable("powershell.exe"));
+    assert.equal(command.options.cwd, resolveWindowsSystemDirectory());
+    assert.equal(command.options.env.PATH, resolveWindowsSystemDirectory());
     assert.equal(command.options.timeout, 30000);
     const script = command.args.at(-1);
     assert.ok(script.includes("WSS_GET_SECONDARY_SIG_COUNT"));
@@ -1082,7 +1085,9 @@ test("publisher policy public-key reader validates machine CNG metadata and deri
   assert.equal(keyInfo.machineScope, true);
   assert.equal(keyInfo.privateKeyExportable, false);
   assert.deepEqual(keyInfo.publicKeySpki, publisherPolicyTestPublicSpki);
-  assert.equal(invocation.command, "powershell.exe");
+  assert.equal(invocation.command, resolveWindowsSystemExecutable("powershell.exe"));
+  assert.equal(invocation.options.cwd, resolveWindowsSystemDirectory());
+  assert.equal(invocation.options.env.PATH, resolveWindowsSystemDirectory());
   assert.equal(invocation.options.timeout, 15000);
   assert.ok(invocation.args.includes("-NoProfile"));
   assert.ok(invocation.args.includes("-NonInteractive"));
