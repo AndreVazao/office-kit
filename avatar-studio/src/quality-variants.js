@@ -734,6 +734,7 @@ export function applyAvatarMaterialVariant(root, profileId) {
   const originalGeometries = [];
   const sourceMaterials = new Set();
   const auditedMaterials = new Set();
+  const preparedMaterialCache = new Map();
   const nonConvertibleMaterials = new Set();
   const textureIssues = [];
   let textureCount = 0;
@@ -744,10 +745,14 @@ export function applyAvatarMaterialVariant(root, profileId) {
     const sourceMaterialValue = mesh.material;
     const sourceList = Array.isArray(sourceMaterialValue) ? sourceMaterialValue : [sourceMaterialValue];
     const preparedList = sourceList.map((sourceMaterial) => {
-      const prepared = prepareMaterialTextureVariant(sourceMaterial, profile.textureMaxSize);
-      if (prepared.changed) {
-        textureVariantMaterials.add(prepared.material);
-        for (const texture of prepared.textures || []) textureVariantTextures.add(texture);
+      let prepared = preparedMaterialCache.get(sourceMaterial);
+      if (!prepared) {
+        prepared = prepareMaterialTextureVariant(sourceMaterial, profile.textureMaxSize);
+        preparedMaterialCache.set(sourceMaterial, prepared);
+        if (prepared.changed) {
+          textureVariantMaterials.add(prepared.material);
+          for (const texture of prepared.textures || []) textureVariantTextures.add(texture);
+        }
       }
       return prepared.material;
     });
