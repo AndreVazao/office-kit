@@ -172,7 +172,7 @@ function buildHuman(config) {
   const shoes = material("#171d27");
   const hairColors = { silver: "#aeb5bd", dark: "#382c27", black: "#171719", blond: "#c5a46d" };
   const hair = material(hairColors[config.hair] || "#aeb5bd");
-  const beard = material(config.hair === "silver" ? "#92999e" : "#4a403a");
+  const beard = material(config.beardColor || (config.hair === "silver" ? "#92999e" : "#4a403a"));
   const eye = material("#222a35", 0.35);
   const build = Number(config.build);
   const shoulder = Number(config.shoulders);
@@ -416,6 +416,7 @@ function readConfig() {
     head: $("head").value,
     shoulders: $("shoulders").value,
     skin: $("skin").value,
+    beardColor: $("preset").value === "andre" ? $("beard-color").value : ($("hair").value === "silver" ? "#92999e" : "#4a403a"),
     hair: $("hair").value,
     beard: $("beard").value,
     faceWidth: $("face-width").value,
@@ -531,6 +532,20 @@ window.addEventListener("avatar:identity-measurements", (event) => {
     const input = $(id);
     if (!input || !Number.isFinite(value)) continue;
     input.value = String(THREE.MathUtils.clamp(value, Number(input.min), Number(input.max)));
+  }
+  if (currentPreset === "andre") {
+    if (typeof measurements.skinColor === "string" && /^#[0-9a-f]{6}$/i.test(measurements.skinColor)) {
+      const skin = $("skin");
+      let option = [...skin.options].find((item) => item.value.toLowerCase() === measurements.skinColor.toLowerCase());
+      if (!option) {
+        option = new Option("Tom da fotografia", measurements.skinColor);
+        skin.add(option);
+      }
+      skin.value = measurements.skinColor;
+    }
+    if (typeof measurements.beardColor === "string" && /^#[0-9a-f]{6}$/i.test(measurements.beardColor)) {
+      $("beard-color").value = measurements.beardColor;
+    }
   }
   renderCharacter();
 });
