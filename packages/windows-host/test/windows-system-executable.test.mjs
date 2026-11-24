@@ -74,6 +74,6 @@ test("uses an absolute System32 working directory and strips inherited executabl
 });
 
 test("provides a deterministic Windows root only for non-Windows test harnesses", () => {
-  assert.equal(resolveWindowsSystemRoot({ env: {}, platform: "linux" }), "C:\\Windows");
-  assert.equal(resolveWindowsSystemDirectory({ env: {}, platform: "linux" }), "C:\\Windows\\System32");
+  assert.equal(resolveWindowsSystemRoot(), "C:\\Windows");
+  assert.equal(resolveWindowsSystemDirectory(), "C:\\Windows\\System32");
 });
