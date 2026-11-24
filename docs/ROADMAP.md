@@ -872,3 +872,14 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Implement issue #110 production Authenticode policy. Current Windows host remains deliberately fail-closed without an authenticated installer-provisioned publisher policy. No commercial distribution until SPKI pinning, signature-index binding, revocation behavior and native trust tests pass.
 - [ ] Complete #104 native installers/lifecycle, #109 host-integrated production licensing, #58 TPM-backed anti-rollback and physical recovery, #57 live DGM-MAT, #121 backend PAPER enforcement and #124 private VST transport.
 - [ ] Validate physical Windows installation and live VST/DGM-MAT read-only sessions. GitHub-hosted CI does not replace these tests.
+
+
+## 2026-11-24 — Windows publisher-policy production gates
+
+- [x] Add native WinTrust primary-signature verification, signer extraction from the same provider state, SHA-256 SPKI comparison and separate online-install/cache-only-runtime revocation modes in PR #139. Exact audited pre-documentation HEAD `bb457884444d14eae7e8d51cd162338c84291c56` passed CI [45403375515](https://github.com/AndreVazao/office-kit/actions/runs/45403375515) and visual regression [45403375437](https://github.com/AndreVazao/office-kit/actions/runs/45403375437); a subsequent documentation commit requires new checks.
+- [ ] Resolve issue #140: obtain the Windows system directory from a trusted OS/installer boundary rather than trusting inherited `SystemRoot`/`WINDIR`; add native decoy executable tests for `powershell.exe`, `whoami.exe` and `icacls.exe`; preserve fail-closed behavior when the trusted root cannot be established.
+- [ ] Resolve issue #141: anchor the highest accepted publisher-policy version and canonical envelope hash outside the user-writable profile; implement atomic or two-phase crash recovery; reject old-version replay, same-version/different-hash replacement and missing/cleared anchors.
+- [ ] Complete native Windows trust matrix for expired, revoked, unknown/unavailable-revocation, untrusted, tampered and multiple-signature files, plus altered/missing/ACL-insecure policy and bounded child termination.
+- [ ] Implement issue #104 installer/update verification and atomic CNG-key/policy provisioning with restrictive ACLs and recovery. The online verifier is not yet called by a production installer/update path.
+- [ ] Validate the actual commercially signed package and complete install/update/startup/uninstall flow on a physical Windows PC. GitHub-hosted runner success is not physical acceptance.
+- [ ] Keep PR #139 Draft and issue #110 open until all of the above release gates are satisfied.
