@@ -58,7 +58,7 @@ let avatarRig = null;
 let rigStartTime = 0;
 
 const presets = {
-  andre: { title: "André · CEO", description: "Referência CEO: cabelo grisalho, barba completa e fato azul.", type: "Humano", skin: "#c98f70", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1, faceWidth: 1.04, jawWidth: 1.05, noseSize: 1, eyeSpacing: 1, hairLength: 1.45, hairStyle: "classic", gender: "male" },
+  andre: { title: "André · CEO", description: "Perfil de identidade baseado na fotografia: cabeça rapada com cabelo curto nas laterais, barba longa grisalha e rosto largo.", type: "Humano", skin: "#bd8d78", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1.02, faceWidth: 1.08, jawWidth: 1.08, noseSize: 1.12, eyeSpacing: 1, hairLength: 0.72, hairStyle: "bald", gender: "male" },
   man: { title: "Homem · médio", description: "Personagem masculino de proporções médias.", type: "Humano", skin: "#c98f70", hair: "dark", beard: "short", outfit: "casual", build: 1, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, hairStyle: "short", gender: "male" },
   manSlim: { title: "Homem · magro e alto", description: "Silhueta masculina alta e esguia.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.78, shoulders: 0.88, height: 1.14, head: 0.98, faceWidth: 0.94, jawWidth: 0.92, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.2, hairStyle: "classic", gender: "male" },
   manStocky: { title: "Homem · robusto", description: "Silhueta masculina baixa e robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "full", outfit: "casual", build: 1.3, shoulders: 1.2, height: 0.9, head: 1.05, faceWidth: 1.12, jawWidth: 1.15, noseSize: 1.08, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
@@ -88,6 +88,25 @@ function ellipsoid(parent, mat, position, scale, name) {
 
 function cylinder(parent, mat, position, radiusTop, radiusBottom, height, name) {
   return addMesh(parent, new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 20), mat, position, [1, 1, 1], name);
+}
+
+function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
+  // Tapered extruded silhouette based on the long, broad beard in the identity reference.
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.174 * width, -0.055);
+  shape.bezierCurveTo(-0.205 * width, -0.105, -0.198 * width, -0.235 * length, -0.145 * width, -0.315 * length);
+  shape.bezierCurveTo(-0.105 * width, -0.385 * length, -0.052 * width, -0.435 * length, 0, -0.448 * length);
+  shape.bezierCurveTo(0.052 * width, -0.435 * length, 0.105 * width, -0.385 * length, 0.145 * width, -0.315 * length);
+  shape.bezierCurveTo(0.198 * width, -0.235 * length, 0.205 * width, -0.105, 0.174 * width, -0.055);
+  shape.bezierCurveTo(0.12 * width, -0.095, 0.075 * width, -0.125, 0, -0.13);
+  shape.bezierCurveTo(-0.075 * width, -0.125, -0.12 * width, -0.095, -0.174 * width, -0.055);
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.065, bevelEnabled: true, bevelSegments: 3,
+    steps: 1, bevelSize: 0.012, bevelThickness: 0.018, curveSegments: 18
+  });
+  const beardMesh = addMesh(parent, geometry, beardMaterial, [0, 0, 0.105], [1, 1, 1], "Photo_Profile_Beard");
+  beardMesh.userData.identityFeature = "long-tapered-grey-beard";
+  return beardMesh;
 }
 
 function makeLimb(parent, mat, start, end, radius, name) {
@@ -250,12 +269,16 @@ function buildHuman(config) {
   const chin = ellipsoid(head, skin, [0, -0.177, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
   chin.userData.rigBoneName = "Jaw";
 
-  // Short hair cap and side sections
+  // Hairline adapted to the reference: bald crown with very short grey side hair.
   if (config.hair !== "none") {
-    ellipsoid(head, hair, [0, 0.19 + (hairLength - 1) * 0.045, -0.005], [0.207, 0.09 + (hairLength - 1) * 0.07, 0.19], "Hair_Cap");
-    const sideLength = config.hairStyle === "long" ? 1.85 : config.hairStyle === "bun" ? 1.15 : config.hairStyle === "short" ? 0.62 : 1;
+    if (config.hairStyle !== "bald") {
+      ellipsoid(head, hair, [0, 0.19 + (hairLength - 1) * 0.045, -0.005], [0.207, 0.09 + (hairLength - 1) * 0.07, 0.19], "Hair_Cap");
+    }
+    const sideLength = config.hairStyle === "long" ? 1.85 : config.hairStyle === "bun" ? 1.15 : config.hairStyle === "short" ? 0.62 : config.hairStyle === "bald" ? 0.48 : 1;
     for (const side of [-1, 1]) {
-      ellipsoid(head, hair, [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005], [0.045, 0.12 * hairLength * sideLength, 0.17], "Hair_Side");
+      const templeScale = config.hairStyle === "bald" ? [0.025, 0.075, 0.105] : [0.045, 0.12 * hairLength * sideLength, 0.17];
+      const templePosition = config.hairStyle === "bald" ? [side * 0.178, 0.075, -0.005] : [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005];
+      ellipsoid(head, hair, templePosition, templeScale, config.hairStyle === "bald" ? "Short_Side_Hair" : "Hair_Side");
     }
     if (config.hairStyle === "long") {
       ellipsoid(head, hair, [0, -0.13, -0.12], [0.19, 0.23 * hairLength, 0.075], "Hair_Back");
@@ -270,11 +293,18 @@ function buildHuman(config) {
   }
 
   if (config.beard !== "none") {
-    const beardScale = config.beard === "full" ? [0.17, 0.15, 0.095] : [0.145, 0.085, 0.075];
-    ellipsoid(head, beard, [0, -0.205, 0.09], beardScale, "Beard");
-    ellipsoid(head, beard, [-0.105, -0.155, 0.095], [0.075, 0.09, 0.075], "Beard_Cheek_L");
-    ellipsoid(head, beard, [0.105, -0.155, 0.095], [0.075, 0.09, 0.075], "Beard_Cheek_R");
-    ellipsoid(head, beard, [0, -0.105, 0.155], [0.15, 0.055, 0.055], "Mustache");
+    if (config.beard === "full" && config.hairStyle === "bald") {
+      makePhotoBeard(head, beard, 1.12, 1.08);
+      ellipsoid(head, beard, [-0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_L");
+      ellipsoid(head, beard, [0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_R");
+      ellipsoid(head, beard, [0, -0.105, 0.178], [0.145, 0.052, 0.052], "Mustache");
+    } else {
+      const beardScale = config.beard === "full" ? [0.17, 0.15, 0.095] : [0.145, 0.085, 0.075];
+      ellipsoid(head, beard, [0, -0.205, 0.09], beardScale, "Beard");
+      ellipsoid(head, beard, [-0.105, -0.155, 0.095], [0.075, 0.09, 0.075], "Beard_Cheek_L");
+      ellipsoid(head, beard, [0.105, -0.155, 0.095], [0.075, 0.09, 0.075], "Beard_Cheek_R");
+      ellipsoid(head, beard, [0, -0.105, 0.155], [0.15, 0.055, 0.055], "Mustache");
+    }
   }
 
   // Simple lapels and tie for the CEO suit
