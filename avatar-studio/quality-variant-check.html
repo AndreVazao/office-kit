@@ -355,6 +355,41 @@
         shaderSourceB.texture.dispose();
         if (!multiShaderPassed || !multiShaderRestored) throw new Error("O shader com várias texturas não preservou as origens ou não restaurou os uniforms.");
 
+        const sharedRoot = new THREE.Group();
+        const sharedCanvas = document.createElement("canvas");
+        sharedCanvas.width = 1024;
+        sharedCanvas.height = 512;
+        sharedCanvas.getContext("2d").fillRect(0, 0, 1024, 512);
+        const sharedTexture = new THREE.CanvasTexture(sharedCanvas);
+        const sharedMaterial = new THREE.MeshStandardMaterial({ map: sharedTexture, color: 0xffffff });
+        const sharedMeshA = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), sharedMaterial);
+        const sharedMeshB = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), sharedMaterial);
+        sharedMeshB.position.x = 2;
+        sharedRoot.add(sharedMeshA, sharedMeshB);
+        const sharedVariant = applyAvatarMaterialVariant(sharedRoot, "low");
+        const sharedMaterialPassed =
+          sharedMeshA.material === sharedMeshB.material &&
+          sharedMeshA.material !== sharedMaterial &&
+          sharedMeshA.material.map === sharedMeshB.material.map &&
+          sharedMeshA.material.map.image.width === 512 &&
+          sharedMeshA.material.map.image.height === 256 &&
+          sharedTexture.image === sharedCanvas &&
+          sharedVariant.resizedTextureCount === 1;
+        lines.push({
+          sharedMaterialReused: sharedMaterialPassed,
+          oneVariantMaterial: sharedMeshA.material === sharedMeshB.material,
+          oneResizedTexture: sharedVariant.resizedTextureCount === 1,
+          sourcePreserved: sharedTexture.image === sharedCanvas,
+          result: sharedMaterialPassed ? "PASS" : "FAIL"
+        });
+        sharedVariant.restore();
+        const sharedRestorePassed = sharedMeshA.material === sharedMaterial && sharedMeshB.material === sharedMaterial;
+        sharedMeshA.geometry.dispose();
+        sharedMeshB.geometry.dispose();
+        sharedMaterial.dispose();
+        sharedTexture.dispose();
+        if (!sharedMaterialPassed || !sharedRestorePassed) throw new Error("O material partilhado foi duplicado ou não foi restaurado corretamente.");
+
         output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
       } catch (error) {
         output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
