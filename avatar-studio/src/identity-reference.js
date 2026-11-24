@@ -125,7 +125,7 @@ applyButton.addEventListener("click", () => {
     return;
   }
 
-  const faceHeight = Math.abs(points[9].y - points[0].y);
+  const faceHeight = Math.abs(points[8].y - points[0].y);
   const cheekWidth = Math.abs(points[7].x - points[6].x);
   const eyeDistance = Math.abs(points[4].x - points[3].x);
   const jawWidth = Math.abs(points[11].x - points[10].x);
@@ -160,9 +160,9 @@ applyButton.addEventListener("click", () => {
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const measurements = {
-    faceWidth: clamp((cheekWidth / faceHeight) / 0.77, 0.86, 1.18),
+    faceWidth: clamp((cheekWidth / faceHeight) / 0.95, 0.86, 1.18),
     jawWidth: clamp((jawWidth / cheekWidth) / 0.78, 0.82, 1.22),
-    noseSize: clamp((noseWidth / eyeDistance) / 0.34, 0.78, 1.28),
+    noseSize: clamp((noseWidth / eyeDistance) / 0.54, 0.78, 1.28),
     eyeSpacing: clamp((eyeDistance / cheekWidth) / 0.40, 0.82, 1.18)
   };
 
@@ -189,13 +189,35 @@ applyButton.addEventListener("click", () => {
       if (red > 65 && red < 245 && red >= green * 0.92 && green > blue * 0.78) samples.push([red, green, blue]);
     }
   }
-  if (samples.length >= 8) {
+  const medianColor = (values) => {
     const median = (channel) => {
-      const values = samples.map((sample) => sample[channel]).sort((a, b) => a - b);
-      return values[Math.floor(values.length / 2)];
+      const channelValues = values.map((sample) => sample[channel]).sort((a, b) => a - b);
+      return channelValues[Math.floor(channelValues.length / 2)];
     };
-    measurements.skinColor = "#" + [0, 1, 2].map((channel) => Math.round(median(channel)).toString(16).padStart(2, "0")).join("");
+    return "#" + [0, 1, 2].map((channel) => Math.round(median(channel)).toString(16).padStart(2, "0")).join("");
+  };
+  if (samples.length >= 8) measurements.skinColor = medianColor(samples);
+
+  // The chin landmark is inside the visible beard. Sample a smaller patch there
+  // to match the avatar beard's grey/white tone without sampling the drawn marker.
+  const beardPoint = points[9];
+  const beardX = Math.round(beardPoint.x * sampleCanvas.width);
+  const beardY = Math.round((beardPoint.y - 0.012) * sampleCanvas.height);
+  const beardRadius = Math.max(2, Math.round(sampleCanvas.width * 0.006));
+  const beardPatch = sampleContext.getImageData(
+    Math.max(0, beardX - beardRadius),
+    Math.max(0, beardY - beardRadius),
+    Math.min(beardRadius * 2 + 1, sampleCanvas.width - Math.max(0, beardX - beardRadius)),
+    Math.min(beardRadius * 2 + 1, sampleCanvas.height - Math.max(0, beardY - beardRadius))
+  ).data;
+  const beardSamples = [];
+  for (let index = 0; index < beardPatch.length; index += 4) {
+    const red = beardPatch[index], green = beardPatch[index + 1], blue = beardPatch[index + 2];
+    if (red > 45 && red < 245 && Math.abs(red - green) < 48 && Math.abs(green - blue) < 58) {
+      beardSamples.push([red, green, blue]);
+    }
   }
+  if (beardSamples.length >= 5) measurements.beardColor = medianColor(beardSamples);
   sampleCanvas.width = 1;
   sampleCanvas.height = 1;
   window.dispatchEvent(new CustomEvent("avatar:identity-measurements", { detail: measurements }));
