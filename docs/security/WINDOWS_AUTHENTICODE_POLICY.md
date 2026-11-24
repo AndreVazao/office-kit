@@ -199,3 +199,12 @@ PR #139 is not production approval and must not be treated as permission to dist
 5. Run the final integration on a physical Windows PC and with the actual commercially signed installer/helper. GitHub-hosted CI and Microsoft-signed system binaries do not prove the user's installed environment or commercial distribution chain.
 
 The Windows CI run associated with PR #139 must be checked on its exact final HEAD. Until every applicable Linux/Windows Node 22/26 job, native CNG policy test, native WinTrust test and visual regression passes on one SHA, the PR must remain unmerged. Issue #110 remains open until installer provisioning and the full native test matrix are complete.
+
+
+## 12. Windows system-process resolution
+
+Production Windows host code must never launch operating-system utilities by a bare executable name. Node's Windows process runner resolves an unqualified executable through the current directory and search paths; a writable working directory or PATH entry can therefore substitute a different binary before publisher verification runs.
+
+The Windows host now resolves the allowlisted `powershell.exe`, `whoami.exe` and `icacls.exe` to absolute paths under the validated `SystemRoot\System32` tree. Child processes use that System32 directory as their working directory and receive a sanitized `PATH` and `PSModulePath` that exclude inherited user-controlled search directories. Conflicting `SystemRoot` and `WINDIR` values, relative roots and UNC roots fail closed. No fallback to PATH or the current directory is permitted.
+
+This reduces current-directory/PATH binary planting. It does not establish trust in a hostile parent process that deliberately supplies a forged Windows-root environment; the signed installer and launcher must own/sanitize their process environment. The native WinTrust and physical-installation gates remain separate.
