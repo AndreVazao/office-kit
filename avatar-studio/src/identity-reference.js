@@ -28,6 +28,7 @@ const landmarks = [
 
 let image = null;
 let imageUrl = null;
+let loadToken = 0;
 let points = [];
 
 function updateProgress() {
@@ -78,9 +79,14 @@ function loadFile(file) {
     return;
   }
 
+  const token = ++loadToken;
   const nextUrl = URL.createObjectURL(file);
   const nextImage = new Image();
   nextImage.onload = () => {
+    if (token !== loadToken) {
+      URL.revokeObjectURL(nextUrl);
+      return;
+    }
     if (imageUrl) URL.revokeObjectURL(imageUrl);
     imageUrl = nextUrl;
     image = nextImage;
@@ -91,7 +97,7 @@ function loadFile(file) {
   };
   nextImage.onerror = () => {
     URL.revokeObjectURL(nextUrl);
-    state.textContent = "Não foi possível abrir a imagem";
+    if (token === loadToken) state.textContent = "Não foi possível abrir a imagem";
   };
   nextImage.src = nextUrl;
 }
@@ -225,6 +231,7 @@ applyButton.addEventListener("click", () => {
 });
 
 function removeImage() {
+  loadToken += 1;
   if (imageUrl) URL.revokeObjectURL(imageUrl);
   imageUrl = null;
   image = null;
