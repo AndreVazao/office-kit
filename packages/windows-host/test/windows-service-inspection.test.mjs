@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { inspectWindowsService } from "../src/windows-service-inspection.mjs";
+import { resolveWindowsSystemDirectory, resolveWindowsSystemExecutable } from "../src/windows-system-executable.mjs";
 
 const expected = "C:\\Program Files\\Office Kit\\OfficeKit.Host.exe";
 const service = {
@@ -35,7 +36,9 @@ test("inspects one explicitly named service and returns a normalized read-only s
   assert.equal(result.processId, 4321);
   assert.equal(result.source, "windows_cim_read_only");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "powershell.exe");
+  assert.equal(calls[0].command, resolveWindowsSystemExecutable("powershell.exe", { platform: "win32" }));
+  assert.equal(calls[0].options.cwd, resolveWindowsSystemDirectory({ platform: "win32" }));
+  assert.equal(calls[0].options.env.PATH, resolveWindowsSystemDirectory({ platform: "win32" }));
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].options.timeout, 5000);
   assert.equal(calls[0].options.env.OFFICE_KIT_SERVICE_NAME, "OfficeKitHost");
