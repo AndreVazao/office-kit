@@ -396,6 +396,159 @@
         sharedTexture.dispose();
         if (!sharedMaterialPassed || !sharedRestorePassed) throw new Error("O material partilhado foi duplicado ou não foi restaurado corretamente.");
 
+        const deformationRoot = new THREE.Group();
+        const rigSourceMeshes = new Map();
+        const addRigSegment = (name, start, end, radius = 0.055) => {
+          const a = new THREE.Vector3(...start);
+          const b = new THREE.Vector3(...end);
+          const direction = new THREE.Vector3().subVectors(b, a);
+          const mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(radius * 0.82, radius, direction.length(), 10),
+            new THREE.MeshStandardMaterial({ color: 0x7799bb })
+          );
+          mesh.position.copy(a).add(b).multiplyScalar(0.5);
+          mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+          mesh.name = name;
+          mesh.userData.rigSegment = { name, start: a.toArray(), end: b.toArray(), radius };
+          deformationRoot.add(mesh);
+          rigSourceMeshes.set(name, mesh);
+          return mesh;
+        };
+        const addRigidRigPart = (name, boneName, position, radius = 0.035) => {
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(radius, 8, 6),
+            new THREE.MeshStandardMaterial({ color: 0x9bbbdc })
+          );
+          mesh.name = name;
+          mesh.position.set(...position);
+          mesh.userData.rigBoneName = boneName;
+          deformationRoot.add(mesh);
+          rigSourceMeshes.set(name, mesh);
+          return mesh;
+        };
+        for (const side of ["L", "R"]) {
+          const sign = side === "L" ? -1 : 1;
+          const shoulder = [sign * 0.34, 1.53, 0];
+          const elbow = [sign * 0.43, 1.18, 0.015];
+          const wrist = [sign * 0.47, 0.88, 0.05];
+          const hip = [sign * 0.115, 0.91, 0];
+          const knee = [sign * 0.12, 0.53, 0.005];
+          const ankle = [sign * 0.13, 0.16, 0];
+          addRigSegment("UpperArm_" + side, shoulder, elbow, 0.055);
+          addRigSegment("Forearm_" + side, elbow, wrist, 0.045);
+          addRigSegment("UpperLeg_" + side, hip, knee, 0.065);
+          addRigSegment("LowerLeg_" + side, knee, ankle, 0.05);
+          addRigidRigPart("Palm_" + side, "Hand_" + side, [wrist[0], 0.84, 0.055], 0.045);
+          addRigidRigPart("Foot_" + side, "Foot_" + side, [ankle[0], 0.10, 0.10], 0.05);
+          for (let finger = 1; finger <= 4; finger += 1) {
+            const x = wrist[0] + (finger - 2.5) * 0.027;
+            addRigidRigPart("Finger_" + finger + "_" + side, "Finger_" + finger + "_" + side, [x, 0.805, 0.06], 0.012);
+          }
+          addRigidRigPart("Thumb_" + side, "Thumb_" + side, [wrist[0] + (side === "L" ? 0.045 : -0.045), 0.845, 0.06], 0.014);
+        }
+        for (const [name, boneName, position] of [
+          ["JawPart", "Jaw", [0, 1.79, 0.055]],
+          ["HeadPart", "Head", [0, 1.94, 0]],
+          ["LeftEyelid", "Eyelid_L", [-0.083, 1.997, 0.185]]
+        ]) addRigidRigPart(name, boneName, position, 0.025);
+        const addBodyPart = (name, segment, position, scale) => {
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(1, 10, 8),
+            new THREE.MeshStandardMaterial({ color: 0x557799 })
+          );
+          mesh.name = name;
+          mesh.position.set(...position);
+          mesh.scale.set(...scale);
+          mesh.userData.rigBodySegment = segment;
+          deformationRoot.add(mesh);
+          rigSourceMeshes.set(name, mesh);
+        };
+        addBodyPart("PelvisFixture", "pelvis", [0, 0.99, 0], [0.22, 0.15, 0.12]);
+        addBodyPart("TorsoFixture", "torso", [0, 1.34, 0], [0.30, 0.34, 0.14]);
+        addBodyPart("NeckFixture", "neck", [0, 1.72, 0], [0.07, 0.08, 0.07]);
+        const shoulderBlend = addRigidRigPart("ShoulderBlend_L", "Chest", [-0.34, 1.56, 0], 0.06);
+        shoulderBlend.userData.rigBlendBones = ["Chest", "UpperArm_L"];
+        const deformationRig = createAvatarRig(deformationRoot);
+        const deformationMeshes = new Map();
+        deformationRoot.traverse((object) => {
+          if (object.isSkinnedMesh) deformationMeshes.set(object.name, object);
+        });
+        const skinWeightsValid = [...deformationMeshes.values()].every((mesh) => {
+          const weights = mesh.geometry.getAttribute("skinWeight");
+          const indices = mesh.geometry.getAttribute("skinIndex");
+          if (!weights || !indices || weights.count !== mesh.geometry.getAttribute("position").count) return false;
+          for (let vertex = 0; vertex < weights.count; vertex += 1) {
+            let sum = 0;
+            for (let component = 0; component < 4; component += 1) {
+              const weight = weights.getComponent(vertex, component);
+              const index = indices.getComponent(vertex, component);
+              if (!Number.isFinite(weight) || weight < 0 || !Number.isInteger(index) || index < 0 || index >= deformationRig.skeleton.bones.length) return false;
+              sum += weight;
+            }
+            if (!Number.isFinite(sum) || Math.abs(sum - 1) > 1e-4) return false;
+          }
+          return true;
+        });
+        const deformedVertices = (mesh) => {
+          const position = mesh.geometry.getAttribute("position");
+          const output = [];
+          for (let vertex = 0; vertex < position.count; vertex += 1) {
+            const point = new THREE.Vector3().fromBufferAttribute(position, vertex);
+            mesh.applyBoneTransform(vertex, point);
+            output.push(point);
+          }
+          return output;
+        };
+        const maximumVertexDelta = (before, after) => {
+          let maximum = 0;
+          for (let vertex = 0; vertex < before.length; vertex += 1) maximum = Math.max(maximum, before[vertex].distanceTo(after[vertex]));
+          return maximum;
+        };
+        deformationRig.setMode("idle");
+        deformationRig.update(0);
+        deformationRoot.updateMatrixWorld(true);
+        const neutralVertices = new Map([...deformationMeshes].map(([name, mesh]) => [name, deformedVertices(mesh)]));
+        const poseTargets = {
+          walk: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "UpperArm_L_Skinned", "Forearm_L_Skinned", "Foot_L_Skinned"],
+          sit: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "Foot_L_Skinned", "SpineFixture_Skinned"],
+          talk: ["JawPart_Skinned", "UpperArm_L_Skinned", "Forearm_L_Skinned", "Finger_2_L_Skinned", "HeadPart_Skinned"],
+          work: ["TorsoFixture_Skinned", "NeckFixture_Skinned", "Forearm_L_Skinned", "Finger_2_L_Skinned"]
+        };
+        const deformationReports = Object.entries(poseTargets).map(([mode, names]) => {
+          deformationRig.setMode(mode);
+          deformationRig.update(mode === "walk" ? 0.41 : mode === "talk" ? 0.37 : mode === "work" ? 0.43 : 0.2);
+          deformationRoot.updateMatrixWorld(true);
+          const parts = names.map((name) => {
+            const mesh = deformationMeshes.get(name);
+            if (!mesh) return { name, maximumVertexDelta: 0, present: false };
+            return {
+              name,
+              maximumVertexDelta: maximumVertexDelta(neutralVertices.get(name) || [], deformedVertices(mesh)),
+              present: true
+            };
+          });
+          return { mode, parts, passed: parts.every((part) => part.present && part.maximumVertexDelta > 1e-5) };
+        });
+        const deformationPassed = skinWeightsValid && deformationReports.every((report) => report.passed) &&
+          deformationMeshes.size >= 20 &&
+          deformationRig.skeleton.bones.some((bone) => bone.name === "LowerLeg_L") &&
+          deformationRig.skeleton.bones.some((bone) => bone.name === "Finger_2_L");
+        lines.push({
+          realSkinDeformation: deformationPassed,
+          skinnedMeshes: deformationMeshes.size,
+          bones: deformationRig.skeleton.bones.length,
+          normalizedSkinWeights: skinWeightsValid,
+          poses: deformationReports,
+          result: deformationPassed ? "PASS" : "FAIL"
+        });
+        deformationRoot.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
+          else object.material?.dispose();
+        });
+        deformationRig.skeleton.dispose();
+        if (!deformationPassed) throw new Error("A deformação real das malhas falhou em pelo menos uma articulação/pose.");
+ 
         const animationRoot = new THREE.Group();
         const animationRig = createAvatarRig(animationRoot);
         animationRig.setMode("talk");
