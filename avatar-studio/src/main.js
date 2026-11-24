@@ -521,7 +521,12 @@ for (const id of ["outfit", "height", "build", "head", "shoulders", "skin", "hai
 window.addEventListener("avatar:identity-measurements", (event) => {
   if (currentPreset === "robot") return;
   const measurements = event.detail || {};
-  const controls = { "face-width": measurements.faceWidth, "eye-spacing": measurements.eyeSpacing };
+  const controls = {
+    "face-width": measurements.faceWidth,
+    "jaw-width": measurements.jawWidth,
+    "nose-size": measurements.noseSize,
+    "eye-spacing": measurements.eyeSpacing
+  };
   for (const [id, value] of Object.entries(controls)) {
     const input = $(id);
     if (!input || !Number.isFinite(value)) continue;
