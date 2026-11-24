@@ -16,7 +16,7 @@ export function resolveWindowsSystemRoot({
 
   // Non-Windows unit tests may model a Windows host without a Windows environment.
   // Real Windows execution never receives this fallback.
-  if (!selected && platform !== "win32") selected = "C:\\Windows";
+  if (!selected && env === process.env && process.platform !== "win32") selected = "C:\\Windows";
 
   if (!selected || !win32.isAbsolute(selected) || selected.startsWith("\\\\")) {
     throw new Error("windows_system_root_unavailable");
