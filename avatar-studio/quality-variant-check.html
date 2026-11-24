@@ -319,7 +319,8 @@
         const multiShaderMaterial = new THREE.ShaderMaterial({
           uniforms: {
             uAvatarTextureA: { value: shaderSourceA.texture },
-            uAvatarTextureB: { value: shaderSourceB.texture }
+            uAvatarTextureB: { value: shaderSourceB.texture },
+            uAvatarRotation: { value: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.4) }
           },
           vertexShader: "void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
           fragmentShader: "uniform sampler2D uAvatarTextureA; uniform sampler2D uAvatarTextureB; void main(){ vec4 a = texture2D(uAvatarTextureA, vec2(0.5)); vec4 b = texture2D(uAvatarTextureB, vec2(0.5)); gl_FragColor = mix(a, b, 0.5); }"
@@ -329,12 +330,15 @@
         const multiShaderVariant = applyAvatarMaterialVariant(multiShaderRoot, "low");
         const resizedShaderA = multiShaderMesh.material.uniforms.uAvatarTextureA.value;
         const resizedShaderB = multiShaderMesh.material.uniforms.uAvatarTextureB.value;
+        const sourceRotation = multiShaderMaterial.uniforms.uAvatarRotation.value;
+        const variantRotation = multiShaderMesh.material.uniforms.uAvatarRotation.value;
         const multiShaderPassed = multiShaderVariant.withinTextureBudget &&
           multiShaderVariant.resizedTextureCount === 2 &&
           resizedShaderA !== shaderSourceA.texture &&
           resizedShaderB !== shaderSourceB.texture &&
           resizedShaderA.image.width === 512 && resizedShaderA.image.height === 128 &&
           resizedShaderB.image.width === 512 && resizedShaderB.image.height === 512 &&
+          variantRotation !== sourceRotation && variantRotation.equals(sourceRotation) &&
           shaderSourceA.texture.image === shaderSourceA.canvas &&
           shaderSourceB.texture.image === shaderSourceB.canvas;
         lines.push({
