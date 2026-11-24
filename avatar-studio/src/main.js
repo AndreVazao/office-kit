@@ -90,6 +90,34 @@ function cylinder(parent, mat, position, radiusTop, radiusBottom, height, name) 
   return addMesh(parent, new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 20), mat, position, [1, 1, 1], name);
 }
 
+function makePhotoShapedHead(parent, skinMaterial, faceWidth = 1, jawWidth = 1) {
+  const geometry = new THREE.SphereGeometry(1, 56, 40);
+  const position = geometry.getAttribute("position");
+  for (let index = 0; index < position.count; index += 1) {
+    const x = position.getX(index);
+    const y = position.getY(index);
+    const z = position.getZ(index);
+    const jawProfile = y < -0.08 ? THREE.MathUtils.lerp(jawWidth, 1, THREE.MathUtils.smoothstep(y, -0.82, -0.08)) : 1;
+    const cheekProfile = y > 0.48 ? THREE.MathUtils.lerp(1, 0.91, THREE.MathUtils.smoothstep(y, 0.48, 0.96)) : 1;
+    const widthProfile = jawProfile * cheekProfile;
+    const depthProfile = 1 + 0.055 * Math.exp(-Math.pow((y + 0.12) / 0.42, 2));
+    position.setXYZ(
+      index,
+      x * 0.205 * faceWidth * widthProfile,
+      y * 0.267,
+      z * 0.194 * depthProfile
+    );
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geometry, skinMaterial);
+  mesh.name = "Photo_Profile_Head";
+  mesh.userData.identityFeature = "sculpted-head-silhouette";
+  parent.add(mesh);
+  return mesh;
+}
+
 function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
   // Tapered extruded silhouette based on the long, broad beard in the identity reference.
   const shape = new THREE.Shape();
@@ -237,30 +265,28 @@ function buildHuman(config) {
   head.scale.setScalar(headScale);
   head.userData.rigHeadGroup = true;
   root.add(head);
-  ellipsoid(head, skin, [0, 0, 0], [0.205 * faceWidth, 0.265, 0.19], "Head");
-  const jawMesh = ellipsoid(head, skin, [0, -0.155, 0.035], [0.155 * jawWidth, 0.105, 0.145], "Jaw");
-  jawMesh.userData.rigBoneName = "Jaw";
+  makePhotoShapedHead(head, skin, faceWidth, jawWidth);
   const earInner = material(female ? "#a96f61" : "#9b6657");
-  const iris = material("#657b86", 0.38);
+  const iris = material("#59483d", 0.38);
   const pupil = material("#151b24", 0.28);
   const lip = material("#754c4c");
   for (const side of [-1, 1]) {
     ellipsoid(head, skin, [side * 0.205 * faceWidth, -0.005, 0], [0.045, 0.075, 0.045], "Ear");
     ellipsoid(head, earInner, [side * 0.211 * faceWidth, -0.005, 0.034], [0.018, 0.042, 0.012], "Ear_Inner");
     const eyeX = side * 0.083 * eyeSpacing;
-    ellipsoid(head, skin, [eyeX, 0.035, 0.171], [0.038, 0.026, 0.018], "Eye_Socket");
-    ellipsoid(head, eye, [eyeX, 0.035, 0.188], [0.026, 0.017, 0.012], "Eye");
-    ellipsoid(head, iris, [eyeX, 0.035, 0.199], [0.010, 0.011, 0.006], "Iris");
+    ellipsoid(head, skin, [eyeX, 0.035, 0.171], [0.039, 0.021, 0.018], "Eye_Socket");
+    ellipsoid(head, eye, [eyeX, 0.035, 0.188], [0.027, 0.0135, 0.012], "Eye");
+    ellipsoid(head, iris, [eyeX, 0.035, 0.199], [0.0105, 0.0095, 0.006], "Iris");
     ellipsoid(head, pupil, [eyeX, 0.035, 0.204], [0.0055, 0.007, 0.003], "Pupil");
     const eyelid = ellipsoid(head, skin, [eyeX, 0.057, 0.185], [0.036, 0.009, 0.012], "Upper_Eyelid");
     eyelid.userData.rigBoneName = "Eyelid_" + (side < 0 ? "L" : "R");
-    const eyebrow = ellipsoid(head, hair, [eyeX, 0.081, 0.17], [0.046, 0.012, 0.012], "Eyebrow");
+    const eyebrow = ellipsoid(head, hair, [eyeX, 0.081, 0.17], [0.047, 0.010, 0.012], "Eyebrow");
     eyebrow.userData.rigBoneName = "Brow_" + (side < 0 ? "L" : "R");
     ellipsoid(head, skin, [side * 0.118, -0.075, 0.145], [0.064, 0.055, 0.045], "Cheek");
   }
   // Nose bridge, tip and nostril wings are separate sculptable forms.
   ellipsoid(head, skin, [0, -0.018, 0.177], [0.025 * noseSize, 0.064 * noseSize, 0.027 * noseSize], "Nose_Bridge");
-  ellipsoid(head, skin, [0, -0.073 * noseSize, 0.198], [0.039 * noseSize, 0.034 * noseSize, 0.035 * noseSize], "Nose_Tip");
+  ellipsoid(head, skin, [0, -0.073 * noseSize, 0.198], [0.043 * noseSize, 0.036 * noseSize, 0.039 * noseSize], "Nose_Tip");
   for (const side of [-1, 1]) {
     ellipsoid(head, skin, [side * 0.029 * noseSize, -0.087 * noseSize, 0.185], [0.018 * noseSize, 0.014 * noseSize, 0.019 * noseSize], "Nostril_Wing");
   }
