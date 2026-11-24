@@ -606,7 +606,7 @@ function cloneUniformValue(value, textureMap) {
   if (value?.isTexture) return textureMap.get(value) || value;
   if (Array.isArray(value)) return value.map((entry) => cloneUniformValue(entry, textureMap));
   if (value && typeof value === "object") {
-    if (value.isVector2 || value.isVector3 || value.isVector4 || value.isColor || value.isMatrix3 || value.isMatrix4) return value.clone();
+    if (typeof value.clone === "function") return value.clone();
     const copy = {};
     for (const [key, entry] of Object.entries(value)) copy[key] = cloneUniformValue(entry, textureMap);
     return copy;
