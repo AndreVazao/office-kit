@@ -208,3 +208,26 @@ Production Windows host code must never launch operating-system utilities by a b
 The Windows host now resolves the allowlisted `powershell.exe`, `whoami.exe` and `icacls.exe` to absolute paths under the validated `SystemRoot\System32` tree. Child processes use that System32 directory as their working directory and receive a sanitized `PATH` and `PSModulePath` that exclude inherited user-controlled search directories. Conflicting `SystemRoot` and `WINDIR` values, relative roots and UNC roots fail closed. No fallback to PATH or the current directory is permitted.
 
 This reduces current-directory/PATH binary planting. It does not establish trust in a hostile parent process that deliberately supplies a forged Windows-root environment; the signed installer and launcher must own/sanitize their process environment. The native WinTrust and physical-installation gates remain separate.
+
+
+## 13. Policy freshness and replay resistance — issue #141
+
+The signed envelope's `policyVersion` and `createdAt` are authenticated fields, but signature verification alone does not prove that an envelope is the newest authorized policy. The current policy file is stored under the per-user Office Kit data root; that directory is writable by the current user. Restoring an older authentic envelope can therefore replay a previously authorized publisher SPKI pin.
+
+Production acceptance requires:
+
+- A strictly monotonic policy version scoped to installation ID and edition.
+- A highest-accepted version and canonical envelope hash anchored outside the user-writable profile, using installer-protected OS storage or a separately validated hardware monotonic provider.
+- Atomic policy/anchor update or an explicit two-phase protocol with crash recovery.
+- Rejection or explicit recovery for older versions, same-version/different-hash content, missing/cleared anchors and installation/edition mismatch.
+- Tests for backup restore, interrupted update, policy replay and anchor loss.
+
+A value stored only in the same user-writable SQLite database or data directory is not an acceptable anchor. Software-protected OS storage must not be described as TPM-backed. Issue #141 remains open.
+
+## 14. Trusted Windows system-root resolution — issue #140
+
+The current process resolver launches allowlisted system tools by absolute paths under `SystemRoot\\System32`, uses that directory as the child working directory and sanitizes inherited `PATH`/`PSModulePath`. It rejects relative, UNC, missing and conflicting roots. However, the selected root is still obtained from inherited `SystemRoot`/`WINDIR`; a hostile parent can provide a forged but internally consistent local directory. Absolute paths derived from an untrusted root do not establish executable trust.
+
+The installer/launcher must establish or sanitize the Windows system root through a trusted OS boundary before the host invokes any system process. Native tests must place decoy `powershell.exe`, `whoami.exe` and `icacls.exe` in a writable working directory and PATH and prove that no decoy is executed. Missing or ambiguous trusted-root evidence must fail closed. Issue #140 remains open.
+
+These two issues are additional blockers under parent issue #110. The current PR #139 native WinTrust CI pass does not close them and does not authorize commercial distribution or ordinary startup without installer-provisioned trust.
