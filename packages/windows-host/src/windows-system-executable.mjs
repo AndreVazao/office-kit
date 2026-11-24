@@ -26,7 +26,9 @@ export function resolveWindowsSystemRoot({
   }
 
   const root = win32.resolve(selected);
-  if (!/^[a-z]:\\/i.test(root)) throw new Error("windows_system_root_invalid");
+  if (!/^[a-z]:\\/i.test(root) || /^[a-z]:\\?$/i.test(root)) {
+    throw new Error("windows_system_root_invalid");
+  }
   return root.replace(/\\+$/, "");
 }
 
