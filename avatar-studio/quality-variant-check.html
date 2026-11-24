@@ -15,7 +15,7 @@
     .pass { color: #79d9a2; } .fail { color: #ff9292; }
   </style>
   <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
   </script>
 </head>
 <body>
@@ -25,6 +25,8 @@
   <pre id="output">A aguardar execução…</pre>
   <script type="module">
     import * as THREE from "three";
+    import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     import { AVATAR_QUALITY_ORDER } from "./src/quality-profiles.js";
     import { applyAvatarMaterialVariant, applyAvatarQualityVariant } from "./src/quality-variants.js";
     import { createAvatarRig } from "./src/rig.js";
@@ -97,7 +99,7 @@
       return { root, mesh, originalGeometry: geometry, originalTriangles: indices.length / 3 };
     }
 
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       button.disabled = true;
       output.textContent = "A construir malha e a testar os quatro perfis…\n";
       const lines = [];
@@ -510,7 +512,7 @@
         const neutralVertices = new Map([...deformationMeshes].map(([name, mesh]) => [name, deformedVertices(mesh)]));
         const poseTargets = {
           walk: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "UpperArm_L_Skinned", "Forearm_L_Skinned", "Foot_L_Skinned"],
-          sit: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "Foot_L_Skinned", "SpineFixture_Skinned"],
+          sit: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "Foot_L_Skinned", "TorsoFixture_Skinned"],
           talk: ["JawPart_Skinned", "UpperArm_L_Skinned", "Forearm_L_Skinned", "Finger_2_L_Skinned", "HeadPart_Skinned"],
           work: ["TorsoFixture_Skinned", "NeckFixture_Skinned", "Forearm_L_Skinned", "Finger_2_L_Skinned"]
         };
@@ -549,6 +551,45 @@
         deformationRig.skeleton.dispose();
         if (!deformationPassed) throw new Error("A deformação real das malhas falhou em pelo menos uma articulação/pose.");
  
+        deformationRig.helper.visible = false;
+        deformationRoot.remove(deformationRig.helper);
+        const exportedRigClips = createAvatarAnimationClips(deformationRig, "idle", 30);
+        const glbExporter = new GLTFExporter();
+        const exportedGlb = await glbExporter.parseAsync(deformationRoot, {
+          binary: true,
+          animations: exportedRigClips
+        });
+        const importedGlb = await new GLTFLoader().parseAsync(exportedGlb, "");
+        const glbAnimationReports = importedGlb.animations.map((clip) => ({
+          name: clip.name,
+          tracks: clip.tracks.length,
+          finiteValues: clip.tracks.every((track) =>
+            [...track.times].every(Number.isFinite) && [...track.values].every(Number.isFinite)
+          )
+        }));
+        const glbRoundTripPassed = exportedGlb instanceof ArrayBuffer &&
+          exportedGlb.byteLength > 1024 &&
+          importedGlb.animations.length === 5 &&
+          ["Idle", "Walk", "Sit", "Talk", "Work"].every((name) =>
+            importedGlb.animations.some((clip) => clip.name === name && clip.tracks.length > 0)
+          ) &&
+          glbAnimationReports.every((report) => report.finiteValues);
+        lines.push({
+          glbAnimationRoundTrip: glbRoundTripPassed,
+          bytes: exportedGlb.byteLength,
+          importedClips: glbAnimationReports,
+          result: glbRoundTripPassed ? "PASS" : "FAIL"
+        });
+        if (!glbRoundTripPassed) throw new Error("A exportação/reimportação GLB não preservou os cinco clips de animação.");
+        importedGlb.scene.traverse((object) => {
+          object.geometry?.dispose();
+          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
+          else object.material?.dispose();
+        });
+        for (const clip of importedGlb.animations) {
+          for (const track of clip.tracks) track.times = track.times.slice();
+        }
+        exportedRigClips.length = 0;
         const animationRoot = new THREE.Group();
         const animationRig = createAvatarRig(animationRoot);
         animationRig.setMode("talk");
