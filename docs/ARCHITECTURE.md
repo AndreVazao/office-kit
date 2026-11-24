@@ -559,3 +559,18 @@ The adapter now declares explicit, frozen public/private path lists:
 PAPER control remains disabled. Issue #121 documents that the backend must atomically guarantee PAPER mode for every control operation, reject REAL/UNKNOWN/SAFE_MODE states and return authoritative post-operation state before Office Kit can expose those controls.
 
 Remote VST connectivity remains disabled; the adapter still accepts only exact loopback `http://127.0.0.1:8765`. Issue #124 tracks a future private Tailscale Serve HTTPS path using a VST-issued paired-device token, server-side owner/device/scope/revocation checks and verified ingress identity. Do not trust client-supplied Tailscale identity headers, send owner tokens over raw LAN HTTP, allow arbitrary remote URLs or expose the VST listener publicly. Physical Windows-PC and Android E2E over the actual tailnet are required before remote readiness is claimed.
+
+
+## 2026-11-24 — Windows publisher-policy trust and freshness boundaries
+
+The Windows host now has a native WinTrust implementation on the PR #139 branch. It explicitly verifies primary signature index 0, extracts the signer certificate from the same WinTrust provider state, compares the signer SPKI SHA-256 with the signed policy and applies distinct online-install/update and cache-only-runtime revocation modes. Missing policy and verification failures remain fail-closed before SQLite is opened.
+
+This is not yet a complete trust chain:
+
+1. **System executable root:** the shared resolver uses absolute paths and sanitizes child PATH/PSModulePath, but currently derives the Windows root from inherited `SystemRoot`/`WINDIR`. A hostile parent can supply a forged but internally consistent local root. The installer/launcher must establish the root through a trusted OS boundary; no PATH fallback is acceptable.
+2. **Policy freshness:** the signed `publisher-policy.json` currently resides in the per-user data root. A valid signature proves authorization, not freshness. A user able to restore an older signed envelope can replay an old publisher pin unless the host compares it with a protected monotonic high-water mark outside that user-writable root.
+3. **Update transaction:** policy envelope and protected version/hash anchor must be committed atomically or through a crash-recoverable two-phase protocol. Missing, cleared or inconsistent anchor state must fail closed or enter explicit recovery; it must never silently recreate trust state.
+4. **Installer authority:** the elevated installer/update path must verify its own signed package before provisioning the installation-scoped CNG key and policy envelope. Ordinary startup must not regenerate an existing key or silently provision trust.
+5. **Evidence:** unit/fake policy tests, GitHub-hosted native Windows tests and physical installation are separate evidence classes. Do not infer commercial publisher trust, TPM anti-rollback or physical-PC acceptance from CI.
+
+Issues #140 and #141 track the system-root and policy-replay gaps. Issue #110 remains the parent Windows production gate and #104 owns installer/update provisioning. The host remains fail-closed until these boundaries and the complete native test matrix are validated.
