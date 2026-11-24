@@ -44,6 +44,10 @@ test("rejects missing, relative, UNC and conflicting Windows system roots", () =
     /windows_system_root_unavailable/
   );
   assert.throws(
+    () => resolveWindowsSystemRoot({ env: { SystemRoot: "C:\\\\", WINDIR: "C:\\\\" }, platform: "win32" }),
+    /windows_system_root_invalid/
+  );
+  assert.throws(
     () => resolveWindowsSystemRoot({ env: { SystemRoot: "\\\\server\\share\\Windows" }, platform: "win32" }),
     /windows_system_root_unavailable/
   );
