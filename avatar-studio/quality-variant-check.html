@@ -398,6 +398,8 @@
 
         const animationRoot = new THREE.Group();
         const animationRig = createAvatarRig(animationRoot);
+        animationRig.setMode("talk");
+        const expectedHeadPose = animationRig.bones.Head.rotation.clone();
         const animationClips = createAvatarAnimationClips(animationRig, "talk", 30);
         const expectedClipNames = ["Idle", "Walk", "Sit", "Talk", "Work"];
         const animationReports = animationClips.map((clip) => {
@@ -422,8 +424,8 @@
         const animationPassed = animationClips.length === 5 &&
           animationClips.every((clip, index) => clip.name === expectedClipNames[index]) &&
           animationReports.every((report) => report.validTimes && report.hasMotion && report.tracks === Object.keys(animationRig.bones).length * 2) &&
-          animationRig.bones.Head.rotation.equals(new THREE.Euler(0, 0, 0));
-        lines.push({ fiveAnimationClips: animationPassed, clips: animationReports, selectedPoseRestored: animationRig.bones.Head.rotation.equals(new THREE.Euler(0, 0, 0)), result: animationPassed ? "PASS" : "FAIL" });
+          animationRig.bones.Head.rotation.equals(expectedHeadPose);
+        lines.push({ fiveAnimationClips: animationPassed, clips: animationReports, selectedPoseRestored: animationRig.bones.Head.rotation.equals(expectedHeadPose), result: animationPassed ? "PASS" : "FAIL" });
         animationRoot.traverse((object) => {
           if (object.isLine) object.geometry.dispose();
         });
