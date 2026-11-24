@@ -19,7 +19,11 @@ const landmarks = [
   "Maçã do rosto esquerda",
   "Maçã do rosto direita",
   "Centro da boca",
-  "Ponta do queixo"
+  "Ponta do queixo",
+  "Mandíbula esquerda",
+  "Mandíbula direita",
+  "Aba nasal esquerda",
+  "Aba nasal direita"
 ];
 
 let image = null;
@@ -104,7 +108,7 @@ canvas.addEventListener("click", (event) => {
   if (points.length < landmarks.length) {
     state.textContent = "Marcar: " + landmarks[points.length];
   } else {
-    state.textContent = "10 referências marcadas";
+    state.textContent = "14 referências marcadas";
   }
 });
 
@@ -124,7 +128,9 @@ applyButton.addEventListener("click", () => {
   const faceHeight = Math.abs(points[9].y - points[0].y);
   const cheekWidth = Math.abs(points[7].x - points[6].x);
   const eyeDistance = Math.abs(points[4].x - points[3].x);
-  if (faceHeight < 0.08 || cheekWidth < 0.04 || eyeDistance < 0.02) {
+  const jawWidth = Math.abs(points[11].x - points[10].x);
+  const noseWidth = Math.abs(points[13].x - points[12].x);
+  if (faceHeight < 0.08 || cheekWidth < 0.04 || eyeDistance < 0.02 || jawWidth < 0.025 || noseWidth < 0.008) {
     state.textContent = "Referências demasiado próximas ou incompletas; volta a marcar os pontos.";
     return;
   }
@@ -132,6 +138,8 @@ applyButton.addEventListener("click", () => {
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const measurements = {
     faceWidth: clamp((cheekWidth / faceHeight) / 0.77, 0.86, 1.18),
+    jawWidth: clamp((jawWidth / cheekWidth) / 0.78, 0.86, 1.18),
+    noseSize: clamp((noseWidth / eyeDistance) / 0.34, 0.82, 1.22),
     eyeSpacing: clamp((eyeDistance / cheekWidth) / 0.40, 0.82, 1.18)
   };
   window.dispatchEvent(new CustomEvent("avatar:identity-measurements", { detail: measurements }));
