@@ -664,7 +664,13 @@ function prepareMaterialTextureVariant(material, maxSize) {
   };
   scan(material.uniforms, "uniforms");
   if (!textureMap.size) return { material, changed: false, unsupported };
-  const variant = material.clone();
+  let variant;
+  try {
+    variant = material.clone();
+  } catch (error) {
+    for (const texture of textureMap.values()) texture.dispose();
+    throw error;
+  }
   if (variant.uniforms) {
     const retained = new Set(textureMap.values());
     const sourceTextures = new Set();
@@ -739,7 +745,8 @@ export function applyAvatarMaterialVariant(root, profileId) {
   const textureIssues = [];
   let textureCount = 0;
 
-  root.traverse((mesh) => {
+  try {
+    root.traverse((mesh) => {
     if (!mesh.isMesh || !mesh.visible || !mesh.material) return;
     meshes.push(mesh);
     const sourceMaterialValue = mesh.material;
@@ -776,7 +783,13 @@ export function applyAvatarMaterialVariant(root, profileId) {
         nonConvertibleMaterials.add(material);
       }
     }
-  });
+    });
+  } catch (error) {
+    for (const { mesh, material } of [...originalMaterials].reverse()) mesh.material = material;
+    for (const material of textureVariantMaterials) material.dispose();
+    for (const texture of textureVariantTextures) texture.dispose();
+    throw error;
+  }
 
   const originalMaterialCount = sourceMaterials.size;
   const textureOverBudgetCount = textureIssues.length;
