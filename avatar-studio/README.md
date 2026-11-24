@@ -18,7 +18,7 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 ## Current prototype
 
 - Procedural, editable human and robot base meshes.
-- Human presets for André (CEO), three masculine body types, three feminine body types, and a humanoid robot.
+- Human presets for André (CEO), three masculine body types, three feminine body types, and a humanoid robot. The André preset now uses a receding/bald crown with short grey temple hair, a wider face/nose starting profile, and a long tapered grey beard silhouette based on the supplied frontal identity reference; these are explicit hand-authored proportions, not an automatic 3D reconstruction.
 - Height, body build, head size, shoulder width, face width, jaw width, nose volume, eye spacing, and hair length controls.
 - Hair colour and four procedural hairstyles (short, classic, long, tied), beard variants, suit, casual, and tactical clothing variants.
 - Rounded visual joint caps at limb endpoints, suit detailing, orbit camera, six preset camera angles (front, 3/4, both profiles, back, top), neutral studio lighting, and GLB export.
@@ -56,7 +56,7 @@ The export validator rejects malformed indices, invalid material groups, non-fin
 
 The right-hand identity panel accepts a local JPEG, PNG, or WebP reference image (maximum 15 MB). The image is decoded and drawn in the browser only; it is not uploaded, committed, persisted, or transmitted by this module. The user can mark ten facial reference points on the image to create a manual landmark guide. Only the current browser session holds the selected image and points.
 
-The isolated editor also exposes manual facial proportion controls for face width, jaw width, nose volume, eye spacing, and hair length. After all ten landmarks are marked, the user can apply an initial estimate for face width and eye spacing to the live avatar; the remaining facial proportions stay manually adjustable. The estimate is a modeling aid, not automatic face recognition or 3D reconstruction. A single frontal photo cannot reveal the true side, rear, skull depth, or hidden geometry. A faithful likeness requires additional user-supplied views (front, both profiles, and 3/4), consistent lighting where possible, and iterative manual sculpting. Do not claim a likeness is complete until it has been compared against the user's reference views.
+The isolated editor also exposes manual facial proportion controls for face width, jaw width, nose volume, eye spacing, and hair length. After all ten landmarks are marked, the user can apply an initial estimate for face width and eye spacing to the live avatar; the remaining facial proportions stay manually adjustable. The estimate is a modeling aid, not automatic face recognition or 3D reconstruction. The André CEO preset has a dedicated starting profile derived from the supplied frontal photo (bald crown, short side hair, broad face/nose, long tapered grey beard); this improves the initial silhouette but is not a verified likeness. A single frontal photo cannot reveal the true side, rear, skull depth, ear depth, or hidden geometry. A faithful likeness requires additional user-supplied views (front, both profiles, and 3/4), consistent lighting where possible, and iterative manual sculpting. Do not claim a likeness is complete until it has been compared against the user's reference views.
 
 ## Deliberate limitations
 
