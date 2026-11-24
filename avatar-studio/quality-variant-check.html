@@ -543,12 +543,6 @@
           poses: deformationReports,
           result: deformationPassed ? "PASS" : "FAIL"
         });
-        deformationRoot.traverse((object) => {
-          if (object.geometry) object.geometry.dispose();
-          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
-          else object.material?.dispose();
-        });
-        deformationRig.skeleton.dispose();
         if (!deformationPassed) throw new Error("A deformação real das malhas falhou em pelo menos uma articulação/pose.");
  
         deformationRig.helper.visible = false;
@@ -590,6 +584,13 @@
           for (const track of clip.tracks) track.times = track.times.slice();
         }
         exportedRigClips.length = 0;
+        deformationRoot.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
+          else object.material?.dispose();
+        });
+        deformationRig.skeleton.dispose();
+        deformationRig.helper.material.dispose();
         const animationRoot = new THREE.Group();
         const animationRig = createAvatarRig(animationRoot);
         animationRig.setMode("talk");
