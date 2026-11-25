@@ -124,6 +124,29 @@ function makePhotoShapedHead(parent, skinMaterial, faceWidth = 1, jawWidth = 1) 
   return mesh;
 }
 
+function makeShortGreySideHair(parent, hairMaterial, side) {
+  // Low-profile side growth follows the temple toward the rear skull.
+  // It deliberately leaves the crown exposed instead of forming a hair cap.
+  const paths = [
+    [[side * 0.184, 0.135, 0.035], [side * 0.196, 0.095, -0.015], [side * 0.197, 0.035, -0.075], [side * 0.188, -0.045, -0.125], [side * 0.16, -0.115, -0.12]],
+    [[side * 0.19, 0.12, 0.055], [side * 0.201, 0.075, 0.005], [side * 0.201, 0.015, -0.055], [side * 0.191, -0.065, -0.105], [side * 0.165, -0.13, -0.105]],
+    [[side * 0.18, 0.105, 0.075], [side * 0.193, 0.06, 0.025], [side * 0.194, 0.0, -0.035], [side * 0.184, -0.075, -0.085], [side * 0.155, -0.14, -0.085]]
+  ];
+  paths.forEach((points, index) => {
+    const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
+    const strand = addMesh(
+      parent,
+      new THREE.TubeGeometry(curve, 20, index === 1 ? 0.009 : 0.007,
+        6, false),
+      hairMaterial,
+      [0, 0, 0],
+      [1, 1, 1],
+      side < 0 ? "Grey_Side_Hair_L_" + index : "Grey_Side_Hair_R_" + index
+    );
+    strand.userData.identityFeature = "short-grey-side-hair";
+  });
+}
+
 function makePhotoNose(parent, skinMaterial, size = 1) {
   // A tapered bridge with a broader, forward-projecting tip; the separate alar forms
   // preserve a readable silhouette in front and three-quarter views.
@@ -391,9 +414,13 @@ function buildHuman(config) {
     }
     const sideLength = config.hairStyle === "long" ? 1.85 : config.hairStyle === "bun" ? 1.15 : config.hairStyle === "short" ? 0.62 : config.hairStyle === "bald" ? 0.48 : 1;
     for (const side of [-1, 1]) {
-      const templeScale = config.hairStyle === "bald" ? [0.025, 0.075, 0.105] : [0.045, 0.12 * hairLength * sideLength, 0.17];
-      const templePosition = config.hairStyle === "bald" ? [side * 0.178, 0.075, -0.005] : [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005];
-      ellipsoid(head, hair, templePosition, templeScale, config.hairStyle === "bald" ? "Short_Side_Hair" : "Hair_Side");
+      const templeScale = config.hairStyle === "bald" ? [0.026, 0.066, 0.105] : [0.045, 0.12 * hairLength * sideLength, 0.17];
+      const templePosition = config.hairStyle === "bald" ? [side * 0.18, 0.072, -0.008] : [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005];
+      const temple = ellipsoid(head, hair, templePosition, templeScale, config.hairStyle === "bald" ? "Short_Side_Hair" : "Hair_Side");
+      if (config.hairStyle === "bald") {
+        temple.userData.identityFeature = "short-grey-temple-hair";
+        makeShortGreySideHair(head, hair, side);
+      }
     }
     if (config.hairStyle === "long") {
       ellipsoid(head, hair, [0, -0.13, -0.12], [0.19, 0.23 * hairLength, 0.075], "Hair_Back");
