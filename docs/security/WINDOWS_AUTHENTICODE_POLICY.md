@@ -232,3 +232,11 @@ The installer/launcher must establish or sanitize the Windows system root throug
 
 These two issues are additional blockers under parent issue #110. The current PR #139 native WinTrust CI pass does not close them and does not authorize commercial distribution or ordinary startup without installer-provisioned trust.
 undefined
+
+## 2026-11-25 — exact-head validation checkpoint
+
+- Main `027851c04ff1b23d239b90a06bfc4ef84aecf425`: push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) both passed.
+- PR #139 previous documentation HEAD `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899`: four Linux/Windows Node 22/26.13.1 jobs passed in CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630); visual [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) passed on the same SHA.
+- PR #108 HEAD `0bae4e7b7095863efe04d5b76f480cdcf69603d2`: four CI jobs [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed. Its branch remains 24 commits behind main and requires reconciliation before merge.
+
+The documentation commit that records this checkpoint creates a new PR #139 HEAD. CI and visual regression must be rerun on that new exact SHA. PR #139 remains Draft until installer trust-root, System32 provenance, policy anti-replay, native certificate matrix and physical-PC acceptance are complete.

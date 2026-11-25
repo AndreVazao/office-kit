@@ -859,3 +859,10 @@ The green PR #139 workflows prove the current implementation slice on its exact 
 PR #139's four Linux/Windows Node 22/26.13.1 CI jobs and its browser visual regression both passed on the exact HEAD `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb`. This is repository-runner evidence. The PR remains Draft because the installer trust root, authenticated System32 handoff, publisher-policy anti-replay anchor, complete certificate/revocation matrix and physical-PC lifecycle validation are not complete.
 
 The active runtime security implementation remains confined to PR #139. PR #108 is an independent Avatar Studio Draft and is not part of the Windows host/runtime work. The Universal edition remains backend-neutral; DGM-MAT and VST adapters and session providers stay edition-specific.
+
+
+## 2026-11-25 — exact-head evidence update
+
+Main HEAD `027851c04ff1b23d239b90a06bfc4ef84aecf425` has passing push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578). PR #139 HEAD `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899` passed four Linux/Windows Node 22/26.13.1 jobs in CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) and visual regression [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) on the same SHA. A subsequent documentation-only commit changes the PR head and requires its own checks.
+
+PR #108 HEAD `0bae4e7b7095863efe04d5b76f480cdcf69603d2` passed its four-job CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual regression [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305). It remains Draft, 24 commits behind main, and its browser/GLB acceptance is incomplete.

@@ -587,3 +587,12 @@ MSIX is a candidate because package deployment validates the signed package and 
 The publisher-policy anti-replay anchor is a separate requirement. The current CNG Software KSP key and read-only TPM capability probe do not provide a monotonic TPM NV counter. Policy version/hash must be protected outside the user-writable profile and updated through a crash-recoverable transaction. Do not silently recreate a missing anchor or downgrade to user-writable SQLite.
 
 PR #139 remains Draft. CI and visual regression passed on HEAD `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb` (CI [45405580412](https://github.com/AndreVazao/office-kit/actions/runs/45405580412), visual [45405580584](https://github.com/AndreVazao/office-kit/actions/runs/45405580584)); this does not close #104, #110, #140 or #141 and does not establish physical-PC acceptance.
+
+
+## 2026-11-25 — exact CI evidence and package trust gate
+
+The exact main SHA `027851c04ff1b23d239b90a06bfc4ef84aecf425` passed push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578). PR #139's previous documentation head `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899` passed all four CI matrix jobs [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) and visual [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952). A new documentation commit creates a new head and requires fresh validation.
+
+PR #108's current code head `0bae4e7b7095863efe04d5b76f480cdcf69603d2` passed CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305), but the branch is 24 commits behind main and the real-browser/GLB acceptance remains open.
+
+No installer format has been selected. MSIX and fully verified MSI remain candidates pending proof of Office Kit's host/service requirements, package-content signature coverage, first-install trust provisioning and full lifecycle on supported Windows versions. Issues #104, #110, #140 and #141 remain open; no production or physical-PC readiness is implied.

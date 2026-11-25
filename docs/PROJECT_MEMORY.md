@@ -792,3 +792,13 @@ No format is selected. A prototype must prove package trust and publisher identi
 - Issue #110 remains the parent Authenticode production gate. Issue #104 owns the signed installer/update transaction and atomic CNG key/policy provisioning.
 
 The green PR #139 workflows prove the current implementation slice on its exact GitHub-hosted CI SHA only. They do not prove a signed commercial installer, physical-PC installation, a trusted OS-root handoff, TPM anti-rollback or production publisher trust.
+
+
+## 2026-11-25 — exact-head validation refresh
+
+- Main remains `027851c04ff1b23d239b90a06bfc4ef84aecf425`; push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) both passed on that exact main SHA.
+- PR #139's documentation checkpoint HEAD `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899` passed CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) in all four Linux/Windows Node 22/26.13.1 jobs and visual regression [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) on the same SHA.
+- PR #108 HEAD `0bae4e7b7095863efe04d5b76f480cdcf69603d2` passed CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) in all four matrix jobs and visual regression [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305). The branch is 214 commits ahead and 24 behind current main; all changed files remain under `avatar-studio/`. Keep Draft, reconcile with main before merge, and complete the real-browser/GLB acceptance gates.
+- This entry is a historical exact-SHA record. The documentation-only commit that adds it creates a new PR #139 head and requires fresh CI and visual regression; the green results above must not be carried forward to that new SHA.
+
+PR #139 remains Draft. Issues #104, #110, #140 and #141 and physical-PC acceptance remain open. The host stays fail-closed; no installer format has been selected and no TPM-backed anti-replay provider is claimed.

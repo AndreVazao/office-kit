@@ -895,3 +895,12 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Keep PR #139 Draft and Windows host startup fail-closed until issues #110, #140, #141 and the relevant #104 installer gates are satisfied.
 
 References: [MSIX signing](https://learn.microsoft.com/windows/msix/package/signing-package-overview), [MSIX desktop limitations](https://learn.microsoft.com/windows/msix/desktop/desktop-to-uwp-prepare), [fully verified MSI](https://learn.microsoft.com/en-us/windows/win32/msi/authoring-a-fully-verified-signed-installation), [MSI external cabinet signature scope](https://learn.microsoft.com/en-us/windows/win32/msi/digital-signatures-and-external-cabinet-files).
+
+
+## 2026-11-25 — verified CI checkpoint and remaining installer gate
+
+- [x] Main push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on main `027851c04ff1b23d239b90a06bfc4ef84aecf425`.
+- [x] PR #139 checkpoint `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899`: CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) passed all four Linux/Windows Node 22/26.13.1 jobs; visual [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) passed on the same SHA.
+- [x] PR #108 checkpoint `0bae4e7b7095863efe04d5b76f480cdcf69603d2`: CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed on the same SHA.
+- [ ] Reconcile PR #108's 24-commit divergence from current main and rerun its checks after rebase; keep Avatar Studio browser/GLB acceptance separate.
+- [ ] Complete #104/#110/#140/#141 trust-root, package provisioning, policy anti-replay and physical installation gates. A new documentation commit changes PR #139's head; require fresh checks for that new SHA.
