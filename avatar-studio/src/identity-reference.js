@@ -10,7 +10,7 @@ const removeButton = document.getElementById("identity-remove");
 const applyButton = document.getElementById("identity-apply");
 
 const landmarks = [
-  "Linha do cabelo",
+  "Topo da cabeça (coroa)",
   "Sobrancelha esquerda",
   "Sobrancelha direita",
   "Olho esquerdo",
@@ -131,7 +131,7 @@ applyButton.addEventListener("click", () => {
     return;
   }
 
-  const faceHeight = Math.abs(points[8].y - points[0].y);
+  // Use the crown rather than a hairline: the CEO reference has a shaved crown,\n  // so a hairline landmark would be ambiguous and would compress the fitted face.\n  const faceHeight = Math.abs(points[8].y - points[0].y);
   const cheekWidth = Math.abs(points[7].x - points[6].x);
   const eyeDistance = Math.abs(points[4].x - points[3].x);
   const jawWidth = Math.abs(points[11].x - points[10].x);
@@ -160,7 +160,7 @@ applyButton.addEventListener("click", () => {
     points[5].y < Math.min(points[8].y, points[12].y, points[13].y) &&
     points[8].y < points[9].y;
   if (!verticalOrderValid) {
-    state.textContent = "A ordem vertical dos pontos não corresponde ao rosto. Limpa os pontos e volta a marcá-los pela sequência indicada.";
+    state.textContent = "A ordem vertical dos pontos não corresponde ao rosto (coroa, sobrancelhas, olhos, nariz, boca e queixo). Limpa os pontos e volta a marcá-los pela sequência indicada.";
     return;
   }
 
