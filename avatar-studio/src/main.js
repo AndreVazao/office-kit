@@ -193,18 +193,19 @@ function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
 
   // Two cheek/jaw lobes merge into a deeper central chin mass; all overlap
   // deliberately to avoid visible seams at front and three-quarter angles.
-  makeMass("Beard_Volume_Central", [0, -0.265 * length, 0.105], [0.174 * width, 0.235 * length, 0.088], 0);
+  // Keep the central upper-lip opening clear; the chin mass starts below it.
+  makeMass("Beard_Volume_Central", [0, -0.335 * length, 0.105], [0.16 * width, 0.15 * length, 0.072], 0);
   for (const side of [-1, 1]) {
     makeMass(
       side < 0 ? "Beard_Volume_Cheek_L" : "Beard_Volume_Cheek_R",
       [side * 0.105 * width, -0.165 * length, 0.105],
-      [0.092 * width, 0.145 * length, 0.078],
+      [0.085 * width, 0.12 * length, 0.068],
       side
     );
     makeMass(
       side < 0 ? "Beard_Volume_Jaw_L" : "Beard_Volume_Jaw_R",
       [side * 0.083 * width, -0.305 * length, 0.095],
-      [0.098 * width, 0.16 * length, 0.082],
+      [0.09 * width, 0.13 * length, 0.072],
       side
     );
   }
@@ -215,8 +216,8 @@ function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
   shape.bezierCurveTo(-0.105 * width, -0.385 * length, -0.052 * width, -0.435 * length, 0, -0.448 * length);
   shape.bezierCurveTo(0.052 * width, -0.435 * length, 0.105 * width, -0.385 * length, 0.145 * width, -0.315 * length);
   shape.bezierCurveTo(0.198 * width, -0.235 * length, 0.205 * width, -0.105, 0.174 * width, -0.055);
-  shape.bezierCurveTo(0.12 * width, -0.095, 0.075 * width, -0.125, 0, -0.13);
-  shape.bezierCurveTo(-0.075 * width, -0.125, -0.12 * width, -0.095, -0.174 * width, -0.055);
+  shape.bezierCurveTo(0.12 * width, -0.095, 0.075 * width, -0.16, 0, -0.185);
+  shape.bezierCurveTo(-0.075 * width, -0.16, -0.12 * width, -0.095, -0.174 * width, -0.055);
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth: 0.048, bevelEnabled: true, bevelSegments: 4,
     steps: 1, bevelSize: 0.016, bevelThickness: 0.022, curveSegments: 24
@@ -375,9 +376,12 @@ function buildHuman(config) {
   }
   // Sculpted nose components preserve a tapered bridge and rounded tip in profile.
   makePhotoNose(head, skin, noseSize);
-  const mouth = ellipsoid(head, lip, [0, -0.145, 0.174], [0.055, 0.012, 0.014], "Mouth");
+  // The mouth sits in the beard's central opening instead of being buried behind it.
+  const mouth = ellipsoid(head, lip, [0, -0.157, 0.205], [0.047, 0.008, 0.009], "Mouth");
   mouth.userData.rigBoneName = "Jaw";
-  const chin = ellipsoid(head, skin, [0, -0.177, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
+  const lowerLip = ellipsoid(head, skin, [0, -0.174, 0.193], [0.036, 0.009, 0.012], "Lower_Lip");
+  lowerLip.userData.rigBoneName = "Jaw";
+  const chin = ellipsoid(head, skin, [0, -0.205, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
   chin.userData.rigBoneName = "Jaw";
 
   // Hairline adapted to the reference: bald crown with very short grey side hair.
@@ -408,7 +412,12 @@ function buildHuman(config) {
       makePhotoBeard(head, beard, 1.12, 1.08);
       ellipsoid(head, beard, [-0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_L");
       ellipsoid(head, beard, [0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_R");
-      ellipsoid(head, beard, [0, -0.105, 0.178], [0.145, 0.052, 0.052], "Mustache");
+      const mustacheLeft = ellipsoid(head, beard, [-0.047, -0.108, 0.192], [0.078, 0.024, 0.026], "Mustache_L");
+      const mustacheRight = ellipsoid(head, beard, [0.047, -0.108, 0.192], [0.078, 0.024, 0.026], "Mustache_R");
+      mustacheLeft.rotation.z = -0.10;
+      mustacheRight.rotation.z = 0.10;
+      mustacheLeft.userData.identityFeature = "upper-lip-beard-lobe";
+      mustacheRight.userData.identityFeature = "upper-lip-beard-lobe";
     } else {
       const beardScale = config.beard === "full" ? [0.17, 0.15, 0.095] : [0.145, 0.085, 0.075];
       ellipsoid(head, beard, [0, -0.205, 0.09], beardScale, "Beard");
