@@ -97,15 +97,21 @@ function makePhotoShapedHead(parent, skinMaterial, faceWidth = 1, jawWidth = 1) 
     const x = position.getX(index);
     const y = position.getY(index);
     const z = position.getZ(index);
-    const jawProfile = y < -0.08 ? THREE.MathUtils.lerp(jawWidth, 1, THREE.MathUtils.smoothstep(y, -0.82, -0.08)) : 1;
-    const cheekProfile = y > 0.48 ? THREE.MathUtils.lerp(1, 0.91, THREE.MathUtils.smoothstep(y, 0.48, 0.96)) : 1;
-    const widthProfile = jawProfile * cheekProfile;
-    const depthProfile = 1 + 0.055 * Math.exp(-Math.pow((y + 0.12) / 0.42, 2));
+    const lowerFace = THREE.MathUtils.smoothstep(-y, 0.02, 0.92);
+    const jawProfile = THREE.MathUtils.lerp(1, jawWidth, lowerFace);
+    const cheekBulge = 0.035 * Math.exp(-Math.pow((y + 0.12) / 0.22, 2));
+    const templeTaper = THREE.MathUtils.lerp(1, 0.93, THREE.MathUtils.smoothstep(y, 0.48, 0.96));
+    const widthProfile = jawProfile * templeTaper;
+    // The front plane gains cheek projection while the rear cranium retains volume.
+    const frontness = Math.max(0, z);
+    const cheekDepth = cheekBulge * Math.exp(-Math.pow((Math.abs(x) - 0.58) / 0.32, 2));
+    const depthProfile = 1 + 0.075 * Math.exp(-Math.pow((y + 0.10) / 0.38, 2)) + cheekDepth;
+    const sculptedZ = z * 0.194 * depthProfile + frontness * cheekDepth * 0.22;
     position.setXYZ(
       index,
-      x * 0.205 * faceWidth * widthProfile,
+      x * (0.205 * faceWidth + cheekBulge) * widthProfile,
       y * 0.267,
-      z * 0.194 * depthProfile
+      sculptedZ
     );
   }
   position.needsUpdate = true;
@@ -116,6 +122,45 @@ function makePhotoShapedHead(parent, skinMaterial, faceWidth = 1, jawWidth = 1) 
   mesh.userData.identityFeature = "sculpted-head-silhouette";
   parent.add(mesh);
   return mesh;
+}
+
+function makePhotoNose(parent, skinMaterial, size = 1) {
+  // A tapered bridge with a broader, forward-projecting tip; the separate alar forms
+  // preserve a readable silhouette in front and three-quarter views.
+  const bridgeGeometry = new THREE.SphereGeometry(1, 32, 24);
+  const bridgePositions = bridgeGeometry.getAttribute("position");
+  for (let i = 0; i < bridgePositions.count; i += 1) {
+    const x = bridgePositions.getX(i);
+    const y = bridgePositions.getY(i);
+    const z = bridgePositions.getZ(i);
+    const taper = THREE.MathUtils.lerp(0.68, 1.0, THREE.MathUtils.smoothstep(y, -0.65, 0.8));
+    bridgePositions.setXYZ(i, x * 0.027 * size * taper, y * 0.067 * size, z * 0.032 * size);
+  }
+  bridgePositions.needsUpdate = true;
+  bridgeGeometry.computeVertexNormals();
+  const bridge = addMesh(parent, bridgeGeometry, skinMaterial, [0, -0.018, 0.184], [1, 1, 1], "Nose_Bridge_Sculpted");
+  bridge.userData.identityFeature = "tapered-nasal-bridge";
+
+  const tipGeometry = new THREE.SphereGeometry(1, 32, 24);
+  const tipPositions = tipGeometry.getAttribute("position");
+  for (let i = 0; i < tipPositions.count; i += 1) {
+    const x = tipPositions.getX(i);
+    const y = tipPositions.getY(i);
+    const z = tipPositions.getZ(i);
+    const lowerFullness = 1 + 0.12 * Math.max(0, -y);
+    tipPositions.setXYZ(i, x * 0.044 * size * lowerFullness, y * 0.034 * size, z * 0.041 * size);
+  }
+  tipPositions.needsUpdate = true;
+  tipGeometry.computeVertexNormals();
+  const tip = addMesh(parent, tipGeometry, skinMaterial, [0, -0.073 * size, 0.204], [1, 1, 1], "Nose_Tip_Sculpted");
+  tip.userData.identityFeature = "rounded-nasal-tip";
+
+  const wingMaterial = skinMaterial;
+  for (const side of [-1, 1]) {
+    const wing = ellipsoid(parent, wingMaterial, [side * 0.031 * size, -0.086 * size, 0.188], [0.019 * size, 0.014 * size, 0.022 * size], "Nasal_Wing");
+    wing.userData.identityFeature = "nasal-alar-wing";
+  }
+  return { bridge, tip };
 }
 
 function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
@@ -284,12 +329,8 @@ function buildHuman(config) {
     eyebrow.userData.rigBoneName = "Brow_" + (side < 0 ? "L" : "R");
     ellipsoid(head, skin, [side * 0.118, -0.075, 0.145], [0.064, 0.055, 0.045], "Cheek");
   }
-  // Nose bridge, tip and nostril wings are separate sculptable forms.
-  ellipsoid(head, skin, [0, -0.018, 0.177], [0.025 * noseSize, 0.064 * noseSize, 0.027 * noseSize], "Nose_Bridge");
-  ellipsoid(head, skin, [0, -0.073 * noseSize, 0.198], [0.043 * noseSize, 0.036 * noseSize, 0.039 * noseSize], "Nose_Tip");
-  for (const side of [-1, 1]) {
-    ellipsoid(head, skin, [side * 0.029 * noseSize, -0.087 * noseSize, 0.185], [0.018 * noseSize, 0.014 * noseSize, 0.019 * noseSize], "Nostril_Wing");
-  }
+  // Sculpted nose components preserve a tapered bridge and rounded tip in profile.
+  makePhotoNose(head, skin, noseSize);
   const mouth = ellipsoid(head, lip, [0, -0.145, 0.174], [0.055, 0.012, 0.014], "Mouth");
   mouth.userData.rigBoneName = "Jaw";
   const chin = ellipsoid(head, skin, [0, -0.177, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
