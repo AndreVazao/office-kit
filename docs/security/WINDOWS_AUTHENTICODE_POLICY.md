@@ -231,3 +231,4 @@ The current process resolver launches allowlisted system tools by absolute paths
 The installer/launcher must establish or sanitize the Windows system root through a trusted OS boundary before the host invokes any system process. Native tests must place decoy `powershell.exe`, `whoami.exe` and `icacls.exe` in a writable working directory and PATH and prove that no decoy is executed. Missing or ambiguous trusted-root evidence must fail closed. Issue #140 remains open.
 
 These two issues are additional blockers under parent issue #110. The current PR #139 native WinTrust CI pass does not close them and does not authorize commercial distribution or ordinary startup without installer-provisioned trust.
+undefined

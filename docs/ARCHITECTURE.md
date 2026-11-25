@@ -574,3 +574,16 @@ This is not yet a complete trust chain:
 5. **Evidence:** unit/fake policy tests, GitHub-hosted native Windows tests and physical installation are separate evidence classes. Do not infer commercial publisher trust, TPM anti-rollback or physical-PC acceptance from CI.
 
 Issues #140 and #141 track the system-root and policy-replay gaps. Issue #110 remains the parent Windows production gate and #104 owns installer/update provisioning. The host remains fail-closed until these boundaries and the complete native test matrix are validated.
+
+
+## 2026-11-25 — trusted package boundary before host bootstrap
+
+The current Windows portable bundle is a development/test artifact, not an installer trust root. Its CMD launcher starts the bundled Node runtime directly. The build script discovers Node and the CNG helper through build-time environment/search mechanisms. The CNG helper is launched as a child of the Node host; it cannot authenticate its own earlier launch. Therefore, adding `GetSystemDirectoryW` only inside that helper would not close the pre-host binary-planting boundary.
+
+The next architecture boundary must be an OS-verified package deployment or a separately authenticated native launcher. That boundary must establish package publisher identity and a trusted System32 directory before launching Node or any helper, then pass only a constrained, authenticated installation/edition/system-root handoff. No inherited environment value or user-controlled command-line argument may select the trust root.
+
+MSIX is a candidate because package deployment validates the signed package and publisher chain, but it does not support drivers or per-user Windows services; it supports session-0 per-machine services under the supported system accounts. MSI is a candidate only when authored as a fully verified signed installation: signed package, complete cabinet coverage and package-contained/installed custom actions. Neither is selected until a real prototype proves the Office Kit host lifecycle and install/upgrade/rollback/repair/uninstall behavior on supported Windows versions.
+
+The publisher-policy anti-replay anchor is a separate requirement. The current CNG Software KSP key and read-only TPM capability probe do not provide a monotonic TPM NV counter. Policy version/hash must be protected outside the user-writable profile and updated through a crash-recoverable transaction. Do not silently recreate a missing anchor or downgrade to user-writable SQLite.
+
+PR #139 remains Draft. CI and visual regression passed on HEAD `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb` (CI [45405580412](https://github.com/AndreVazao/office-kit/actions/runs/45405580412), visual [45405580584](https://github.com/AndreVazao/office-kit/actions/runs/45405580584)); this does not close #104, #110, #140 or #141 and does not establish physical-PC acceptance.

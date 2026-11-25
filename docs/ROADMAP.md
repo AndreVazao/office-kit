@@ -883,3 +883,15 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Implement issue #104 installer/update verification and atomic CNG-key/policy provisioning with restrictive ACLs and recovery. The online verifier is not yet called by a production installer/update path.
 - [ ] Validate the actual commercially signed package and complete install/update/startup/uninstall flow on a physical Windows PC. GitHub-hosted runner success is not physical acceptance.
 - [ ] Keep PR #139 Draft and issue #110 open until all of the above release gates are satisfied.
+
+
+## 2026-11-25 — Windows package trust decision gate
+
+- [ ] Prototype MSIX deployment and verify OS-enforced package signature/publisher identity on every supported Windows baseline; first confirm whether the required host/session/service lifecycle fits MSIX restrictions (no drivers or per-user services; session-0 per-machine services only under supported system accounts).
+- [ ] Prototype a fully verified MSI alternative only if all package payloads, cabinets, patches and custom actions are covered by the documented Windows Installer signature model; no external unsigned bootstrap scripts.
+- [ ] Select a format only after install, upgrade, rollback, repair, uninstall, retained-data and per-edition isolation tests pass for Universal, DGM-MAT and VST.
+- [ ] Establish a trusted native installer/launcher boundary before any host process can rely on inherited SystemRoot/WINDIR or launch the CNG helper.
+- [ ] Implement protected monotonic publisher-policy version/hash state with crash recovery; do not claim TPM protection until a real NV provider is physically validated.
+- [ ] Keep PR #139 Draft and Windows host startup fail-closed until issues #110, #140, #141 and the relevant #104 installer gates are satisfied.
+
+References: [MSIX signing](https://learn.microsoft.com/windows/msix/package/signing-package-overview), [MSIX desktop limitations](https://learn.microsoft.com/windows/msix/desktop/desktop-to-uwp-prepare), [fully verified MSI](https://learn.microsoft.com/en-us/windows/win32/msi/authoring-a-fully-verified-signed-installation), [MSI external cabinet signature scope](https://learn.microsoft.com/en-us/windows/win32/msi/digital-signatures-and-external-cabinet-files).

@@ -826,3 +826,36 @@ The store now rejects a record whose `installationId` differs from its SQLite pa
 - Issue [#141](https://github.com/AndreVazao/office-kit/issues/141) remains open. The signed publisher-policy envelope is stored under the per-user data root, whose ACL permits the current user to replace it. Signature validity does not prevent replay of an older authentic envelope. A protected monotonic high-water mark outside the user-writable profile, atomic/crash-recoverable update and restore/replay tests are required.
 - Issue [#110](https://github.com/AndreVazao/office-kit/issues/110) remains the parent release gate; #104 must provision the policy through a signed installer/update flow before ordinary Windows startup can be enabled.
 - No merge, production readiness claim, backend credential access, trust-store mutation or external infrastructure change was performed. Windows host startup remains fail-closed until the installer and policy freshness/trust boundaries are complete.
+
+
+## 2026-11-25 — current validation and production boundaries
+
+## 2026-11-25 — installer trust-root evaluation and repository evidence
+
+Repository audit at 2026-11-25 13:22 UTC:
+- Main HEAD: `027851c04ff1b23d239b90a06bfc4ef84aecf425` (PR #138 removal of an unreviewed WinTrust test).
+- PR #139 remains open, Draft and mergeable at `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb`. CI [45405580412](https://github.com/AndreVazao/office-kit/actions/runs/45405580412) passed all four Ubuntu/Windows Node 22/26.13.1 jobs; visual regression [45405580584](https://github.com/AndreVazao/office-kit/actions/runs/45405580584) passed on the same exact HEAD.
+- PR #108 remains a separate Avatar Studio Draft at `0bae4e7b7095863efe04d5b76f480cdcf69603d2`. CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) passed all four Linux/Windows Node 22/26.13.1 jobs and visual regression [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed on that exact HEAD. Its changed files are confined to `avatar-studio/`; its real-browser acceptance harness and external GLB validation remain outstanding.
+- Repository listing returned 94 branches, two open PRs and nine open issues. No direct main commit or merge was made in this checkpoint.
+
+### Windows installer trust-root decision remains open
+
+Issue [#104](https://github.com/AndreVazao/office-kit/issues/104) now records the package-format evaluation. The current portable `.cmd` launcher starts Node before verifying it, and the .NET CNG helper is a child process, not a trusted parent. Neither can be treated as the trust root for the executable that starts it. The builder's environment-based Node/helper discovery is a build/test mechanism, not a production installation boundary.
+
+Microsoft's current packaging constraints were checked:
+- MSIX requires a signed package and a trusted publisher chain for deployment. MSIX does not support Windows drivers or per-user Windows services; it supports session-0 per-machine services under LocalSystem, LocalService or NetworkService. See [MSIX signing](https://learn.microsoft.com/windows/msix/package/signing-package-overview) and [desktop app preparation/limitations](https://learn.microsoft.com/windows/msix/desktop/desktop-to-uwp-prepare).
+- A fully verified MSI installation requires a signed package, internal cabinets or signed external cabinets with correctly authored `MsiDigitalSignature`/`MsiDigitalCertificate` tables, and custom actions stored within the package or installed with it. The external-cabinet tables are not blanket verification of arbitrary files copied by an external script. See [fully verified signed installation](https://learn.microsoft.com/en-us/windows/win32/msi/authoring-a-fully-verified-signed-installation) and [external cabinet signature scope](https://learn.microsoft.com/en-us/windows/win32/msi/digital-signatures-and-external-cabinet-files).
+
+No format is selected. A prototype must prove package trust and publisher identity on supported Windows versions, map the required per-user/per-machine host lifecycle, and test install/upgrade/rollback/repair/uninstall separately for Universal, DGM-MAT and VST. Do not promote a CMD/PowerShell wrapper to a bootstrapper or call an unsigned helper to establish its own trust.
+
+### Remaining security boundaries
+
+- Issue [#140](https://github.com/AndreVazao/office-kit/issues/140): absolute System32 paths still derive from inherited `SystemRoot`/`WINDIR`. The current portable launcher is not a trusted parent; a native OS-root API inside the child helper cannot retroactively authenticate that helper's launch. Keep the issue open until a package/launcher trust root and constrained authenticated handoff exist, followed by adversarial decoy-executable tests.
+- Issue [#141](https://github.com/AndreVazao/office-kit/issues/141): the signed policy's version is not compared with a protected high-water mark. The default monotonic anchor provider is explicitly unsupported; the current TPM query is read-only capability discovery and does not provision/read/write an NV counter. Do not substitute user-writable SQLite or call the CNG Software KSP key TPM-backed. Keep the host fail-closed until an independently protected, crash-recoverable anchor and replay/restore tests exist.
+- Issue #110 remains the parent Authenticode production gate. Issue #104 owns the signed installer/update transaction and atomic CNG key/policy provisioning.
+
+The green PR #139 workflows prove the current implementation slice on its exact GitHub-hosted CI SHA only. They do not prove a signed commercial installer, physical-PC installation, a trusted OS-root handoff, TPM anti-rollback or production publisher trust.
+
+PR #139's four Linux/Windows Node 22/26.13.1 CI jobs and its browser visual regression both passed on the exact HEAD `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb`. This is repository-runner evidence. The PR remains Draft because the installer trust root, authenticated System32 handoff, publisher-policy anti-replay anchor, complete certificate/revocation matrix and physical-PC lifecycle validation are not complete.
+
+The active runtime security implementation remains confined to PR #139. PR #108 is an independent Avatar Studio Draft and is not part of the Windows host/runtime work. The Universal edition remains backend-neutral; DGM-MAT and VST adapters and session providers stay edition-specific.
