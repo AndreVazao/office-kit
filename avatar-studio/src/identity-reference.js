@@ -131,7 +131,9 @@ applyButton.addEventListener("click", () => {
     return;
   }
 
-  // Use the crown rather than a hairline: the CEO reference has a shaved crown,\n  // so a hairline landmark would be ambiguous and would compress the fitted face.\n  const faceHeight = Math.abs(points[8].y - points[0].y);
+  // Use the crown rather than a hairline: the CEO reference has a shaved crown,
+  // so a hairline landmark would be ambiguous and would compress the fitted face.
+  const faceHeight = Math.abs(points[8].y - points[0].y);
   const cheekWidth = Math.abs(points[7].x - points[6].x);
   const eyeDistance = Math.abs(points[4].x - points[3].x);
   const jawWidth = Math.abs(points[11].x - points[10].x);
