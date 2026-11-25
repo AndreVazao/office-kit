@@ -164,7 +164,51 @@ function makePhotoNose(parent, skinMaterial, size = 1) {
 }
 
 function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
-  // Tapered extruded silhouette based on the long, broad beard in the identity reference.
+  // Sculpted volume sits under the silhouette so the beard reads in profile,
+  // not as a thin extruded card. The lower contour narrows into a soft chin point.
+  const makeMass = (name, center, scale, side = 0) => {
+    const geometry = new THREE.SphereGeometry(1, 40, 32);
+    const positions = geometry.getAttribute("position");
+    for (let i = 0; i < positions.count; i += 1) {
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      const z = positions.getZ(i);
+      const lowerTaper = THREE.MathUtils.smoothstep(-y, 0.12, 0.96);
+      const cheekFullness = 1 + 0.13 * Math.exp(-Math.pow((y + 0.08) / 0.42, 2));
+      const taper = THREE.MathUtils.lerp(1, 0.48, lowerTaper);
+      const sideSweep = side === 0 ? 1 : 1 - 0.12 * Math.max(0, -y);
+      positions.setXYZ(
+        i,
+        x * scale[0] * cheekFullness * taper * sideSweep,
+        y * scale[1],
+        z * scale[2] * (1 + 0.16 * Math.max(0, z))
+      );
+    }
+    positions.needsUpdate = true;
+    geometry.computeVertexNormals();
+    const mesh = addMesh(parent, geometry, beardMaterial, center, [1, 1, 1], name);
+    mesh.userData.identityFeature = "volumetric-beard-mass";
+    return mesh;
+  };
+
+  // Two cheek/jaw lobes merge into a deeper central chin mass; all overlap
+  // deliberately to avoid visible seams at front and three-quarter angles.
+  makeMass("Beard_Volume_Central", [0, -0.265 * length, 0.105], [0.174 * width, 0.235 * length, 0.088], 0);
+  for (const side of [-1, 1]) {
+    makeMass(
+      side < 0 ? "Beard_Volume_Cheek_L" : "Beard_Volume_Cheek_R",
+      [side * 0.105 * width, -0.165 * length, 0.105],
+      [0.092 * width, 0.145 * length, 0.078],
+      side
+    );
+    makeMass(
+      side < 0 ? "Beard_Volume_Jaw_L" : "Beard_Volume_Jaw_R",
+      [side * 0.083 * width, -0.305 * length, 0.095],
+      [0.098 * width, 0.16 * length, 0.082],
+      side
+    );
+  }
+
   const shape = new THREE.Shape();
   shape.moveTo(-0.174 * width, -0.055);
   shape.bezierCurveTo(-0.205 * width, -0.105, -0.198 * width, -0.235 * length, -0.145 * width, -0.315 * length);
@@ -174,11 +218,11 @@ function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
   shape.bezierCurveTo(0.12 * width, -0.095, 0.075 * width, -0.125, 0, -0.13);
   shape.bezierCurveTo(-0.075 * width, -0.125, -0.12 * width, -0.095, -0.174 * width, -0.055);
   const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.065, bevelEnabled: true, bevelSegments: 3,
-    steps: 1, bevelSize: 0.012, bevelThickness: 0.018, curveSegments: 18
+    depth: 0.048, bevelEnabled: true, bevelSegments: 4,
+    steps: 1, bevelSize: 0.016, bevelThickness: 0.022, curveSegments: 24
   });
-  const beardMesh = addMesh(parent, geometry, beardMaterial, [0, 0, 0.105], [1, 1, 1], "Photo_Profile_Beard");
-  beardMesh.userData.identityFeature = "long-tapered-grey-beard";
+  const beardMesh = addMesh(parent, geometry, beardMaterial, [0, 0, 0.145], [1, 1, 1], "Photo_Profile_Beard");
+  beardMesh.userData.identityFeature = "long-tapered-grey-beard-silhouette";
   return beardMesh;
 }
 
