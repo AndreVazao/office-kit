@@ -18,7 +18,7 @@ Three.js and its GLTF exporter are loaded from the pinned jsDelivr CDN import ma
 ## Current prototype
 
 - Procedural, editable human and robot base meshes.
-- Human presets for André (CEO), three masculine body types, three feminine body types, and a humanoid robot. The André preset now uses a receding/bald crown with short grey temple hair, a wider face/nose starting profile, and a long tapered grey beard silhouette based on the supplied frontal identity reference; these are explicit hand-authored proportions, not an automatic 3D reconstruction.
+- Human presets for André (CEO), three masculine body types, three feminine body types, and a humanoid robot. The André preset now uses an exposed bald crown, low-profile grey temple hair with three tapered side-growth strands per side following the skull toward the rear, a wider face/nose starting profile, and a long tapered grey beard silhouette based on the supplied frontal identity reference. The added side strands are procedural silhouette guides, not individually groomed hair; these are hand-authored proportions, not an automatic 3D reconstruction.
 - Height, body build, head size, shoulder width, face width, jaw width, nose volume, eye spacing, and hair length controls.
 - Hair colour and four procedural hairstyles (short, classic, long, tied), beard variants, suit, casual, and tactical clothing variants.
 - Rounded visual joint caps at limb endpoints, suit detailing, orbit camera, six preset camera angles (front, 3/4, both profiles, back, top), neutral studio lighting, and GLB export.
