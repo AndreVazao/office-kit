@@ -56,6 +56,37 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
+      - name: Build and probe isolated native bootstrap boundary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $project = "native/windows/OfficeKit.Bootstrapper/OfficeKit.Bootstrapper.csproj"
+          dotnet build $project --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw "bootstrap probe build failed" }
+
+          $probeDll = "native/windows/OfficeKit.Bootstrapper/bin/Release/net8.0-windows/OfficeKit.Bootstrapper.dll"
+          $normal = (& dotnet $probeDll --probe | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or -not $normal.ok) { throw "normal bootstrap probe failed" }
+          if ($normal.packageIdentityStatus -ne "not_packaged") { throw "unexpected package identity on unpackaged CI runner" }
+
+          $originalSystemRoot = $env:SystemRoot
+          $originalWindir = $env:WINDIR
+          try {
+            $decoyRoot = Join-Path $env:TEMP "OfficeKit-Decoy-Windows"
+            $env:SystemRoot = $decoyRoot
+            $env:WINDIR = $decoyRoot
+            $forged = (& dotnet $probeDll --probe | ConvertFrom-Json)
+            if ($LASTEXITCODE -ne 0 -or -not $forged.ok) { throw "forged-environment bootstrap probe failed" }
+            if ($forged.systemDirectory -ne $normal.systemDirectory) { throw "system directory changed under forged environment" }
+            if ($forged.systemDirectory.StartsWith($decoyRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "system directory was derived from forged environment"
+            }
+            if ($forged.environmentAuthorityUsed -ne $false) { throw "probe reports environment authority use" }
+          }
+          finally {
+            $env:SystemRoot = $originalSystemRoot
+            $env:WINDIR = $originalWindir
+          }
       - name: Publish Windows CNG host
         if: runner.os == 'Windows'
         run: dotnet publish native/windows/OfficeKit.CngHost/OfficeKit.CngHost.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/windows-cng
