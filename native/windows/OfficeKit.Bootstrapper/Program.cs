@@ -11,9 +11,9 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        if (args.Length != 1 || !string.Equals(args[0], "--probe", StringComparison.Ordinal))
+        if (args.Length > 1 || (args.Length == 1 && !string.Equals(args[0], "--probe", StringComparison.Ordinal)))
         {
-            Console.Error.WriteLine("usage: OfficeKit.Bootstrapper --probe");
+            Console.Error.WriteLine("usage: OfficeKit.Bootstrapper [--probe]");
             return 64;
         }
 
