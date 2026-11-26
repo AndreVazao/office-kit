@@ -124,6 +124,51 @@ function makePhotoShapedHead(parent, skinMaterial, faceWidth = 1, jawWidth = 1) 
   return mesh;
 }
 
+function makePhotoEar(parent, skinMaterial, innerMaterial, side, faceWidth) {
+  const suffix = side < 0 ? "L" : "R";
+  const centerX = side * 0.205 * faceWidth;
+  const outer = ellipsoid(
+    parent, skinMaterial, [centerX, -0.005, 0],
+    [0.043, 0.073, 0.038], "Ear_" + suffix
+  );
+  outer.userData.identityFeature = "outer-ear-volume";
+
+  const concha = ellipsoid(
+    parent, innerMaterial, [centerX + side * 0.006, -0.006, 0.033],
+    [0.016, 0.039, 0.009], "Ear_Concha_" + suffix
+  );
+  concha.userData.identityFeature = "ear-concha";
+
+  const makeFold = (name, points, radius, material) => {
+    const curve = new THREE.CatmullRomCurve3(
+      points.map(([x, y, z]) => new THREE.Vector3(side * x + centerX, y, z))
+    );
+    const fold = addMesh(
+      parent, new THREE.TubeGeometry(curve, 24, radius, 7, false),
+      material, [0, 0, 0], [1, 1, 1], name + "_" + suffix
+    );
+    fold.userData.identityFeature = name.toLowerCase().replaceAll("_", "-");
+    return fold;
+  };
+
+  // Outer helix and inner antihelix provide readable ear structure in profile.
+  makeFold("Ear_Helix", [
+    [0.004, 0.052, 0.037], [0.025, 0.043, 0.041],
+    [0.031, 0.012, 0.044], [0.025, -0.036, 0.041],
+    [0.008, -0.055, 0.037], [-0.006, -0.035, 0.04]
+  ], 0.006, skinMaterial);
+  makeFold("Ear_Antihelix", [
+    [-0.006, 0.032, 0.045], [0.012, 0.021, 0.047],
+    [0.014, -0.004, 0.048], [0.004, -0.027, 0.046]
+  ], 0.0045, skinMaterial);
+
+  const tragus = ellipsoid(
+    parent, skinMaterial, [centerX - side * 0.012, -0.023, 0.043],
+    [0.012, 0.018, 0.012], "Ear_Tragus_" + suffix
+  );
+  tragus.userData.identityFeature = "ear-tragus";
+}
+
 function makeShortGreySideHair(parent, hairMaterial, side) {
   // Low-profile side growth follows the temple toward the rear skull.
   // It deliberately leaves the crown exposed instead of forming a hair cap.
@@ -384,8 +429,7 @@ function buildHuman(config) {
   const pupil = material("#151b24", 0.28);
   const lip = material("#754c4c");
   for (const side of [-1, 1]) {
-    ellipsoid(head, skin, [side * 0.205 * faceWidth, -0.005, 0], [0.045, 0.075, 0.045], "Ear");
-    ellipsoid(head, earInner, [side * 0.211 * faceWidth, -0.005, 0.034], [0.018, 0.042, 0.012], "Ear_Inner");
+    makePhotoEar(head, skin, earInner, side, faceWidth);
     const eyeX = side * 0.083 * eyeSpacing;
     ellipsoid(head, skin, [eyeX, 0.035, 0.171], [0.039, 0.021, 0.018], "Eye_Socket");
     ellipsoid(head, eye, [eyeX, 0.035, 0.188], [0.027, 0.0135, 0.012], "Eye");
