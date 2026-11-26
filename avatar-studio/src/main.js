@@ -58,7 +58,7 @@ let avatarRig = null;
 let rigStartTime = 0;
 
 const presets = {
-  andre: { title: "André · CEO", description: "Perfil de identidade baseado na fotografia: cabeça rapada com cabelo curto nas laterais, barba longa grisalha e rosto largo.", type: "Humano", skin: "#bd8d78", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1.02, faceWidth: 1.08, jawWidth: 1.08, noseSize: 1.12, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
+  andre: { title: "André · CEO", description: "Perfil de identidade baseado na fotografia: cabelo grisalho curto e cheio, laterais aparadas, barba longa grisalha e rosto largo.", type: "Humano", skin: "#bd8d78", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1.02, faceWidth: 1.08, jawWidth: 1.08, noseSize: 1.12, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
   man: { title: "Homem · médio", description: "Personagem masculino de proporções médias.", type: "Humano", skin: "#c98f70", hair: "dark", beard: "short", outfit: "casual", build: 1, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, hairStyle: "short", gender: "male" },
   manSlim: { title: "Homem · magro e alto", description: "Silhueta masculina alta e esguia.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.78, shoulders: 0.88, height: 1.14, head: 0.98, faceWidth: 0.94, jawWidth: 0.92, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.2, hairStyle: "classic", gender: "male" },
   manStocky: { title: "Homem · robusto", description: "Silhueta masculina baixa e robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "full", outfit: "casual", build: 1.3, shoulders: 1.2, height: 0.9, head: 1.05, faceWidth: 1.12, jawWidth: 1.15, noseSize: 1.08, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
@@ -219,7 +219,7 @@ function makeShortGreyHairCap(parent, hairMaterial, length = 1) {
 
 function makeShortGreySideHair(parent, hairMaterial, side) {
   // Low-profile side growth follows the temple toward the rear skull.
-  // It deliberately leaves the crown exposed instead of forming a hair cap.
+  // Crown coverage is supplied separately by the short-hair cap geometry.
   const paths = [
     [[side * 0.184, 0.135, 0.035], [side * 0.196, 0.095, -0.015], [side * 0.197, 0.035, -0.075], [side * 0.188, -0.045, -0.125], [side * 0.16, -0.115, -0.12]],
     [[side * 0.19, 0.12, 0.055], [side * 0.201, 0.075, 0.005], [side * 0.201, 0.015, -0.055], [side * 0.191, -0.065, -0.105], [side * 0.165, -0.13, -0.105]],
@@ -499,7 +499,7 @@ function buildHuman(config) {
   const chin = ellipsoid(head, skin, [0, -0.205, 0.151], [0.065 * jawWidth, 0.033, 0.045], "Chin");
   chin.userData.rigBoneName = "Jaw";
 
-  // Hairline adapted to the reference: bald crown with very short grey side hair.
+  // Short full grey haircut from the reference, with a compact crown and close sides.
   if (config.hair !== "none") {
     if (config.hairStyle === "short") {
       makeShortGreyHairCap(head, hair, hairLength);
@@ -537,7 +537,7 @@ function buildHuman(config) {
   }
 
   if (config.beard !== "none") {
-    if (config.beard === "full" && config.hairStyle === "bald") {
+    if (config.beard === "full" && config.preset === "andre") {
       makePhotoBeard(head, beard, 1.12, 1.08);
       ellipsoid(head, beard, [-0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_L");
       ellipsoid(head, beard, [0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_R");
