@@ -24,9 +24,10 @@ the Office Kit commercial publisher and must never be reused for a release.
 
 ## What this slice can prove
 
-- MakeAppx accepts the manifest and package layout.
-- The package declares a full-trust packaged desktop application.
-- PICE is explicitly requested for the package contents.
+- MakeAppx validates and unpacks the produced package.
+- The unpacked package contains its manifest, block map, and executable.
+- The packed manifest declares the full-trust packaged desktop application.
+- The packed manifest retains explicit PICE enforcement.
 - The declared executable is the self-contained .NET probe.
 
 ## What it does not prove
