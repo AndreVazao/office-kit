@@ -2,14 +2,16 @@
 
 O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando os seus critérios são verificados; percentagens não substituem testes.
 
-## Global checkpoint — 2026-11-26
+## Global checkpoint — 2026-11-26 14:06 UTC
 
-- Main `027851c04ff1b23d239b90a06bfc4ef84aecf425`: CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on the exact SHA.
-- PR #139 head `ed38174ffd182d305ddecc587fb2f813ecab19bb`: CI [#45815953920](https://github.com/AndreVazao/office-kit/actions/runs/45815953920) passed all four Linux/Windows Node 22/26.13.1 jobs; visual [#45815953932](https://github.com/AndreVazao/office-kit/actions/runs/45815953932) passed on the same SHA. The new .NET bootstrapper is a diagnostic probe only; production host/launcher handoff, package activation/PICE, anti-replay anchor, installer lifecycle and physical-PC validation remain open.
-- PR #108 head `fc20d1dce8d3d6182906e7a0386255686a72b406`: CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed on the same SHA. Its branch is 225 commits ahead and 24 behind main; browser/GLB acceptance and mainline reconciliation remain pending.
-- Open production/governance gates: #104, #109, #110, #140, #141, #142, #58, #57, #121 and #124. Issues #129 and #130 are closed after PRs #132 and #133.
-- GitHub reports main as unprotected and required status checks disabled. #142 tracks the required ruleset; no repository settings were changed.
-- No MSI/MSIX, live backend E2E, physical-device acceptance or commercial distribution is claimed for any edition.
+- Main `027851c04ff1b23d239b90a06bfc4ef84aecf425`: push CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on that exact SHA.
+- PR #139 exact HEAD `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`: CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) passed all four Linux/Windows Node 22/26.13.1 jobs; visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699) passed on the same SHA. The previous Windows Node 22 timeout was investigated and corrected without disabling the native test.
+- PR #139 remains open, mergeable and Draft. The .NET 8 bootstrap project is a diagnostic probe only; production launch/IPC and trusted package activation remain unimplemented. #140 remains open because the production resolver still derives System32 from inherited environment variables.
+- Issue #141 remains open: no protected policy-version/hash high-water mark, TPM NV anchor or crash-recoverable anti-replay transaction is implemented.
+- PR #108 exact HEAD `fc20d1dce8d3d6182906e7a0386255686a72b406`: CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed. Branch is 225 ahead/24 behind main; browser/GLB acceptance and reconciliation remain pending.
+- Repository inventory: 94 branches, two open PRs, ten open issues. GitHub branch metadata reports `main.protected=false`; issue #142 tracks the missing PR/required-check rules. No repository settings were changed.
+- Open production gates: #104, #109, #110, #140, #141, #142, #58, #57, #121 and #124. Issues #129 and #130 are closed.
+- No MSI/MSIX, commercial release, live backend E2E or physical-device acceptance is claimed for Universal, DGM-MAT or VST. Universal remains independent; DGM-MAT and VST keep their own adapters and credentials.
 
 ## Fase 0 — contrato, memória e proveniência
 - [x] Definir missão, princípios e fronteiras de produto.

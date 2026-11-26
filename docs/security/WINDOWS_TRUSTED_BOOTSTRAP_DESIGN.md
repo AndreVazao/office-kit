@@ -103,3 +103,12 @@ This is deliberately a diagnostic probe, not the declared MSIX entry point. It d
 ## Explicit non-claims
 
 This document is a design proposal, not an implementation, test report, installer decision or release approval. No Windows trust boundary is considered closed by documentation alone. PR #139 remains Draft; issues #104, #110, #140 and #141 remain open until their respective implementation and validation evidence exists.
+
+
+## Exact-head probe validation — 2026-11-26 14:06 UTC
+
+The isolated .NET 8 probe at `native/windows/OfficeKit.Bootstrapper/` passed the normal and forged-matching-environment checks on PR #139 HEAD `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`. CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) passed all four Linux/Windows Node 22/26.13.1 jobs; visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699) passed on the same SHA.
+
+The probe obtains System32 through `GetSystemDirectoryW` and package identity through `GetCurrentPackageFullName`. It does not activate from a signed MSIX, enforce Package Integrity Enforcement, launch Node, authenticate a parent/child handoff or provide an IPC protocol. The production `windows-system-executable.mjs` resolver still derives its root from inherited `SystemRoot`/`WINDIR`; issue #140 remains open. The publisher-policy anti-replay anchor in #141 also remains unsupported. Do not treat this probe as a production bootstrapper or binary-planting fix.
+
+The Windows Node 22 test timeout on the preceding PR head was investigated and corrected; the native WinTrust test remains enabled and passed in a dedicated Windows CI step on `26dcb98`. These results are runner-level evidence only, not physical-PC or commercial-package acceptance.

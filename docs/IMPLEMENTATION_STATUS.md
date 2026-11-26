@@ -1,15 +1,18 @@
 # Implementation status
 
-## Current checkpoint — 2026-11-26
+## Current checkpoint — 2026-11-26 14:06 UTC
 
-- **Main:** `027851c04ff1b23d239b90a06bfc4ef84aecf425`. Main CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on this exact SHA.
-- **Repository inventory:** 94 branches, two open PRs (#139 and #108), and ten open issues (#57, #58, #104, #109, #110, #121, #124, #140, #141, #142).
-- **PR #139:** current head `ed38174ffd182d305ddecc587fb2f813ecab19bb`, 64 commits ahead and zero behind main; open, mergeable and Draft. CI [#45815953920](https://github.com/AndreVazao/office-kit/actions/runs/45815953920) passed all four Linux/Windows Node 22/26.13.1 jobs. Visual regression [#45815953932](https://github.com/AndreVazao/office-kit/actions/runs/45815953932) passed on the same exact SHA.
-- **Trusted bootstrap probe:** the PR adds a .NET 8 probe that calls `GetSystemDirectoryW` and `GetCurrentPackageFullName`. Windows CI builds and runs it with normal and forged, matching `SystemRoot`/`WINDIR` values; the returned system directory remains OS-derived. This is an isolated probe only: it is not an MSIX entry point, does not launch Node, does not authenticate parent/child IPC, and is not wired into the production resolver. Issue #140 remains open.
-- **Publisher-policy replay:** the default monotonic anchor remains unsupported; no TPM NV index is provisioned or used. Issue #141 remains open and Windows startup must remain fail-closed.
-- **PR #108:** current head `fc20d1dce8d3d6182906e7a0386255686a72b406`; CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) passed all four matrix jobs and visual regression [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed on that SHA. The branch is 225 ahead/24 behind main. The browser acceptance harness has not been run; keep Draft and do not merge.
-- **Governance:** GitHub reports `main` as unprotected, with required status-check enforcement disabled. Issue #142 records the requirement for PR-only changes and required CI/visual checks. No repository settings or external infrastructure were changed.
-- **Product boundary:** Universal remains backend-neutral; DGM-MAT and VST use separate host compositions, adapters, credential/session providers and data roots. Portable bundle CI is not MSI/MSIX installation, live backend E2E, physical-PC acceptance or commercial release evidence.
+- **Main:** `027851c04ff1b23d239b90a06bfc4ef84aecf425`; push CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on the exact SHA.
+- **Inventory:** 94 branches, two open PRs (#139 and #108), ten open issues (#57, #58, #104, #109, #110, #121, #124, #140, #141, #142).
+- **PR #139:** current exact head `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`, 70 commits ahead/zero behind main; open, mergeable and Draft. CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) passed all four Ubuntu/Windows Node 22/26.13.1 jobs; visual [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699) passed on the same SHA.
+- **Windows Node 22:** the previous head `02433ff2f836ec0842eadff22c7ac6045e97678f` had one real failure (427 passed, 10 skipped, 1 failed) caused by a 15-second timeout in test-only PowerShell signer-certificate extraction. The correction uses an allowlisted absolute PowerShell path, sanitized environment, bounded 30-second timeout and a dedicated Windows CI step. The native test remains enabled and passed on `26dcb98`.
+- **Bootstrap probe:** the .NET 8 `GetSystemDirectoryW`/`GetCurrentPackageFullName` probe passed normal and forged-environment tests on Windows runners. It is not a signed MSIX entry point, production launcher, Node handoff or authenticated IPC channel. Production resolver still trusts inherited `SystemRoot`/`WINDIR`; #140 remains open.
+- **Anti-replay:** no protected policy-version/hash anchor or TPM NV provider exists. The default monotonic provider remains unsupported; #141 remains open and host startup stays fail-closed.
+- **PR #108:** exact head `fc20d1dce8d3d6182906e7a0386255686a72b406`; CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed on that SHA. Branch is 225 ahead/24 behind main; ten changed files remain isolated under `avatar-studio/`. Real-browser, likeness, deformation-stress and external GLB acceptance are not complete.
+- **Governance:** branch metadata reports `main.protected=false`; #142 tracks required PR and exact-head CI/visual enforcement. No repository settings were changed.
+- **Remaining open gates:** #104, #109, #110, #140, #141, #142, #58, #57, #121 and #124. Issues #129 and #130 are closed.
+- Universal remains backend-neutral; DGM-MAT and VST retain separate host compositions, adapters, session providers and data roots. Portable bundles are not production installers, live backend E2E or physical-device validation.
+- PR #139 remains Draft; no merge. MSI/MSIX, commercial publisher trust, protected anti-replay, physical-PC installation and production readiness remain unproven.
 
 ## Historical integration status — 2026-11-23 (superseded by the 2026-11-26 checkpoint)
 
