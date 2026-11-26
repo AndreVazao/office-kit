@@ -240,6 +240,49 @@ function makeShortGreySideHair(parent, hairMaterial, side) {
   });
 }
 
+function makePhotoBrow(parent, hairMaterial, side, eyeX) {
+  // A shallow, asymmetric arch follows the orbital rim instead of reading as a flat oval.
+  const points = [
+    [eyeX - side * 0.046, 0.083, 0.169],
+    [eyeX - side * 0.021, 0.094, 0.177],
+    [eyeX + side * 0.012, 0.096, 0.176],
+    [eyeX + side * 0.043, 0.082, 0.165]
+  ].map(([x, y, z]) => new THREE.Vector3(x, y, z));
+  const curve = new THREE.CatmullRomCurve3(points);
+  const brow = addMesh(
+    parent,
+    new THREE.TubeGeometry(curve, 20, 0.0065, 7, false),
+    hairMaterial,
+    [0, 0, 0],
+    [1, 1, 1],
+    side < 0 ? "Eyebrow_L" : "Eyebrow_R"
+  );
+  brow.userData.rigBoneName = "Brow_" + (side < 0 ? "L" : "R");
+  brow.userData.identityFeature = "arched-eyebrow";
+  return brow;
+}
+
+function makePhotoLowerEyelid(parent, skinMaterial, side, eyeX) {
+  const points = [
+    [eyeX - side * 0.031, 0.027, 0.184],
+    [eyeX - side * 0.012, 0.018, 0.193],
+    [eyeX + side * 0.012, 0.018, 0.193],
+    [eyeX + side * 0.031, 0.027, 0.184]
+  ].map(([x, y, z]) => new THREE.Vector3(x, y, z));
+  const curve = new THREE.CatmullRomCurve3(points);
+  const lid = addMesh(
+    parent,
+    new THREE.TubeGeometry(curve, 16, 0.0032, 6, false),
+    skinMaterial,
+    [0, 0, 0],
+    [1, 1, 1],
+    side < 0 ? "Lower_Eyelid_L" : "Lower_Eyelid_R"
+  );
+  lid.userData.rigBoneName = "Eyelid_" + (side < 0 ? "L" : "R");
+  lid.userData.identityFeature = "lower-eyelid-contour";
+  return lid;
+}
+
 function makePhotoNose(parent, skinMaterial, size = 1) {
   // A tapered bridge with a broader, forward-projecting tip; the separate alar forms
   // preserve a readable silhouette in front and three-quarter views.
@@ -485,8 +528,8 @@ function buildHuman(config) {
     ellipsoid(head, pupil, [eyeX, 0.035, 0.204], [0.0055, 0.007, 0.003], "Pupil");
     const eyelid = ellipsoid(head, skin, [eyeX, 0.057, 0.185], [0.036, 0.009, 0.012], "Upper_Eyelid");
     eyelid.userData.rigBoneName = "Eyelid_" + (side < 0 ? "L" : "R");
-    const eyebrow = ellipsoid(head, hair, [eyeX, 0.081, 0.17], [0.047, 0.010, 0.012], "Eyebrow");
-    eyebrow.userData.rigBoneName = "Brow_" + (side < 0 ? "L" : "R");
+    makePhotoBrow(head, hair, side, eyeX);
+    makePhotoLowerEyelid(head, skin, side, eyeX);
     ellipsoid(head, skin, [side * 0.118, -0.075, 0.145], [0.064, 0.055, 0.045], "Cheek");
   }
   // Sculpted nose components preserve a tapered bridge and rounded tip in profile.
