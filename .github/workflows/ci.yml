@@ -43,7 +43,8 @@ jobs:
             "tools/windows/build-host-bundle.ps1",
             "tools/windows/test-host-bundle.ps1",
             "tools/windows/build-edition-host-bundle.ps1",
-            "tools/windows/test-edition-host-bundle.ps1"
+            "tools/windows/test-edition-host-bundle.ps1",
+            "tools/windows/msix-prototype/build-prototype.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -93,6 +94,15 @@ jobs:
             $env:SystemRoot = $originalSystemRoot
             $env:WINDIR = $originalWindir
           }
+      - name: Build unsigned MSIX bootstrap activation prototype
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./tools/windows/msix-prototype/build-prototype.ps1 -OutputDirectory artifacts/msix-prototype
+          $package = "artifacts/msix-prototype/OfficeKit.BootstrapperPrototype-unsigned.msix"
+          if (-not (Test-Path -LiteralPath $package -PathType Leaf)) { throw "unsigned MSIX prototype was not produced" }
+          $item = Get-Item -LiteralPath $package
+          if ($item.Length -le 0) { throw "unsigned MSIX prototype is empty" }
       - name: Publish Windows CNG host
         if: runner.os == 'Windows'
         run: dotnet publish native/windows/OfficeKit.CngHost/OfficeKit.CngHost.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/windows-cng
