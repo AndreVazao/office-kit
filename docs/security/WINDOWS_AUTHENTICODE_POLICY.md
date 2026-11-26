@@ -244,7 +244,7 @@ The documentation commit that records this checkpoint creates a new PR #139 HEAD
 
 ## 2026-11-26 14:06 UTC — exact-head implementation evidence
 
-PR #139 exact HEAD `26dcb98a2abbe2143615dd2182e4e71ea9903eb1` passed CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) in all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699) on the same SHA. The Windows jobs include the dedicated native WinTrust primary-signature/revocation integration, CNG policy bootstrap, TPM capability parser and isolated Universal/DGM-MAT/VST portable-bundle E2E.
+The last code-changing checkpoint in PR #139, `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`, passed CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) in all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699). A subsequent documentation-only commit changes the PR head and requires its own exact-head validation. The Windows jobs include the dedicated native WinTrust primary-signature/revocation integration, CNG policy bootstrap, TPM capability parser and isolated Universal/DGM-MAT/VST portable-bundle E2E.
 
 The Windows Node 22 native integration had previously failed on `02433ff` because test-only PowerShell signer-certificate extraction exceeded its 15-second timeout. The test was not removed: it now uses the allowlisted absolute PowerShell path, sanitized process environment, a bounded 30-second timeout and a dedicated Windows step outside aggregate-suite contention. It passed on `26dcb98`.
 
