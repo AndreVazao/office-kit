@@ -1,6 +1,6 @@
 # Windows trusted bootstrap and host-process boundary
 
-Status: design proposal; not implemented.  
+Status: isolated probe prototype implemented; MSIX activation and trusted bootstrap not implemented.  
 Related: #104, #110, #140, #141, PR #139.  
 Last reviewed: 2026-11-26.
 
@@ -93,6 +93,12 @@ Microsoft's current MSIX feature matrix states that PICE for non-Store packages 
 | Publisher policy | Installation/edition binding, native signature verification and ACLs | Fail closed |
 | Anti-replay | Protected monotonic anchor and crash/restore tests | Fail closed |
 | Lifecycle | Install/update/repair/rollback/uninstall and identity/data retention tested | Do not release |
+
+## Prototype checkpoint — 2026-11-26
+
+An isolated .NET 8 Windows probe now exists under `native/windows/OfficeKit.Bootstrapper/`. It calls `GetSystemDirectoryW` directly and queries `GetCurrentPackageFullName`; it does not read inherited `SystemRoot`/`WINDIR` as the system-directory source. The Windows CI workflow builds and runs it twice, including with both variables forged to the same decoy root, and compares the OS API result. The ordinary GitHub-hosted runner is expected to report `not_packaged`.
+
+This is deliberately a diagnostic probe, not the declared MSIX entry point. It does not launch Node, authenticate a parent or child, establish package activation, verify PICE/tamper blocking, or provide an IPC handoff. Passing this probe cannot close #104 or #140. The next step is a signed package manifest and activation experiment, not wiring this executable into production.
 
 ## Explicit non-claims
 
