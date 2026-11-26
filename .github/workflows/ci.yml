@@ -22,6 +22,12 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - name: Validate core syntax and run tests
+        if: runner.os != 'Windows'
+        run: npm run check
+      - name: Validate core syntax and run tests (Windows; defer isolated WinTrust integration)
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_SKIP_AUTHENTICODE_INTEGRATION: "1"
         run: npm run check
       - name: Validate example configuration JSON
         run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
