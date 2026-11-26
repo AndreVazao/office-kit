@@ -72,12 +72,42 @@ $packagePath = Join-Path $output "OfficeKit.BootstrapperPrototype-unsigned.msix"
 & $makeAppx.FullName pack /d $stage /p $packagePath /o
 if ($LASTEXITCODE -ne 0) { throw "MakeAppx package creation failed." }
 
+& $makeAppx.FullName validate /p $packagePath
+if ($LASTEXITCODE -ne 0) { throw "MakeAppx package validation failed." }
+
+$verification = Join-Path $output "verification"
+& $makeAppx.FullName unpack /p $packagePath /d $verification /o
+if ($LASTEXITCODE -ne 0) { throw "MakeAppx package unpack verification failed." }
+
+$verifiedManifestPath = Join-Path $verification "AppxManifest.xml"
+$verifiedExecutable = Join-Path $verification "OfficeKit.Bootstrapper.exe"
+$verifiedBlockMap = Join-Path $verification "AppxBlockMap.xml"
+foreach ($required in @($verifiedManifestPath, $verifiedExecutable, $verifiedBlockMap)) {
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+        throw "MSIX verification output is missing required file: $required"
+    }
+}
+
+[xml]$verifiedManifest = Get-Content -LiteralPath $verifiedManifestPath -Raw
+$manifestNs = [System.Xml.XmlNamespaceManager]::new($verifiedManifest.NameTable)
+$manifestNs.AddNamespace("f", "http://schemas.microsoft.com/appx/manifest/foundation/windows10")
+$manifestNs.AddNamespace("uap10", "http://schemas.microsoft.com/appx/manifest/uap/windows10/10")
+$integrity = $verifiedManifest.SelectSingleNode("/f:Package/f:Properties/uap10:PackageIntegrity/uap10:Content", $manifestNs)
+$application = $verifiedManifest.SelectSingleNode("/f:Package/f:Applications/f:Application", $manifestNs)
+if ($null -eq $integrity -or $integrity.GetAttribute("Enforcement") -ne "on") {
+    throw "PICE enforcement is not enabled in the packed manifest."
+}
+if ($null -eq $application -or $application.GetAttribute("Executable") -ne "OfficeKit.Bootstrapper.exe") {
+    throw "Packed manifest does not declare the expected bootstrapper entry point."
+}
+
 [pscustomobject]@{
     package = $packagePath
     signed = $false
     installableAsTrustedPackage = $false
-    manifest = (Join-Path $stage "AppxManifest.xml")
-    entryPoint = $app
+    packageValidated = $true
+    packageUnpackedAndInspected = $true
     packageIntegrityEnforcement = "on"
+    entryPoint = "OfficeKit.Bootstrapper.exe"
     publisher = "CN=Office Kit Prototype Only"
 } | ConvertTo-Json -Depth 3
