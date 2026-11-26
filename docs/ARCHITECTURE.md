@@ -596,3 +596,14 @@ The exact main SHA `027851c04ff1b23d239b90a06bfc4ef84aecf425` passed push CI [45
 PR #108's current code head `0bae4e7b7095863efe04d5b76f480cdcf69603d2` passed CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305), but the branch is 24 commits behind main and the real-browser/GLB acceptance remains open.
 
 No installer format has been selected. MSIX and fully verified MSI remain candidates pending proof of Office Kit's host/service requirements, package-content signature coverage, first-install trust provisioning and full lifecycle on supported Windows versions. Issues #104, #110, #140 and #141 remain open; no production or physical-PC readiness is implied.
+
+
+## 2026-11-26 — isolated Windows bootstrap probe and trust boundary
+
+PR #139 adds `native/windows/OfficeKit.Bootstrapper/`, a .NET 8 diagnostic executable which obtains System32 using `GetSystemDirectoryW` and reads package identity using `GetCurrentPackageFullName`. Its Windows CI step builds and executes the probe with normal environment variables and with both inherited `SystemRoot` and `WINDIR` forged to the same decoy directory. The result remains the OS-reported system directory.
+
+This proves only that the isolated probe does not derive its output from those environment variables on GitHub-hosted Windows runners. It does **not** prove MSIX activation, Package Integrity Enforcement, a signed bootstrapper, parent/child authentication, a constrained IPC handoff, or safe launch of Node. The production resolver `packages/windows-host/src/windows-system-executable.mjs` still derives its root from inherited environment values and is not yet connected to this probe. Issue #140 therefore remains open; do not describe binary planting as fixed.
+
+The current PR #139 head `ed38174ffd182d305ddecc587fb2f813ecab19bb` passed CI [#45815953920](https://github.com/AndreVazao/office-kit/actions/runs/45815953920) in all four Linux/Windows Node 22/26.13.1 jobs and visual regression [#45815953932](https://github.com/AndreVazao/office-kit/actions/runs/45815953932) on the same SHA. The PR remains Draft. Issue #141 is still open: no protected policy-version/hash high-water mark or TPM NV anchor is implemented. Issues #104 and #110 remain the installer/publisher-policy production gates.
+
+GitHub currently reports `main` as unprotected and required status-check enforcement disabled. Issue #142 tracks the branch-ruleset requirement. No repository settings were changed. Universal remains backend-neutral; DGM-MAT and VST retain edition-specific host/adapters and isolated data/credential boundaries.
