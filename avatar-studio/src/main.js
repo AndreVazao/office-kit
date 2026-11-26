@@ -58,7 +58,7 @@ let avatarRig = null;
 let rigStartTime = 0;
 
 const presets = {
-  andre: { title: "André · CEO", description: "Perfil de identidade baseado na fotografia: cabeça rapada com cabelo curto nas laterais, barba longa grisalha e rosto largo.", type: "Humano", skin: "#bd8d78", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1.02, faceWidth: 1.08, jawWidth: 1.08, noseSize: 1.12, eyeSpacing: 1, hairLength: 0.72, hairStyle: "bald", gender: "male" },
+  andre: { title: "André · CEO", description: "Perfil de identidade baseado na fotografia: cabeça rapada com cabelo curto nas laterais, barba longa grisalha e rosto largo.", type: "Humano", skin: "#bd8d78", hair: "silver", beard: "full", outfit: "suit", build: 1.08, shoulders: 1.06, height: 1, head: 1.02, faceWidth: 1.08, jawWidth: 1.08, noseSize: 1.12, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
   man: { title: "Homem · médio", description: "Personagem masculino de proporções médias.", type: "Humano", skin: "#c98f70", hair: "dark", beard: "short", outfit: "casual", build: 1, shoulders: 1.08, height: 1, head: 1, faceWidth: 1, jawWidth: 1, noseSize: 1, eyeSpacing: 1, hairLength: 1, hairStyle: "short", gender: "male" },
   manSlim: { title: "Homem · magro e alto", description: "Silhueta masculina alta e esguia.", type: "Humano", skin: "#d7a783", hair: "dark", beard: "none", outfit: "casual", build: 0.78, shoulders: 0.88, height: 1.14, head: 0.98, faceWidth: 0.94, jawWidth: 0.92, noseSize: 0.95, eyeSpacing: 1, hairLength: 1.2, hairStyle: "classic", gender: "male" },
   manStocky: { title: "Homem · robusto", description: "Silhueta masculina baixa e robusta.", type: "Humano", skin: "#986348", hair: "black", beard: "full", outfit: "casual", build: 1.3, shoulders: 1.2, height: 0.9, head: 1.05, faceWidth: 1.12, jawWidth: 1.15, noseSize: 1.08, eyeSpacing: 1, hairLength: 0.9, hairStyle: "short", gender: "male" },
@@ -167,6 +167,54 @@ function makePhotoEar(parent, skinMaterial, innerMaterial, side, faceWidth) {
     [0.012, 0.018, 0.012], "Ear_Tragus_" + suffix
   );
   tragus.userData.identityFeature = "ear-tragus";
+}
+
+function makeShortGreyHairCap(parent, hairMaterial, length = 1) {
+  // A compact, full crown matching the short grey haircut in the identity reference.
+  // The swept surface follows the skull instead of using a round helmet-like cap.
+  const geometry = new THREE.SphereGeometry(1, 48, 32);
+  const position = geometry.getAttribute("position");
+  for (let index = 0; index < position.count; index += 1) {
+    const x = position.getX(index);
+    const y = position.getY(index);
+    const z = position.getZ(index);
+    const crownLift = Math.max(0, y);
+    position.setXYZ(
+      index,
+      x * 0.205 * (1 - 0.035 * crownLift),
+      y * 0.066 * length,
+      z * 0.166 + crownLift * 0.014
+    );
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  const cap = addMesh(
+    parent, geometry, hairMaterial,
+    [0, 0.218, -0.008], [1, 1, 1], "Short_Grey_Hair_Crown"
+  );
+  cap.userData.identityFeature = "short-grey-hair-crown";
+
+  // Fine swept ridges add restrained texture without turning the haircut into spikes.
+  for (let index = 0; index < 7; index += 1) {
+    const startX = -0.126 + index * 0.042;
+    const drift = index < 3 ? 0.012 : index > 4 ? -0.012 : 0.004;
+    const points = [
+      [startX, 0.226, 0.105 - Math.abs(startX) * 0.12],
+      [startX + drift * 0.45, 0.267, 0.045],
+      [startX + drift, 0.278, -0.035],
+      [startX + drift * 1.25, 0.251, -0.112]
+    ];
+    const curve = new THREE.CatmullRomCurve3(
+      points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
+    );
+    const strand = addMesh(
+      parent, new THREE.TubeGeometry(curve, 18, 0.0032, 5, false),
+      hairMaterial, [0, 0, 0], [1, 1, 1],
+      "Short_Grey_Crown_Strand_" + index
+    );
+    strand.userData.identityFeature = "short-grey-crown-strand";
+  }
+  return cap;
 }
 
 function makeShortGreySideHair(parent, hairMaterial, side) {
@@ -453,15 +501,25 @@ function buildHuman(config) {
 
   // Hairline adapted to the reference: bald crown with very short grey side hair.
   if (config.hair !== "none") {
-    if (config.hairStyle !== "bald") {
+    if (config.hairStyle === "short") {
+      makeShortGreyHairCap(head, hair, hairLength);
+    } else if (config.hairStyle !== "bald") {
       ellipsoid(head, hair, [0, 0.19 + (hairLength - 1) * 0.045, -0.005], [0.207, 0.09 + (hairLength - 1) * 0.07, 0.19], "Hair_Cap");
     }
     const sideLength = config.hairStyle === "long" ? 1.85 : config.hairStyle === "bun" ? 1.15 : config.hairStyle === "short" ? 0.62 : config.hairStyle === "bald" ? 0.48 : 1;
     for (const side of [-1, 1]) {
-      const templeScale = config.hairStyle === "bald" ? [0.026, 0.066, 0.105] : [0.045, 0.12 * hairLength * sideLength, 0.17];
-      const templePosition = config.hairStyle === "bald" ? [side * 0.18, 0.072, -0.008] : [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005];
-      const temple = ellipsoid(head, hair, templePosition, templeScale, config.hairStyle === "bald" ? "Short_Side_Hair" : "Hair_Side");
-      if (config.hairStyle === "bald") {
+      const closeCrop = config.hairStyle === "bald" || config.hairStyle === "short";
+      const templeScale = closeCrop
+        ? [0.026, config.hairStyle === "bald" ? 0.066 : 0.082, 0.105]
+        : [0.045, 0.12 * hairLength * sideLength, 0.17];
+      const templePosition = closeCrop
+        ? [side * 0.18, 0.072, -0.008]
+        : [side * 0.175, 0.075 - (sideLength - 1) * 0.035, -0.005];
+      const temple = ellipsoid(
+        head, hair, templePosition, templeScale,
+        config.hairStyle === "bald" ? "Short_Side_Hair" : "Hair_Side"
+      );
+      if (closeCrop) {
         temple.userData.identityFeature = "short-grey-temple-hair";
         makeShortGreySideHair(head, hair, side);
       }
