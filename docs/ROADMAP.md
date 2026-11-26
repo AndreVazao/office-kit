@@ -2,6 +2,15 @@
 
 O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando os seus critérios são verificados; percentagens não substituem testes.
 
+## Global checkpoint — 2026-11-26
+
+- Main `027851c04ff1b23d239b90a06bfc4ef84aecf425`: CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on the exact SHA.
+- PR #139 head `ed38174ffd182d305ddecc587fb2f813ecab19bb`: CI [#45815953920](https://github.com/AndreVazao/office-kit/actions/runs/45815953920) passed all four Linux/Windows Node 22/26.13.1 jobs; visual [#45815953932](https://github.com/AndreVazao/office-kit/actions/runs/45815953932) passed on the same SHA. The new .NET bootstrapper is a diagnostic probe only; production host/launcher handoff, package activation/PICE, anti-replay anchor, installer lifecycle and physical-PC validation remain open.
+- PR #108 head `fc20d1dce8d3d6182906e7a0386255686a72b406`: CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed on the same SHA. Its branch is 225 commits ahead and 24 behind main; browser/GLB acceptance and mainline reconciliation remain pending.
+- Open production/governance gates: #104, #109, #110, #140, #141, #142, #58, #57, #121 and #124. Issues #129 and #130 are closed after PRs #132 and #133.
+- GitHub reports main as unprotected and required status checks disabled. #142 tracks the required ruleset; no repository settings were changed.
+- No MSI/MSIX, live backend E2E, physical-device acceptance or commercial distribution is claimed for any edition.
+
 ## Fase 0 — contrato, memória e proveniência
 - [x] Definir missão, princípios e fronteiras de produto.
 - [x] Fixar arquitetura de alto nível e separação backend/frontend.
@@ -431,7 +440,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 1. Implement and validate the installer-authenticated Windows publisher policy, exact signer binding and bounded revocation policy; keep startup fail-closed until complete.
 2. Deliver independent MSI/MSIX install, upgrade, rollback/recovery, uninstall and data-retention flows for Universal, DGM-MAT and VST.
 3. Integrate signed-license verification and durable activation into each edition's host with isolated namespaces, platform identity and backup/recovery.
-4. Correct the VST public `/health` versus private authentication boundary; a public health failure must not invalidate the private session.
+4. [x] Correct the VST public `/health` versus private authentication boundary (PR #132; issue #129 closed). Public health sends no token and cannot invalidate the private session.
 5. Keep VST PAPER controls blocked until issue #121 has an atomic backend-enforced PAPER-only contract; implement remote Tailscale Serve only after issue #124 security and physical E2E gates pass.
 6. Implement a real consented TPM 2.0 monotonic provider and physical recovery tests; do not promote protected writes based on metadata probes or fake anchors.
 7. Deliver native Linux/macOS/Android hosts and platform-native keystores, then run real-device installation and lifecycle tests.
@@ -904,3 +913,8 @@ References: [MSIX signing](https://learn.microsoft.com/windows/msix/package/sign
 - [x] PR #108 checkpoint `0bae4e7b7095863efe04d5b76f480cdcf69603d2`: CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed on the same SHA.
 - [ ] Reconcile PR #108's 24-commit divergence from current main and rerun its checks after rebase; keep Avatar Studio browser/GLB acceptance separate.
 - [ ] Complete #104/#110/#140/#141 trust-root, package provisioning, policy anti-replay and physical installation gates. A new documentation commit changes PR #139's head; require fresh checks for that new SHA.
+
+
+## Repository governance gate — 2026-11-26
+
+- [ ] Configure and verify a protected `main` branch/ruleset requiring PRs and current-head CI plus visual regression; block direct/force pushes and branch deletion. Tracked in issue #142. This is an administrator-level repository setting and has not been changed by automation.
