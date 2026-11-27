@@ -15,8 +15,11 @@ if (-not $IsWindows -and $env:OS -ne "Windows_NT") {
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $project = Join-Path $repositoryRoot "native\windows\OfficeKit.Bootstrapper\OfficeKit.Bootstrapper.csproj"
 $manifest = Join-Path $PSScriptRoot "AppxManifest.xml"
+$outputDirectoryModule = Join-Path $PSScriptRoot "OutputDirectory.psm1"
 if (-not (Test-Path -LiteralPath $project -PathType Leaf)) { throw "Bootstrapper project not found." }
 if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) { throw "MSIX manifest not found." }
+if (-not (Test-Path -LiteralPath $outputDirectoryModule -PathType Leaf)) { throw "Output directory safety module not found." }
+Import-Module -Name $outputDirectoryModule -Force -ErrorAction Stop
 
 $windowsKits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin"
 if (-not (Test-Path -LiteralPath $windowsKits -PathType Container)) {
@@ -28,8 +31,7 @@ $makeAppx = Get-ChildItem -LiteralPath $windowsKits -Filter "MakeAppx.exe" -File
     Select-Object -First 1
 if ($null -eq $makeAppx) { throw "x64 MakeAppx.exe was not found in the Windows SDK." }
 
-$output = [System.IO.Path]::GetFullPath($OutputDirectory)
-if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
+$output = Initialize-OfficeKitOutputDirectory -Path $OutputDirectory -RepositoryRoot $repositoryRoot
 $stage = Join-Path $output "package"
 $app = Join-Path $stage "OfficeKit.Bootstrapper.exe"
 $assets = Join-Path $stage "Assets"

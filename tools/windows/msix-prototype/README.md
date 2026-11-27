@@ -22,6 +22,12 @@ trust a signing certificate, install the package, or modify machine trust.
 The manifest publisher is deliberately a development-only identity. It is not
 the Office Kit commercial publisher and must never be reused for a release.
 
+The output directory must be new or empty. The build script refuses filesystem
+roots, the repository root, directories containing the repository, reparse-point
+outputs and non-empty directories. It never recursively deletes caller-owned
+output. Use a fresh path for each build. The Windows CI runs the output-directory
+safety tests before building the package.
+
 ## What this slice can prove
 
 - MakeAppx successfully unpacks the produced package as the SDK-supported structural verification pass; the unpacked manifest, executable and block map are inspected.

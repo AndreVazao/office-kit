@@ -44,7 +44,9 @@ jobs:
             "tools/windows/test-host-bundle.ps1",
             "tools/windows/build-edition-host-bundle.ps1",
             "tools/windows/test-edition-host-bundle.ps1",
-            "tools/windows/msix-prototype/build-prototype.ps1"
+            "tools/windows/msix-prototype/build-prototype.ps1",
+            "tools/windows/msix-prototype/OutputDirectory.psm1",
+            "tools/windows/msix-prototype/test-output-directory.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -94,6 +96,10 @@ jobs:
             $env:SystemRoot = $originalSystemRoot
             $env:WINDIR = $originalWindir
           }
+      - name: Test MSIX prototype output-directory safety
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/windows/msix-prototype/test-output-directory.ps1
       - name: Build unsigned MSIX bootstrap activation prototype
         if: runner.os == 'Windows'
         shell: pwsh
