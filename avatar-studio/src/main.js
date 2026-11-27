@@ -619,17 +619,48 @@ function buildHuman(config) {
     }
   }
 
-  // Simple lapels and tie for the CEO suit
+  // Tailored CEO suit: shaped lapels and collar pieces replace flat rectangular tabs.
   if (config.outfit === "suit") {
+    const makeFrontPanel = (name, points, panelMaterial, z) => {
+      const shape = new THREE.Shape();
+      shape.moveTo(points[0][0], points[0][1]);
+      for (const [x, y] of points.slice(1)) shape.lineTo(x, y);
+      shape.closePath();
+      const panel = addMesh(
+        root, new THREE.ShapeGeometry(shape), panelMaterial,
+        [0, 0, z], [1, 1, 1], name
+      );
+      panel.userData.rigBoneName = "Chest";
+      panel.userData.identityFeature = "tailored-suit-panel";
+      return panel;
+    };
     const lapel = material("#355f97");
-    const left = addMesh(root, new THREE.BoxGeometry(0.09, 0.29, 0.025), lapel, [-0.075, 1.48, 0.178], [1, 1, 1], "Lapel_L");
-    const right = addMesh(root, new THREE.BoxGeometry(0.09, 0.29, 0.025), lapel, [0.075, 1.48, 0.178], [1, 1, 1], "Lapel_R");
-    left.rotation.z = -0.22;
-    right.rotation.z = 0.22;
-    left.userData.rigBoneName = "Chest";
-    right.userData.rigBoneName = "Chest";
-    const tie = cylinder(root, material("#9a3038"), [0, 1.38, 0.19], 0.018, 0.012, 0.27, "Tie");
-    tie.userData.rigBoneName = "Chest";
+    const shirtCollar = material("#e5ebf2", 0.58);
+    makeFrontPanel("Lapel_L", [
+      [-0.135, 1.64], [-0.045, 1.60], [-0.012, 1.31],
+      [-0.105, 1.43], [-0.158, 1.57]
+    ], lapel, 0.188);
+    makeFrontPanel("Lapel_R", [
+      [0.135, 1.64], [0.045, 1.60], [0.012, 1.31],
+      [0.105, 1.43], [0.158, 1.57]
+    ], lapel, 0.188);
+    makeFrontPanel("Shirt_Collar_L", [
+      [-0.064, 1.64], [-0.008, 1.59], [-0.035, 1.48], [-0.094, 1.55]
+    ], shirtCollar, 0.198);
+    makeFrontPanel("Shirt_Collar_R", [
+      [0.064, 1.64], [0.008, 1.59], [0.035, 1.48], [0.094, 1.55]
+    ], shirtCollar, 0.198);
+    const tieMaterial = material("#9a3038");
+    makeFrontPanel("Tie_Body", [
+      [-0.019, 1.51], [0.019, 1.51], [0.032, 1.27],
+      [0, 1.235], [-0.032, 1.27]
+    ], tieMaterial, 0.207);
+    const tieKnot = addMesh(
+      root, new THREE.BoxGeometry(0.045, 0.045, 0.018),
+      tieMaterial, [0, 1.555, 0.205], [1, 1, 1], "Tie_Knot"
+    );
+    tieKnot.rotation.z = Math.PI / 4;
+    tieKnot.userData.rigBoneName = "Chest";
     const buttonMetal = material("#b7c3d3", 0.35, 0.55);
     for (const y of [1.31, 1.19]) {
       const button = ellipsoid(root, buttonMetal, [0.105, y, 0.176], [0.012, 0.012, 0.008], "Jacket_Button");
