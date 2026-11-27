@@ -72,9 +72,8 @@ $packagePath = Join-Path $output "OfficeKit.BootstrapperPrototype-unsigned.msix"
 & $makeAppx.FullName pack /d $stage /p $packagePath /o
 if ($LASTEXITCODE -ne 0) { throw "MakeAppx package creation failed." }
 
-& $makeAppx.FullName validate /p $packagePath
-if ($LASTEXITCODE -ne 0) { throw "MakeAppx package validation failed." }
-
+# MakeAppx has no standalone "validate" verb. A full unpack is the SDK-supported
+# structural verification pass; it checks package readability and the block map.
 $verification = Join-Path $output "verification"
 & $makeAppx.FullName unpack /p $packagePath /d $verification /o
 if ($LASTEXITCODE -ne 0) { throw "MakeAppx package unpack verification failed." }
