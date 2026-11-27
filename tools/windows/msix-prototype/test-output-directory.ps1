@@ -28,9 +28,20 @@ try {
     Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $nonEmptyOutput -RepositoryRoot $repositoryRoot } "output_directory_must_be_empty"
     if (-not (Test-Path -LiteralPath $sentinel -PathType Leaf)) { throw "non-empty output directory content was deleted" }
     if ((Get-Content -LiteralPath $sentinel -Raw).Trim() -ne "caller-owned content") { throw "non-empty output directory content was modified" }
-    Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $repositoryRoot -RepositoryRoot $repositoryRoot } "output_directory_cannot_be_repository_root"
+    Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $repositoryRoot -RepositoryRoot $repositoryRoot } "output_directory_cannot_be_inside_repository"
+    $repositoryChild = Join-Path $repositoryRoot "build-output"
+    Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $repositoryChild -RepositoryRoot $repositoryRoot } "output_directory_cannot_be_inside_repository"
     Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $testRoot -RepositoryRoot $repositoryRoot } "output_directory_cannot_contain_repository"
     Assert-Throws { Initialize-OfficeKitOutputDirectory -Path ([System.IO.Path]::GetPathRoot($testRoot)) -RepositoryRoot $repositoryRoot } "output_directory_cannot_be_filesystem_root"
+    $junction = Join-Path $testRoot "output-junction"
+    $junctionResult = & cmd.exe /c mklink /J $junction $testRoot 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "could_not_create_test_junction: $junctionResult" }
+    try {
+        $junctionOutput = Join-Path $junction "redirected-output"
+        Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $junctionOutput -RepositoryRoot $repositoryRoot } "output_directory_reparse_path_component_not_allowed"
+    } finally {
+        Remove-Item -LiteralPath $junction -Force
+    }
     $filePath = Join-Path $testRoot "not-a-directory.txt"
     Set-Content -LiteralPath $filePath -Value "file"
     Assert-Throws { Initialize-OfficeKitOutputDirectory -Path $filePath -RepositoryRoot $repositoryRoot } "output_directory_is_file"
