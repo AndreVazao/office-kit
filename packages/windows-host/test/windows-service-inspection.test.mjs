@@ -84,6 +84,14 @@ test("validates platform, service name, expected path and bounded timeout before
   assert.throws(() => inspectWindowsService({ serviceName: "OfficeKitHost", expectedExecutablePath: expected, platform: "linux", spawnImpl }), /requires_windows/);
   assert.throws(() => inspectWindowsService({ serviceName: "bad name", expectedExecutablePath: expected, platform: "win32", spawnImpl }), /service_name_invalid/);
   assert.throws(() => inspectWindowsService({ serviceName: "OfficeKitHost", expectedExecutablePath: "relative.exe", platform: "win32", spawnImpl }), /expected_path_must_be_absolute/);
-  assert.throws(() => inspectWindowsService({ serviceName: "OfficeKitHost", expectedExecutablePath: expected, platform: "win32", timeoutMs: 60_000, spawnImpl }), /timeout_invalid/);
+  assert.throws(() => inspectWindowsService({ serviceName: "OfficeKitHost", expectedExecutablePath: expected, platform: "win32", timeoutMs: 249, spawnImpl }), /timeout_invalid/);
+  assert.throws(() => inspectWindowsService({ serviceName: "OfficeKitHost", expectedExecutablePath: expected, platform: "win32", timeoutMs: 90_001, spawnImpl }), /timeout_invalid/);
   assert.equal(calls.length, 0);
+
+  const accepted = inspectWindowsService({
+    serviceName: "OfficeKitHost", expectedExecutablePath: expected, platform: "win32", timeoutMs: 90_000, spawnImpl
+  });
+  assert.equal(accepted.serviceName, "OfficeKitHost");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.timeout, 90_000);
 });
