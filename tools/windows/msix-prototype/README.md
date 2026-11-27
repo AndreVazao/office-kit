@@ -24,7 +24,7 @@ the Office Kit commercial publisher and must never be reused for a release.
 
 ## What this slice can prove
 
-- MakeAppx validates and unpacks the produced package.
+- MakeAppx successfully unpacks the produced package as the SDK-supported structural verification pass; the unpacked manifest, executable and block map are inspected.
 - The unpacked package contains its manifest, block map, and executable.
 - The packed manifest declares the full-trust packaged desktop application.
 - The packed manifest retains explicit PICE enforcement.
