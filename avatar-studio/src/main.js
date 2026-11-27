@@ -262,6 +262,27 @@ function makePhotoBrow(parent, hairMaterial, side, eyeX) {
   return brow;
 }
 
+function makePhotoUpperEyelid(parent, skinMaterial, side, eyeX) {
+  const points = [
+    [eyeX - side * 0.034, 0.035, 0.184],
+    [eyeX - side * 0.017, 0.050, 0.194],
+    [eyeX + side * 0.012, 0.052, 0.194],
+    [eyeX + side * 0.034, 0.035, 0.184]
+  ].map(([x, y, z]) => new THREE.Vector3(x, y, z));
+  const curve = new THREE.CatmullRomCurve3(points);
+  const lid = addMesh(
+    parent,
+    new THREE.TubeGeometry(curve, 18, 0.0042, 6, false),
+    skinMaterial,
+    [0, 0, 0],
+    [1, 1, 1],
+    side < 0 ? "Upper_Eyelid_L" : "Upper_Eyelid_R"
+  );
+  lid.userData.rigBoneName = "Eyelid_" + (side < 0 ? "L" : "R");
+  lid.userData.identityFeature = "upper-eyelid-contour";
+  return lid;
+}
+
 function makePhotoLowerEyelid(parent, skinMaterial, side, eyeX) {
   const points = [
     [eyeX - side * 0.031, 0.027, 0.184],
@@ -526,8 +547,7 @@ function buildHuman(config) {
     ellipsoid(head, eye, [eyeX, 0.035, 0.188], [0.027, 0.0135, 0.012], "Eye");
     ellipsoid(head, iris, [eyeX, 0.035, 0.199], [0.0105, 0.0095, 0.006], "Iris");
     ellipsoid(head, pupil, [eyeX, 0.035, 0.204], [0.0055, 0.007, 0.003], "Pupil");
-    const eyelid = ellipsoid(head, skin, [eyeX, 0.057, 0.185], [0.036, 0.009, 0.012], "Upper_Eyelid");
-    eyelid.userData.rigBoneName = "Eyelid_" + (side < 0 ? "L" : "R");
+    makePhotoUpperEyelid(head, skin, side, eyeX);
     makePhotoBrow(head, hair, side, eyeX);
     makePhotoLowerEyelid(head, skin, side, eyeX);
     ellipsoid(head, skin, [side * 0.118, -0.075, 0.145], [0.064, 0.055, 0.045], "Cheek");
