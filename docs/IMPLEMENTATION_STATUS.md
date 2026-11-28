@@ -891,3 +891,15 @@ The MSIX output is deliberately unsigned and uses a development-only publisher. 
 The preceding exact head 868769e291613ac12c02c724779943ae11c946e8 had a real test failure: windows-service-inspection.test.mjs still expected 60 seconds to be rejected after the implementation raised its maximum to 90 seconds to accommodate the 60-second CIM operation timeout plus process overhead. The test was corrected on 2ead8f6 to reject values below 250 ms and above 90 seconds, and to accept/assert the 90-second upper boundary. No failing test was skipped or suppressed.
 
 The MSIX prototype build is being hardened to refuse filesystem roots, the repository root, output paths containing the repository, reparse-point output directories and non-empty output directories. It no longer recursively deletes a caller-supplied output path. New Windows CI tests verify that a sentinel file in a non-empty output directory remains unchanged. This additional guard is awaiting validation on the next exact PR head.
+
+### 2026-11-28 — signed MSIX installation and Shell activation experiment
+
+- [x] Extend the probe to query GetCurrentPackageFullName and GetCurrentPackageFamilyName and write a package-scoped LocalState marker when activated with package identity.
+- [x] Add an ephemeral-certificate Windows integration test: sign the experimental MSIX, import its public certificate into the disposable runner's Local Machine Trusted People store, install with Add-AppxPackage, activate through Windows Shell AppsFolder, verify package identity and GetSystemDirectoryW output, inspect the installed PICE declaration, uninstall and remove the temporary certificate.
+- [x] Code checkpoint dc8c202e89db51be93fe51b319bcd60c6d92bbc8: CI run [46150519236](https://github.com/AndreVazao/office-kit/actions/runs/46150519236) passed all four Ubuntu/Windows Node 22/26.13.1 jobs; the install/activation step passed on both Windows jobs. Visual regression [46150519209](https://github.com/AndreVazao/office-kit/actions/runs/46150519209) passed on the same SHA.
+- [ ] Validate runtime PICE tamper blocking; a manifest declaration and successful installation are not that test.
+- [ ] Replace the diagnostic probe with a production launcher only after signed publisher trust, CNG policy provisioning, SystemRoot authority handoff and authenticated child/IPC boundaries are implemented.
+- [ ] Validate upgrade, rollback, repair, retained-data policy, complete uninstall and physical Windows acceptance.
+- [ ] Keep the self-signed certificate strictly test-only; no production publisher identity or secret is stored in the repository.
+
+The later README correction and canonical documentation commits are not covered by the dc8c202 checks. Require fresh CI and visual regression on the resulting exact PR HEAD. The experiment remains a hosted-runner integration test, not physical-PC acceptance or a production installer.
