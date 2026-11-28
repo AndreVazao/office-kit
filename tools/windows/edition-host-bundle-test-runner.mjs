@@ -142,6 +142,13 @@ async function main() {
       hostFactory: nativeHostOptions => createWindowsHost({
         ...nativeHostOptions,
         helperPath,
+        publisherPolicyLoader: ({ installationId, edition }) => ({
+          installationId,
+          edition,
+          signatureIndex: 0,
+          publisherSpkiSha256: "a".repeat(64),
+          revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+        }),
         verifyHelper: path => {
           verifyTestOnlyAuthenticode(path, signerThumbprint);
           return true;

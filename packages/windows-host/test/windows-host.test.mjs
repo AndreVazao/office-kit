@@ -4,7 +4,8 @@ import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWindowsHost, verifyAuthenticodeHelper } from "../src/index.mjs";
-import { constants, createHash, generateKeyPairSync, sign as signData } from "node:crypto";
+import { resolveWindowsSystemDirectory, resolveWindowsSystemExecutable } from "../src/windows-system-executable.mjs";
+import { constants, createHash, generateKeyPairSync, sign as signData, X509Certificate } from "node:crypto";
 import { createPublisherPolicyPayload, createPublisherPolicyEnvelope, verifyPublisherPolicyEnvelope, readPublisherPolicyPublicKey, loadPublisherPolicy } from "../src/index.mjs";
 import { GenericDemoAdapter } from "../../scene-engine/src/generic-demo-adapter.mjs";
 
@@ -84,6 +85,13 @@ function setup(directory, overrides = {}) {
     helperPath,
     resolveUserSid: () => "S-1-5-21-100",
     applyAcl: () => {},
+    publisherPolicyLoader: ({ installationId, edition }) => ({
+      installationId,
+      edition,
+      signatureIndex: 0,
+      publisherSpkiSha256: "a".repeat(64),
+      revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+    }),
     verifyHelper: () => true,
     runtimeFactory,
     secretVaultFactory: fakeSecretVault,
@@ -201,6 +209,39 @@ test("Windows host exposes an installation-scoped generic CNG secret vault", asy
   }
 });
 
+test("Windows host binds helper verification to the installation and edition publisher policy", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-policy-binding-"));
+  let observed = null;
+  let host;
+  try {
+    host = setup(directory, {
+      edition: "vst",
+      publisherPolicyLoader: ({ policyPath, installationId, edition }) => ({
+        policyPath,
+        installationId,
+        edition,
+        signatureIndex: 0,
+        publisherSpkiSha256: "b".repeat(64),
+        revocationPolicy: { runtimeStartup: "cache-only-chain-exclude-root-fail-closed" }
+      }),
+      verifyHelper: (helperPath, policy) => {
+        observed = { helperPath, policy };
+        return true;
+      }
+    });
+    await host.ready;
+    assert.equal(observed.policy.installationId, host.installationId);
+    assert.equal(observed.policy.edition, "vst");
+    assert.equal(observed.policy.signatureIndex, 0);
+    assert.equal(observed.policy.publisherSpkiSha256, "b".repeat(64));
+    assert.equal(observed.policy.revocationPolicy.runtimeStartup, "cache-only-chain-exclude-root-fail-closed");
+    assert.equal(observed.policy.policyPath, join(directory, "OfficeKit", "publisher-policy.json"));
+  } finally {
+    await host?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Windows host rejects an untrusted helper before opening its database", () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-trust-"));
   try {
@@ -298,36 +339,109 @@ test("Windows host rejects non-Windows execution and relative storage paths", ()
 });
 
 
-test("Authenticode verifier never takes the publisher pin from the process environment", () => {
+
+const authenticodeFixtureCertificateBase64 = "MIIDLzCCAhegAwIBAgIUR8+SmaiuAYDD9S9blwQdmkMtLaQwDQYJKoZIhvcNAQELBQAwJzElMCMGA1UEAwwcT2ZmaWNlIEtpdCBBdXRoZW50aWNvZGUgVGVzdDAeFw0yNjExMjMxNjQ0MzhaFw0zNjExMjAxNjQ0MzhaMCcxJTAjBgNVBAMMHE9mZmljZSBLaXQgQXV0aGVudGljb2RlIFRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCy2uEvyHumv0lxroxthewNLh33wCJhzMngEzGDDNdocxtshxL0SG7rkmivuhwSmXHwysyz/3J2uZEVZvNSDnrBnRez1Mi8w6irbo2zpyto05YaGv7f6L3BMY7mINZiyxSuUaW+uKJzwOUtncW3jANs+/QdBRnYfa1cgj9+B0fYgK2KAdEXEsSroHvtS5yzrWrhaZFE0gW+nYUOsVg7nVL/32b536tUflUQwmE+YqfkAP+KLZUGLccImfRSjd3LZEgTfv1b/kYTAVuRqIVtwJr/wH2FR9tDWkWjULH9TZba6D4nz6WYaYMVE7HXz891so/ovWgIS7dnr9uoE0fISiPAgMBAAGjUzBRMB0GA1UdDgQWBBTFvKeOGnCBA+g1D70yQ/Uv9URIbjAfBgNVHSMEGDAWgBTFvKeOGnCBA+g1D70yQ/Uv9URIbjAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBMmQ8tYlQHRs+LK8PawrQqFzPWBWFnP7DIg+E8F7B1O2YH+qMQC4lUM14Pi5uIORsmG86L63uiby3pyzRyz/x6kkNHTLHt7guQijzA2oZ0t19KoBS8kNnjFTsnLhDNqg7B324cl/E8fBRUpvZnEmaQemuUIPwKIzWuI4B4hJrI8Y/zTGAProCbzym/DH7LGFa5Faqs5T0kYpGTmMRgxki/ptRovvVzEDAF0Ysn2lRfbwQNFLcTjOsgqBsm1eQ/cJuMIocgA92yOpfCU2y0n6mfZ3Oac6IyBbVy9VYUYKRIlbbq3XIpeaWJaW1STMq4B3vo8IFTU3aUaJcA7POYfT24";
+const authenticodeFixtureCertificate = new X509Certificate(Buffer.from(authenticodeFixtureCertificateBase64, "base64"));
+const authenticodeFixtureSpkiSha256 = createHash("sha256")
+  .update(authenticodeFixtureCertificate.publicKey.export({ type: "spki", format: "der" }))
+  .digest("hex");
+
+test("WinTrust verifier ignores environment pins and requires the authenticated SHA-256 SPKI policy", () => {
   const directory = mkdtempSync(join(tmpdir(), "office-kit-host-signer-"));
   const helperPath = join(directory, "helper.exe");
   writeFileSync(helperPath, "test helper");
-  const expectedThumbprint = "A".repeat(40);
   const previous = process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
   let command;
+  const response = {
+    status: 0,
+    verifiedSigIndex: 0,
+    secondarySignatureCount: 1,
+    signerCertificateBase64: authenticodeFixtureCertificateBase64
+  };
   try {
-    process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = expectedThumbprint;
+    process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = "A".repeat(40);
     assert.throws(() => verifyAuthenticodeHelper(helperPath, {
       spawnImpl: () => {
-        throw new Error("verifier_must_not_run_without_authenticated_policy");
+        throw new Error("WinTrust must not run without an authenticated SPKI pin");
       }
     }), /windows_host_publisher_policy_unavailable/);
     assert.throws(() => verifyAuthenticodeHelper(helperPath, {
-      spawnImpl: () => ({ status: 0, stdout: "" }),
-      expectedThumbprint: ""
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify(response) }),
+      expectedSpkiSha256: "A".repeat(64)
     }), /windows_host_publisher_policy_unavailable/);
     assert.equal(verifyAuthenticodeHelper(helperPath, {
-      spawnImpl: (name, args) => {
-        command = { name, args };
-        return { status: 0, stdout: "" };
+      spawnImpl: (name, args, options) => {
+        command = { name, args, options };
+        return { status: 0, stdout: JSON.stringify(response), stderr: "" };
       },
-      expectedThumbprint
+      expectedSpkiSha256: authenticodeFixtureSpkiSha256,
+      signatureIndex: 0,
+      revocationMode: "online-chain-exclude-root-fail-closed"
     }), true);
-    assert.equal(command.name, "powershell.exe");
-    assert.ok(command.args.at(-1).includes(expectedThumbprint));
+    assert.equal(command.name, resolveWindowsSystemExecutable("powershell.exe"));
+    assert.equal(command.options.cwd, resolveWindowsSystemDirectory());
+    assert.equal(command.options.env.PATH, resolveWindowsSystemDirectory());
+    assert.equal(command.options.timeout, 30000);
+    const script = command.args.at(-1);
+    assert.ok(script.includes("WSS_GET_SECONDARY_SIG_COUNT"));
+    assert.ok(script.includes("WSS_VERIFY_SPECIFIC"));
+    assert.ok(script.includes("WTHelperGetProvSignerFromChain"));
+    assert.ok(script.includes("WTHelperGetProvCertFromChain"));
+    assert.ok(script.includes("public uint cSecondarySigs;\n        public uint dwVerifiedSigIndex;\n        public IntPtr pCryptoPolicy;"));
+    assert.ok(script.includes("new IntPtr(-1)"));
+    assert.ok(script.includes("[uint32]8320"));
+    assert.ok(!script.includes("Get-AuthenticodeSignature"));
   } finally {
     if (previous === undefined) delete process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT;
     else process.env.OFFICE_KIT_CNG_SIGNER_THUMBPRINT = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("WinTrust verifier rejects secondary-signature fallback, wrong signer, revocation and timeout", () => {
+  const directory = mkdtempSync(join(tmpdir(), "office-kit-host-wintrust-"));
+  const helperPath = join(directory, "helper.exe");
+  writeFileSync(helperPath, "test helper");
+  const response = {
+    status: 0,
+    verifiedSigIndex: 0,
+    secondarySignatureCount: 1,
+    signerCertificateBase64: authenticodeFixtureCertificateBase64
+  };
+  try {
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify(response) }),
+      expectedSpkiSha256: "f".repeat(64),
+      revocationMode: "cache-only-chain-exclude-root-fail-closed"
+    }), /windows_host_authenticode_publisher_mismatch/);
+
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify({ ...response, verifiedSigIndex: 1 }) }),
+      expectedSpkiSha256: authenticodeFixtureSpkiSha256
+    }), /windows_host_authenticode_signature_index_mismatch/);
+
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify({ ...response, status: 0x800B010C | 0 }) }),
+      expectedSpkiSha256: authenticodeFixtureSpkiSha256
+    }), /windows_host_authenticode_publisher_revoked/);
+
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify({ ...response, status: 0x80092013 | 0 }) }),
+      expectedSpkiSha256: authenticodeFixtureSpkiSha256
+    }), /windows_host_authenticode_revocation_unavailable/);
+
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ error: Object.assign(new Error("timeout"), { code: "ETIMEDOUT" }), status: null }),
+      expectedSpkiSha256: authenticodeFixtureSpkiSha256,
+      revocationMode: "online-chain-exclude-root-fail-closed"
+    }), /windows_host_command_timeout_powershell.exe/);
+
+    assert.throws(() => verifyAuthenticodeHelper(helperPath, {
+      spawnImpl: () => ({ status: 0, stdout: JSON.stringify(response) }),
+      expectedSpkiSha256: authenticodeFixtureSpkiSha256,
+      revocationMode: "none"
+    }), /windows_host_authenticode_revocation_mode_invalid/);
+  } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 });
@@ -971,7 +1085,9 @@ test("publisher policy public-key reader validates machine CNG metadata and deri
   assert.equal(keyInfo.machineScope, true);
   assert.equal(keyInfo.privateKeyExportable, false);
   assert.deepEqual(keyInfo.publicKeySpki, publisherPolicyTestPublicSpki);
-  assert.equal(invocation.command, "powershell.exe");
+  assert.equal(invocation.command, resolveWindowsSystemExecutable("powershell.exe"));
+  assert.equal(invocation.options.cwd, resolveWindowsSystemDirectory());
+  assert.equal(invocation.options.env.PATH, resolveWindowsSystemDirectory());
   assert.equal(invocation.options.timeout, 15000);
   assert.ok(invocation.args.includes("-NoProfile"));
   assert.ok(invocation.args.includes("-NonInteractive"));

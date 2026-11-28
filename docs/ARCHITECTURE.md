@@ -559,3 +559,83 @@ The adapter now declares explicit, frozen public/private path lists:
 PAPER control remains disabled. Issue #121 documents that the backend must atomically guarantee PAPER mode for every control operation, reject REAL/UNKNOWN/SAFE_MODE states and return authoritative post-operation state before Office Kit can expose those controls.
 
 Remote VST connectivity remains disabled; the adapter still accepts only exact loopback `http://127.0.0.1:8765`. Issue #124 tracks a future private Tailscale Serve HTTPS path using a VST-issued paired-device token, server-side owner/device/scope/revocation checks and verified ingress identity. Do not trust client-supplied Tailscale identity headers, send owner tokens over raw LAN HTTP, allow arbitrary remote URLs or expose the VST listener publicly. Physical Windows-PC and Android E2E over the actual tailnet are required before remote readiness is claimed.
+
+
+## 2026-11-24 — Windows publisher-policy trust and freshness boundaries
+
+The Windows host now has a native WinTrust implementation on the PR #139 branch. It explicitly verifies primary signature index 0, extracts the signer certificate from the same WinTrust provider state, compares the signer SPKI SHA-256 with the signed policy and applies distinct online-install/update and cache-only-runtime revocation modes. Missing policy and verification failures remain fail-closed before SQLite is opened.
+
+This is not yet a complete trust chain:
+
+1. **System executable root:** the shared resolver uses absolute paths and sanitizes child PATH/PSModulePath, but currently derives the Windows root from inherited `SystemRoot`/`WINDIR`. A hostile parent can supply a forged but internally consistent local root. The installer/launcher must establish the root through a trusted OS boundary; no PATH fallback is acceptable.
+2. **Policy freshness:** the signed `publisher-policy.json` currently resides in the per-user data root. A valid signature proves authorization, not freshness. A user able to restore an older signed envelope can replay an old publisher pin unless the host compares it with a protected monotonic high-water mark outside that user-writable root.
+3. **Update transaction:** policy envelope and protected version/hash anchor must be committed atomically or through a crash-recoverable two-phase protocol. Missing, cleared or inconsistent anchor state must fail closed or enter explicit recovery; it must never silently recreate trust state.
+4. **Installer authority:** the elevated installer/update path must verify its own signed package before provisioning the installation-scoped CNG key and policy envelope. Ordinary startup must not regenerate an existing key or silently provision trust.
+5. **Evidence:** unit/fake policy tests, GitHub-hosted native Windows tests and physical installation are separate evidence classes. Do not infer commercial publisher trust, TPM anti-rollback or physical-PC acceptance from CI.
+
+Issues #140 and #141 track the system-root and policy-replay gaps. Issue #110 remains the parent Windows production gate and #104 owns installer/update provisioning. The host remains fail-closed until these boundaries and the complete native test matrix are validated.
+
+
+## 2026-11-25 — trusted package boundary before host bootstrap
+
+The current Windows portable bundle is a development/test artifact, not an installer trust root. Its CMD launcher starts the bundled Node runtime directly. The build script discovers Node and the CNG helper through build-time environment/search mechanisms. The CNG helper is launched as a child of the Node host; it cannot authenticate its own earlier launch. Therefore, adding `GetSystemDirectoryW` only inside that helper would not close the pre-host binary-planting boundary.
+
+The next architecture boundary must be an OS-verified package deployment or a separately authenticated native launcher. That boundary must establish package publisher identity and a trusted System32 directory before launching Node or any helper, then pass only a constrained, authenticated installation/edition/system-root handoff. No inherited environment value or user-controlled command-line argument may select the trust root.
+
+MSIX is a candidate because package deployment validates the signed package and publisher chain, but it does not support drivers or per-user Windows services; it supports session-0 per-machine services under the supported system accounts. MSI is a candidate only when authored as a fully verified signed installation: signed package, complete cabinet coverage and package-contained/installed custom actions. Neither is selected until a real prototype proves the Office Kit host lifecycle and install/upgrade/rollback/repair/uninstall behavior on supported Windows versions.
+
+The publisher-policy anti-replay anchor is a separate requirement. The current CNG Software KSP key and read-only TPM capability probe do not provide a monotonic TPM NV counter. Policy version/hash must be protected outside the user-writable profile and updated through a crash-recoverable transaction. Do not silently recreate a missing anchor or downgrade to user-writable SQLite.
+
+PR #139 remains Draft. CI and visual regression passed on HEAD `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb` (CI [45405580412](https://github.com/AndreVazao/office-kit/actions/runs/45405580412), visual [45405580584](https://github.com/AndreVazao/office-kit/actions/runs/45405580584)); this does not close #104, #110, #140 or #141 and does not establish physical-PC acceptance.
+
+
+## 2026-11-25 — exact CI evidence and package trust gate
+
+The exact main SHA `027851c04ff1b23d239b90a06bfc4ef84aecf425` passed push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578). PR #139's previous documentation head `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899` passed all four CI matrix jobs [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) and visual [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952). A new documentation commit creates a new head and requires fresh validation.
+
+PR #108's current code head `0bae4e7b7095863efe04d5b76f480cdcf69603d2` passed CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305), but the branch is 24 commits behind main and the real-browser/GLB acceptance remains open.
+
+No installer format has been selected. MSIX and fully verified MSI remain candidates pending proof of Office Kit's host/service requirements, package-content signature coverage, first-install trust provisioning and full lifecycle on supported Windows versions. Issues #104, #110, #140 and #141 remain open; no production or physical-PC readiness is implied.
+
+
+## 2026-11-26 — isolated Windows bootstrap probe and trust boundary
+
+PR #139 adds `native/windows/OfficeKit.Bootstrapper/`, a .NET 8 diagnostic executable which obtains System32 using `GetSystemDirectoryW` and reads package identity using `GetCurrentPackageFullName`. Its Windows CI step builds and executes the probe with normal environment variables and with both inherited `SystemRoot` and `WINDIR` forged to the same decoy directory. The result remains the OS-reported system directory.
+
+This proves only that the isolated probe does not derive its output from those environment variables on GitHub-hosted Windows runners. It does **not** prove MSIX activation, Package Integrity Enforcement, a signed bootstrapper, parent/child authentication, a constrained IPC handoff, or safe launch of Node. The production resolver `packages/windows-host/src/windows-system-executable.mjs` still derives its root from inherited environment values and is not yet connected to this probe. Issue #140 therefore remains open; do not describe binary planting as fixed.
+
+The current PR #139 head `ed38174ffd182d305ddecc587fb2f813ecab19bb` passed CI [#45815953920](https://github.com/AndreVazao/office-kit/actions/runs/45815953920) in all four Linux/Windows Node 22/26.13.1 jobs and visual regression [#45815953932](https://github.com/AndreVazao/office-kit/actions/runs/45815953932) on the same SHA. The PR remains Draft. Issue #141 is still open: no protected policy-version/hash high-water mark or TPM NV anchor is implemented. Issues #104 and #110 remain the installer/publisher-policy production gates.
+
+GitHub currently reports `main` as unprotected and required status-check enforcement disabled. Issue #142 tracks the branch-ruleset requirement. No repository settings were changed. Universal remains backend-neutral; DGM-MAT and VST retain edition-specific host/adapters and isolated data/credential boundaries.
+
+
+## 2026-11-26 14:06 UTC — exact-head validation and repository governance
+
+The current main SHA remains `027851c04ff1b23d239b90a06bfc4ef84aecf425`; its latest push CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on that SHA.
+
+The last code-changing checkpoint in PR #139, `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`, passed CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) in all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699). The preceding Windows Node 22 timeout was a real failure; the test was moved out of aggregate-suite contention, retained as a dedicated native test, switched to an allowlisted absolute PowerShell path/sanitized environment and given a bounded 30-second timeout. The resulting documentation-only PR head must be checked separately.
+
+The .NET 8 bootstrapper project calls `GetSystemDirectoryW` and `GetCurrentPackageFullName`, and its Windows CI probe is stable under forged matching `SystemRoot`/`WINDIR`. It remains a probe, not a signed MSIX entry point, authenticated launcher, Node handoff or IPC channel. The production resolver still trusts inherited environment values, so #140 remains open. No policy anti-replay high-water mark or TPM NV provider exists, so #141 remains open.
+
+PR #108 remains isolated to `avatar-studio/`, exact HEAD `fc20d1dce8d3d6182906e7a0386255686a72b406`; CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed. Its branch is 225 commits ahead and 24 behind main. Browser acceptance and GLB inspection remain pending.
+
+GitHub branch metadata reports `main.protected=false`; issue #142 tracks required PR and exact-head CI/visual enforcement. No repository settings were changed. Universal remains backend-neutral; DGM-MAT and VST retain isolated host compositions, adapters, credentials and data roots. Portable bundle CI does not establish installer, live backend, physical-PC or commercial readiness.
+
+
+## 2026-11-27 — unsigned MSIX structural prototype and CI correction
+
+PR #139 added an isolated MSIX packaging experiment under tools/windows/msix-prototype/. On the code checkpoint 2ead8f6a544303e5525bacbe37db5c4a23c38bf5, CI [#46008048821](https://github.com/AndreVazao/office-kit/actions/runs/46008048821) passed all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#46008048810](https://github.com/AndreVazao/office-kit/actions/runs/46008048810) passed on the same SHA. Both Windows jobs built the .NET probe, ran the forged-SystemRoot/WINDIR check, built and unpacked the unsigned MSIX, inspected the manifest/block map/executable, and completed the existing CNG/WinTrust and three portable edition bundle tests.
+
+The MSIX output is deliberately unsigned and uses a development-only publisher. The bootstrapper executable is still a diagnostic probe: it reports GetSystemDirectoryW and package identity, then exits. It does not launch Node, authenticate a parent/child handoff, install/activate the package, demonstrate runtime PICE tamper blocking, or implement upgrade/rollback/repair/uninstall. Issues #104, #110, #140 and #141 remain open. No installer or production readiness is claimed.
+
+The preceding exact head 868769e291613ac12c02c724779943ae11c946e8 had a real test failure: windows-service-inspection.test.mjs still expected 60 seconds to be rejected after the implementation raised its maximum to 90 seconds to accommodate the 60-second CIM operation timeout plus process overhead. The test was corrected on 2ead8f6 to reject values below 250 ms and above 90 seconds, and to accept/assert the 90-second upper boundary. No failing test was skipped or suppressed.
+
+The MSIX prototype build is being hardened to refuse filesystem roots, the repository root, output paths containing the repository, reparse-point output directories and non-empty output directories. It no longer recursively deletes a caller-supplied output path. New Windows CI tests verify that a sentinel file in a non-empty output directory remains unchanged. This additional guard is awaiting validation on the next exact PR head.
+
+### Experimental MSIX activation boundary — 2026-11-28
+
+The Windows bootstrap probe now has a CI-only signed-package activation path. The test signs the prototype with an ephemeral self-signed certificate, installs it through the Windows package deployment API, activates the declared application through the Shell AppsFolder identity, and verifies package full/family identity from inside the packaged process. The process calls GetSystemDirectoryW and writes a diagnostic marker into its package LocalState directory; CI compares the reported system directory with the runner's actual System32 path. The installed manifest is inspected for the Package Integrity Enforcement declaration.
+
+This experiment establishes that the prototype can be signed, installed and Shell-activated on the hosted Windows CI image. It does not establish a production trust root: the certificate is test-only, the probe does not launch Node, no parent/child or IPC handoff is authenticated, runtime package tamper blocking is not tested, and no production CNG policy is provisioned. Do not treat package identity or the LocalState marker as a security capability or authorization token. A production host must still validate its own trusted package/launcher boundary and reject forged environment-derived system paths.
+
+The exact code checkpoint dc8c202e89db51be93fe51b319bcd60c6d92bbc8 passed CI 46150519236 and visual regression 46150519209. Later README and architecture documentation commits require fresh checks on their resulting exact HEAD.

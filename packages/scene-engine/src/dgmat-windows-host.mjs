@@ -56,7 +56,7 @@ export function createWindowsDgmMatHost({
     invalidateAccessToken: () => sessionProvider.invalidate()
   });
 
-  const host = hostFactory(hostOptions);
+  const host = hostFactory({ ...hostOptions, edition: "dgmat" });
   if (!host || typeof host.createSecretStore !== "function"
     || typeof host.close !== "function" || !host.ready) {
     try { void Promise.resolve(host?.close?.()).catch(() => {}); } catch {}

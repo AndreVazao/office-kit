@@ -2,6 +2,17 @@
 
 O roteiro é faseado por risco e evidência. Uma fase só fica concluída quando os seus critérios são verificados; percentagens não substituem testes.
 
+## Global checkpoint — 2026-11-26 14:06 UTC
+
+- Main `027851c04ff1b23d239b90a06bfc4ef84aecf425`: push CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on that exact SHA.
+- The last code-changing checkpoint in PR #139, `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`, passed CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) in all four Linux/Windows Node 22/26.13.1 jobs and visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699). The previous Windows Node 22 timeout was investigated and corrected without disabling the native test. A later documentation-only commit changes the PR head and must receive its own exact-head checks.
+- PR #139 remains open, mergeable and Draft. The .NET 8 bootstrap project is a diagnostic probe only; production launch/IPC and trusted package activation remain unimplemented. #140 remains open because the production resolver still derives System32 from inherited environment variables.
+- Issue #141 remains open: no protected policy-version/hash high-water mark, TPM NV anchor or crash-recoverable anti-replay transaction is implemented.
+- PR #108 exact HEAD `fc20d1dce8d3d6182906e7a0386255686a72b406`: CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed. Branch is 225 ahead/24 behind main; browser/GLB acceptance and reconciliation remain pending.
+- Repository inventory: 94 branches, two open PRs, ten open issues. GitHub branch metadata reports `main.protected=false`; issue #142 tracks the missing PR/required-check rules. No repository settings were changed.
+- Open production gates: #104, #109, #110, #140, #141, #142, #58, #57, #121 and #124. Issues #129 and #130 are closed.
+- No MSI/MSIX, commercial release, live backend E2E or physical-device acceptance is claimed for Universal, DGM-MAT or VST. Universal remains independent; DGM-MAT and VST keep their own adapters and credentials.
+
 ## Fase 0 — contrato, memória e proveniência
 - [x] Definir missão, princípios e fronteiras de produto.
 - [x] Fixar arquitetura de alto nível e separação backend/frontend.
@@ -431,7 +442,7 @@ O primeiro incremento de código valida snapshots neutros e evita mostrar estado
 1. Implement and validate the installer-authenticated Windows publisher policy, exact signer binding and bounded revocation policy; keep startup fail-closed until complete.
 2. Deliver independent MSI/MSIX install, upgrade, rollback/recovery, uninstall and data-retention flows for Universal, DGM-MAT and VST.
 3. Integrate signed-license verification and durable activation into each edition's host with isolated namespaces, platform identity and backup/recovery.
-4. Correct the VST public `/health` versus private authentication boundary; a public health failure must not invalidate the private session.
+4. [x] Correct the VST public `/health` versus private authentication boundary (PR #132; issue #129 closed). Public health sends no token and cannot invalidate the private session.
 5. Keep VST PAPER controls blocked until issue #121 has an atomic backend-enforced PAPER-only contract; implement remote Tailscale Serve only after issue #124 security and physical E2E gates pass.
 6. Implement a real consented TPM 2.0 monotonic provider and physical recovery tests; do not promote protected writes based on metadata probes or fake anchors.
 7. Deliver native Linux/macOS/Android hosts and platform-native keystores, then run real-device installation and lifecycle tests.
@@ -872,3 +883,66 @@ A passing native-helper CI job is not evidence that a TPM was present, that TBS 
 - [ ] Implement issue #110 production Authenticode policy. Current Windows host remains deliberately fail-closed without an authenticated installer-provisioned publisher policy. No commercial distribution until SPKI pinning, signature-index binding, revocation behavior and native trust tests pass.
 - [ ] Complete #104 native installers/lifecycle, #109 host-integrated production licensing, #58 TPM-backed anti-rollback and physical recovery, #57 live DGM-MAT, #121 backend PAPER enforcement and #124 private VST transport.
 - [ ] Validate physical Windows installation and live VST/DGM-MAT read-only sessions. GitHub-hosted CI does not replace these tests.
+
+
+## 2026-11-24 — Windows publisher-policy production gates
+
+- [x] Add native WinTrust primary-signature verification, signer extraction from the same provider state, SHA-256 SPKI comparison and separate online-install/cache-only-runtime revocation modes in PR #139. Exact audited pre-documentation HEAD `bb457884444d14eae7e8d51cd162338c84291c56` passed CI [45403375515](https://github.com/AndreVazao/office-kit/actions/runs/45403375515) and visual regression [45403375437](https://github.com/AndreVazao/office-kit/actions/runs/45403375437); a subsequent documentation commit requires new checks.
+- [ ] Resolve issue #140: obtain the Windows system directory from a trusted OS/installer boundary rather than trusting inherited `SystemRoot`/`WINDIR`; add native decoy executable tests for `powershell.exe`, `whoami.exe` and `icacls.exe`; preserve fail-closed behavior when the trusted root cannot be established.
+- [ ] Resolve issue #141: anchor the highest accepted publisher-policy version and canonical envelope hash outside the user-writable profile; implement atomic or two-phase crash recovery; reject old-version replay, same-version/different-hash replacement and missing/cleared anchors.
+- [ ] Complete native Windows trust matrix for expired, revoked, unknown/unavailable-revocation, untrusted, tampered and multiple-signature files, plus altered/missing/ACL-insecure policy and bounded child termination.
+- [ ] Implement issue #104 installer/update verification and atomic CNG-key/policy provisioning with restrictive ACLs and recovery. The online verifier is not yet called by a production installer/update path.
+- [ ] Validate the actual commercially signed package and complete install/update/startup/uninstall flow on a physical Windows PC. GitHub-hosted runner success is not physical acceptance.
+- [ ] Keep PR #139 Draft and issue #110 open until all of the above release gates are satisfied.
+
+
+## 2026-11-25 — Windows package trust decision gate
+
+- [ ] Prototype MSIX deployment and verify OS-enforced package signature/publisher identity on every supported Windows baseline; first confirm whether the required host/session/service lifecycle fits MSIX restrictions (no drivers or per-user services; session-0 per-machine services only under supported system accounts).
+- [ ] Prototype a fully verified MSI alternative only if all package payloads, cabinets, patches and custom actions are covered by the documented Windows Installer signature model; no external unsigned bootstrap scripts.
+- [ ] Select a format only after install, upgrade, rollback, repair, uninstall, retained-data and per-edition isolation tests pass for Universal, DGM-MAT and VST.
+- [ ] Establish a trusted native installer/launcher boundary before any host process can rely on inherited SystemRoot/WINDIR or launch the CNG helper.
+- [ ] Implement protected monotonic publisher-policy version/hash state with crash recovery; do not claim TPM protection until a real NV provider is physically validated.
+- [ ] Keep PR #139 Draft and Windows host startup fail-closed until issues #110, #140, #141 and the relevant #104 installer gates are satisfied.
+
+References: [MSIX signing](https://learn.microsoft.com/windows/msix/package/signing-package-overview), [MSIX desktop limitations](https://learn.microsoft.com/windows/msix/desktop/desktop-to-uwp-prepare), [fully verified MSI](https://learn.microsoft.com/en-us/windows/win32/msi/authoring-a-fully-verified-signed-installation), [MSI external cabinet signature scope](https://learn.microsoft.com/en-us/windows/win32/msi/digital-signatures-and-external-cabinet-files).
+
+
+## 2026-11-25 — verified CI checkpoint and remaining installer gate
+
+- [x] Main push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) passed on main `027851c04ff1b23d239b90a06bfc4ef84aecf425`.
+- [x] PR #139 checkpoint `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899`: CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) passed all four Linux/Windows Node 22/26.13.1 jobs; visual [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) passed on the same SHA.
+- [x] PR #108 checkpoint `0bae4e7b7095863efe04d5b76f480cdcf69603d2`: CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed on the same SHA.
+- [ ] Reconcile PR #108's 24-commit divergence from current main and rerun its checks after rebase; keep Avatar Studio browser/GLB acceptance separate.
+- [ ] Complete #104/#110/#140/#141 trust-root, package provisioning, policy anti-replay and physical installation gates. A new documentation commit changes PR #139's head; require fresh checks for that new SHA.
+
+
+## Repository governance gate — 2026-11-26
+
+- [ ] Configure and verify a protected `main` branch/ruleset requiring PRs and current-head CI plus visual regression; block direct/force pushes and branch deletion. Tracked in issue #142. This is an administrator-level repository setting and has not been changed by automation.
+
+
+## 2026-11-27 — unsigned MSIX structural prototype and CI correction
+
+PR #139 added an isolated MSIX packaging experiment under tools/windows/msix-prototype/. On the code checkpoint 2ead8f6a544303e5525bacbe37db5c4a23c38bf5, CI [#46008048821](https://github.com/AndreVazao/office-kit/actions/runs/46008048821) passed all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#46008048810](https://github.com/AndreVazao/office-kit/actions/runs/46008048810) passed on the same SHA. Both Windows jobs built the .NET probe, ran the forged-SystemRoot/WINDIR check, built and unpacked the unsigned MSIX, inspected the manifest/block map/executable, and completed the existing CNG/WinTrust and three portable edition bundle tests.
+
+The MSIX output is deliberately unsigned and uses a development-only publisher. The bootstrapper executable is still a diagnostic probe: it reports GetSystemDirectoryW and package identity, then exits. It does not launch Node, authenticate a parent/child handoff, install/activate the package, demonstrate runtime PICE tamper blocking, or implement upgrade/rollback/repair/uninstall. Issues #104, #110, #140 and #141 remain open. No installer or production readiness is claimed.
+
+The preceding exact head 868769e291613ac12c02c724779943ae11c946e8 had a real test failure: windows-service-inspection.test.mjs still expected 60 seconds to be rejected after the implementation raised its maximum to 90 seconds to accommodate the 60-second CIM operation timeout plus process overhead. The test was corrected on 2ead8f6 to reject values below 250 ms and above 90 seconds, and to accept/assert the 90-second upper boundary. No failing test was skipped or suppressed.
+
+The MSIX prototype build is being hardened to refuse filesystem roots, the repository root, output paths containing the repository, reparse-point output directories and non-empty output directories. It no longer recursively deletes a caller-supplied output path. New Windows CI tests verify that a sentinel file in a non-empty output directory remains unchanged. This additional guard is awaiting validation on the next exact PR head.
+
+### 2026-11-28 — MSIX activation proof increment
+
+- [x] Sign the experimental MSIX in Windows CI with a per-job self-signed development certificate.
+- [x] Install the signed package through Add-AppxPackage and activate it through the Windows Shell AppsFolder identity.
+- [x] Verify package full/family identity and the GetSystemDirectoryW result from the packaged process; verify that the installed manifest declares Package Integrity Enforcement.
+- [x] Uninstall the prototype and remove its temporary Local Machine Trusted People certificate.
+- [ ] Test actual runtime PICE tamper blocking and package remediation.
+- [ ] Launch the edition host from a production trusted entry point and authenticate the host/launcher handoff; the current probe exits without launching Node.
+- [ ] Provision the installation-scoped CNG publisher policy and signed policy atomically during install/update.
+- [ ] Complete signed upgrade, rollback, repair, recovery, retained-data and uninstall flows for separate Universal, DGM-MAT and VST packages.
+- [ ] Validate production publisher trust, certificate/revocation matrix and physical Windows PCs.
+- [ ] Keep MSI/MSIX selection and commercial distribution blocked until the complete lifecycle and edition-isolation matrix passes.
+
+Evidence checkpoint dc8c202e89db51be93fe51b319bcd60c6d92bbc8: CI 46150519236 and visual regression 46150519209 passed on the same SHA. This was an ephemeral self-signed hosted-runner experiment, not production signing or physical-device validation. Later documentation commits require fresh exact-head checks.

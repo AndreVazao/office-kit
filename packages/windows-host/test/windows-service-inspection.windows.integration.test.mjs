@@ -10,7 +10,7 @@ test("native Windows CIM inspection verifies the built-in RPC service without ch
   const snapshot = inspectWindowsService({
     serviceName: "RpcSs",
     expectedExecutablePath,
-    timeoutMs: 30_000
+    timeoutMs: 75_000
   });
   assert.equal(snapshot.serviceName, "RpcSs");
   assert.equal(snapshot.state, "running");

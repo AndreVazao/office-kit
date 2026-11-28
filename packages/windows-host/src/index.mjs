@@ -1,4 +1,4 @@
-import { constants, createHash, createHmac, createPublicKey, randomBytes, randomUUID, verify as verifySignature } from "node:crypto";
+import { constants, createHash, createHmac, createPublicKey, randomBytes, randomUUID, verify as verifySignature, X509Certificate } from "node:crypto";
 import {
   closeSync,
   fsyncSync,
@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createWindowsSystemProcessOptions, resolveWindowsSystemExecutable } from "./windows-system-executable.mjs";
 import { DatabaseSync } from "node:sqlite";
 import { createWindowsNodeIdentityRuntime } from "../../scene-engine/src/windows.mjs";
 import { detectHostHardwareCapabilities } from "./hardware-capabilities.mjs";
@@ -273,7 +274,8 @@ const PUBLISHER_POLICY_KEY_SDDL =
   "O:BAG:SYD:P(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;BU)";
 
 export function readPublisherPolicyPublicKey(installationId, {
-  spawnImpl = spawnSync
+  spawnImpl = spawnSync,
+  timeout = 15_000
 } = {}) {
   const keyName = publisherPolicyKeyName(installationId);
   const expectedSddl = PUBLISHER_POLICY_KEY_SDDL;
@@ -337,7 +339,8 @@ public static class OfficeKitCngPolicyAclReader
     "} finally { if ($rsa) { $rsa.Dispose() }; if ($key) { $key.Dispose() } }"
   ].join("; ");
 
-  const commandResult = spawnImpl("powershell.exe", [
+  const processOptions = createWindowsSystemProcessOptions();
+  const commandResult = spawnImpl(resolveWindowsSystemExecutable("powershell.exe"), [
     "-NoLogo",
     "-NoProfile",
     "-NonInteractive",
@@ -346,10 +349,11 @@ public static class OfficeKitCngPolicyAclReader
     "-Command",
     script
   ], {
+    ...processOptions,
     encoding: "utf8",
     windowsHide: true,
     shell: false,
-    timeout: 15_000,
+    timeout,
     maxBuffer: 1024 * 1024
   });
   if (commandResult.error || commandResult.status !== 0) {
@@ -485,14 +489,20 @@ function sqliteAdapter(database) {
   };
 }
 
-function runChecked(command, args, spawnImpl) {
-  const result = spawnImpl(command, args, {
+function runChecked(command, args, spawnImpl, timeout = 15_000) {
+  const executablePath = resolveWindowsSystemExecutable(command);
+  const processOptions = createWindowsSystemProcessOptions();
+  const result = spawnImpl(executablePath, args, {
+    ...processOptions,
     encoding: "utf8",
     windowsHide: true,
     shell: false,
-    timeout: 15_000,
+    timeout,
     maxBuffer: 1024 * 1024
   });
+  if (result.error?.code === "ETIMEDOUT") {
+    throw new Error("windows_host_command_timeout_" + command.toLowerCase());
+  }
   if (result.error || result.status !== 0) {
     throw new Error("windows_host_command_failed_" + command.toLowerCase());
   }
@@ -523,23 +533,222 @@ export function applyWindowsPrivateAcl(path, {
   ], spawnImpl);
 }
 
-export function verifyAuthenticodeHelper(helperPath, {
-  spawnImpl = spawnSync,
-  expectedThumbprint
-} = {}) {
-  // Production startup intentionally has no environment fallback. Until the
-  // installer-authenticated publisher policy is implemented, the default
-  // host verifier fails closed because no trusted pin is supplied.
-  if (typeof helperPath !== "string" || !isAbsolute(helperPath) || !existsSync(helperPath)) {
-    throw new Error("windows_host_cng_helper_missing");
-  }
-  if (typeof expectedThumbprint !== "string" || !/^[A-Fa-f0-9]{40}$/.test(expectedThumbprint)) {
-    throw new Error("windows_host_publisher_policy_unavailable");
-  }
-  const escaped = helperPath.replace(/'/g, "''");
-  const thumbprint = expectedThumbprint.toUpperCase();
-  const script = String.raw`$moduleRoot = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules'; $env:PSModulePath = $moduleRoot + ';' + $env:PSModulePath; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $s = Get-AuthenticodeSignature -LiteralPath '${escaped}'; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Thumbprint -ne '${thumbprint}') { exit 3 }`;
-  runChecked("powershell.exe", [
+
+const WINTRUST_REVOCATION_MODES = Object.freeze({
+  "online-chain-exclude-root-fail-closed": Object.freeze({
+    flags: 0x00000080 | 0x00002000,
+    timeout: 30_000
+  }),
+  "cache-only-chain-exclude-root-fail-closed": Object.freeze({
+    flags: 0x00000080 | 0x00001000 | 0x00002000,
+    timeout: 15_000
+  })
+});
+
+const WINTRUST_VERIFIER_SOURCE = String.raw`using System;
+using System.IO;
+using System.Runtime.InteropServices;
+
+public static class OfficeKitWinTrustVerifier
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINTRUST_FILE_INFO
+    {
+        public uint cbStruct;
+        public IntPtr pcwszFilePath;
+        public IntPtr hFile;
+        public IntPtr pgKnownSubject;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINTRUST_DATA
+    {
+        public uint cbStruct;
+        public IntPtr pPolicyCallbackData;
+        public IntPtr pSIPClientData;
+        public uint dwUIChoice;
+        public uint fdwRevocationChecks;
+        public uint dwUnionChoice;
+        public IntPtr pFile;
+        public uint dwStateAction;
+        public IntPtr hWVTStateData;
+        public IntPtr pwszURLReference;
+        public uint dwProvFlags;
+        public uint dwUIContext;
+        public IntPtr pSignatureSettings;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINTRUST_SIGNATURE_SETTINGS
+    {
+        public uint cbStruct;
+        public uint dwIndex;
+        public uint dwFlags;
+        public uint cSecondarySigs;
+        public uint dwVerifiedSigIndex;
+        public IntPtr pCryptoPolicy;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CRYPT_PROVIDER_CERT_HEADER
+    {
+        public uint cbStruct;
+        public IntPtr pCert;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CERT_CONTEXT
+    {
+        public uint dwCertEncodingType;
+        public IntPtr pbCertEncoded;
+        public uint cbCertEncoded;
+        public IntPtr pCertInfo;
+        public IntPtr hCertStore;
+    }
+
+    [DllImport("wintrust.dll", ExactSpelling = true, PreserveSig = true)]
+    private static extern int WinVerifyTrust(IntPtr hwnd, ref Guid actionId, ref WINTRUST_DATA data);
+
+    [DllImport("wintrust.dll", ExactSpelling = true)]
+    private static extern IntPtr WTHelperProvDataFromStateData(IntPtr stateData);
+
+    [DllImport("wintrust.dll", ExactSpelling = true)]
+    private static extern IntPtr WTHelperGetProvSignerFromChain(
+        IntPtr providerData,
+        uint signerIndex,
+        [MarshalAs(UnmanagedType.Bool)] bool counterSigner,
+        uint counterSignerIndex
+    );
+
+    [DllImport("wintrust.dll", ExactSpelling = true)]
+    private static extern IntPtr WTHelperGetProvCertFromChain(IntPtr signer, uint certIndex);
+
+    private static void CloseState(ref WINTRUST_DATA data, ref Guid actionId)
+    {
+        if (data.hWVTStateData == IntPtr.Zero) return;
+        data.dwStateAction = 2;
+        WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
+        data.hWVTStateData = IntPtr.Zero;
+    }
+
+    public static object Verify(string filePath, uint revocationFlags, uint signatureIndex)
+    {
+        if (signatureIndex != 0)
+            throw new ArgumentException("primary_signature_only");
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException("authenticode_file_missing");
+
+        IntPtr pathPointer = IntPtr.Zero;
+        IntPtr fileInfoPointer = IntPtr.Zero;
+        IntPtr signatureSettingsPointer = IntPtr.Zero;
+        WINTRUST_DATA data = new WINTRUST_DATA();
+        Guid actionId = new Guid("00AAC56B-CD44-11D0-8CC2-00C04FC295EE");
+        uint secondarySignatureCount = 0;
+        uint verifiedSignatureIndex = 0;
+        int status = unchecked((int)0x800B0100);
+        string signerCertificateBase64 = null;
+
+        try
+        {
+            pathPointer = Marshal.StringToCoTaskMemUni(filePath);
+            WINTRUST_FILE_INFO fileInfo = new WINTRUST_FILE_INFO();
+            fileInfo.cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_FILE_INFO));
+            fileInfo.pcwszFilePath = pathPointer;
+
+            fileInfoPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_FILE_INFO)));
+            Marshal.StructureToPtr(fileInfo, fileInfoPointer, false);
+
+            WINTRUST_SIGNATURE_SETTINGS signatureSettings = new WINTRUST_SIGNATURE_SETTINGS();
+            signatureSettings.cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_SIGNATURE_SETTINGS));
+            signatureSettings.dwIndex = 0;
+            signatureSettings.dwFlags = 0x00000003; // WSS_VERIFY_SPECIFIC | WSS_GET_SECONDARY_SIG_COUNT
+            signatureSettings.dwVerifiedSigIndex = 0;
+
+            signatureSettingsPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_SIGNATURE_SETTINGS)));
+            Marshal.StructureToPtr(signatureSettings, signatureSettingsPointer, false);
+
+            data.cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_DATA));
+            data.dwUIChoice = 2; // WTD_UI_NONE
+            data.fdwRevocationChecks = 1; // WTD_REVOKE_WHOLECHAIN
+            data.dwUnionChoice = 1; // WTD_CHOICE_FILE
+            data.pFile = fileInfoPointer;
+            data.dwStateAction = 1; // WTD_STATEACTION_VERIFY
+            data.dwProvFlags = revocationFlags;
+            data.pSignatureSettings = signatureSettingsPointer;
+
+            // Verify exactly the primary signature and collect the secondary count
+            // in the same WinTrust call. No automatic secondary fallback.
+            status = WinVerifyTrust(new IntPtr(-1), ref actionId, ref data);
+
+            signatureSettings = (WINTRUST_SIGNATURE_SETTINGS)Marshal.PtrToStructure(
+                signatureSettingsPointer, typeof(WINTRUST_SIGNATURE_SETTINGS));
+            secondarySignatureCount = signatureSettings.cSecondarySigs;
+            verifiedSignatureIndex = signatureSettings.dwVerifiedSigIndex;
+
+            if (status == 0 && verifiedSignatureIndex == 0)
+            {
+                IntPtr providerData = WTHelperProvDataFromStateData(data.hWVTStateData);
+                if (providerData == IntPtr.Zero)
+                    throw new InvalidOperationException("wintrust_provider_state_unavailable");
+
+                IntPtr signer = WTHelperGetProvSignerFromChain(providerData, 0, false, 0);
+                if (signer == IntPtr.Zero)
+                    throw new InvalidOperationException("wintrust_primary_signer_unavailable");
+
+                IntPtr providerCertPointer = WTHelperGetProvCertFromChain(signer, 0);
+                if (providerCertPointer == IntPtr.Zero)
+                    throw new InvalidOperationException("wintrust_primary_certificate_unavailable");
+
+                CRYPT_PROVIDER_CERT_HEADER providerCert =
+                    (CRYPT_PROVIDER_CERT_HEADER)Marshal.PtrToStructure(
+                        providerCertPointer, typeof(CRYPT_PROVIDER_CERT_HEADER));
+                if (providerCert.pCert == IntPtr.Zero)
+                    throw new InvalidOperationException("wintrust_primary_certificate_context_unavailable");
+
+                CERT_CONTEXT certificate = (CERT_CONTEXT)Marshal.PtrToStructure(
+                    providerCert.pCert, typeof(CERT_CONTEXT));
+                int certificateLength = checked((int)certificate.cbCertEncoded);
+                if (certificateLength < 1 || certificateLength > 65536 || certificate.pbCertEncoded == IntPtr.Zero)
+                    throw new InvalidOperationException("wintrust_primary_certificate_size_invalid");
+
+                byte[] certificateBytes = new byte[certificateLength];
+                Marshal.Copy(certificate.pbCertEncoded, certificateBytes, 0, certificateLength);
+                signerCertificateBase64 = Convert.ToBase64String(certificateBytes);
+            }
+        }
+        finally
+        {
+            CloseState(ref data, ref actionId);
+            if (signatureSettingsPointer != IntPtr.Zero) Marshal.FreeHGlobal(signatureSettingsPointer);
+            if (fileInfoPointer != IntPtr.Zero) Marshal.FreeHGlobal(fileInfoPointer);
+            if (pathPointer != IntPtr.Zero) Marshal.FreeCoTaskMem(pathPointer);
+        }
+
+        return new
+        {
+            status = status,
+            verifiedSigIndex = verifiedSignatureIndex,
+            secondarySignatureCount = secondarySignatureCount,
+            signerCertificateBase64 = signerCertificateBase64
+        };
+    }
+}`;
+
+function runWinTrustVerification(helperPath, { revocationMode, spawnImpl = spawnSync } = {}) {
+  const mode = WINTRUST_REVOCATION_MODES[revocationMode];
+  if (!mode) throw new TypeError("windows_host_authenticode_revocation_mode_invalid");
+
+  const encodedPath = Buffer.from(helperPath, "utf16le").toString("base64");
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `$source = '${WINTRUST_VERIFIER_SOURCE}'`,
+    "Add-Type -TypeDefinition $source -Language CSharp",
+    `$filePath = [System.Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${encodedPath}'))`,
+    `$result = [OfficeKitWinTrustVerifier]::Verify($filePath, [uint32]${mode.flags}, [uint32]0)`,
+    "[Console]::Out.Write(($result | ConvertTo-Json -Compress -Depth 3))"
+  ].join("; ");
+
+  const output = runChecked("powershell.exe", [
     "-NoLogo",
     "-NoProfile",
     "-NonInteractive",
@@ -547,7 +756,75 @@ export function verifyAuthenticodeHelper(helperPath, {
     "AllSigned",
     "-Command",
     script
-  ], spawnImpl);
+  ], spawnImpl, mode.timeout);
+
+  let record;
+  try {
+    record = JSON.parse(output);
+  } catch {
+    throw new Error("windows_host_authenticode_response_invalid");
+  }
+  assertExactKeys(record, [
+    "status", "verifiedSigIndex", "secondarySignatureCount", "signerCertificateBase64"
+  ], "windows_host_authenticode_response_schema_invalid");
+
+  const status = Number(record.status);
+  if (!Number.isInteger(status)) throw new Error("windows_host_authenticode_status_invalid");
+  if (status !== 0) {
+    const unsignedStatus = status >>> 0;
+    if (unsignedStatus === 0x800B010C) throw new Error("windows_host_authenticode_publisher_revoked");
+    if (unsignedStatus === 0x80092013 || unsignedStatus === 0x800B010E) {
+      throw new Error("windows_host_authenticode_revocation_unavailable");
+    }
+    throw new Error("windows_host_authenticode_verification_failed:" + unsignedStatus.toString(16).padStart(8, "0"));
+  }
+  if (record.verifiedSigIndex !== 0) {
+    throw new Error("windows_host_authenticode_signature_index_mismatch:"
+      + String(record.verifiedSigIndex) + ":" + String(record.secondarySignatureCount));
+  }
+  if (!Number.isSafeInteger(record.secondarySignatureCount) || record.secondarySignatureCount < 0) {
+    throw new Error("windows_host_authenticode_secondary_signature_count_invalid");
+  }
+  const certificateBytes = decodeCanonicalBase64(
+    record.signerCertificateBase64,
+    "windows_host_authenticode_signer_certificate_invalid",
+    65536
+  );
+  let certificate;
+  try {
+    certificate = new X509Certificate(certificateBytes);
+  } catch {
+    throw new Error("windows_host_authenticode_signer_certificate_invalid");
+  }
+  const signerSpki = certificate.publicKey.export({ type: "spki", format: "der" });
+  const signerSpkiSha256 = createHash("sha256").update(signerSpki).digest("hex");
+  return Object.freeze({
+    verifiedSignatureIndex: 0,
+    secondarySignatureCount: record.secondarySignatureCount,
+    signerSpkiSha256
+  });
+}
+
+export function verifyAuthenticodeHelper(helperPath, {
+  spawnImpl = spawnSync,
+  expectedSpkiSha256,
+  signatureIndex = 0,
+  revocationMode = "cache-only-chain-exclude-root-fail-closed"
+} = {}) {
+  if (typeof helperPath !== "string" || !isAbsolute(helperPath) || !existsSync(helperPath)) {
+    throw new Error("windows_host_cng_helper_missing");
+  }
+  if (typeof expectedSpkiSha256 !== "string" || !/^[0-9a-f]{64}$/.test(expectedSpkiSha256)) {
+    throw new Error("windows_host_publisher_policy_unavailable");
+  }
+  if (signatureIndex !== 0) {
+    throw new Error("windows_host_authenticode_signature_index_unsupported");
+  }
+
+  const verified = runWinTrustVerification(helperPath, { revocationMode, spawnImpl });
+  if (verified.signerSpkiSha256 !== expectedSpkiSha256) {
+    throw new Error("windows_host_authenticode_publisher_mismatch");
+  }
   return true;
 }
 
@@ -599,7 +876,14 @@ export function createWindowsHost({
   spawnImpl = spawnSync,
   resolveUserSid = () => resolveWindowsUserSid({ spawnImpl }),
   applyAcl = (path, userSid) => applyWindowsPrivateAcl(path, { userSid, spawnImpl }),
-  verifyHelper = path => verifyAuthenticodeHelper(path, { spawnImpl }),
+  edition = "universal",
+  publisherPolicyLoader = loadPublisherPolicy,
+  verifyHelper = (path, policy) => verifyAuthenticodeHelper(path, {
+    spawnImpl,
+    expectedSpkiSha256: policy.publisherSpkiSha256,
+    signatureIndex: policy.signatureIndex,
+    revocationMode: policy.revocationPolicy.runtimeStartup
+  }),
   databaseFactory = path => new DatabaseSync(path),
   runtimeFactory = createWindowsNodeIdentityRuntime,
   hardwareProbe = detectHostHardwareCapabilities,
@@ -661,11 +945,34 @@ export function createWindowsHost({
       requestedProfile: profileOverride,
       requestedRenderer: rendererOverride
     });
-    if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
-    if (verifyHelper(helperPath) !== true) throw new Error("windows_host_cng_helper_untrusted");
-
     installationId = readOrCreateInstallationId(identityPath, makeId);
     applyAcl(identityPath, userSid);
+    if (!existsSync(helperPath)) throw new Error("windows_host_cng_helper_missing");
+    if (typeof publisherPolicyLoader !== "function") {
+      throw new TypeError("windows_host_publisher_policy_loader_required");
+    }
+    let publisherPolicy;
+    try {
+      publisherPolicy = publisherPolicyLoader({
+        policyPath: join(root, "publisher-policy.json"),
+        installationId,
+        edition,
+        spawnImpl
+      });
+    } catch (error) {
+      if (error?.code === "ENOENT") throw new Error("windows_host_publisher_policy_unavailable");
+      throw error;
+    }
+    if (!publisherPolicy || publisherPolicy.installationId !== installationId
+      || publisherPolicy.edition !== edition || publisherPolicy.signatureIndex !== 0
+      || typeof publisherPolicy.publisherSpkiSha256 !== "string"
+      || !/^[0-9a-f]{64}$/.test(publisherPolicy.publisherSpkiSha256)
+      || publisherPolicy.revocationPolicy?.runtimeStartup !== "cache-only-chain-exclude-root-fail-closed") {
+      throw new Error("windows_host_publisher_policy_invalid");
+    }
+    if (verifyHelper(helperPath, publisherPolicy) !== true) {
+      throw new Error("windows_host_cng_helper_untrusted");
+    }
     monotonicAnchorProvider = monotonicAnchorProviderFactory({ installationId, platform, dataDirectory });
     if (!monotonicAnchorProvider || typeof monotonicAnchorProvider.read !== "function"
       || typeof monotonicAnchorProvider.advance !== "function"

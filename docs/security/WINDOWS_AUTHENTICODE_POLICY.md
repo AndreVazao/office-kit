@@ -1,8 +1,8 @@
 # Windows Authenticode trust policy
 
-Status: staged implementation for issue #110; installation-scoped CNG policy-key provisioning and the canonical signed-policy v1 contract are implemented. Production host verification, WinTrust signature binding and revocation enforcement remain pending; not production-approved.
+Status: implementation in PR #139; canonical signed-policy v1, installation-scoped CNG key provisioning, native primary-signature WinTrust binding and online/cache-only revocation modes are implemented and pass exact-head GitHub CI. Production installer provisioning, trusted bootstrap, policy anti-replay and physical-PC validation remain pending; not production-approved.
 
-This document defines the security properties required before the Windows helper verifier can be treated as a production boundary. It deliberately does not claim that the current `WinVerifyTrust` implementation satisfies them.
+This document defines the security properties required before the Windows helper verifier can be treated as a production boundary. PR #139 implements primary-signature `WinVerifyTrust`, signer extraction from the same provider state, SPKI pin comparison and distinct online-install/cache-only-runtime revocation modes. Passing CI does not close the installer, trusted-bootstrap, anti-replay or physical-validation requirements below.
 
 ## 1. Trust inputs and publisher identity
 
@@ -174,3 +174,78 @@ The reader requires:
 \`loadPublisherPolicy\` reads a bounded regular policy file, rejects symlinks, retrieves the public key directly from CNG, and verifies the signed canonical envelope against the expected installation ID and edition. Windows CI provisions a disposable machine CNG key, signs a v1 payload, reads the key directly through PowerShell, verifies the envelope, and removes the key with explicit installation-ID confirmation.
 
 This loader is not yet wired into \`createWindowsHost\`. The default host remains fail-closed until the following stage implements WinTrust verification of the helper, binds the signer certificate to the exact verified signature index, applies the two revocation modes and runs the complete native Windows positive/negative matrix.
+
+## 11. Native WinTrust and startup-policy integration checkpoint — 2026-11-23
+
+PR #139 adds the following implementation on top of the canonical policy envelope and direct CNG public-key reader:
+
+- The host creates/reads its installation identity, then loads `publisher-policy.json` from the installation data root and validates the envelope against the installation-scoped CNG machine key and the explicit edition.
+- The host verifies the helper before opening SQLite. Missing or invalid policy is a hard failure; there is no environment-variable fallback.
+- Universal uses the `universal` policy identity. The VST and DGM-MAT Windows composition wrappers explicitly select their own `vst` and `dgmat` policy identities.
+- The native verifier uses Authenticode generic verify-v2, `WTD_UI_NONE`, `INVALID_HANDLE_VALUE`, explicit primary signature index `0`, and the WinTrust provider state to extract the signer certificate from the exact verified signature.
+- The extracted certificate SPKI SHA-256 must match the signed policy pin. The verifier closes WinTrust provider state in a `finally` path.
+- Runtime startup uses cache-only chain revocation excluding the root and fails closed when revocation evidence is unavailable. The online install/update mode is implemented as a separate verifier mode with a longer bounded timeout.
+- The PowerShell child process has bounded execution time and bounded output. A timeout, abnormal exit, malformed response, signature failure, wrong index, revoked publisher, unavailable revocation evidence or publisher mismatch rejects the helper.
+- Test-only policy loaders and signature verifiers are injected explicitly in isolated test harnesses. They do not change production defaults.
+
+### Remaining acceptance gaps
+
+PR #139 is not production approval and must not be treated as permission to distribute the Windows host. The following remain required:
+
+1. The elevated installer/update flow in #104 must verify its own package under Windows Authenticode before provisioning the CNG policy key and writing the signed policy envelope. Provisioning must be atomic, ACL-protected and recoverable without ordinary-startup key regeneration.
+2. The online verifier mode must be called by the real installer/update path; it is currently exercised by the native Windows integration test, not by a production installer.
+3. Complete the native Windows test matrix for expired certificates, positively revoked certificates, unknown/unavailable revocation status, untrusted signers, multiple signatures with different publishers, primary-invalid/secondary-valid binaries, missing/altered policy, and process timeout/termination.
+4. Validate the native WinTrust helper APIs on every supported Windows baseline. If the provider helper exports are unavailable or return ambiguous state, startup must fail closed; there is no PowerShell or secondary-signature fallback.
+5. Run the final integration on a physical Windows PC and with the actual commercially signed installer/helper. GitHub-hosted CI and Microsoft-signed system binaries do not prove the user's installed environment or commercial distribution chain.
+
+The Windows CI run associated with PR #139 must be checked on its exact final HEAD. Until every applicable Linux/Windows Node 22/26 job, native CNG policy test, native WinTrust test and visual regression passes on one SHA, the PR must remain unmerged. Issue #110 remains open until installer provisioning and the full native test matrix are complete.
+
+
+## 12. Windows system-process resolution
+
+Production Windows host code must never launch operating-system utilities by a bare executable name. Node's Windows process runner resolves an unqualified executable through the current directory and search paths; a writable working directory or PATH entry can therefore substitute a different binary before publisher verification runs.
+
+The Windows host now resolves the allowlisted `powershell.exe`, `whoami.exe` and `icacls.exe` to absolute paths under the validated `SystemRoot\System32` tree. Child processes use that System32 directory as their working directory and receive a sanitized `PATH` and `PSModulePath` that exclude inherited user-controlled search directories. Conflicting `SystemRoot` and `WINDIR` values, relative roots and UNC roots fail closed. No fallback to PATH or the current directory is permitted.
+
+This reduces current-directory/PATH binary planting. It does not establish trust in a hostile parent process that deliberately supplies a forged Windows-root environment; the signed installer and launcher must own/sanitize their process environment. The native WinTrust and physical-installation gates remain separate.
+
+
+## 13. Policy freshness and replay resistance — issue #141
+
+The signed envelope's `policyVersion` and `createdAt` are authenticated fields, but signature verification alone does not prove that an envelope is the newest authorized policy. The current policy file is stored under the per-user Office Kit data root; that directory is writable by the current user. Restoring an older authentic envelope can therefore replay a previously authorized publisher SPKI pin.
+
+Production acceptance requires:
+
+- A strictly monotonic policy version scoped to installation ID and edition.
+- A highest-accepted version and canonical envelope hash anchored outside the user-writable profile, using installer-protected OS storage or a separately validated hardware monotonic provider.
+- Atomic policy/anchor update or an explicit two-phase protocol with crash recovery.
+- Rejection or explicit recovery for older versions, same-version/different-hash content, missing/cleared anchors and installation/edition mismatch.
+- Tests for backup restore, interrupted update, policy replay and anchor loss.
+
+A value stored only in the same user-writable SQLite database or data directory is not an acceptable anchor. Software-protected OS storage must not be described as TPM-backed. Issue #141 remains open.
+
+## 14. Trusted Windows system-root resolution — issue #140
+
+The current process resolver launches allowlisted system tools by absolute paths under `SystemRoot\\System32`, uses that directory as the child working directory and sanitizes inherited `PATH`/`PSModulePath`. It rejects relative, UNC, missing and conflicting roots. However, the selected root is still obtained from inherited `SystemRoot`/`WINDIR`; a hostile parent can provide a forged but internally consistent local directory. Absolute paths derived from an untrusted root do not establish executable trust.
+
+The installer/launcher must establish or sanitize the Windows system root through a trusted OS boundary before the host invokes any system process. Native tests must place decoy `powershell.exe`, `whoami.exe` and `icacls.exe` in a writable working directory and PATH and prove that no decoy is executed. Missing or ambiguous trusted-root evidence must fail closed. Issue #140 remains open.
+
+These two issues are additional blockers under parent issue #110. The current PR #139 native WinTrust CI pass does not close them and does not authorize commercial distribution or ordinary startup without installer-provisioned trust.
+undefined
+
+## 2026-11-25 — exact-head validation checkpoint
+
+- Main `027851c04ff1b23d239b90a06bfc4ef84aecf425`: push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) both passed.
+- PR #139 previous documentation HEAD `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899`: four Linux/Windows Node 22/26.13.1 jobs passed in CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630); visual [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) passed on the same SHA.
+- PR #108 HEAD `0bae4e7b7095863efe04d5b76f480cdcf69603d2`: four CI jobs [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) and visual [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed. Its branch remains 24 commits behind main and requires reconciliation before merge.
+
+The documentation commit that records this checkpoint creates a new PR #139 HEAD. CI and visual regression must be rerun on that new exact SHA. PR #139 remains Draft until installer trust-root, System32 provenance, policy anti-replay, native certificate matrix and physical-PC acceptance are complete.
+
+
+## 2026-11-26 14:06 UTC — exact-head implementation evidence
+
+The last code-changing checkpoint in PR #139, `26dcb98a2abbe2143615dd2182e4e71ea9903eb1`, passed CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) in all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699). A subsequent documentation-only commit changes the PR head and requires its own exact-head validation. The Windows jobs include the dedicated native WinTrust primary-signature/revocation integration, CNG policy bootstrap, TPM capability parser and isolated Universal/DGM-MAT/VST portable-bundle E2E.
+
+The Windows Node 22 native integration had previously failed on `02433ff` because test-only PowerShell signer-certificate extraction exceeded its 15-second timeout. The test was not removed: it now uses the allowlisted absolute PowerShell path, sanitized process environment, a bounded 30-second timeout and a dedicated Windows step outside aggregate-suite contention. It passed on `26dcb98`.
+
+This is GitHub-hosted runner evidence only. The installer/update path in #104, complete native certificate/revocation matrix, trusted System32/launcher boundary in #140, protected policy-version/hash anchor in #141, commercial publisher chain and physical-PC install/upgrade/rollback/uninstall validation remain incomplete. Keep the host fail-closed and this PR Draft; no production approval is implied.

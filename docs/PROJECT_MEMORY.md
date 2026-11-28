@@ -1,19 +1,33 @@
 # Office Kit — memória persistente do projeto
 
-Última atualização: 2026-11-23
+Última atualização: 2026-11-27
 
-## Checkpoint global — 2026-11-23
+## Current global checkpoint — 2026-11-26 14:06 UTC
+
+- **Main:** `027851c04ff1b23d239b90a06bfc4ef84aecf425`. Push CI [#45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [#45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) both passed on this exact SHA.
+- **Repository inventory:** 94 branches, two open PRs (#139 and #108), and ten open issues (#57, #58, #104, #109, #110, #121, #124, #140, #141, #142).
+- **PR #139 implementation code checkpoint:** `26dcb98a2abbe2143615dd2182e4e71ea9903eb1` (70 commits ahead, zero behind main at the last comparison) passed CI [#45834056733](https://github.com/AndreVazao/office-kit/actions/runs/45834056733) in all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#45834056699](https://github.com/AndreVazao/office-kit/actions/runs/45834056699) on that exact code SHA. The subsequent documentation-only refresh is a distinct PR head and must be validated independently; always fetch the live PR head from GitHub before merge decisions.
+- **Windows Node 22 failure and correction:** previous head `02433ff2f836ec0842eadff22c7ac6045e97678f` had a real CI failure (427 passed, 10 skipped, 1 failed): test-only signer-certificate extraction timed out after 15 seconds. The test now uses the allowlisted absolute PowerShell path and sanitized process environment, a bounded 30-second timeout, and a dedicated Windows CI step outside aggregate-suite contention. The native test remains enabled and ran successfully on `26dcb98`; it was not removed or replaced by a fake.
+- **Trusted bootstrap probe:** the .NET 8 project calls `GetSystemDirectoryW` and `GetCurrentPackageFullName`; Windows CI confirms that matching forged `SystemRoot`/`WINDIR` values do not change the OS-reported system directory. It is still a probe only: no signed MSIX activation, Package Integrity Enforcement, Node launch, authenticated parent/child IPC or production handoff exists. The production resolver remains environment-derived; #140 stays open.
+- **Publisher-policy replay:** the default monotonic anchor provider remains unsupported; no TPM NV index or protected policy-version/hash high-water mark exists. #141 remains open and ordinary Windows startup must remain fail-closed.
+- **PR #108:** exact head `fc20d1dce8d3d6182906e7a0386255686a72b406`; CI [#45792318835](https://github.com/AndreVazao/office-kit/actions/runs/45792318835) and visual [#45792318876](https://github.com/AndreVazao/office-kit/actions/runs/45792318876) passed on that exact SHA. Its branch is 225 commits ahead and 24 behind main; all ten changed files remain under `avatar-studio/`. Browser, likeness, deformation-stress and external GLB acceptance remain pending.
+- **Repository governance:** the GitHub branch metadata endpoint currently reports `main.protected=false`. Issue #142 tracks PR-only protection and required current-head CI/visual checks. No repository rules, permissions or external infrastructure settings were changed.
+- **Open production/governance gates:** #104 installer/host lifecycle; #109 durable licensing; #110 Authenticode policy lifecycle; #140 trusted System32/launcher boundary; #141 policy anti-replay; #142 main protection; #58 SQLite journal/TPM recovery; #57 live DGM-MAT session; #121 backend-enforced PAPER-only boundary; #124 private VST remote transport. Issues #129 and #130 are closed.
+- Universal remains backend-neutral. DGM-MAT and VST keep separate host compositions, adapters, session/credential providers and data roots. Portable-bundle CI is not MSI/MSIX installation, live backend connectivity, physical-device acceptance or commercial release evidence.
+- PR #139 remains Draft. Do not merge based on green CI alone: #104, #110, #140, #141 and physical-PC validation remain incomplete. No installer format has been selected and no TPM-backed anti-replay guarantee is claimed.
+
+## Historical checkpoint global — 2026-11-23 (superseded by the 2026-11-26 checkpoint)
 - Runtime/code baseline antes da PR documental #128: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e`. A PR #128 foi squash-merged como `ea3d1d1bc56c1e2e218b8ea55c1b87b4a3517408` a partir do HEAD `55584dfee94a532a7a92724e3b0da99de80ea400`; CI #45200949378 e regressão visual #45200949448 passaram nesse HEAD exato. A PR alterou apenas os quatro documentos canónicos; o código/runtime não mudou desde o baseline `68bb09ea`.
 - PR #127 (Universal backend discovery contract) está fechada como merged. HEAD final da PR: `21d91276fc7d8e0c1bf39294ea5adb5712e7d929`. CI #45191831553 e regressão visual #45191831480 passaram nesse SHA exato. O commit de integração do contrato foi `68bb09ea`; a PR documental #128 avançou a main para `ea3d1d1b` sem alterar código/runtime.
 - A matriz CI passou em Linux e Windows com Node 22 e Node 26.13.1. Os jobs Windows executaram CNG, parser TPM e E2E dos bundles Universal, DGM-MAT e VST; os passos Windows foram corretamente ignorados nos jobs Linux.
 - O contrato de descoberta é genérico e puro: não executa rede, HTTP, autenticação, importação dinâmica, comandos ou ativação. Recusa URLs com credenciais/query/fragment, exige HTTPS remoto e permite HTTP apenas em loopback. Capacidades são claims não confiáveis; a descoberta não concede permissões.
 - A implementação atual é apenas o contrato/normalizador. Conectores reais de fontes, catálogo vivo, probes de leitura com consentimento e UX de seleção/ativação continuam pendentes.
-- PR #108 permanece aberta em Draft e isolada em `avatar-studio/`, HEAD `c2cbe300752c9d4949d5b5df395c1fdef03794bb`. CI #45166789646 e visual #45166789723 passaram nesse SHA. O harness de browser, inspeção visual dos GLB, stress de deformação e aceitação externa continuam pendentes; não promover a PR nem declarar o Avatar Studio pronto.
+- PR #108 permanece aberta em Draft e isolada em `avatar-studio/`, HEAD `fc20d1dce8d3d6182906e7a0386255686a72b406`. CI #45792318835 e visual #45792318876 passaram nesse SHA. A branch está 225 commits à frente e 24 atrás de main; o harness de browser ainda não foi executado e continuam pendentes a inspeção visual dos GLB, stress de deformação e aceitação externa. Não promover a PR nem declarar o Avatar Studio pronto.
 - As PRs #118, #119, #120 e #122 integraram as fases 1, 2, 3 e 5a do cockpit VST. A Fase 4 continua bloqueada pela issue #121.
-- Lacuna VST ainda presente na main: `/health` está em `COCKPIT_ENDPOINTS`; o helper privado usado pelo adapter envia `X-Token` a todos os endpoints e um 401 marca `authenticationRejected`. PR #126 foi fechada sem merge; PR #125 também não foi integrada. A correção está agora rastreada na issue #129 e deve ser concluída antes de considerar o diagnóstico público correto.
+- Fronteira VST health/auth integrada pela PR #132 (`2dcfcb6d892ebdcf454855d736a3dc086df31869`): `GET /health` é público, não envia `X-Token` e uma falha pública não invalida a sessão privada. Issue #129 está fechada. O transporte remoto continua separado na issue #124.
 - VST permanece loopback-only em `http://127.0.0.1:8765`. Tailscale/remote continua desativado até cumprir a issue #124; não aceitar URLs remotos arbitrários nem enviar owner token por HTTP LAN.
 - PAPER controls continuam desativados. Não encaminhar start/pause/resume/stop através de `/assistant/message`; a issue #121 exige uma garantia PAPER-only atómica no backend.
-- Issues abertas de produção acompanhadas: #57, #58, #104, #109, #110, #121, #124, #129 (VST public health/auth boundary) e #130 (nullable CNG AlgorithmGroup warnings).
+- Issues abertas de produção/governance acompanhadas: #57, #58, #104, #109, #110, #121, #124, #140 (trusted Windows system-root/launcher), #141 (publisher-policy anti-replay) e #142 (main branch protection). Issues #129 e #130 foram fechadas após PRs #132 e #133.
 
 ## VST cockpit integration — 2026-11-22
 - Runtime/code baseline: `68bb09ea21ff03d40c74bee49666ea34aa79fa6e` (inclui o contrato Universal de descoberta da PR #127; a PR documental #128 não alterou código).
@@ -22,7 +36,7 @@
 - PR #120 integrated real research queue task normalization and department evidence availability. Task progress is shown only if supplied by VST; agent inventory remains explicitly unavailable.
 - Issue #121 blocks PAPER controls: the current VST API does not guarantee an atomic PAPER-only boundary for all start/pause/resume/stop operations. Office Kit must not invoke these routes or route controls through assistant messages.
 - PR #122 merged as `ee3540c05ccf3f00478b8f2c67f9133c1a80ab42` from final HEAD `48114a47a113bd53b75aa2a2c061d0362db1a0f2`; CI #45064563249 and visual regression #45064563221 passed. VST host diagnostics use the OfficeHealthRecoveryEngine; recovery reconnects only the local adapter and requires a fresh synchronized observer snapshot. It must not restart VST, renew credentials, write to backend or retry after authentication rejection.
-- Public health/auth separation remains unimplemented on main: the current adapter sends the private session token to `/health` and treats its 401 as private authentication rejection. PR #126 was closed without merge; retain this as a security/diagnostic correction.
+- Public health/auth separation is integrated by PR #132: `/health` is public and omits the private token; public failures cannot reject the private session. Issue #129 is closed. Live VST and physical-PC E2E remain pending.
 - VST backend, DGM-MAT, Universal and Avatar Studio are not modified by the VST integration. LAN/Tailscale and live E2E remain pending.
 
 
@@ -765,3 +779,59 @@ Main HEAD: `d97522e5f3797ee232e5fde74185805eb5a13aea`.
 - No VST or DGM-MAT backend repository was changed. Avatar Studio (#108) was not modified. No PAPER controls or remote VST transport were enabled. No physical-PC or live backend E2E is claimed.
 
 Open production/security gates include #110 Authenticode publisher policy and revocation; #104 native installers and lifecycle; #109 production licensing/activation; #58 real TPM/anti-rollback and physical recovery; #57 live DGM-MAT; #121 backend-enforced PAPER controls; and #124 private VST remote transport.
+
+
+## 2026-11-25 — installer trust-root evaluation and repository evidence
+
+Repository audit at 2026-11-25 13:22 UTC:
+- Main HEAD: `027851c04ff1b23d239b90a06bfc4ef84aecf425` (PR #138 removal of an unreviewed WinTrust test).
+- PR #139 remains open, Draft and mergeable at `13b190de4c4a0e18cb1ba33c9ad2d8e9344629fb`. CI [45405580412](https://github.com/AndreVazao/office-kit/actions/runs/45405580412) passed all four Ubuntu/Windows Node 22/26.13.1 jobs; visual regression [45405580584](https://github.com/AndreVazao/office-kit/actions/runs/45405580584) passed on the same exact HEAD.
+- PR #108 remains a separate Avatar Studio Draft at `0bae4e7b7095863efe04d5b76f480cdcf69603d2`. CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) passed all four Linux/Windows Node 22/26.13.1 jobs and visual regression [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305) passed on that exact HEAD. Its changed files are confined to `avatar-studio/`; its real-browser acceptance harness and external GLB validation remain outstanding.
+- Repository listing returned 94 branches, two open PRs and nine open issues. No direct main commit or merge was made in this checkpoint.
+
+### Windows installer trust-root decision remains open
+
+Issue [#104](https://github.com/AndreVazao/office-kit/issues/104) now records the package-format evaluation. The current portable `.cmd` launcher starts Node before verifying it, and the .NET CNG helper is a child process, not a trusted parent. Neither can be treated as the trust root for the executable that starts it. The builder's environment-based Node/helper discovery is a build/test mechanism, not a production installation boundary.
+
+Microsoft's current packaging constraints were checked:
+- MSIX requires a signed package and a trusted publisher chain for deployment. MSIX does not support Windows drivers or per-user Windows services; it supports session-0 per-machine services under LocalSystem, LocalService or NetworkService. See [MSIX signing](https://learn.microsoft.com/windows/msix/package/signing-package-overview) and [desktop app preparation/limitations](https://learn.microsoft.com/windows/msix/desktop/desktop-to-uwp-prepare).
+- A fully verified MSI installation requires a signed package, internal cabinets or signed external cabinets with correctly authored `MsiDigitalSignature`/`MsiDigitalCertificate` tables, and custom actions stored within the package or installed with it. The external-cabinet tables are not blanket verification of arbitrary files copied by an external script. See [fully verified signed installation](https://learn.microsoft.com/en-us/windows/win32/msi/authoring-a-fully-verified-signed-installation) and [external cabinet signature scope](https://learn.microsoft.com/en-us/windows/win32/msi/digital-signatures-and-external-cabinet-files).
+
+No format is selected. A prototype must prove package trust and publisher identity on supported Windows versions, map the required per-user/per-machine host lifecycle, and test install/upgrade/rollback/repair/uninstall separately for Universal, DGM-MAT and VST. Do not promote a CMD/PowerShell wrapper to a bootstrapper or call an unsigned helper to establish its own trust.
+
+### Remaining security boundaries
+
+- Issue [#140](https://github.com/AndreVazao/office-kit/issues/140): absolute System32 paths still derive from inherited `SystemRoot`/`WINDIR`. The current portable launcher is not a trusted parent; a native OS-root API inside the child helper cannot retroactively authenticate that helper's launch. Keep the issue open until a package/launcher trust root and constrained authenticated handoff exist, followed by adversarial decoy-executable tests.
+- Issue [#141](https://github.com/AndreVazao/office-kit/issues/141): the signed policy's version is not compared with a protected high-water mark. The default monotonic anchor provider is explicitly unsupported; the current TPM query is read-only capability discovery and does not provision/read/write an NV counter. Do not substitute user-writable SQLite or call the CNG Software KSP key TPM-backed. Keep the host fail-closed until an independently protected, crash-recoverable anchor and replay/restore tests exist.
+- Issue #110 remains the parent Authenticode production gate. Issue #104 owns the signed installer/update transaction and atomic CNG key/policy provisioning.
+
+The green PR #139 workflows prove the current implementation slice on its exact GitHub-hosted CI SHA only. They do not prove a signed commercial installer, physical-PC installation, a trusted OS-root handoff, TPM anti-rollback or production publisher trust.
+
+
+## 2026-11-25 — exact-head validation refresh
+
+- Main remains `027851c04ff1b23d239b90a06bfc4ef84aecf425`; push CI [45221372710](https://github.com/AndreVazao/office-kit/actions/runs/45221372710) and visual regression [45221372578](https://github.com/AndreVazao/office-kit/actions/runs/45221372578) both passed on that exact main SHA.
+- PR #139's documentation checkpoint HEAD `c64e45522b71cc5cc6bbcaa3d8dc4e270afa7899` passed CI [45624054630](https://github.com/AndreVazao/office-kit/actions/runs/45624054630) in all four Linux/Windows Node 22/26.13.1 jobs and visual regression [45624032952](https://github.com/AndreVazao/office-kit/actions/runs/45624032952) on the same SHA.
+- PR #108 HEAD `0bae4e7b7095863efe04d5b76f480cdcf69603d2` passed CI [45564991138](https://github.com/AndreVazao/office-kit/actions/runs/45564991138) in all four matrix jobs and visual regression [45564991305](https://github.com/AndreVazao/office-kit/actions/runs/45564991305). The branch is 214 commits ahead and 24 behind current main; all changed files remain under `avatar-studio/`. Keep Draft, reconcile with main before merge, and complete the real-browser/GLB acceptance gates.
+- This entry is a historical exact-SHA record. The documentation-only commit that adds it creates a new PR #139 head and requires fresh CI and visual regression; the green results above must not be carried forward to that new SHA.
+
+PR #139 remains Draft. Issues #104, #110, #140 and #141 and physical-PC acceptance remain open. The host stays fail-closed; no installer format has been selected and no TPM-backed anti-replay provider is claimed.
+
+
+## 2026-11-27 — unsigned MSIX structural prototype and CI correction
+
+PR #139 added an isolated MSIX packaging experiment under tools/windows/msix-prototype/. On the code checkpoint 2ead8f6a544303e5525bacbe37db5c4a23c38bf5, CI [#46008048821](https://github.com/AndreVazao/office-kit/actions/runs/46008048821) passed all four Ubuntu/Windows Node 22/26.13.1 jobs and visual regression [#46008048810](https://github.com/AndreVazao/office-kit/actions/runs/46008048810) passed on the same SHA. Both Windows jobs built the .NET probe, ran the forged-SystemRoot/WINDIR check, built and unpacked the unsigned MSIX, inspected the manifest/block map/executable, and completed the existing CNG/WinTrust and three portable edition bundle tests.
+
+The MSIX output is deliberately unsigned and uses a development-only publisher. The bootstrapper executable is still a diagnostic probe: it reports GetSystemDirectoryW and package identity, then exits. It does not launch Node, authenticate a parent/child handoff, install/activate the package, demonstrate runtime PICE tamper blocking, or implement upgrade/rollback/repair/uninstall. Issues #104, #110, #140 and #141 remain open. No installer or production readiness is claimed.
+
+The preceding exact head 868769e291613ac12c02c724779943ae11c946e8 had a real test failure: windows-service-inspection.test.mjs still expected 60 seconds to be rejected after the implementation raised its maximum to 90 seconds to accommodate the 60-second CIM operation timeout plus process overhead. The test was corrected on 2ead8f6 to reject values below 250 ms and above 90 seconds, and to accept/assert the 90-second upper boundary. No failing test was skipped or suppressed.
+
+The MSIX prototype build is being hardened to refuse filesystem roots, the repository root, output paths containing the repository, reparse-point output directories and non-empty output directories. It no longer recursively deletes a caller-supplied output path. New Windows CI tests verify that a sentinel file in a non-empty output directory remains unchanged. This additional guard is awaiting validation on the next exact PR head.
+
+## 2026-11-28 — signed MSIX activation experiment
+
+- Extended the isolated .NET bootstrap probe to report both package full name and package family name. When running with package identity, it writes a uniquely named diagnostic marker under that package's LocalState directory. The marker is evidence of execution with the installed package identity, not a production IPC credential.
+- Added tools/windows/msix-prototype/test-package-activation.ps1. Each Windows CI job creates a short-lived self-signed code-signing certificate, imports only its public certificate into the runner's Local Machine Trusted People store, signs the experimental MSIX, installs it with Add-AppxPackage, activates the app through the Windows Shell AppsFolder identity, verifies package identity and the GetSystemDirectoryW result, verifies that the installed manifest declares Package Integrity Enforcement, uninstalls the package and removes the temporary trust entry.
+- CI checkpoint dc8c202e89db51be93fe51b319bcd60c6d92bbc8 passed Office Kit CI run 46150519236 on all four Ubuntu/Windows Node 22/26.13.1 jobs. The signed install/activation step passed on both Windows Node versions. Visual regression run 46150519209 passed on the same checkpoint.
+- Subsequent README formatting commit 7588a8e5d086084a4c845ef2ce3bec1cfa7fd7ba and this canonical documentation synchronization are later commits. The dc8c202 checks are historical for those later SHAs; exact-head CI and visual validation must be re-run and reported independently.
+- Evidence boundary: the certificate is ephemeral and self-signed, and the test runs on GitHub-hosted Windows runners. It does not establish commercial publisher trust, runtime PICE tamper blocking, production Node launch, authenticated parent/child IPC, CNG publisher-policy provisioning, upgrade/rollback/repair, full retained-data cleanup or physical-PC acceptance. Universal, DGM-MAT and VST are not production-ready from this experiment.

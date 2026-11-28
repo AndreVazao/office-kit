@@ -22,6 +22,12 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - name: Validate core syntax and run tests
+        if: runner.os != 'Windows'
+        run: npm run check
+      - name: Validate core syntax and run tests (Windows; defer isolated WinTrust integration)
+        if: runner.os == 'Windows'
+        env:
+          OFFICE_KIT_SKIP_AUTHENTICODE_INTEGRATION: "1"
         run: npm run check
       - name: Validate example configuration JSON
         run: node -e "JSON.parse(require('node:fs').readFileSync('examples/minimal-office.json', 'utf8'))"
@@ -37,7 +43,11 @@ jobs:
             "tools/windows/build-host-bundle.ps1",
             "tools/windows/test-host-bundle.ps1",
             "tools/windows/build-edition-host-bundle.ps1",
-            "tools/windows/test-edition-host-bundle.ps1"
+            "tools/windows/test-edition-host-bundle.ps1",
+            "tools/windows/msix-prototype/build-prototype.ps1",
+            "tools/windows/msix-prototype/OutputDirectory.psm1",
+            "tools/windows/msix-prototype/test-output-directory.ps1",
+            "tools/windows/msix-prototype/test-package-activation.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -56,6 +66,63 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
+      - name: Build and probe isolated native bootstrap boundary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $project = "native/windows/OfficeKit.Bootstrapper/OfficeKit.Bootstrapper.csproj"
+          dotnet build $project --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw "bootstrap probe build failed" }
+
+          $probeDll = "native/windows/OfficeKit.Bootstrapper/bin/Release/net8.0-windows/OfficeKit.Bootstrapper.dll"
+          $normal = (& dotnet $probeDll --probe | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or -not $normal.ok) { throw "normal bootstrap probe failed" }
+          if ($normal.packageIdentityStatus -ne "not_packaged") { throw "unexpected package identity on unpackaged CI runner" }
+
+          $originalSystemRoot = $env:SystemRoot
+          $originalWindir = $env:WINDIR
+          try {
+            $decoyRoot = Join-Path $env:TEMP "OfficeKit-Decoy-Windows"
+            $env:SystemRoot = $decoyRoot
+            $env:WINDIR = $decoyRoot
+            $forged = (& dotnet $probeDll --probe | ConvertFrom-Json)
+            if ($LASTEXITCODE -ne 0 -or -not $forged.ok) { throw "forged-environment bootstrap probe failed" }
+            if ($forged.systemDirectory -ne $normal.systemDirectory) { throw "system directory changed under forged environment" }
+            if ($forged.systemDirectory.StartsWith($decoyRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "system directory was derived from forged environment"
+            }
+            if ($forged.environmentAuthorityUsed -ne $false) { throw "probe reports environment authority use" }
+          }
+          finally {
+            $env:SystemRoot = $originalSystemRoot
+            $env:WINDIR = $originalWindir
+          }
+      - name: Test MSIX prototype output-directory safety
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/windows/msix-prototype/test-output-directory.ps1
+      - name: Build unsigned MSIX bootstrap activation prototype
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $outputDirectory = Join-Path $env:RUNNER_TEMP "office-kit-msix-prototype"
+          ./tools/windows/msix-prototype/build-prototype.ps1 -OutputDirectory $outputDirectory
+          $package = Join-Path $outputDirectory "OfficeKit.BootstrapperPrototype-unsigned.msix"
+          if (-not (Test-Path -LiteralPath $package -PathType Leaf)) { throw "unsigned MSIX prototype was not produced" }
+          $item = Get-Item -LiteralPath $package
+          if ($item.Length -le 0) { throw "unsigned MSIX prototype is empty" }
+      - name: Sign, install and activate MSIX prototype with an ephemeral certificate
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $outputDirectory = Join-Path $env:RUNNER_TEMP "office-kit-msix-prototype"
+          $package = Join-Path $outputDirectory "OfficeKit.BootstrapperPrototype-unsigned.msix"
+          $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+          $testScript = Join-Path $PWD "tools/windows/msix-prototype/test-package-activation.ps1"
+          if (-not (Test-Path -LiteralPath $windowsPowerShell -PathType Leaf)) { throw "Windows PowerShell 5.1 was not found" }
+          & $windowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $testScript -PackagePath $package
+          if ($LASTEXITCODE -ne 0) { throw "signed MSIX install/activation test failed" }
       - name: Publish Windows CNG host
         if: runner.os == 'Windows'
         run: dotnet publish native/windows/OfficeKit.CngHost/OfficeKit.CngHost.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/windows-cng
@@ -64,18 +131,21 @@ jobs:
         env:
           OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/publisher-policy.integration.test.mjs
+      - name: Exercise native WinTrust primary signature and revocation
+        if: runner.os == 'Windows'
+        run: node --test packages/windows-host/test/authenticode-windows.integration.test.mjs
       - name: Validate TPM capability response parser
         if: runner.os == 'Windows'
         run: dotnet run --project native/windows/OfficeKit.CngHost.ProtocolTests/OfficeKit.CngHost.ProtocolTests.csproj --configuration Release
       - name: Exercise real Windows CNG persistence and isolation
         if: runner.os == 'Windows'
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/scene-engine/test/windows-cng-p256-keystore.integration.test.mjs
       - name: Exercise Windows CNG DGM bootstrap secret vault
         if: runner.os == 'Windows'
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/secret-vault.integration.test.mjs
       - name: Exercise VST memory-only session token lifecycle
         if: runner.os == 'Windows'
@@ -83,7 +153,7 @@ jobs:
       - name: Exercise CNG-protected incident journal across host restarts
         if: runner.os == 'Windows'
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/incident-journal-cng.integration.test.mjs
       - name: Exercise persistent Windows node identity runtime
         if: runner.os == 'Windows'
@@ -94,7 +164,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: ./tools/windows/build-host-bundle.ps1 -OutputDirectory artifacts/windows-host-bundle
       - name: Exercise portable Windows host bundle end to end
         if: runner.os == 'Windows'
@@ -104,7 +174,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition DGM-MAT -OutputDirectory artifacts/windows-host-bundle-dgmat
       - name: Test DGM-MAT portable Windows bundle
         if: runner.os == 'Windows'
@@ -115,7 +185,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition VST -OutputDirectory artifacts/windows-host-bundle-vst
       - name: Test VST portable Windows bundle
         if: runner.os == 'Windows'

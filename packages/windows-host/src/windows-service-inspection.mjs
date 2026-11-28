@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { win32 } from "node:path";
+import { createWindowsSystemProcessOptions, resolveWindowsSystemExecutable } from "./windows-system-executable.mjs";
 
 const STATES = new Set(["stopped", "start pending", "stop pending", "running", "continue pending", "pause pending", "paused"]);
 const START_MODES = new Set(["boot", "system", "auto", "demand", "disabled"]);
@@ -18,20 +19,24 @@ function executableFromCommandLine(commandLine) {
   return win32.normalize(executable);
 }
 
-function runPowerShell(serviceName, spawnImpl, timeoutMs) {
+function runPowerShell(serviceName, spawnImpl, timeoutMs, platform) {
   const script = [
     "$ErrorActionPreference = 'Stop'",
     "$filter = \"Name = '$env:OFFICE_KIT_SERVICE_NAME'\"",
-    "$items = @(Get-CimInstance -ClassName Win32_Service -Filter $filter -OperationTimeoutSec 20)",
+    "$items = @(Get-CimInstance -ClassName Win32_Service -Filter $filter -OperationTimeoutSec 60)",
     "if ($items.Count -ne 1) { [Console]::Error.WriteLine('service_identity_not_unique'); exit 21 }",
     "$s = $items[0]",
     "[pscustomobject]@{ Name=$s.Name; State=$s.State; StartMode=$s.StartMode; PathName=$s.PathName; ProcessId=$s.ProcessId; StartName=$s.StartName } | ConvertTo-Json -Compress"
   ].join("; ");
-  const result = spawnImpl("powershell.exe", [
+  const processOptions = createWindowsSystemProcessOptions({
+    platform,
+    extraEnv: { OFFICE_KIT_SERVICE_NAME: serviceName }
+  });
+  const result = spawnImpl(resolveWindowsSystemExecutable("powershell.exe", { platform }), [
     "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "AllSigned", "-Command", script
   ], {
-    encoding: "utf8", windowsHide: true, shell: false, timeout: timeoutMs, maxBuffer: 64 * 1024,
-    env: { ...process.env, OFFICE_KIT_SERVICE_NAME: serviceName }
+    ...processOptions,
+    encoding: "utf8", windowsHide: true, shell: false, timeout: timeoutMs, maxBuffer: 64 * 1024
   });
   if (result?.error || result?.status !== 0) fail("windows_service_inspection_failed");
   return String(result.stdout ?? "");
@@ -44,10 +49,10 @@ export function inspectWindowsService({
   if (platform !== "win32") fail("windows_service_inspection_requires_windows");
   if (typeof serviceName !== "string" || !/^[A-Za-z0-9_.-]{1,256}$/.test(serviceName)) fail("windows_service_name_invalid");
   if (typeof expectedExecutablePath !== "string" || !win32.isAbsolute(expectedExecutablePath)) fail("windows_service_expected_path_must_be_absolute");
-  if (!Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30_000) fail("windows_service_timeout_invalid");
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 90_000) fail("windows_service_timeout_invalid");
   if (typeof spawnImpl !== "function") fail("windows_service_process_runner_required");
 
-  const output = runPowerShell(serviceName, spawnImpl, timeoutMs);
+  const output = runPowerShell(serviceName, spawnImpl, timeoutMs, platform);
   let record;
   try { record = JSON.parse(output); } catch { fail("windows_service_response_invalid"); }
   if (!record || record.Name !== serviceName) fail("windows_service_identity_mismatch");
