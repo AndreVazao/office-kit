@@ -76,6 +76,55 @@ try {
     }
 
     $packageInstalled = $true
+
+    # PICE adds a Process Trust Label ACE to the installed package directory.
+    # Inspect the installed ACL and verify that this ordinary CI process cannot
+    # even acquire a write handle to a protected package executable. This is an
+    # access-control proof, not a runtime hash-tamper/remediation proof.
+    $systemRoot = [Environment]::GetEnvironmentVariable("SystemRoot")
+    if ([string]::IsNullOrWhiteSpace($systemRoot)) {
+        throw "prototype_msix_system_root_unavailable_for_acl_inspection"
+    }
+    $icacls = Join-Path $systemRoot "System32\\icacls.exe"
+    if (-not (Test-Path -LiteralPath $icacls -PathType Leaf)) {
+        throw "prototype_msix_icacls_missing"
+    }
+    $aclOutput = (& $icacls $installed.InstallLocation 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        throw "prototype_msix_package_acl_query_failed"
+    }
+    if ($aclOutput -notmatch "S-1-19-512-4096") {
+        throw "prototype_msix_process_trust_label_ace_missing"
+    }
+
+    $protectedExecutable = Join-Path $installed.InstallLocation "OfficeKit.Bootstrapper.exe"
+    if (-not (Test-Path -LiteralPath $protectedExecutable -PathType Leaf)) {
+        throw "prototype_msix_installed_executable_missing"
+    }
+    $writeHandleDenied = $false
+    try {
+        $probeHandle = [System.IO.File]::Open(
+            $protectedExecutable,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::Read
+        )
+        $probeHandle.Dispose()
+    }
+    catch [System.UnauthorizedAccessException] {
+        $writeHandleDenied = $true
+    }
+    catch [System.IO.IOException] {
+        if ($_.Exception.HResult -eq -2147024891) {
+            $writeHandleDenied = $true
+        } else {
+            throw
+        }
+    }
+    if (-not $writeHandleDenied) {
+        throw "prototype_msix_package_executable_write_access_not_denied"
+    }
+
     $packageFamilyName = [string]$installed.PackageFamilyName
     if ([string]::IsNullOrWhiteSpace($packageFamilyName)) {
         throw "prototype_msix_package_family_missing"
@@ -167,6 +216,8 @@ try {
         packageIdentityVerified = $true
         systemDirectoryVerifiedFromPackagedProcess = $true
         packageIntegrityEnforcementDeclared = "on"
+        processTrustLabelAceVerified = $true
+        packageExecutableWriteAccessDenied = $true
         runtimeTamperBlockingVerified = $false
         productionPublisherTrustVerified = $false
     } | ConvertTo-Json -Depth 3
