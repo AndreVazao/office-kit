@@ -123,3 +123,20 @@ The MSIX output is deliberately unsigned and uses a development-only publisher. 
 The preceding exact head 868769e291613ac12c02c724779943ae11c946e8 had a real test failure: windows-service-inspection.test.mjs still expected 60 seconds to be rejected after the implementation raised its maximum to 90 seconds to accommodate the 60-second CIM operation timeout plus process overhead. The test was corrected on 2ead8f6 to reject values below 250 ms and above 90 seconds, and to accept/assert the 90-second upper boundary. No failing test was skipped or suppressed.
 
 The MSIX prototype build is being hardened to refuse filesystem roots, the repository root, output paths containing the repository, reparse-point output directories and non-empty output directories. It no longer recursively deletes a caller-supplied output path. New Windows CI tests verify that a sentinel file in a non-empty output directory remains unchanged. This additional guard is awaiting validation on the next exact PR head.
+
+## 2026-11-28 — signed MSIX activation experiment
+
+The isolated bootstrap probe now reports both package full name and package family name. When Windows gives the process package identity, it writes a uniquely named diagnostic marker under the package's LocalState directory. The CI integration creates a short-lived self-signed code-signing certificate matching the prototype manifest publisher, imports the public certificate into the disposable runner's Local Machine Trusted People store, signs the MSIX, installs it with Add-AppxPackage, activates the app through the Windows Shell AppsFolder identity, verifies the package identity and GetSystemDirectoryW result, checks the installed manifest's Package Integrity Enforcement declaration, uninstalls the package and removes the temporary certificate.
+
+Code checkpoint dc8c202e89db51be93fe51b319bcd60c6d92bbc8 passed CI run 46150519236 on all four Ubuntu/Windows Node 22/26.13.1 jobs. The signed install/activation step passed on both Windows jobs. Visual regression 46150519209 passed on the same SHA.
+
+This is a meaningful OS package activation test, but it does not close the trusted-bootstrap design:
+- the signing certificate is ephemeral and self-signed, not a production publisher;
+- PICE is declared and inspected, but runtime tamper blocking/remediation is not exercised;
+- the probe does not launch Node or the Office Kit host;
+- no authenticated parent/child relationship or IPC handoff exists;
+- no installation CNG publisher-policy key or signed policy is provisioned;
+- no upgrade, rollback, repair, retained-data or full uninstall recovery is tested;
+- no physical-PC acceptance has been performed.
+
+Do not infer production publisher trust or a trusted host handoff from package identity alone. The SystemRoot resolver remains environment-derived until a production launcher/package boundary and authenticated handoff are implemented and adversarially tested. The later README and canonical documentation commits require their own exact-head CI and visual checks; the dc8c202 results must not be carried forward to those SHAs.
