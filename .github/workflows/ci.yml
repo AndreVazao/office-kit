@@ -104,8 +104,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          ./tools/windows/msix-prototype/build-prototype.ps1 -OutputDirectory artifacts/msix-prototype
-          $package = "artifacts/msix-prototype/OfficeKit.BootstrapperPrototype-unsigned.msix"
+          $outputDirectory = Join-Path $env:RUNNER_TEMP "office-kit-msix-prototype"
+          ./tools/windows/msix-prototype/build-prototype.ps1 -OutputDirectory $outputDirectory
+          $package = Join-Path $outputDirectory "OfficeKit.BootstrapperPrototype-unsigned.msix"
           if (-not (Test-Path -LiteralPath $package -PathType Leaf)) { throw "unsigned MSIX prototype was not produced" }
           $item = Get-Item -LiteralPath $package
           if ($item.Length -le 0) { throw "unsigned MSIX prototype is empty" }
@@ -126,12 +127,12 @@ jobs:
       - name: Exercise real Windows CNG persistence and isolation
         if: runner.os == 'Windows'
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/scene-engine/test/windows-cng-p256-keystore.integration.test.mjs
       - name: Exercise Windows CNG DGM bootstrap secret vault
         if: runner.os == 'Windows'
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/secret-vault.integration.test.mjs
       - name: Exercise VST memory-only session token lifecycle
         if: runner.os == 'Windows'
@@ -139,7 +140,7 @@ jobs:
       - name: Exercise CNG-protected incident journal across host restarts
         if: runner.os == 'Windows'
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: node --test packages/windows-host/test/incident-journal-cng.integration.test.mjs
       - name: Exercise persistent Windows node identity runtime
         if: runner.os == 'Windows'
@@ -150,7 +151,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: ./tools/windows/build-host-bundle.ps1 -OutputDirectory artifacts/windows-host-bundle
       - name: Exercise portable Windows host bundle end to end
         if: runner.os == 'Windows'
@@ -160,7 +161,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition DGM-MAT -OutputDirectory artifacts/windows-host-bundle-dgmat
       - name: Test DGM-MAT portable Windows bundle
         if: runner.os == 'Windows'
@@ -171,7 +172,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\artifacts\windows-cng\OfficeKit.CngHost.exe
+          OFFICE_KIT_CNG_HOST_PATH: ${{ github.workspace }}\\artifacts\\windows-cng\\OfficeKit.CngHost.exe
         run: ./tools/windows/build-edition-host-bundle.ps1 -Edition VST -OutputDirectory artifacts/windows-host-bundle-vst
       - name: Test VST portable Windows bundle
         if: runner.os == 'Windows'
