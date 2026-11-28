@@ -931,3 +931,18 @@ The MSIX output is deliberately unsigned and uses a development-only publisher. 
 The preceding exact head 868769e291613ac12c02c724779943ae11c946e8 had a real test failure: windows-service-inspection.test.mjs still expected 60 seconds to be rejected after the implementation raised its maximum to 90 seconds to accommodate the 60-second CIM operation timeout plus process overhead. The test was corrected on 2ead8f6 to reject values below 250 ms and above 90 seconds, and to accept/assert the 90-second upper boundary. No failing test was skipped or suppressed.
 
 The MSIX prototype build is being hardened to refuse filesystem roots, the repository root, output paths containing the repository, reparse-point output directories and non-empty output directories. It no longer recursively deletes a caller-supplied output path. New Windows CI tests verify that a sentinel file in a non-empty output directory remains unchanged. This additional guard is awaiting validation on the next exact PR head.
+
+### 2026-11-28 — MSIX activation proof increment
+
+- [x] Sign the experimental MSIX in Windows CI with a per-job self-signed development certificate.
+- [x] Install the signed package through Add-AppxPackage and activate it through the Windows Shell AppsFolder identity.
+- [x] Verify package full/family identity and the GetSystemDirectoryW result from the packaged process; verify that the installed manifest declares Package Integrity Enforcement.
+- [x] Uninstall the prototype and remove its temporary Local Machine Trusted People certificate.
+- [ ] Test actual runtime PICE tamper blocking and package remediation.
+- [ ] Launch the edition host from a production trusted entry point and authenticate the host/launcher handoff; the current probe exits without launching Node.
+- [ ] Provision the installation-scoped CNG publisher policy and signed policy atomically during install/update.
+- [ ] Complete signed upgrade, rollback, repair, recovery, retained-data and uninstall flows for separate Universal, DGM-MAT and VST packages.
+- [ ] Validate production publisher trust, certificate/revocation matrix and physical Windows PCs.
+- [ ] Keep MSI/MSIX selection and commercial distribution blocked until the complete lifecycle and edition-isolation matrix passes.
+
+Evidence checkpoint dc8c202e89db51be93fe51b319bcd60c6d92bbc8: CI 46150519236 and visual regression 46150519209 passed on the same SHA. This was an ephemeral self-signed hosted-runner experiment, not production signing or physical-device validation. Later documentation commits require fresh exact-head checks.
