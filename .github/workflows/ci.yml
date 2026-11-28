@@ -46,7 +46,8 @@ jobs:
             "tools/windows/test-edition-host-bundle.ps1",
             "tools/windows/msix-prototype/build-prototype.ps1",
             "tools/windows/msix-prototype/OutputDirectory.psm1",
-            "tools/windows/msix-prototype/test-output-directory.ps1"
+            "tools/windows/msix-prototype/test-output-directory.ps1",
+            "tools/windows/msix-prototype/test-package-activation.ps1"
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -110,6 +111,18 @@ jobs:
           if (-not (Test-Path -LiteralPath $package -PathType Leaf)) { throw "unsigned MSIX prototype was not produced" }
           $item = Get-Item -LiteralPath $package
           if ($item.Length -le 0) { throw "unsigned MSIX prototype is empty" }
+      - name: Sign, install and activate MSIX prototype with an ephemeral certificate
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $outputDirectory = Join-Path $env:RUNNER_TEMP "office-kit-msix-prototype"
+          $package = Join-Path $outputDirectory "OfficeKit.BootstrapperPrototype-unsigned.msix"
+          $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+          $testScript = Join-Path $PWD "tools/windows/msix-prototype/test-package-activation.ps1"
+          if (-not (Test-Path -LiteralPath $windowsPowerShell -PathType Leaf)) { throw "Windows PowerShell 5.1 was not found" }
+          & $windowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $testScript -PackagePath $package
+          if ($LASTEXITCODE -ne 0) { throw "signed MSIX install/activation test failed" }
       - name: Publish Windows CNG host
         if: runner.os == 'Windows'
         run: dotnet publish native/windows/OfficeKit.CngHost/OfficeKit.CngHost.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/windows-cng
