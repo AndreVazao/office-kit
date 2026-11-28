@@ -21,15 +21,22 @@ internal static class Program
         {
             var systemDirectory = GetSystemDirectoryFromWindows();
             var package = GetCurrentPackageIdentity();
-            Console.WriteLine(JsonSerializer.Serialize(new
+            var result = new
             {
                 ok = true,
                 probeOnly = true,
                 systemDirectory,
                 packageIdentityStatus = package.Status,
                 packageFullName = package.FullName,
-                environmentAuthorityUsed = false
-            }));
+                packageFamilyName = package.FamilyName,
+                environmentAuthorityUsed = false,
+                processId = Environment.ProcessId
+            };
+
+            if (package.Status == "packaged")
+                WritePackageActivationMarker(result, package.FamilyName!);
+
+            Console.WriteLine(JsonSerializer.Serialize(result));
             return 0;
         }
         catch (Exception error)
@@ -68,26 +75,61 @@ internal static class Program
         throw new InvalidOperationException("system_directory_path_too_long");
     }
 
-    private static (string Status, string? FullName) GetCurrentPackageIdentity()
+    private static PackageIdentity GetCurrentPackageIdentity()
     {
-        uint length = 0;
-        var first = GetCurrentPackageFullName(ref length, null);
-        if (first == AppModelErrorNoPackage)
-            return ("not_packaged", null);
-        if (first != ErrorInsufficientBuffer || length == 0)
-            throw new InvalidOperationException($"package_identity_query_failed:{first}");
+        uint fullNameLength = 0;
+        var fullNameStatus = GetCurrentPackageFullName(ref fullNameLength, null);
+        if (fullNameStatus == AppModelErrorNoPackage)
+            return new PackageIdentity("not_packaged", null, null);
+        if (fullNameStatus != ErrorInsufficientBuffer || fullNameLength == 0)
+            throw new InvalidOperationException($"package_identity_query_failed:{fullNameStatus}");
 
-        var buffer = new StringBuilder(checked((int)length));
-        var result = GetCurrentPackageFullName(ref length, buffer);
-        if (result != 0)
-            throw new InvalidOperationException($"package_identity_read_failed:{result}");
+        var fullNameBuffer = new StringBuilder(checked((int)fullNameLength));
+        var fullNameResult = GetCurrentPackageFullName(ref fullNameLength, fullNameBuffer);
+        if (fullNameResult != 0)
+            throw new InvalidOperationException($"package_identity_read_failed:{fullNameResult}");
 
-        return ("packaged", buffer.ToString());
+        uint familyNameLength = 0;
+        var familyNameStatus = GetCurrentPackageFamilyName(ref familyNameLength, null);
+        if (familyNameStatus != ErrorInsufficientBuffer || familyNameLength == 0)
+            throw new InvalidOperationException($"package_family_query_failed:{familyNameStatus}");
+
+        var familyNameBuffer = new StringBuilder(checked((int)familyNameLength));
+        var familyNameResult = GetCurrentPackageFamilyName(ref familyNameLength, familyNameBuffer);
+        if (familyNameResult != 0)
+            throw new InvalidOperationException($"package_family_read_failed:{familyNameResult}");
+
+        var familyName = familyNameBuffer.ToString();
+        if (string.IsNullOrWhiteSpace(familyName) || Path.GetFileName(familyName) != familyName)
+            throw new InvalidOperationException("package_family_name_invalid");
+
+        return new PackageIdentity("packaged", fullNameBuffer.ToString(), familyName);
     }
+
+    private static void WritePackageActivationMarker(object result, string packageFamilyName)
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+            throw new InvalidOperationException("package_local_app_data_unavailable");
+
+        var localState = Path.Combine(localAppData, "Packages", packageFamilyName, "LocalState");
+        Directory.CreateDirectory(localState);
+
+        var markerName = $"bootstrap-probe-{Environment.ProcessId}-{DateTime.UtcNow.Ticks}.json";
+        var markerPath = Path.Combine(localState, markerName);
+        using var stream = new FileStream(markerPath, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+        JsonSerializer.Serialize(stream, result);
+        stream.Flush(true);
+    }
+
+    private sealed record PackageIdentity(string Status, string? FullName, string? FamilyName);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern uint GetSystemDirectoryW(StringBuilder lpBuffer, uint uSize);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern uint GetCurrentPackageFullName(ref uint packageFullNameLength, StringBuilder? packageFullName);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint GetCurrentPackageFamilyName(ref uint packageFamilyNameLength, StringBuilder? packageFamilyName);
 }
