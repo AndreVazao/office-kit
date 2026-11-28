@@ -367,7 +367,11 @@ function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
     const mesh = addMesh(parent, geometry, beardMaterial, center, [1, 1, 1], name);
-    mesh.userData.identityFeature = "volumetric-beard-mass";
+    mesh.userData.identityFeature = name.includes("Cheek")
+      ? "beard-cheek-volume"
+      : name.includes("Jaw")
+        ? "beard-jaw-volume"
+        : "beard-chin-volume";
     return mesh;
   };
 
@@ -404,6 +408,31 @@ function makePhotoBeard(parent, beardMaterial, length = 1, width = 1) {
   });
   const beardMesh = addMesh(parent, geometry, beardMaterial, [0, 0, 0.145], [1, 1, 1], "Photo_Profile_Beard");
   beardMesh.userData.identityFeature = "long-tapered-grey-beard-silhouette";
+
+  // Fine, low-profile flow guides add directional texture without turning the
+  // beard into a set of raised cords. Their paths converge with the chin taper.
+  const strandPaths = [];
+  for (const side of [-1, 1]) {
+    strandPaths.push(
+      [[side * 0.038 * width, -0.115, 0.218], [side * 0.045 * width, -0.205 * length, 0.219], [side * 0.025 * width, -0.345 * length, 0.218], [side * 0.008 * width, -0.405 * length, 0.212]],
+      [[side * 0.078 * width, -0.125, 0.216], [side * 0.084 * width, -0.225 * length, 0.218], [side * 0.046 * width, -0.345 * length, 0.216], [side * 0.018 * width, -0.405 * length, 0.211]],
+      [[side * 0.118 * width, -0.145, 0.207], [side * 0.112 * width, -0.235 * length, 0.211], [side * 0.062 * width, -0.335 * length, 0.211], [side * 0.025 * width, -0.395 * length, 0.207]]
+    );
+  }
+  strandPaths.forEach((points, index) => {
+    const curve = new THREE.CatmullRomCurve3(
+      points.map(([x, y, z]) => new THREE.Vector3(x, y, z))
+    );
+    const strand = addMesh(
+      parent,
+      new THREE.TubeGeometry(curve, 22, 0.0018, 5, false),
+      beardMaterial,
+      [0, 0, 0],
+      [1, 1, 1],
+      "Beard_Flow_Guide_" + index
+    );
+    strand.userData.identityFeature = "beard-strand-guide";
+  });
   return beardMesh;
 }
 
@@ -602,8 +631,6 @@ function buildHuman(config) {
   if (config.beard !== "none") {
     if (config.beard === "full" && config.preset === "andre") {
       makePhotoBeard(head, beard, 1.12, 1.08);
-      ellipsoid(head, beard, [-0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_L");
-      ellipsoid(head, beard, [0.128, -0.145, 0.105], [0.067, 0.105, 0.075], "Beard_Cheek_R");
       const mustacheLeft = ellipsoid(head, beard, [-0.047, -0.108, 0.192], [0.078, 0.024, 0.026], "Mustache_L");
       const mustacheRight = ellipsoid(head, beard, [0.047, -0.108, 0.192], [0.078, 0.024, 0.026], "Mustache_R");
       mustacheLeft.rotation.z = -0.10;
