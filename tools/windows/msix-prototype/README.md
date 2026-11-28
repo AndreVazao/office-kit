@@ -34,7 +34,14 @@ safety tests before building the package.
 - The unpacked package contains its manifest, block map, and executable.
 - The packed manifest declares the full-trust packaged desktop application.
 - The packed manifest retains explicit PICE enforcement.
+- After installation, the activation test checks for the PICE Process Trust Label ACE on the installed package directory.
+- The activation test verifies that the ordinary CI process cannot acquire a write handle to the installed bootstrapper executable.
 - The declared executable is the self-contained .NET probe.
+
+The ACL/trust-label checks demonstrate an installed PICE protection boundary. They do
+**not** simulate an offline or privileged on-disk modification, prove that Windows
+runtime hash verification detects such a modification, or verify the repair/remediation
+workflow. The test output therefore keeps `runtimeTamperBlockingVerified=false`.
 
 ## What it does not prove
 
