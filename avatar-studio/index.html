@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Office Kit — Avatar Studio</title>
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">OFFICE KIT DIGITAL / LABORATÓRIO INDEPENDENTE</p>
+        <h1>Avatar Studio</h1>
+      </div>
+      <div class="top-actions">
+        <span class="status"><i></i> Editor local</span>
+        <label class="export-quality">Qualidade GLB
+          <select id="export-quality" aria-label="Perfil de qualidade para exportação">
+            <option value="ultra">Ultra</option>
+            <option value="high" selected>Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </select>
+        </label>
+        <button id="export-glb" class="primary">Exportar GLB</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="panel controls">
+        <div class="panel-heading">
+          <div><p class="eyebrow">PERSONAGEM</p><h2>Construtor</h2></div>
+        </div>
+
+        <label class="field">Base
+          <select id="preset">
+            <option value="andre">André · CEO</option>
+            <option value="man">Homem · médio</option>
+            <option value="manSlim">Homem · magro e alto</option>
+            <option value="manStocky">Homem · robusto</option>
+            <option value="woman">Mulher · média</option>
+            <option value="womanTall">Mulher · alta</option>
+            <option value="womanCurvy">Mulher · robusta</option>
+            <option value="robot">Robô humanoide</option>
+          </select>
+        </label>
+
+        <label class="field">Vestuário
+          <select id="outfit">
+            <option value="suit">Fato social azul</option>
+            <option value="casual">Casual</option>
+            <option value="tactical">Tático</option>
+          </select>
+        </label>
+
+        <div class="control-group">
+          <div class="group-title"><h3>Morfologia</h3><span>01</span></div>
+          <label class="slider-field">Altura <output id="height-value">1,00</output>
+            <input id="height" type="range" min="0.82" max="1.18" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Constituição <output id="build-value">1,00</output>
+            <input id="build" type="range" min="0.72" max="1.38" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Cabeça <output id="head-value">1,00</output>
+            <input id="head" type="range" min="0.88" max="1.16" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Largura dos ombros <output id="shoulders-value">1,00</output>
+            <input id="shoulders" type="range" min="0.78" max="1.25" value="1" step="0.01">
+          </label>
+        </div>
+
+        <div class="control-group">
+          <div class="group-title"><h3>Escultura facial</h3><span>02</span></div>
+          <label class="slider-field">Largura do rosto <output id="face-width-value">1,00</output>
+            <input id="face-width" type="range" min="0.86" max="1.18" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Largura do maxilar <output id="jaw-width-value">1,00</output>
+            <input id="jaw-width" type="range" min="0.78" max="1.22" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Volume do nariz <output id="nose-size-value">1,00</output>
+            <input id="nose-size" type="range" min="0.78" max="1.28" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Distância dos olhos <output id="eye-spacing-value">1,00</output>
+            <input id="eye-spacing" type="range" min="0.82" max="1.18" value="1" step="0.01">
+          </label>
+          <label class="slider-field">Comprimento do cabelo <output id="hair-length-value">1,00</output>
+            <input id="hair-length" type="range" min="0.65" max="2.4" value="1" step="0.05">
+          </label>
+        </div>
+
+        <div class="control-group">
+          <div class="group-title"><h3>Aparência</h3><span>03</span></div>
+          <label class="field">Tom de pele
+            <select id="skin">
+              <option value="#c98f70">Médio quente</option>
+              <option value="#f0c7a7">Claro</option>
+              <option value="#986348">Escuro</option>
+              <option value="#d7a783">Médio claro</option>
+            </select>
+          </label>
+          <label class="field">Cabelo
+            <select id="hair">
+              <option value="silver">Grisalho</option>
+              <option value="dark">Castanho escuro</option>
+              <option value="black">Preto</option>
+              <option value="blond">Loiro</option>
+              <option value="none">Sem cabelo</option>
+            </select>
+          </label>
+          <label class="field">Estilo de cabelo
+            <select id="hair-style">
+              <option value="short">Curto</option>
+              <option value="bald">Rapado no topo · curto nas laterais</option>
+              <option value="classic">Clássico</option>
+              <option value="long">Comprido</option>
+              <option value="bun">Apanhado</option>
+            </select>
+          </label>
+          <label class="field">Barba
+            <select id="beard">
+              <option value="full">Barba completa grisalha</option>
+              <option value="short">Barba curta</option>
+              <option value="none">Sem barba</option>
+            </select>
+          </label>
+          <input id="beard-color" type="color" value="#92999e" hidden>
+        </div>
+
+        <p class="notice">Protótipo independente. As alterações ficam no navegador e não comunicam com os motores do Office Kit.</p>
+      </aside>
+
+      <section class="viewport-panel">
+        <div class="viewport-toolbar">
+          <div><span class="live-dot"></span> PRÉ-VISUALIZAÇÃO 3D</div>
+          <span>Arrastar: rodar · Scroll: zoom</span>
+        </div>
+        <nav class="view-toolbar" aria-label="Vistas predefinidas do avatar">
+          <button id="view-front" type="button">Frente</button>
+          <button id="view-threeQuarter" type="button">3/4</button>
+          <button id="view-left" type="button">Esquerda</button>
+          <button id="view-right" type="button">Direita</button>
+          <button id="view-back" type="button">Costas</button>
+          <button id="view-top" type="button">Topo</button>
+        </nav>
+        <div class="pose-toolbar" aria-label="Pré-visualização de poses">
+          <label for="pose-mode">Pose / animação</label>
+          <select id="pose-mode">
+            <option value="idle">Repouso</option>
+            <option value="walk">Andar</option>
+            <option value="sit">Sentar</option>
+            <option value="talk">Falar</option>
+            <option value="work">Trabalhar</option>
+          </select>
+          <label class="rig-toggle"><input id="show-rig" type="checkbox"> Mostrar esqueleto</label>
+        </div>
+        <div id="viewport" aria-label="Pré-visualização tridimensional do personagem"></div>
+        <div class="viewport-footer">
+          <span id="character-name">ANDRÉ / CEO MASTER</span>
+          <span>BLOCKOUT 01 · GLB</span>
+        </div>
+      </section>
+
+      <aside class="panel details">
+        <p class="eyebrow">FICHA DO MODELO</p>
+        <h2 id="model-title">André · CEO</h2>
+        <p id="model-description">Base masculina com cabelo grisalho, barba completa e fato azul.</p>
+        <section class="identity-card" aria-labelledby="identity-title">
+          <div class="identity-heading"><strong id="identity-title">Referência de identidade · André</strong><span id="identity-state">Sem fotografia</span></div>
+          <p class="identity-help">Carrega a tua fotografia original. A imagem é processada apenas neste navegador e não é enviada para o GitHub nem para um servidor.</p>
+          <label class="upload-button" for="identity-photo">Escolher fotografia original</label>
+          <input id="identity-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <div id="identity-drop" class="identity-drop">
+            <canvas id="identity-canvas" width="640" height="640" aria-label="Fotografia de referência com pontos faciais ajustáveis"></canvas>
+            <span id="identity-empty">A fotografia aparecerá aqui</span>
+          </div>
+          <div class="identity-actions">
+            <button id="identity-reset" type="button">Limpar pontos</button>
+            <button id="identity-remove" type="button">Remover fotografia</button>
+          </div>
+          <button id="identity-apply" class="identity-apply" type="button" disabled>Aplicar proporções ao avatar</button>
+          <p id="identity-progress" class="identity-progress">0/14 referências faciais assinaladas</p>
+          <p class="identity-disclaimer">Os pontos são referências manuais para orientar a modelação. Uma única fotografia 2D não permite reconstruir automaticamente todos os ângulos nem garantir semelhança 3D. Para isso serão necessárias fotografias adicionais e validação manual.</p>
+        </section>
+        <div class="stat"><span>Tipo</span><strong id="stat-type">Humano</strong></div>
+        <div class="stat"><span>Escala</span><strong id="stat-height">1,00×</strong></div>
+        <div class="stat"><span>Geometria</span><strong id="stat-geometry">Procedural</strong></div>
+        <section class="quality-card" aria-labelledby="quality-title">
+          <div class="quality-heading"><strong id="quality-title">Auditoria gráfica do avatar</strong><span>MEDIÇÃO REAL</span></div>
+          <div class="quality-metrics">
+            <div><span>Triângulos</span><strong id="quality-triangles">—</strong></div>
+            <div><span>Materiais</span><strong id="quality-materials">—</strong></div>
+            <div><span>Malhas visíveis</span><strong id="quality-meshes">—</strong></div>
+          </div>
+          <div id="quality-profiles" class="quality-profiles" aria-live="polite"></div>
+          <p class="quality-disclaimer">A exportação otimiza geometria e consolida materiais sem textura por perfil, preservando pesos ósseos e cores. Texturas acima do limite bloqueiam a exportação; a escolha automática do perfil continua exclusiva do motor geral do Office Kit.</p>
+        </section>
+        <div class="stat"><span>Exportação</span><strong>glTF Binary</strong></div>
+        <div class="detail-note">
+          <strong>Próximo marco</strong>
+          <p>A cintura liga Hips, Spine e ambas as pernas; tronco e camisa usam pesos normalizados Hips–Spine–Chest; a marcha alterna pernas e inclui movimento dos pés, pulsos e contrarrotação do tronco. Pescoço e mandíbula têm articulação dedicada. Próximo: validar deformações e clips GLB externamente.</p>
+        </div>
+      </aside>
+    </section>
+    <footer class="app-footer">AVATAR STUDIO · MÓDULO AUTÓNOMO · NÃO ALTERA O RUNTIME</footer>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+  <script type="module" src="./src/identity-reference.js"></script>
+</body>
+</html>

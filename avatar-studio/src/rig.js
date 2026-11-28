@@ -1,0 +1,453 @@
+import * as THREE from "three";
+
+/**
+ * Runtime avatar rig. Limb cylinders tagged by main.js are converted into
+ * SkinnedMesh segments with linear-blend weights. Head and hand assemblies
+ * are converted as rigid skinned groups; facial parts and fingers retain shape.
+ */
+export function createAvatarRig(parent) {
+  const segments = [];
+  const skinnedMeshes = [];
+  parent.traverse((object) => {
+    if (object.isMesh && object.userData.rigSegment) segments.push(object);
+  });
+  parent.updateMatrixWorld(true);
+  const inverseParentWorld = parent.matrixWorld.clone().invert();
+  const taggedBonePositions = new Map();
+  parent.traverse((object) => {
+    if (!object.isMesh || !object.userData.rigBoneName) return;
+    object.updateWorldMatrix(true, false);
+    const position = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).applyMatrix4(inverseParentWorld);
+    if (!taggedBonePositions.has(object.userData.rigBoneName)) taggedBonePositions.set(object.userData.rigBoneName, position.toArray());
+  });
+
+  const bones = {};
+  const worldPositions = {};
+  const makeBone = (name, worldPosition, parentBone) => {
+    const bone = new THREE.Bone();
+    bone.name = name;
+    const p = new THREE.Vector3(...worldPosition);
+    const parentPosition = parentBone ? worldPositions[parentBone.name] : [0, 0, 0];
+    bone.position.copy(p.sub(new THREE.Vector3(...parentPosition)));
+    (parentBone || parent).add(bone);
+    bones[name] = bone;
+    worldPositions[name] = worldPosition.slice();
+    return bone;
+  };
+
+  const hips = makeBone("Hips", [0, 0.99, 0]);
+  const spine = makeBone("Spine", [0, 1.34, 0], hips);
+  const chest = makeBone("Chest", [0, 1.56, 0], spine);
+  const neck = makeBone("Neck", [0, 1.72, 0], chest);
+  const headBone = makeBone("Head", [0, 1.94, 0], neck);
+  // Place the jaw pivot at the hinge behind the mouth, not at the mouth mesh origin.
+  makeBone("Jaw", [0, 1.79, 0.055], headBone);
+  for (const side of ["L", "R"]) {
+    const fallbackX = side === "L" ? -0.083 : 0.083;
+    makeBone("Eyelid_" + side, taggedBonePositions.get("Eyelid_" + side) || [fallbackX, 1.997, 0.185], headBone);
+    makeBone("Brow_" + side, taggedBonePositions.get("Brow_" + side) || [fallbackX, 2.021, 0.17], headBone);
+  }
+
+  const byName = new Map(segments.map((mesh) => [mesh.userData.rigSegment.name, mesh.userData.rigSegment]));
+  for (const side of ["L", "R"]) {
+    const upperArmData = byName.get("UpperArm_" + side);
+    const forearmData = byName.get("Forearm_" + side);
+    const upperLegData = byName.get("UpperLeg_" + side);
+    const lowerLegData = byName.get("LowerLeg_" + side);
+    const shoulderPosition = upperArmData?.start || [side === "L" ? -0.34 : 0.34, 1.56, 0];
+    const elbowPosition = upperArmData?.end || [side === "L" ? -0.43 : 0.43, 1.18, 0];
+    const forearmEnd = forearmData?.end || [side === "L" ? -0.47 : 0.47, 0.88, 0.05];
+    // Match the hand group origin in main.js so rigid hand/finger meshes bind without an offset.
+    const wristPosition = [forearmEnd[0], 0.84, 0.055];
+    const hipPosition = upperLegData?.start || [side === "L" ? -0.115 : 0.115, 0.91, 0];
+    const kneePosition = upperLegData?.end || [side === "L" ? -0.12 : 0.12, 0.53, 0.005];
+    const anklePosition = lowerLegData?.end || [side === "L" ? -0.12 : 0.12, 0.16, 0];
+
+    const upperArm = makeBone("UpperArm_" + side, shoulderPosition, chest);
+    const forearm = makeBone("Forearm_" + side, elbowPosition, upperArm);
+    const handBone = makeBone("Hand_" + side, wristPosition, forearm);
+    for (let finger = 1; finger <= 4; finger += 1) {
+      const x = (finger - 2.5) * 0.027;
+      const base = [wristPosition[0] + x, wristPosition[1] - 0.035, wristPosition[2] + 0.005];
+      const proximal = makeBone("Finger_" + finger + "_" + side, base, handBone);
+      const middle = makeBone("Finger_" + finger + "_Mid_" + side, [base[0], base[1] - 0.032, base[2] + 0.003], proximal);
+      makeBone("Finger_" + finger + "_Tip_" + side, [base[0], base[1] - 0.058, base[2] + 0.006], middle);
+    }
+    const thumbBase = [wristPosition[0] + (side === "L" ? 0.045 : -0.045), wristPosition[1] + 0.005, wristPosition[2] + 0.005];
+    const thumb = makeBone("Thumb_" + side, thumbBase, handBone);
+    const thumbMiddle = makeBone("Thumb_Mid_" + side, [thumbBase[0] + (side === "L" ? 0.018 : -0.018), thumbBase[1] - 0.025, thumbBase[2] + 0.01], thumb);
+    makeBone("Thumb_Tip_" + side, [thumbBase[0] + (side === "L" ? 0.033 : -0.033), thumbBase[1] - 0.047, thumbBase[2] + 0.017], thumbMiddle);
+    const upperLeg = makeBone("UpperLeg_" + side, hipPosition, hips);
+    const lowerLeg = makeBone("LowerLeg_" + side, kneePosition, upperLeg);
+    makeBone("Foot_" + side, [anklePosition[0], 0.10, anklePosition[2] + 0.10], lowerLeg);
+  }
+
+  const orderedBones = Object.values(bones);
+  const boneIndex = new Map(orderedBones.map((bone, index) => [bone.name, index]));
+  const skeleton = new THREE.Skeleton(orderedBones);
+
+  const segmentBones = (name) => {
+    const side = name.endsWith("_L") ? "L" : "R";
+    if (name.startsWith("UpperArm_")) return ["UpperArm_" + side, "Forearm_" + side];
+    if (name.startsWith("Forearm_")) return ["Forearm_" + side, "Hand_" + side];
+    if (name.startsWith("UpperLeg_")) return ["UpperLeg_" + side, "LowerLeg_" + side];
+    if (name.startsWith("LowerLeg_")) return ["LowerLeg_" + side, "Foot_" + side];
+    return null;
+  };
+
+  // Convert head and hand assemblies to rigidly weighted skinned meshes.
+  // Geometry is moved into avatar-root space before binding so nested group
+  // transforms (head scale, hand offsets) are preserved without double transforms.
+  parent.updateMatrixWorld(true);
+  const inverseRootWorld = parent.matrixWorld.clone().invert();
+  const assemblies = [];
+  const rigidMeshes = [];
+  parent.traverse((object) => {
+    if (object.isGroup && (object.userData.rigHeadGroup || object.userData.rigFingerName)) {
+      assemblies.push(object);
+    } else if (object.isMesh && (object.userData.rigBoneName || object.userData.rigBlendBones)) {
+      rigidMeshes.push(object);
+    }
+  });
+  for (const assembly of assemblies) {
+    const side = assembly.userData.rigHandSide;
+    const boneName = assembly.userData.rigHeadGroup
+      ? "Head"
+      : assembly.userData.rigFingerName === "Thumb"
+        ? "Thumb_" + side
+        : assembly.userData.rigFingerName + "_" + side;
+    const boneId = boneIndex.get(boneName);
+    if (boneId === undefined) continue;
+    const sourceMeshes = [];
+    assembly.traverse((object) => {
+      if (object.isMesh && !object.isSkinnedMesh && !object.userData.rigBoneName) sourceMeshes.push(object);
+    });
+    for (const sourceMesh of sourceMeshes) {
+      sourceMesh.updateWorldMatrix(true, false);
+      const transform = inverseRootWorld.clone().multiply(sourceMesh.matrixWorld);
+      const geometry = sourceMesh.geometry.clone();
+      geometry.applyMatrix4(transform);
+      const positions = geometry.getAttribute("position");
+      const indices = new Uint16Array(positions.count * 4);
+      const weights = new Float32Array(positions.count * 4);
+      for (let i = 0; i < positions.count; i += 1) {
+        indices[i * 4] = boneId;
+        weights[i * 4] = 1;
+      }
+      geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+      geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+      const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+      skinned.name = sourceMesh.name + "_Skinned";
+      skinned.castShadow = true;
+      skinned.receiveShadow = true;
+      skinned.frustumCulled = false;
+      parent.add(skinned);
+      skinnedMeshes.push(skinned);
+      sourceMesh.visible = false;
+      sourceMesh.userData.skinnedReplacement = skinned.name;
+      skinned.normalizeSkinWeights();
+    }
+  }
+  for (const sourceMesh of rigidMeshes) {
+    const blendNames = sourceMesh.userData.rigBlendBones;
+    const primaryBone = sourceMesh.userData.rigBoneName;
+    const blendIds = blendNames?.map((name) => boneIndex.get(name));
+    const boneId = primaryBone ? boneIndex.get(primaryBone) : undefined;
+    if (blendNames && blendIds.some((id) => id === undefined)) continue;
+    if (!blendNames && boneId === undefined) continue;
+    sourceMesh.updateWorldMatrix(true, false);
+    const transform = inverseRootWorld.clone().multiply(sourceMesh.matrixWorld);
+    const geometry = sourceMesh.geometry.clone();
+    geometry.applyMatrix4(transform);
+    const positions = geometry.getAttribute("position");
+    const indices = new Uint16Array(positions.count * 4);
+    const weights = new Float32Array(positions.count * 4);
+    for (let i = 0; i < positions.count; i += 1) {
+      if (blendNames) {
+        indices[i * 4] = blendIds[0];
+        indices[i * 4 + 1] = blendIds[1];
+        weights[i * 4] = 0.35;
+        weights[i * 4 + 1] = 0.65;
+      } else {
+        indices[i * 4] = boneId;
+        weights[i * 4] = 1;
+      }
+    }
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+    const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+    skinned.name = sourceMesh.name + "_Skinned";
+    skinned.castShadow = true;
+    skinned.receiveShadow = true;
+    skinned.frustumCulled = false;
+    parent.add(skinned);
+    skinnedMeshes.push(skinned);
+    sourceMesh.visible = false;
+    sourceMesh.userData.skinnedReplacement = skinned.name;
+    skinned.normalizeSkinWeights();
+  }
+
+  // Blend the pelvis into both upper legs at the lateral hip seams, then
+  // carry the waist into the spine and chest with a three-stage torso gradient.
+  const bodyMeshes = [];
+  parent.traverse((object) => {
+    if (object.isMesh && object.userData.rigBodySegment) bodyMeshes.push(object);
+  });
+  for (const sourceMesh of bodyMeshes) {
+    const segment = sourceMesh.userData.rigBodySegment;
+    sourceMesh.updateMatrix();
+    const geometry = sourceMesh.geometry.clone();
+    geometry.applyMatrix4(sourceMesh.matrix);
+    const positions = geometry.getAttribute("position");
+    const indices = [];
+    const weights = [];
+    const hipsIndex = boneIndex.get("Hips");
+    const spineIndex = boneIndex.get("Spine");
+    const chestIndex = boneIndex.get("Chest");
+    const leftLegIndex = boneIndex.get("UpperLeg_L");
+    const rightLegIndex = boneIndex.get("UpperLeg_R");
+
+    for (let i = 0; i < positions.count; i += 1) {
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      if (segment === "pelvis") {
+        const waistToSpine = THREE.MathUtils.clamp((y - 0.86) / 0.36, 0, 1);
+        const lateralHip = THREE.MathUtils.clamp((Math.abs(x) - 0.075) / 0.14, 0, 1);
+        const thighWeight = (1 - waistToSpine) * lateralHip * 0.55;
+        const spineWeight = waistToSpine;
+        const hipsWeight = Math.max(0, 1 - spineWeight - thighWeight);
+        indices.push(hipsIndex, spineIndex, leftLegIndex, rightLegIndex);
+        weights.push(
+          hipsWeight,
+          spineWeight,
+          x < 0 ? thighWeight : 0,
+          x >= 0 ? thighWeight : 0
+        );
+      } else if (segment === "neck") {
+        const neckIndex = boneIndex.get("Neck");
+        const chestWeight = 1 - THREE.MathUtils.clamp((y - 1.62) / 0.16, 0, 1);
+        const neckWeight = 1 - chestWeight;
+        indices.push(chestIndex, neckIndex, 0, 0);
+        weights.push(chestWeight, neckWeight, 0, 0);
+      } else {
+        const waistToSpine = THREE.MathUtils.clamp((y - 0.92) / 0.35, 0, 1);
+        const spineToChest = THREE.MathUtils.clamp((y - 1.27) / 0.39, 0, 1);
+        const hipsWeight = 1 - waistToSpine;
+        const chestWeight = waistToSpine * spineToChest;
+        const spineWeight = waistToSpine * (1 - spineToChest);
+        indices.push(hipsIndex, spineIndex, chestIndex, 0);
+        weights.push(hipsWeight, spineWeight, chestWeight, 0);
+      }
+    }
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+    const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+    skinned.name = sourceMesh.name + "_Skinned";
+    skinned.castShadow = true;
+    skinned.receiveShadow = true;
+    skinned.frustumCulled = false;
+    parent.add(skinned);
+    skinnedMeshes.push(skinned);
+    sourceMesh.visible = false;
+    sourceMesh.userData.skinnedReplacement = skinned.name;
+    skinned.normalizeSkinWeights();
+  }
+
+  for (const sourceMesh of segments) {
+    const info = sourceMesh.userData.rigSegment;
+    const names = segmentBones(info.name);
+    if (!names || !bones[names[0]] || !bones[names[1]]) continue;
+
+    sourceMesh.updateMatrix();
+    const geometry = sourceMesh.geometry.clone();
+    geometry.applyMatrix4(sourceMesh.matrix);
+    const positions = geometry.getAttribute("position");
+    const indices = [];
+    const weights = [];
+    const start = new THREE.Vector3(...info.start);
+    const end = new THREE.Vector3(...info.end);
+    const axis = new THREE.Vector3().subVectors(end, start);
+    const lengthSquared = Math.max(axis.lengthSq(), 1e-8);
+
+    for (let i = 0; i < positions.count; i += 1) {
+      const point = new THREE.Vector3().fromBufferAttribute(positions, i);
+      const t = THREE.MathUtils.clamp(new THREE.Vector3().subVectors(point, start).dot(axis) / lengthSquared, 0, 1);
+      if (info.name.startsWith("UpperLeg_")) {
+        const hipBlend = THREE.MathUtils.clamp(t / 0.22, 0, 1);
+        const kneeBlend = THREE.MathUtils.clamp((t - 0.78) / 0.22, 0, 1);
+        indices.push(boneIndex.get("Hips"), boneIndex.get("UpperLeg_" + (info.name.endsWith("_L") ? "L" : "R")), boneIndex.get("LowerLeg_" + (info.name.endsWith("_L") ? "L" : "R")), 0);
+        weights.push((1 - hipBlend), hipBlend * (1 - kneeBlend), kneeBlend, 0);
+      } else {
+        indices.push(boneIndex.get(names[0]), boneIndex.get(names[1]), 0, 0);
+        weights.push(1 - t, t, 0, 0);
+      }
+    }
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(indices, 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weights, 4));
+
+    const skinned = new THREE.SkinnedMesh(geometry, sourceMesh.material);
+    skinned.name = info.name + "_Skinned";
+    skinned.castShadow = true;
+    skinned.receiveShadow = true;
+    skinned.frustumCulled = false;
+    parent.add(skinned);
+    skinnedMeshes.push(skinned);
+    sourceMesh.visible = false;
+    sourceMesh.userData.skinnedReplacement = skinned.name;
+    skinned.normalizeSkinWeights();
+  }
+
+  parent.traverse((object) => {
+    if (object.isMesh && object.userData.rigJointSegment) object.visible = false;
+  });
+
+  parent.updateMatrixWorld(true);
+  skeleton.calculateInverses();
+  parent.traverse((object) => {
+    if (object.isSkinnedMesh) object.bind(skeleton);
+  });
+
+  const helper = new THREE.SkeletonHelper(parent);
+  helper.name = "Avatar_Rig_Debug";
+  helper.material = new THREE.LineBasicMaterial({ color: 0x65c7ff, depthTest: true });
+  helper.visible = false;
+  parent.add(helper);
+
+  const rest = {};
+  const restScale = {};
+  for (const [name, bone] of Object.entries(bones)) {
+    rest[name] = bone.rotation.clone();
+    restScale[name] = bone.scale.clone();
+  }
+  let mode = "idle";
+  const reset = () => {
+    for (const [name, bone] of Object.entries(bones)) {
+      bone.rotation.copy(rest[name]);
+      bone.scale.copy(restScale[name]);
+    }
+  };
+
+  function update(timeSeconds) {
+    reset();
+    const t = timeSeconds;
+    const wave = Math.sin(t * 5.2);
+    const slow = Math.sin(t * 2.1);
+
+    if (mode === "walk") {
+      const stride = t * 6;
+      bones.Hips.rotation.z = Math.sin(stride) * 0.025;
+      bones.Spine.rotation.z = -Math.sin(stride) * 0.018;
+      bones.Chest.rotation.y = Math.sin(stride) * 0.025;
+      for (const side of ["L", "R"]) {
+        const phase = stride + (side === "L" ? 0 : Math.PI);
+        const cycle = Math.sin(phase);
+        const recovery = Math.max(0, -cycle);
+        bones["UpperLeg_" + side].rotation.x = cycle * 0.42;
+        bones["LowerLeg_" + side].rotation.x = recovery * 0.58;
+        bones["Foot_" + side].rotation.x = recovery * 0.12 - Math.max(0, cycle) * 0.18;
+        bones["UpperArm_" + side].rotation.x = -cycle * 0.28;
+        bones["Forearm_" + side].rotation.x = -0.12 - recovery * 0.12;
+        bones["Hand_" + side].rotation.z = Math.sin(phase + 0.4) * 0.035;
+      }
+    } else if (mode === "sit") {
+      bones.Hips.rotation.x = -0.035;
+      bones.Spine.rotation.x = -0.08;
+      bones.Chest.rotation.x = 0.025;
+      for (const side of ["L", "R"]) {
+        bones["UpperLeg_" + side].rotation.x = -1.05;
+        bones["LowerLeg_" + side].rotation.x = 1.18;
+        bones["Foot_" + side].rotation.x = -0.22;
+        bones["UpperArm_" + side].rotation.x = -0.20;
+        bones["Forearm_" + side].rotation.x = -0.55;
+        bones["Hand_" + side].rotation.z = side === "L" ? -0.025 : 0.025;
+      }
+    } else if (mode === "talk") {
+      bones.Hips.rotation.y = Math.sin(t * 1.1) * 0.018;
+      bones.Chest.rotation.x = Math.sin(t * 2.5) * 0.035;
+      bones.Neck.rotation.y = Math.sin(t * 1.8) * 0.12;
+      bones.Head.rotation.y = Math.sin(t * 1.8 + 0.8) * 0.10;
+      bones.UpperArm_L.rotation.x = -0.45 - Math.max(0, wave) * 0.55;
+      bones.Forearm_L.rotation.x = -0.35 - Math.max(0, wave) * 0.45;
+      bones.Hand_L.rotation.z = -0.10 - Math.max(0, wave) * 0.08;
+      bones.UpperArm_R.rotation.x = -0.28 - Math.max(0, -wave) * 0.35;
+      bones.Forearm_R.rotation.x = -0.30 - Math.max(0, -wave) * 0.18;
+      bones.Hand_R.rotation.z = 0.07 + Math.max(0, -wave) * 0.05;
+    } else if (mode === "work") {
+      bones.Hips.rotation.x = 0.025;
+      bones.Spine.rotation.x = 0.12;
+      bones.Neck.rotation.x = 0.18;
+      bones.Head.rotation.x = -0.12;
+      for (const side of ["L", "R"]) {
+        bones["UpperArm_" + side].rotation.x = -0.72 + slow * 0.035;
+        bones["Forearm_" + side].rotation.x = -0.82 + Math.sin(t * 7 + (side === "L" ? 0 : 1)) * 0.08;
+        bones["Hand_" + side].rotation.z = Math.sin(t * 7 + (side === "L" ? 0 : 1)) * 0.025;
+      }
+    } else {
+      bones.Hips.rotation.x = Math.sin(t * 1.1) * 0.006;
+      bones.Spine.rotation.x = Math.sin(t * 1.1 + 0.4) * 0.008;
+      bones.Chest.rotation.z = Math.sin(t * 1.4) * 0.012;
+      bones.Head.rotation.y = Math.sin(t * 0.7) * 0.025;
+      for (const side of ["L", "R"]) {
+        bones["Hand_" + side].rotation.z = Math.sin(t * 0.9 + (side === "L" ? 0 : 1)) * 0.012;
+      }
+    }
+
+    // Facial controls: jaw movement follows speech, eyelids blink together,
+    // and brows add a restrained emphasis during conversation.
+    const jaw = bones.Jaw;
+    if (jaw) jaw.rotation.x = mode === "talk" ? 0.08 + Math.max(0, wave) * 0.16 : mode === "work" ? 0.012 : 0;
+    const blink = Math.pow(Math.max(0, Math.sin(t * 1.85 + 0.7)), 28);
+    for (const side of ["L", "R"]) {
+      const eyelid = bones["Eyelid_" + side];
+      const brow = bones["Brow_" + side];
+      if (eyelid) eyelid.scale.y = 1 - blink * 0.94;
+      if (brow) {
+        const direction = side === "L" ? -1 : 1;
+        brow.rotation.z = mode === "talk" ? direction * (0.025 + Math.max(0, wave) * 0.035) : mode === "work" ? direction * 0.012 : 0;
+      }
+    }
+
+    // Finger articulation: subtle relaxed curl in idle, stronger curl while
+    // working/talking, with a small alternating motion during walk.
+    for (const side of ["L", "R"]) {
+      const phase = side === "L" ? 0 : 0.35;
+      const curl = mode === "work" ? 0.34 : mode === "talk" ? 0.20 : mode === "walk" ? 0.12 + Math.sin(t * 6 + phase) * 0.08 : mode === "sit" ? 0.16 : 0.10;
+      for (let finger = 1; finger <= 4; finger += 1) {
+        const spread = finger === 1 || finger === 4 ? 0.82 : 1;
+        const proximal = bones["Finger_" + finger + "_" + side];
+        const middle = bones["Finger_" + finger + "_Mid_" + side];
+        const distal = bones["Finger_" + finger + "_Tip_" + side];
+        if (proximal) proximal.rotation.x = curl * 0.48 * spread;
+        if (middle) middle.rotation.x = curl * 0.78 * spread;
+        if (distal) distal.rotation.x = curl * 0.42 * spread;
+      }
+      const thumb = bones["Thumb_" + side];
+      const thumbMiddle = bones["Thumb_Mid_" + side];
+      const thumbTip = bones["Thumb_Tip_" + side];
+      if (thumb) {
+        thumb.rotation.x = curl * 0.30;
+        thumb.rotation.z = (side === "L" ? -1 : 1) * (0.16 + curl * 0.25);
+      }
+      if (thumbMiddle) thumbMiddle.rotation.x = curl * 0.62;
+      if (thumbTip) thumbTip.rotation.x = curl * 0.38;
+    }
+
+    parent.updateMatrixWorld(true);
+    skeleton.update();
+    helper.update();
+  }
+
+  return {
+    bones,
+    skeleton,
+    helper,
+    skinnedSegmentCount: skinnedMeshes.length,
+    setMode(nextMode) {
+      if (["idle", "walk", "sit", "talk", "work"].includes(nextMode)) mode = nextMode;
+      reset();
+      update(0);
+    },
+    setVisible(visible) { helper.visible = Boolean(visible); },
+    update
+  };
+}

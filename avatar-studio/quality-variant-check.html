@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avatar Studio — Quality Variant Check</title>
+  <style>
+    :root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; background: #0b1220; color: #e5edf8; }
+    body { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 22px; }
+    p { color: #aab8cc; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: #8bb8ff; color: #10213a; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #111d30; padding: 16px; border-radius: 10px; min-height: 180px; }
+    .pass { color: #79d9a2; } .fail { color: #ff9292; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <h1>Avatar Studio — validação de variantes gráficas</h1>
+  <p>Teste isolado de redução geométrica, grupos de materiais, atributos UV e pesos ósseos. Não altera o editor nem o motor geral do Office Kit.</p>
+  <button id="run">Executar validação</button>
+  <pre id="output">A aguardar execução…</pre>
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { AVATAR_QUALITY_ORDER } from "./src/quality-profiles.js";
+    import { applyAvatarMaterialVariant, applyAvatarQualityVariant } from "./src/quality-variants.js";
+    import { createAvatarRig } from "./src/rig.js";
+    import { createAvatarAnimationClips } from "./src/animation-export.js";
+
+    const output = document.querySelector("#output");
+    const button = document.querySelector("#run");
+
+    function buildFixture() {
+      const segments = 128;
+      const positions = [];
+      const uvs = [];
+      const uv2s = [];
+      const colors = [];
+      const tangents = [];
+      const indices = [];
+      const skinIndices = [];
+      const skinWeights = [];
+      const morphPositions = [];
+      for (let y = 0; y <= segments; y += 1) {
+        for (let x = 0; x <= segments; x += 1) {
+          const z = Math.sin(x * 0.12) * Math.cos(y * 0.09) * 0.025;
+          positions.push(x / segments, y / segments, z);
+          morphPositions.push(x / segments, y / segments + Math.sin(x * 0.08) * 0.002, z);
+          uvs.push(x / segments, y / segments);
+          uv2s.push(Math.round(x / segments * 65535), Math.round(y / segments * 65535));
+          colors.push(Math.round(180 + 75 * x / segments), Math.round(180 + 75 * y / segments), 210);
+          tangents.push(1, 0, 0, 1);
+          skinIndices.push(0, 0, 0, 0);
+          skinWeights.push(1, 0, 0, 0);
+        }
+      }
+      for (let y = 0; y < segments; y += 1) {
+        for (let x = 0; x < segments; x += 1) {
+          const a = y * (segments + 1) + x;
+          const b = a + 1;
+          const c = a + segments + 1;
+          const d = c + 1;
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setAttribute("uv2", new THREE.Uint16BufferAttribute(uv2s, 2, true));
+      geometry.setAttribute("color", new THREE.Uint8BufferAttribute(colors, 3, true));
+      geometry.setAttribute("tangent", new THREE.Float32BufferAttribute(tangents, 4));
+      geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(skinIndices, 4));
+      geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(skinWeights, 4));
+      geometry.morphAttributes.position = [new THREE.Float32BufferAttribute(morphPositions, 3)];
+      geometry.setIndex(indices);
+      geometry.addGroup(0, indices.length / 2, 0);
+      geometry.addGroup(indices.length / 2, indices.length / 2, 1);
+      geometry.computeVertexNormals();
+
+      const root = new THREE.Group();
+      const mesh = new THREE.SkinnedMesh(geometry, [
+        new THREE.MeshStandardMaterial({ color: 0x6b91c7 }),
+        new THREE.MeshStandardMaterial({ color: 0x83b99a })
+      ]);
+      mesh.name = "quality-fixture-skinned";
+      const bone = new THREE.Bone();
+      bone.name = "RootBone";
+      mesh.add(bone);
+      root.add(mesh);
+      const skeleton = new THREE.Skeleton([bone]);
+      mesh.bind(skeleton);
+      root.updateMatrixWorld(true);
+      skeleton.update();
+      return { root, mesh, originalGeometry: geometry, originalTriangles: indices.length / 3 };
+    }
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      output.textContent = "A construir malha e a testar os quatro perfis…\n";
+      const lines = [];
+      try {
+        const fixture = buildFixture();
+        for (const profileId of AVATAR_QUALITY_ORDER) {
+          const variant = applyAvatarQualityVariant(fixture.root, profileId);
+          let passed = false;
+          try {
+            const skinIndex = fixture.mesh.geometry.getAttribute("skinIndex");
+            const skinWeight = fixture.mesh.geometry.getAttribute("skinWeight");
+            const groups = fixture.mesh.geometry.groups.length;
+            const morph = fixture.mesh.geometry.morphAttributes.position?.[0];
+            const positionCount = fixture.mesh.geometry.getAttribute("position").count;
+            const extraAttributesValid = ["uv2", "color", "tangent"].every((name) => fixture.mesh.geometry.getAttribute(name)?.count === positionCount);
+            passed = Boolean(variant.validation && skinIndex && skinWeight && groups === 2 && extraAttributesValid && morph?.count === positionCount &&
+              variant.meshReports.reduce((sum, report) => sum + report.outputTriangles, 0) === variant.optimizedTriangles &&
+              variant.withinTriangleBudget);
+            lines.push({
+              profile: profileId,
+              sourceTriangles: variant.sourceTriangles,
+              outputTriangles: variant.optimizedTriangles,
+              triangleBudget: variant.triangleBudget,
+              withinBudget: variant.withinTriangleBudget,
+              skinnedMeshesValidated: variant.validation.skinnedMeshes,
+              materialGroups: groups,
+              morphVertices: morph?.count || 0,
+              extraAttributesValid,
+              meshBudgetReports: variant.meshReports,
+              result: passed ? "PASS" : "FAIL"
+            });
+          } finally {
+            variant.restore();
+          }
+          if (fixture.mesh.geometry !== fixture.originalGeometry) throw new Error("A geometria original não foi restaurada.");
+          if (!passed) throw new Error("O perfil " + profileId + " falhou nos invariantes ou no orçamento de triângulos.");
+        }
+        const originalMaterialIndex = fixture.originalGeometry.groups[0].materialIndex;
+        fixture.originalGeometry.groups[0].materialIndex = 99;
+        let rollbackRejected = false;
+        let invalidVariant = null;
+        try {
+          invalidVariant = applyAvatarQualityVariant(fixture.root, "low");
+        } catch (error) {
+          rollbackRejected = String(error.message || error).includes("índice de material inexistente");
+        } finally {
+          invalidVariant?.restore();
+          fixture.originalGeometry.groups[0].materialIndex = originalMaterialIndex;
+        }
+        if (!rollbackRejected || fixture.mesh.geometry !== fixture.originalGeometry) {
+          throw new Error("A validação não rejeitou o material inválido ou não restaurou a geometria original.");
+        }
+        const originalSecondGroupStart = fixture.originalGeometry.groups[1].start;
+        fixture.originalGeometry.groups[1].start += 3;
+        let incompleteGroupsRejected = false;
+        try {
+          applyAvatarQualityVariant(fixture.root, "low");
+        } catch (error) {
+          incompleteGroupsRejected = String(error.message || error).includes("cobertura incompleta");
+        } finally {
+          fixture.originalGeometry.groups[1].start = originalSecondGroupStart;
+        }
+        lines.push({ incompleteMaterialGroupsRejected: incompleteGroupsRejected, result: incompleteGroupsRejected ? "PASS" : "FAIL" });
+        if (!incompleteGroupsRejected) throw new Error("A redução aceitou grupos de material com triângulos sem atribuição.");
+        fixture.originalGeometry.dispose();
+
+        const budgetRoot = new THREE.Group();
+        const budgetGeometryA = new THREE.PlaneGeometry(4, 4, 8, 8);
+        const budgetGeometryB = new THREE.PlaneGeometry(4, 4, 8, 8);
+        const budgetMeshA = new THREE.Mesh(budgetGeometryA, new THREE.MeshStandardMaterial());
+        const budgetMeshB = new THREE.Mesh(budgetGeometryB, new THREE.MeshStandardMaterial());
+        budgetMeshA.position.x = -3;
+        budgetMeshB.position.x = 3;
+        budgetRoot.add(budgetMeshA, budgetMeshB);
+        const budgetVariant = applyAvatarQualityVariant(budgetRoot, "low");
+        const allocated = budgetVariant.meshReports.reduce((sum, report) => sum + report.targetTriangles, 0);
+        const allocationPassed = allocated === 10 &&
+          budgetVariant.meshReports.length === 2 &&
+          budgetVariant.meshReports.every((report) => report.targetTriangles === 5) &&
+          budgetVariant.meshReports.reduce((sum, report) => sum + report.outputTriangles, 0) === budgetVariant.optimizedTriangles;
+        lines.push({ globalBudget: 10, allocated, perMesh: budgetVariant.meshReports, result: allocationPassed ? "PASS" : "FAIL" });
+        budgetVariant.restore();
+        budgetGeometryA.dispose();
+        budgetGeometryB.dispose();
+        budgetMeshA.material.dispose();
+        budgetMeshB.material.dispose();
+        if (!allocationPassed) throw new Error("O orçamento global não foi distribuído corretamente entre as malhas.");
+
+        const materialRoot = new THREE.Group();
+        const materialGeometryA = new THREE.BoxGeometry(1, 1, 1);
+        const materialGeometryB = new THREE.BoxGeometry(1, 1, 1);
+        const originalMaterialA = new THREE.MeshStandardMaterial({ color: 0xd04444, roughness: 0.72, metalness: 0 });
+        const originalMaterialB = new THREE.MeshStandardMaterial({ color: 0x4477d0, roughness: 0.72, metalness: 0 });
+        const materialMeshA = new THREE.Mesh(materialGeometryA, originalMaterialA);
+        const materialMeshB = new THREE.Mesh(materialGeometryB, originalMaterialB);
+        materialMeshA.position.x = -0.75;
+        materialMeshB.position.x = 0.75;
+        materialRoot.add(materialMeshA, materialMeshB);
+        for (const profileId of AVATAR_QUALITY_ORDER) {
+          const geometryVariant = applyAvatarQualityVariant(materialRoot, profileId);
+          let materialVariant = null;
+          let materialPassed = false;
+          try {
+            materialVariant = applyAvatarMaterialVariant(materialRoot, profileId);
+            const colorsA = materialMeshA.geometry.getAttribute("color");
+            const colorsB = materialMeshB.geometry.getAttribute("color");
+            materialPassed = materialVariant.withinMaterialBudget &&
+              materialVariant.withinTextureBudget &&
+              materialVariant.materialCount <= materialVariant.materialBudget &&
+              (profileId === "ultra" || (materialMeshA.material === materialMeshB.material && colorsA?.count === materialMeshA.geometry.getAttribute("position").count && colorsB?.count === materialMeshB.geometry.getAttribute("position").count));
+            lines.push({
+              materialProfile: profileId,
+              sourceMaterials: materialVariant.sourceMaterialCount,
+              outputMaterials: materialVariant.materialCount,
+              materialBudget: materialVariant.materialBudget,
+              convertedMeshes: materialVariant.convertedMeshCount,
+              result: materialPassed ? "PASS" : "FAIL"
+            });
+          } finally {
+            materialVariant?.restore();
+            geometryVariant.restore();
+          }
+          if (!materialPassed || materialMeshA.geometry !== materialGeometryA || materialMeshB.geometry !== materialGeometryB ||
+              materialMeshA.material !== originalMaterialA || materialMeshB.material !== originalMaterialB) {
+            throw new Error("O perfil " + profileId + " falhou na consolidação/restauração de materiais.");
+          }
+        }
+        materialGeometryA.dispose();
+        materialGeometryB.dispose();
+        originalMaterialA.dispose();
+        originalMaterialB.dispose();
+
+        const directRoot = new THREE.Group();
+        const directGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const directMaterial = new THREE.MeshStandardMaterial({ color: 0x7799bb });
+        const directMesh = new THREE.Mesh(directGeometry, directMaterial);
+        directRoot.add(directMesh);
+        const directMaterialVariant = applyAvatarMaterialVariant(directRoot, "low");
+        const directGeometryWasCloned = directMesh.geometry !== directGeometry && directMesh.geometry.getAttribute("color")?.count === directMesh.geometry.getAttribute("position").count;
+        directMaterialVariant.restore();
+        const directRestorePassed = directGeometryWasCloned && directMesh.geometry === directGeometry && !directGeometry.getAttribute("color");
+        lines.push({ directMaterialRestore: directRestorePassed, result: directRestorePassed ? "PASS" : "FAIL" });
+        directGeometry.dispose();
+        directMaterial.dispose();
+        if (!directRestorePassed) throw new Error("A variante de materiais alterou a geometria de origem.");
+
+        const textureRoot = new THREE.Group();
+        const oversizedTexture = new THREE.DataTexture(new Uint8Array(1024 * 1024 * 4), 1024, 1024, THREE.RGBAFormat);
+        const texturedMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: oversizedTexture });
+        const texturedMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), texturedMaterial);
+        textureRoot.add(texturedMesh);
+        const textureVariant = applyAvatarMaterialVariant(textureRoot, "low");
+        const textureRejected = !textureVariant.withinTextureBudget && textureVariant.textureIssues.length === 1 &&
+          textureVariant.textureIssues[0].width === 1024 && textureVariant.textureMaxSize === 512;
+        lines.push({ textureProfile: "low", textureRejected, textureMaxSize: textureVariant.textureMaxSize, result: textureRejected ? "PASS" : "FAIL" });
+        textureVariant.restore();
+        texturedMesh.geometry.dispose();
+        texturedMaterial.dispose();
+        oversizedTexture.dispose();
+        if (!textureRejected) throw new Error("O perfil Low não rejeitou a textura acima do limite.");
+
+        const uniformRoot = new THREE.Group();
+        const uniformTexture = new THREE.DataTexture(new Uint8Array(1024 * 1024 * 4), 1024, 1024, THREE.RGBAFormat);
+        const shaderMaterial = new THREE.ShaderMaterial({
+          uniforms: { uAvatarTexture: { value: uniformTexture } },
+          vertexShader: "void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+          fragmentShader: "uniform sampler2D uAvatarTexture; void main(){ gl_FragColor = texture2D(uAvatarTexture, vec2(0.5)); }"
+        });
+        const shaderMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), shaderMaterial);
+        uniformRoot.add(shaderMesh);
+        const uniformVariant = applyAvatarMaterialVariant(uniformRoot, "low");
+        const uniformTextureRejected = !uniformVariant.withinTextureBudget &&
+          uniformVariant.textureCount === 1 &&
+          uniformVariant.textureIssues[0]?.slot.includes("uniforms.uAvatarTexture");
+        lines.push({ shaderUniformTextureRejected: uniformTextureRejected, textureCount: uniformVariant.textureCount, result: uniformTextureRejected ? "PASS" : "FAIL" });
+        uniformVariant.restore();
+        shaderMesh.geometry.dispose();
+        shaderMaterial.dispose();
+        uniformTexture.dispose();
+        if (!uniformTextureRejected) throw new Error("Uma textura em ShaderMaterial.uniforms não foi auditada.");
+
+        const resizeRoot = new THREE.Group();
+        const sourceCanvas = document.createElement("canvas");
+        sourceCanvas.width = 1024;
+        sourceCanvas.height = 256;
+        const sourceContext = sourceCanvas.getContext("2d");
+        sourceContext.fillStyle = "#c04020";
+        sourceContext.fillRect(0, 0, 1024, 256);
+        const sourceTexture = new THREE.CanvasTexture(sourceCanvas);
+        const resizeMaterial = new THREE.MeshStandardMaterial({ map: sourceTexture, color: 0xffffff });
+        const resizeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), resizeMaterial);
+        resizeRoot.add(resizeMesh);
+        const resizedVariant = applyAvatarMaterialVariant(resizeRoot, "low");
+        const resizedTexture = resizeMesh.material.map;
+        const resizePassed = resizedVariant.withinTextureBudget &&
+          resizedTexture !== sourceTexture &&
+          resizedTexture.image.width === 512 &&
+          resizedTexture.image.height === 128 &&
+          sourceTexture.image === sourceCanvas &&
+          sourceCanvas.width === 1024;
+        lines.push({ imageTextureDownscaled: resizePassed, output: resizedTexture.image.width + "x" + resizedTexture.image.height, sourcePreserved: sourceTexture.image === sourceCanvas, result: resizePassed ? "PASS" : "FAIL" });
+        resizedVariant.restore();
+        const restoredTexture = resizeMesh.material.map === sourceTexture;
+        resizeMesh.geometry.dispose();
+        resizeMaterial.dispose();
+        sourceTexture.dispose();
+        if (!resizePassed || !restoredTexture) throw new Error("A redução de textura não preservou a origem ou não restaurou o material.");
+
+        const multiShaderRoot = new THREE.Group();
+        const makeSourceTexture = (width, height, colour) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d");
+          context.fillStyle = colour;
+          context.fillRect(0, 0, width, height);
+          return { canvas, texture: new THREE.CanvasTexture(canvas) };
+        };
+        const shaderSourceA = makeSourceTexture(1024, 256, "#2468ac");
+        const shaderSourceB = makeSourceTexture(1024, 1024, "#ac6824");
+        const multiShaderMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            uAvatarTextureA: { value: shaderSourceA.texture },
+            uAvatarTextureB: { value: shaderSourceB.texture },
+            uAvatarRotation: { value: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.4) }
+          },
+          vertexShader: "void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+          fragmentShader: "uniform sampler2D uAvatarTextureA; uniform sampler2D uAvatarTextureB; void main(){ vec4 a = texture2D(uAvatarTextureA, vec2(0.5)); vec4 b = texture2D(uAvatarTextureB, vec2(0.5)); gl_FragColor = mix(a, b, 0.5); }"
+        });
+        const multiShaderMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), multiShaderMaterial);
+        multiShaderRoot.add(multiShaderMesh);
+        const multiShaderVariant = applyAvatarMaterialVariant(multiShaderRoot, "low");
+        const resizedShaderA = multiShaderMesh.material.uniforms.uAvatarTextureA.value;
+        const resizedShaderB = multiShaderMesh.material.uniforms.uAvatarTextureB.value;
+        const sourceRotation = multiShaderMaterial.uniforms.uAvatarRotation.value;
+        const variantRotation = multiShaderMesh.material.uniforms.uAvatarRotation.value;
+        const multiShaderPassed = multiShaderVariant.withinTextureBudget &&
+          multiShaderVariant.resizedTextureCount === 2 &&
+          resizedShaderA !== shaderSourceA.texture &&
+          resizedShaderB !== shaderSourceB.texture &&
+          resizedShaderA.image.width === 512 && resizedShaderA.image.height === 128 &&
+          resizedShaderB.image.width === 512 && resizedShaderB.image.height === 512 &&
+          variantRotation !== sourceRotation && variantRotation.equals(sourceRotation) &&
+          shaderSourceA.texture.image === shaderSourceA.canvas &&
+          shaderSourceB.texture.image === shaderSourceB.canvas;
+        lines.push({
+          multipleShaderTexturesResized: multiShaderPassed,
+          resizedTextureCount: multiShaderVariant.resizedTextureCount,
+          firstOutput: resizedShaderA.image.width + "x" + resizedShaderA.image.height,
+          secondOutput: resizedShaderB.image.width + "x" + resizedShaderB.image.height,
+          originalsPreserved: shaderSourceA.texture.image === shaderSourceA.canvas && shaderSourceB.texture.image === shaderSourceB.canvas,
+          result: multiShaderPassed ? "PASS" : "FAIL"
+        });
+        multiShaderVariant.restore();
+        const multiShaderRestored =
+          multiShaderMesh.material.uniforms.uAvatarTextureA.value === shaderSourceA.texture &&
+          multiShaderMesh.material.uniforms.uAvatarTextureB.value === shaderSourceB.texture;
+        multiShaderMesh.geometry.dispose();
+        multiShaderMaterial.dispose();
+        shaderSourceA.texture.dispose();
+        shaderSourceB.texture.dispose();
+        if (!multiShaderPassed || !multiShaderRestored) throw new Error("O shader com várias texturas não preservou as origens ou não restaurou os uniforms.");
+
+        const sharedRoot = new THREE.Group();
+        const sharedCanvas = document.createElement("canvas");
+        sharedCanvas.width = 1024;
+        sharedCanvas.height = 512;
+        sharedCanvas.getContext("2d").fillRect(0, 0, 1024, 512);
+        const sharedTexture = new THREE.CanvasTexture(sharedCanvas);
+        const sharedMaterial = new THREE.MeshStandardMaterial({ map: sharedTexture, color: 0xffffff });
+        const sharedMeshA = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), sharedMaterial);
+        const sharedMeshB = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), sharedMaterial);
+        sharedMeshB.position.x = 2;
+        sharedRoot.add(sharedMeshA, sharedMeshB);
+        const sharedVariant = applyAvatarMaterialVariant(sharedRoot, "low");
+        const sharedMaterialPassed =
+          sharedMeshA.material === sharedMeshB.material &&
+          sharedMeshA.material !== sharedMaterial &&
+          sharedMeshA.material.map === sharedMeshB.material.map &&
+          sharedMeshA.material.map.image.width === 512 &&
+          sharedMeshA.material.map.image.height === 256 &&
+          sharedTexture.image === sharedCanvas &&
+          sharedVariant.resizedTextureCount === 1;
+        lines.push({
+          sharedMaterialReused: sharedMaterialPassed,
+          oneVariantMaterial: sharedMeshA.material === sharedMeshB.material,
+          oneResizedTexture: sharedVariant.resizedTextureCount === 1,
+          sourcePreserved: sharedTexture.image === sharedCanvas,
+          result: sharedMaterialPassed ? "PASS" : "FAIL"
+        });
+        sharedVariant.restore();
+        const sharedRestorePassed = sharedMeshA.material === sharedMaterial && sharedMeshB.material === sharedMaterial;
+        sharedMeshA.geometry.dispose();
+        sharedMeshB.geometry.dispose();
+        sharedMaterial.dispose();
+        sharedTexture.dispose();
+        if (!sharedMaterialPassed || !sharedRestorePassed) throw new Error("O material partilhado foi duplicado ou não foi restaurado corretamente.");
+
+        const deformationRoot = new THREE.Group();
+        const addRigSegment = (name, start, end, radius = 0.055) => {
+          const a = new THREE.Vector3(...start);
+          const b = new THREE.Vector3(...end);
+          const direction = new THREE.Vector3().subVectors(b, a);
+          const mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(radius * 0.82, radius, direction.length(), 10),
+            new THREE.MeshStandardMaterial({ color: 0x7799bb })
+          );
+          mesh.position.copy(a).add(b).multiplyScalar(0.5);
+          mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+          mesh.name = name;
+          mesh.userData.rigSegment = { name, start: a.toArray(), end: b.toArray(), radius };
+          deformationRoot.add(mesh);
+          return mesh;
+        };
+        const addRigidRigPart = (name, boneName, position, radius = 0.035) => {
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(radius, 8, 6),
+            new THREE.MeshStandardMaterial({ color: 0x9bbbdc })
+          );
+          mesh.name = name;
+          mesh.position.set(...position);
+          mesh.userData.rigBoneName = boneName;
+          deformationRoot.add(mesh);
+          return mesh;
+        };
+        for (const side of ["L", "R"]) {
+          const sign = side === "L" ? -1 : 1;
+          const shoulder = [sign * 0.34, 1.53, 0];
+          const elbow = [sign * 0.43, 1.18, 0.015];
+          const wrist = [sign * 0.47, 0.88, 0.05];
+          const hip = [sign * 0.115, 0.91, 0];
+          const knee = [sign * 0.12, 0.53, 0.005];
+          const ankle = [sign * 0.13, 0.16, 0];
+          addRigSegment("UpperArm_" + side, shoulder, elbow, 0.055);
+          addRigSegment("Forearm_" + side, elbow, wrist, 0.045);
+          addRigSegment("UpperLeg_" + side, hip, knee, 0.065);
+          addRigSegment("LowerLeg_" + side, knee, ankle, 0.05);
+          addRigidRigPart("Palm_" + side, "Hand_" + side, [wrist[0], 0.84, 0.055], 0.045);
+          addRigidRigPart("Foot_" + side, "Foot_" + side, [ankle[0], 0.10, 0.10], 0.05);
+          for (let finger = 1; finger <= 4; finger += 1) {
+            const x = wrist[0] + (finger - 2.5) * 0.027;
+            addRigidRigPart("Finger_" + finger + "_" + side, "Finger_" + finger + "_" + side, [x, 0.805, 0.06], 0.012);
+          }
+          addRigidRigPart("Thumb_" + side, "Thumb_" + side, [wrist[0] + (side === "L" ? 0.045 : -0.045), 0.845, 0.06], 0.014);
+        }
+        for (const [name, boneName, position] of [
+          ["JawPart", "Jaw", [0, 1.79, 0.055]],
+          ["HeadPart", "Head", [0, 1.94, 0]],
+          ["LeftEyelid", "Eyelid_L", [-0.083, 1.997, 0.185]]
+        ]) addRigidRigPart(name, boneName, position, 0.025);
+        const addBodyPart = (name, segment, position, scale) => {
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(1, 10, 8),
+            new THREE.MeshStandardMaterial({ color: 0x557799 })
+          );
+          mesh.name = name;
+          mesh.position.set(...position);
+          mesh.scale.set(...scale);
+          mesh.userData.rigBodySegment = segment;
+          deformationRoot.add(mesh);
+          rigSourceMeshes.set(name, mesh);
+        };
+        addBodyPart("PelvisFixture", "pelvis", [0, 0.99, 0], [0.22, 0.15, 0.12]);
+        addBodyPart("TorsoFixture", "torso", [0, 1.34, 0], [0.30, 0.34, 0.14]);
+        addBodyPart("NeckFixture", "neck", [0, 1.72, 0], [0.07, 0.08, 0.07]);
+        const shoulderBlend = addRigidRigPart("ShoulderBlend_L", "Chest", [-0.34, 1.56, 0], 0.06);
+        shoulderBlend.userData.rigBlendBones = ["Chest", "UpperArm_L"];
+        const deformationRig = createAvatarRig(deformationRoot);
+        const deformationMeshes = new Map();
+        deformationRoot.traverse((object) => {
+          if (object.isSkinnedMesh) deformationMeshes.set(object.name, object);
+        });
+        const skinWeightsValid = [...deformationMeshes.values()].every((mesh) => {
+          const weights = mesh.geometry.getAttribute("skinWeight");
+          const indices = mesh.geometry.getAttribute("skinIndex");
+          if (!weights || !indices || weights.count !== mesh.geometry.getAttribute("position").count) return false;
+          for (let vertex = 0; vertex < weights.count; vertex += 1) {
+            let sum = 0;
+            for (let component = 0; component < 4; component += 1) {
+              const weight = weights.getComponent(vertex, component);
+              const index = indices.getComponent(vertex, component);
+              if (!Number.isFinite(weight) || weight < 0 || !Number.isInteger(index) || index < 0 || index >= deformationRig.skeleton.bones.length) return false;
+              sum += weight;
+            }
+            if (!Number.isFinite(sum) || Math.abs(sum - 1) > 1e-4) return false;
+          }
+          return true;
+        });
+        const deformedVertices = (mesh) => {
+          const position = mesh.geometry.getAttribute("position");
+          const output = [];
+          for (let vertex = 0; vertex < position.count; vertex += 1) {
+            const point = new THREE.Vector3().fromBufferAttribute(position, vertex);
+            mesh.applyBoneTransform(vertex, point);
+            output.push(point);
+          }
+          return output;
+        };
+        const maximumVertexDelta = (before, after) => {
+          let maximum = 0;
+          for (let vertex = 0; vertex < before.length; vertex += 1) maximum = Math.max(maximum, before[vertex].distanceTo(after[vertex]));
+          return maximum;
+        };
+        deformationRig.setMode("idle");
+        deformationRig.update(0);
+        deformationRoot.updateMatrixWorld(true);
+        const neutralVertices = new Map([...deformationMeshes].map(([name, mesh]) => [name, deformedVertices(mesh)]));
+        const poseTargets = {
+          walk: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "UpperArm_L_Skinned", "Forearm_L_Skinned", "Foot_L_Skinned"],
+          sit: ["UpperLeg_L_Skinned", "LowerLeg_L_Skinned", "Foot_L_Skinned", "TorsoFixture_Skinned"],
+          talk: ["JawPart_Skinned", "UpperArm_L_Skinned", "Forearm_L_Skinned", "Finger_2_L_Skinned", "HeadPart_Skinned"],
+          work: ["TorsoFixture_Skinned", "NeckFixture_Skinned", "Forearm_L_Skinned", "Finger_2_L_Skinned"]
+        };
+        const deformationReports = Object.entries(poseTargets).map(([mode, names]) => {
+          deformationRig.setMode(mode);
+          deformationRig.update(mode === "walk" ? 0.41 : mode === "talk" ? 0.37 : mode === "work" ? 0.43 : 0.2);
+          deformationRoot.updateMatrixWorld(true);
+          const parts = names.map((name) => {
+            const mesh = deformationMeshes.get(name);
+            if (!mesh) return { name, maximumVertexDelta: 0, present: false };
+            return {
+              name,
+              maximumVertexDelta: maximumVertexDelta(neutralVertices.get(name) || [], deformedVertices(mesh)),
+              present: true
+            };
+          });
+          return { mode, parts, passed: parts.every((part) => part.present && part.maximumVertexDelta > 1e-5) };
+        });
+        const deformationPassed = skinWeightsValid && deformationReports.every((report) => report.passed) &&
+          deformationMeshes.size >= 20 &&
+          deformationRig.skeleton.bones.some((bone) => bone.name === "LowerLeg_L") &&
+          deformationRig.skeleton.bones.some((bone) => bone.name === "Finger_2_L");
+        lines.push({
+          realSkinDeformation: deformationPassed,
+          skinnedMeshes: deformationMeshes.size,
+          bones: deformationRig.skeleton.bones.length,
+          normalizedSkinWeights: skinWeightsValid,
+          poses: deformationReports,
+          result: deformationPassed ? "PASS" : "FAIL"
+        });
+        if (!deformationPassed) throw new Error("A deformação real das malhas falhou em pelo menos uma articulação/pose.");
+ 
+        deformationRig.helper.visible = false;
+        deformationRoot.remove(deformationRig.helper);
+        const exportedRigClips = createAvatarAnimationClips(deformationRig, "idle", 30);
+        const glbExporter = new GLTFExporter();
+        const exportedGlb = await glbExporter.parseAsync(deformationRoot, {
+          binary: true,
+          animations: exportedRigClips
+        });
+        const importedGlb = await new GLTFLoader().parseAsync(exportedGlb, "");
+        const importedSkinnedMeshes = [];
+        const importedBoneNames = new Set();
+        importedGlb.scene.traverse((object) => {
+          if (object.isSkinnedMesh && object.skeleton) {
+            importedSkinnedMeshes.push(object);
+            object.skeleton.bones.forEach((bone) => importedBoneNames.add(bone.name));
+          }
+        });
+        const glbAnimationReports = importedGlb.animations.map((clip) => {
+          const mesh = importedSkinnedMeshes[0];
+          if (!mesh) return { name: clip.name, tracks: clip.tracks.length, finiteValues: false, playbackChangedSkeleton: false };
+          mesh.skeleton.update();
+          const before = mesh.skeleton.boneMatrices.slice();
+          const mixer = new THREE.AnimationMixer(importedGlb.scene);
+          mixer.clipAction(clip).play();
+          mixer.update(Math.min(0.27, clip.duration));
+          importedGlb.scene.updateMatrixWorld(true);
+          for (const skinnedMesh of importedSkinnedMeshes) skinnedMesh.skeleton.update();
+          const after = mesh.skeleton.boneMatrices;
+          const playbackChangedSkeleton = after.some((value, index) => Math.abs(value - before[index]) > 1e-7);
+          return {
+            name: clip.name,
+            tracks: clip.tracks.length,
+            finiteValues: clip.tracks.every((track) =>
+              [...track.times].every(Number.isFinite) && [...track.values].every(Number.isFinite)
+            ),
+            playbackChangedSkeleton
+          };
+        });
+        const glbRoundTripPassed = exportedGlb instanceof ArrayBuffer &&
+          exportedGlb.byteLength > 1024 &&
+          importedGlb.animations.length === 5 &&
+          importedSkinnedMeshes.length >= 20 &&
+          ["Hips", "Spine", "Chest", "UpperArm_L", "Forearm_L", "Hand_L", "Finger_2_L", "UpperLeg_L", "LowerLeg_L", "Foot_L"].every((name) => importedBoneNames.has(name)) &&
+          ["Idle", "Walk", "Sit", "Talk", "Work"].every((name) =>
+            importedGlb.animations.some((clip) => clip.name === name && clip.tracks.length > 0)
+          ) &&
+          glbAnimationReports.every((report) => report.finiteValues && report.playbackChangedSkeleton);
+        lines.push({
+          glbAnimationRoundTrip: glbRoundTripPassed,
+          bytes: exportedGlb.byteLength,
+          importedClips: glbAnimationReports,
+          result: glbRoundTripPassed ? "PASS" : "FAIL"
+        });
+        if (!glbRoundTripPassed) throw new Error("A exportação/reimportação GLB não preservou os cinco clips de animação.");
+        importedGlb.scene.traverse((object) => {
+          object.geometry?.dispose();
+          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
+          else object.material?.dispose();
+        });
+        exportedRigClips.length = 0;
+        deformationRoot.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (Array.isArray(object.material)) object.material.forEach((item) => item.dispose());
+          else object.material?.dispose();
+        });
+        deformationRig.skeleton.dispose();
+        deformationRig.helper.material.dispose();
+        const animationRoot = new THREE.Group();
+        const animationRig = createAvatarRig(animationRoot);
+        animationRig.setMode("talk");
+        const expectedHeadPose = animationRig.bones.Head.rotation.clone();
+        const animationClips = createAvatarAnimationClips(animationRig, "talk", 30);
+        const expectedClipNames = ["Idle", "Walk", "Sit", "Talk", "Work"];
+        const animationReports = animationClips.map((clip) => {
+          const validTimes = clip.tracks.every((track) =>
+            track.times.length >= 2 &&
+            track.times[0] === 0 &&
+            Math.abs(track.times[track.times.length - 1] - clip.duration) < 1e-6 &&
+            [...track.times].every(Number.isFinite) &&
+            [...track.values].every(Number.isFinite)
+          );
+          const hasMotion = clip.tracks.some((track) => {
+            const firstSize = track.getValueSize();
+            for (let offset = firstSize; offset < track.values.length; offset += firstSize) {
+              for (let component = 0; component < firstSize; component += 1) {
+                if (Math.abs(track.values[offset + component] - track.values[component]) > 1e-5) return true;
+              }
+            }
+            return false;
+          });
+          return { name: clip.name, duration: clip.duration, tracks: clip.tracks.length, validTimes, hasMotion };
+        });
+        const animationPassed = animationClips.length === 5 &&
+          animationClips.every((clip, index) => clip.name === expectedClipNames[index]) &&
+          animationReports.every((report) => report.validTimes && report.hasMotion && report.tracks === Object.keys(animationRig.bones).length * 2) &&
+          animationRig.bones.Head.rotation.equals(expectedHeadPose);
+        lines.push({ fiveAnimationClips: animationPassed, clips: animationReports, selectedPoseRestored: animationRig.bones.Head.rotation.equals(expectedHeadPose), result: animationPassed ? "PASS" : "FAIL" });
+        animationRoot.traverse((object) => {
+          if (object.isLine) object.geometry.dispose();
+        });
+        animationRig.skeleton.dispose();
+        if (!animationPassed) throw new Error("Os cinco clips de animação não passaram a validação estrutural ou de movimento.");
+
+        output.textContent = "PASS — geometria, materiais, texturas, orçamentos e rollback concluídos\\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+      } catch (error) {
+        output.textContent = "FAIL — " + String(error.message || error) + "\n" + lines.map((line) => JSON.stringify(line, null, 2)).join("\n");
+        console.error(error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
